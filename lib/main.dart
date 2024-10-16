@@ -1,14 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_design_system/components/custom_card.dart';
-import 'package:flutter_design_system/context.dart';
 
-void main() {
-  PartialContext partialContext = const PartialContext(
-    backgroundColor: Colors.yellow,
-    primaryColor: Colors.black
-  );
-  Context.mergeContext(partialContext);
-
+void main() async {  
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -22,7 +17,7 @@ class MyApp extends StatelessWidget {
         backgroundColor: Colors.black,
         body: Column(
           children: [
-            CustomCard(title: 'asd',)
+            Text('test')
           ],
         ),
       )

@@ -1,4 +1,4 @@
-# fitrope_app
+# FitRope
 
 A new Flutter project.
 

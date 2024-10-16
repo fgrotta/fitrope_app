@@ -1,4 +1,4 @@
-name: fitrope_app
+name: FitRope
 description: "Fitrope App"
 publish_to: 'none'
 
@@ -12,6 +12,8 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
   flutter_design_system:
     git:
       url: https://github.com/dellarosamarco/flutter_design_system.git
