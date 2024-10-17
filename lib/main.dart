@@ -1,5 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:fitrope_app/pages/RegistrationPage.dart';
+import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 
@@ -16,16 +16,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        backgroundColor: Colors.black,
-        body: RegistrationPage()
-        // body: Column(
-        //   children: [
-        //     Text('test', style: TextStyle(color: Colors.white),)
-        //   ],
-        // ),
-      )
+    return MaterialApp(
+      initialRoute: INITIAL_ROUTE,
+      routes: routes,
     );
   }
 }
