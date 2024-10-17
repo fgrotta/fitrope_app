@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
         backgroundColor: Colors.black,
         body: Column(
           children: [
-            Text('test')
+            Text('test', style: TextStyle(color: Colors.black),)
           ],
         ),
       )
