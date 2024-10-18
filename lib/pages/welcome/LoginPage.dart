@@ -1,7 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
-import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
 
@@ -53,13 +52,7 @@ class _LoginPageState extends State<LoginPage> {
               onLogin();
             },
             child: const Text('Login'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              signOut();
-            },
-            child: const Text('Logout'),
-          ),
+          )
         ],
       )
     );

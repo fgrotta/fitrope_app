@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/router.dart';
@@ -22,12 +24,6 @@ class _ProtectedState extends State<Protected> {
         Navigator.of(context).pushReplacementNamed(LOGIN_ROUTE);
       });
     }
-
-    // signOut().then((_) {
-    //   WidgetsBinding.instance.addPostFrameCallback((_) {
-    //     Navigator.of(context).pushReplacementNamed(WELCOME_ROUTE);
-    //   });
-    // });
   }
 
   @override
@@ -50,9 +46,14 @@ class _ProtectedState extends State<Protected> {
         }, 
         currentIndex: currentIndex, 
       ),
-      body: const Column(
+      body: Column(
         children: [
-          Text('Protected')
+          const Text('Protected'),
+          ElevatedButton(onPressed: () {
+            signOut().then((_) {
+              logoutRedirect(context);
+            });
+          }, child: const Text('Logout'))
         ],
       ),
     );
