@@ -25,3 +25,17 @@ Future<void> signInWithEmailPassword(String email, String password) async {
     print(e);
   }
 }
+
+
+// Future<void> getUserData(String uid) async {
+//   DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+//   if (userDoc.exists) {
+//     Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+//     print('Username: ${userData['username']}');
+//     print('Email: ${userData['email']}');
+//     // Access other fields as needed
+//   } else {
+//     print('User document does not exist');
+//   }
+// }

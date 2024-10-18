@@ -1,5 +1,8 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/registration.dart';
+import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
 
 class RegistrationPage extends StatefulWidget {
@@ -41,7 +44,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
               registerWithEmailPassword(
                 _emailController.text,
                 _passwordController.text,
-              );
+              ).then((_) {
+                Navigator.pushNamed(context, PROTECTED_ROUTE);
+              });
             },
             child: const Text('Register'),
           ),

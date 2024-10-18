@@ -1,4 +1,5 @@
 // ignore_for_file: avoid_print
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 Future<void> registerWithEmailPassword(String email, String password) async {
@@ -7,6 +8,15 @@ Future<void> registerWithEmailPassword(String email, String password) async {
       email: email,
       password: password,
     );
+
+    String uid = userCredential.user!.uid;
+
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'uid': uid,
+      'email': email,
+      'createdAt': FieldValue.serverTimestamp(),
+      'test': 'test'
+    });
 
     print("User registered: ${userCredential.user!.email}");
   } 

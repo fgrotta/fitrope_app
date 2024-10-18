@@ -1,4 +1,5 @@
 import 'package:fitrope_app/authentication/isLogged.dart';
+import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_bottom_navigation_bar.dart';
@@ -21,6 +22,12 @@ class _ProtectedState extends State<Protected> {
         Navigator.of(context).pushReplacementNamed(LOGIN_ROUTE);
       });
     }
+
+    // signOut().then((_) {
+    //   WidgetsBinding.instance.addPostFrameCallback((_) {
+    //     Navigator.of(context).pushReplacementNamed(WELCOME_ROUTE);
+    //   });
+    // });
   }
 
   @override
