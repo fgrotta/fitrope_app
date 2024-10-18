@@ -1,3 +1,4 @@
+import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/registration.dart';
 import 'package:flutter/material.dart';
 
@@ -11,6 +12,14 @@ class RegistrationPage extends StatefulWidget {
 class _RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if(isLogged()){
+      loggedRedirect(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

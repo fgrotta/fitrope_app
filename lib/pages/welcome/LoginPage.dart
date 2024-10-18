@@ -1,4 +1,5 @@
 // ignore_for_file: use_build_context_synchronously
+import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/router.dart';
@@ -14,6 +15,14 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if(isLogged()){
+      loggedRedirect(context);
+    }
+  }
 
   void onLogin() async {
     await signInWithEmailPassword(

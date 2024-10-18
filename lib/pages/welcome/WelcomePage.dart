@@ -1,8 +1,22 @@
+import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
 
-class WelcomePage extends StatelessWidget {
+class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
+
+  @override
+  State<WelcomePage> createState() => _WelcomePageState();
+}
+
+class _WelcomePageState extends State<WelcomePage> {
+  @override
+  void initState() {
+    super.initState();
+    if(isLogged()){
+      loggedRedirect(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
