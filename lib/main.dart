@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fitrope_app/api/getCourses.dart';
 import 'package:fitrope_app/api/getGyms.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,11 @@ void main() async {
   // tests //
   // dynamic gyms = await getGyms();
   // print(gyms[0].name);
+  
+  // dynamic courses = await getCourses(1);
+  // print(courses);
+  // dynamic courses2 = await getCourses(2);
+  // print(courses2);
   // tests //
 }
 
