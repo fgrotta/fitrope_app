@@ -24,10 +24,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void onLogin() async {
-    await signInWithEmailPassword(
+    Map<String, dynamic>? userData = await signInWithEmailPassword(
       _emailController.text,
       _passwordController.text,
     );
+
+    print(userData);
 
     Navigator.pushNamed(context, PROTECTED_ROUTE);
   }
