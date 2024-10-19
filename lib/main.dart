@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fitrope_app/api/getGyms.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
@@ -9,6 +10,12 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(const MyApp());
+
+
+  // tests //
+  // dynamic gyms = await getGyms();
+  // print(gyms[0].name);
+  // tests //
 }
 
 class MyApp extends StatelessWidget {
