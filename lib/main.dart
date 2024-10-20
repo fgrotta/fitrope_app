@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:fitrope_app/api/getCourses.dart';
+import 'package:fitrope_app/api/courses/createCourse.dart';
+import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/getGyms.dart';
 import 'package:fitrope_app/router.dart';
+import 'package:fitrope_app/types/course.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 
@@ -21,6 +24,9 @@ void main() async {
   // print(courses);
   // dynamic courses2 = await getCourses(2);
   // print(courses2);
+
+  // await createCourse(Course(gymId: 1, name: 'test', startDate: Timestamp.now(), endDate: Timestamp.now(), id: 1, capacity: 3));
+
   // tests //
 }
 
