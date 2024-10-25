@@ -5,6 +5,7 @@ import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/pages/protected/GymsPage.dart';
 import 'package:fitrope_app/pages/protected/Homepage.dart';
 import 'package:fitrope_app/router.dart';
+import 'package:fitrope_app/style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_bottom_navigation_bar.dart';
 
@@ -39,15 +40,16 @@ class _ProtectedState extends State<Protected> {
   @override
   Widget build(BuildContext context) {    
     return Scaffold(
+      backgroundColor: backgroundColor,
       bottomNavigationBar: CustomBottomNavigationBar(
         items: const [
           CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
           CustomBottomNavigationBarItem(icon: Icons.list, label: 'Gyms'),
         ], 
         colors: const CustomBottomNavigationBarColors(
-          backgroundColor: Colors.black, 
-          selectedItemColor: Colors.blue, 
-          unselectedItemColor: Colors.red,
+          backgroundColor: primaryColor, 
+          selectedItemColor: Colors.white, 
+          unselectedItemColor: ghostColor,
         ), 
         onChangePage: (int index) {
           setState(() {

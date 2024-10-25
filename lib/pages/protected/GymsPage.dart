@@ -33,7 +33,7 @@ class _GymsPageState extends State<GymsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Palestre', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30),),
+          const Text('Palestre', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
           const SizedBox(height: 20,),
           ...gyms.map((Gym gym) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
