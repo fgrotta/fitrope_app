@@ -15,7 +15,17 @@ class _HomePageState extends State<HomePage> {
       padding: EdgeInsets.all(pagePadding),
       child: Column(
         children: [
-          Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
+              CircleAvatar(
+                backgroundColor: Color.fromARGB(255, 113, 129, 219),
+                child: Text('AH'),
+              )
+            ],
+          ),
         ],
       ),
     );
