@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/course.dart';
 
-class User {
+class FitropeUser {
   final String uid;
   final String name;
   final String lastName;
@@ -11,7 +11,7 @@ class User {
   final Timestamp? inizioIscrizione;
   final Timestamp? fineIscrizione;
 
-  const User({
+  const FitropeUser({
     required this.name, 
     required this.lastName, 
     required this.uid, 

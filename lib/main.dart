@@ -5,8 +5,10 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/getGyms.dart';
 import 'package:fitrope_app/router.dart';
+import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_redux/flutter_redux.dart';
 import 'firebase_options.dart';
 
 void main() async {  
@@ -14,7 +16,12 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+  runApp(
+    StoreProvider(
+      store: store,
+      child: const MyApp()
+    )
+  );
 
 
   // tests //
