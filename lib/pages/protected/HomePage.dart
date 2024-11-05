@@ -1,6 +1,4 @@
-import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -11,22 +9,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-
-  @override
-  void initState() {
-    FitropeUser? user = store.state.user;
-    
-    if(user != null) {
-      print(user.name);
-      print(user.lastName);
-    }
-    else {
-      print('USER ERROR');
-    }
-
-    super.initState();
-  }
-
   @override
   Widget build(BuildContext context) {
     return const Padding(
