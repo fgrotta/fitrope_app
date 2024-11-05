@@ -1,8 +1,9 @@
 // ignore_for_file: avoid_print
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/types/fitropeUser.dart';
 
-Future<Map<String, dynamic>?> signInWithEmailPassword(String email, String password) async {
+Future<FitropeUser?> signInWithEmailPassword(String email, String password) async {
   try {
     UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
       email: email,
@@ -14,7 +15,12 @@ Future<Map<String, dynamic>?> signInWithEmailPassword(String email, String passw
     if(userCredential.user != null) {
       String uid = userCredential.user!.uid;
       Map<String, dynamic>? userData = await getUserData(uid);
-      return userData;
+
+      if(userData != null) {
+        return FitropeUser.fromJson(userData);
+      }
+
+      return null;
     }
   } 
   on FirebaseAuthException catch (e) {

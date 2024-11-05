@@ -2,6 +2,7 @@
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
 import 'package:fitrope_app/router.dart';
+import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -24,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void onLogin() async {
-    Map<String, dynamic>? userData = await signInWithEmailPassword(
+    FitropeUser? userData = await signInWithEmailPassword(
       _emailController.text,
       _passwordController.text,
     );
