@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 
-Future<void> registerWithEmailPassword(String email, String password) async {
+Future<FitropeUser?> registerWithEmailPassword(String email, String password) async {
   try {
     UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
       email: email,
@@ -27,7 +27,10 @@ Future<void> registerWithEmailPassword(String email, String password) async {
     });
 
     Map<String, dynamic>? userData = await getUserData(uid);
-    print(userData);
+
+    if(userData != null) {
+      return FitropeUser.fromJson(userData);
+    }
 
     print("User registered: ${userCredential.user!.email}");
   } 
@@ -45,4 +48,6 @@ Future<void> registerWithEmailPassword(String email, String password) async {
   catch (e) {
     print(e);
   }
+  
+  return null;
 }

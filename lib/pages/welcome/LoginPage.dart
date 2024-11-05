@@ -2,6 +2,8 @@
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
 import 'package:fitrope_app/router.dart';
+import 'package:fitrope_app/state/actions.dart';
+import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 
@@ -30,9 +32,10 @@ class _LoginPageState extends State<LoginPage> {
       _passwordController.text,
     );
 
-    print(userData);
-
-    Navigator.pushNamed(context, PROTECTED_ROUTE);
+    if(userData != null) {
+      store.dispatch(SetUserAction(userData));
+      Navigator.pushNamed(context, PROTECTED_ROUTE);
+    }
   }
 
   @override

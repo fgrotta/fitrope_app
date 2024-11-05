@@ -1,12 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:fitrope_app/api/courses/createCourse.dart';
-import 'package:fitrope_app/api/courses/getCourses.dart';
-import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
-import 'package:fitrope_app/api/getGyms.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/types/course.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'firebase_options.dart';
