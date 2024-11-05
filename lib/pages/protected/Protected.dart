@@ -92,7 +92,7 @@ class _ProtectedState extends State<Protected> {
       ),
       body: Column(
         children: [
-          getPage(),
+          if(user != null) getPage(),
           ElevatedButton(onPressed: () {
             signOut().then((_) {
               logoutRedirect(context);

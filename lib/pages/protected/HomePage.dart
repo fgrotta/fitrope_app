@@ -1,4 +1,6 @@
+import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -9,20 +11,28 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late FitropeUser user;
+
+  @override
+  void initState() {
+    user = store.state.user!;
+    super.initState();
+  }
+  
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(pagePadding),
+    return Padding(
+      padding: const EdgeInsets.all(pagePadding),
       child: Column(
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
+              const Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
               CircleAvatar(
-                backgroundColor: Color.fromARGB(255, 113, 129, 219),
-                child: Text('AH'),
+                backgroundColor: const Color.fromARGB(255, 113, 129, 219),
+                child: Text(user.name[0] + user.lastName[0]),
               )
             ],
           ),
