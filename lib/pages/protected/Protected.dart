@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/logout.dart';
@@ -93,11 +92,6 @@ class _ProtectedState extends State<Protected> {
       body: Column(
         children: [
           if(user != null) getPage(),
-          ElevatedButton(onPressed: () {
-            signOut().then((_) {
-              logoutRedirect(context);
-            });
-          }, child: const Text('Logout'))
         ],
       ),
     );

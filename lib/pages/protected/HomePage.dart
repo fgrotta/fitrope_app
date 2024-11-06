@@ -1,3 +1,5 @@
+import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
+import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
@@ -30,9 +32,17 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
-              CircleAvatar(
-                backgroundColor: const Color.fromARGB(255, 113, 129, 219),
-                child: Text(user.name[0] + user.lastName[0]),
+              GestureDetector(
+                child: CircleAvatar(
+                  backgroundColor: const Color.fromARGB(255, 113, 129, 219),
+                  child: Text(user.name[0] + user.lastName[0]),
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const UserDetailPage()),
+                  );
+                },
               )
             ],
           ),
