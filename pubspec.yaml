@@ -18,7 +18,7 @@ dependencies:
   flutter_design_system:
     git:
       url: https://github.com/dellarosamarco/flutter_design_system.git
-      ref: dev
+      ref: main
   redux_thunk: ^0.4.0
   redux: ^5.0.0
   flutter_redux: ^0.10.0

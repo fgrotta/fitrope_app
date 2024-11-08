@@ -4,6 +4,8 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_design_system/components/custom_card.dart';
+import 'package:flutter_design_system/components/items_showcase.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,6 +29,7 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.all(pagePadding),
       child: Column(
         children: [
+          // HEADER
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -44,6 +47,37 @@ class _HomePageState extends State<HomePage> {
                   );
                 },
               )
+            ],
+          ),
+
+          // ABBONAMENTO
+          Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.only(top: 20, bottom: 10),
+                width: double.infinity,
+                child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+              ),
+              const CustomCard(title: 'Abbonamento ad entrate', description: 'Entrate disponibili: 50',),
+              const SizedBox(height: 30,),
+            ],
+          ),
+
+          // CORSI
+          Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.only(bottom: 10),
+                width: double.infinity,
+                child: const Text('I miei corsi', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+              ),
+              const CustomCard(title: 'Corso Fitrope 1', description: '15.00 - 15.30',),
+              const SizedBox(height: 10,),
+              const CustomCard(title: 'Corso Fitrope 1', description: '15.00 - 15.30',),
+              const SizedBox(height: 10,),
+              const CustomCard(title: 'Corso Fitrope 1', description: '15.00 - 15.30',),
+              const SizedBox(height: 10,),
+              const CustomCard(title: 'Corso Fitrope 1', description: '15.00 - 15.30',),
             ],
           ),
         ],

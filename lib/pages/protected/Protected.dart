@@ -89,10 +89,12 @@ class _ProtectedState extends State<Protected> {
         }, 
         currentIndex: currentIndex, 
       ),
-      body: Column(
-        children: [
-          if(user != null) getPage(),
-        ],
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            if(user != null) getPage(),
+          ],
+        ),
       ),
     );
   }

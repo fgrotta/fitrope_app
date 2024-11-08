@@ -146,8 +146,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: dev
-      resolved-ref: e8ccd7d70e7a901057a930fa520cb5b3f55bf7ed
+      ref: main
+      resolved-ref: "6177cbf7c16badb66197b28144947ff1c850db92"
       url: "https://github.com/dellarosamarco/flutter_design_system.git"
     source: git
     version: "1.0.0+1"
