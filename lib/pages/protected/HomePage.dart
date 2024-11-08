@@ -1,11 +1,10 @@
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
-import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
-import 'package:flutter_design_system/components/items_showcase.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,6 +20,24 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     user = store.state.user!;
     super.initState();
+  }
+
+  Widget renderSubscriptionCard() {
+    if(user.tipologiaIscrizione == null) {
+      return const Text('Nessun abbonamento disponibile');
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.only(top: 20, bottom: 10),
+          width: double.infinity,
+          child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+        ),
+        CustomCard(title: getTipologiaIscrizioneLabel(user.tipologiaIscrizione!), description: 'Entrate disponibili: ${user.entrateDisponibili}',),
+        const SizedBox(height: 30,),
+      ],
+    );
   }
   
   @override
@@ -51,17 +68,7 @@ class _HomePageState extends State<HomePage> {
           ),
 
           // ABBONAMENTO
-          Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.only(top: 20, bottom: 10),
-                width: double.infinity,
-                child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
-              ),
-              const CustomCard(title: 'Abbonamento ad entrate', description: 'Entrate disponibili: 50',),
-              const SizedBox(height: 30,),
-            ],
-          ),
+          renderSubscriptionCard(),
 
           // CORSI
           Column(
