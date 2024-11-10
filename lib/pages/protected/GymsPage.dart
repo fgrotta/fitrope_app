@@ -1,4 +1,5 @@
 import 'package:fitrope_app/api/getGyms.dart';
+import 'package:fitrope_app/pages/protected/GymDetail.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/gym.dart';
 import 'package:flutter/material.dart';
@@ -37,7 +38,15 @@ class _GymsPageState extends State<GymsPage> {
           const SizedBox(height: 20,),
           ...gyms.map((Gym gym) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: CustomCard(title: gym.name),
+            child: CustomCard(
+              title: gym.name,
+              onClick: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => GymDetail(gym: gym,)),
+                );
+              },
+            ),
           ))
         ],
       ),
