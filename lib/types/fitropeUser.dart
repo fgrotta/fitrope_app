@@ -5,7 +5,7 @@ class FitropeUser {
   final String uid;
   final String name;
   final String lastName;
-  final List<Course> courses;
+  final List<String> courses;
   final TipologiaIscrizione? tipologiaIscrizione;
   final int? entrateDisponibili;
   final Timestamp? inizioIscrizione;
@@ -27,7 +27,7 @@ class FitropeUser {
       'uid': uid,
       'name': name,
       'lastName': lastName,
-      'courses': courses.map((course) => course.toJson()).toList(),
+      'courses': courses,
       'tipologiaIscrizione': tipologiaIscrizione?.toString().split('.').last,
       'entrateDisponibili': entrateDisponibili,
       'inizioIscrizione': inizioIscrizione,
@@ -41,7 +41,7 @@ class FitropeUser {
       name: json['name'] as String,
       lastName: json['lastName'] as String,
       courses: (json['courses'] as List<dynamic>)
-          .map((courseJson) => Course.fromJson(courseJson as Map<String, dynamic>))
+          .map((courseId) => courseId.toString())
           .toList(),
       tipologiaIscrizione: json['tipologiaIscrizione'] != null 
           ? TipologiaIscrizione.values.firstWhere((e) => e.toString().split('.').last == json['tipologiaIscrizione']) 

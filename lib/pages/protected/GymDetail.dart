@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/gym.dart';
+import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/calendar.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
@@ -41,13 +42,6 @@ class _GymDetailState extends State<GymDetail> {
     }
 
     setState(() { });
-  }
-
-  String getCourseDescription(Course course) {
-    DateTime startDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
-    DateTime endDate = DateTime.fromMillisecondsSinceEpoch(course.endDate.millisecondsSinceEpoch);
-
-    return "${startDate.hour.toString().padLeft(2, '0')}:${startDate.minute.toString().padLeft(2, '0')} - ${endDate.hour.toString().padLeft(2, '0')}:${endDate.minute.toString().padLeft(2, '0')}";
   }
 
   @override
@@ -90,7 +84,7 @@ class _GymDetailState extends State<GymDetail> {
               padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
               child: Column(
                 children: selectedCourses.map(
-                  (Course course) => Container(margin: const EdgeInsets.only(bottom: 10), child: CustomCard(title: course.name, description: getCourseDescription(course)))
+                  (Course course) => Container(margin: const EdgeInsets.only(bottom: 10), child: CustomCard(title: course.name, description: getCourseTimeRange(course)))
                 ).toList(),
               ),
             )
