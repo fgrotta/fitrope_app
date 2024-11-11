@@ -1,6 +1,8 @@
+import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:flutter/material.dart';
@@ -15,10 +17,18 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late FitropeUser user;
+  List<Course> allCourses = [];
 
   @override
   void initState() {
     user = store.state.user!;
+
+    getAllCourses().then((List<Course> response) {
+      setState(() {
+        allCourses = response;
+      });
+    });
+
     super.initState();
   }
 
@@ -38,6 +48,17 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 30,),
       ],
     );
+  }
+
+  List<Widget> renderCourses() {
+    List<Widget> render = [];
+
+    for(int n=0;n<user.courses.length;n++) {
+      Course course = allCourses.firstWhere((Course course) => course.id == user.courses[n].id);
+      render.add(Container(margin: const EdgeInsets.only(bottom: 10), child: CustomCard(title: course.name, description: '15.00 - 15.30',)));
+    }
+
+    return render;
   }
   
   @override
@@ -78,13 +99,7 @@ class _HomePageState extends State<HomePage> {
                 width: double.infinity,
                 child: const Text('I miei corsi', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
               ),
-              const CustomCard(title: 'Corso Fitrope 1', description: '15.00 - 15.30',),
-              const SizedBox(height: 10,),
-              const CustomCard(title: 'Corso Fitrope 1', description: '15.00 - 15.30',),
-              const SizedBox(height: 10,),
-              const CustomCard(title: 'Corso Fitrope 1', description: '15.00 - 15.30',),
-              const SizedBox(height: 10,),
-              const CustomCard(title: 'Corso Fitrope 1', description: '15.00 - 15.30',),
+              ...renderCourses()
             ],
           ),
         ],

@@ -14,3 +14,17 @@ Future<List<Course>> getCourses(int gymId) async {
 
   return courses;
 }
+
+Future<List<Course>> getAllCourses() async {
+  CollectionReference collectionRef = FirebaseFirestore.instance.collection('courses');
+  QuerySnapshot querySnapshot = await collectionRef.get();
+
+  List<Course> courses = [];
+
+  for (QueryDocumentSnapshot doc in querySnapshot.docs) {
+    Course course = Course.fromJson(doc.data() as Map<String, dynamic>);
+    courses.add(course);
+  }
+
+  return courses;
+}
