@@ -1,4 +1,4 @@
-  import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/course.dart';
 
 String getCourseTimeRange(Course course) {
   DateTime startDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);

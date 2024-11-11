@@ -4,6 +4,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/formatDate.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:flutter/material.dart';
@@ -58,7 +59,17 @@ class _HomePageState extends State<HomePage> {
       Course? course = allCourses.where((Course course) => course.id == user.courses[n]).firstOrNull;
 
       if(course != null) {
-        render.add(Container(margin: const EdgeInsets.only(bottom: 10), child: CustomCard(title: course.name, description: getCourseTimeRange(course))));
+        DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
+
+        render.add(
+          Container(
+            margin: const EdgeInsets.only(bottom: 10), 
+            child: CustomCard(
+              title: course.name, 
+              description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}"
+            )
+          )
+        );
       }
     }
 
