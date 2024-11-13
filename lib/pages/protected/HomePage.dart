@@ -1,4 +1,5 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
+import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -64,7 +65,7 @@ class _HomePageState extends State<HomePage> {
         render.add(
           Container(
             margin: const EdgeInsets.only(bottom: 10), 
-            child: CustomCard(
+            child: CourseCard(
               title: course.name, 
               description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}"
             )

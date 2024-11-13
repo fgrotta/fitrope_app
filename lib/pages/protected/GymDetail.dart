@@ -1,4 +1,5 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
+import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/gym.dart';
@@ -84,7 +85,14 @@ class _GymDetailState extends State<GymDetail> {
               padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
               child: Column(
                 children: selectedCourses.map(
-                  (Course course) => Container(margin: const EdgeInsets.only(bottom: 10), child: CustomCard(title: course.name, description: getCourseTimeRange(course)))
+                  (Course course) => Container(
+                    margin: const EdgeInsets.only(bottom: 10), 
+                    child: CourseCard(
+                      title: course.name, 
+                      description: getCourseTimeRange(course),
+                      courseState: CourseState.CANT_SUBSCRIBE,
+                    )
+                  )
                 ).toList(),
               ),
             )
