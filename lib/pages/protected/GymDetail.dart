@@ -27,6 +27,7 @@ class _GymDetailState extends State<GymDetail> {
     getCourses(widget.gym.id).then((List<Course> response) {
       setState(() {
         courses = response;
+        onSelectDate(DateTime.now());
       });
     });
     super.initState();
