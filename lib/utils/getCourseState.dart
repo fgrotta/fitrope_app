@@ -14,6 +14,10 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.CANT_SUBSCRIBE;
   }
 
+  if(user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE && (user.entrateDisponibili ?? 0) > 0) {
+    return CourseState.CAN_SUBSCRIBE;
+  }
+
   // se un utente con abbonamento si è già prenotato ad un altro corso durante quella settimana CANT_SUBSCRIBE
 
   // se l'utente ha un abbonamento ad entrate allora può iscriversi

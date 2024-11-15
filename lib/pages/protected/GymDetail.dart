@@ -1,12 +1,14 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/components/course_card.dart';
+import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/types/gym.dart';
+import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/calendar.dart';
-import 'package:flutter_design_system/components/custom_card.dart';
 
 class GymDetail extends StatefulWidget {
   final Gym gym;
@@ -21,9 +23,12 @@ class _GymDetailState extends State<GymDetail> {
   DateTime lastDate = DateTime(DateTime.now().year + 2);
   List<Course> courses = [];
   List<Course> selectedCourses = [];
+  late FitropeUser user;
 
   @override
   void initState() {
+    user = store.state.user!;
+    
     getCourses(widget.gym.id).then((List<Course> response) {
       setState(() {
         courses = response;
@@ -91,7 +96,7 @@ class _GymDetailState extends State<GymDetail> {
                     child: CourseCard(
                       title: course.name, 
                       description: getCourseTimeRange(course),
-                      courseState: CourseState.CANT_SUBSCRIBE,
+                      courseState: getCourseState(course, user),
                     )
                   )
                 ).toList(),
