@@ -29,16 +29,42 @@ class _UserDetailPageState extends State<UserDetailPage> {
         title: const Text('Profilo', style: TextStyle(color: Colors.white),),
       ),
       backgroundColor: backgroundColor,
-      body: Column(
-        children: [
-          Text(user.name),
-          Text(user.lastName),
-          ElevatedButton(onPressed: () {
-            signOut().then((_) {
-              logoutRedirect(context);
-            });
-          }, child: const Text('Logout'))
-        ],
+      body: Padding(
+        padding: const EdgeInsets.all(pagePadding),
+        child: Column(
+          children: [
+            TextField(
+              readOnly: true,
+              controller: TextEditingController(text: user.name),
+              style: const TextStyle(color: ghostColor),
+              canRequestFocus: false,
+            ),
+            TextField(
+              readOnly: true,
+              controller: TextEditingController(text: user.lastName),
+              style: const TextStyle(color: ghostColor),
+              canRequestFocus: false,
+            ),
+            const SizedBox(height: 20,),
+            ElevatedButton(
+              onPressed: () {
+                signOut().then((_) {
+                  logoutRedirect(context);
+                }); 
+              },
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.all(primaryColor),
+                padding: WidgetStateProperty.all(const EdgeInsets.only(top: 0, left: 10, right: 10, bottom: 0)),
+                shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  )
+                )
+              ), 
+              child: const Text('Logout', style: TextStyle(color: Colors.white),)
+            )
+          ],
+        ),
       ),
     );
   }

@@ -14,7 +14,9 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.CANT_SUBSCRIBE;
   }
 
-  // check user subscription
+  // se un utente con abbonamento si è già prenotato ad un altro corso durante quella settimana CANT_SUBSCRIBE
+
+  // se l'utente ha un abbonamento ad entrate allora può iscriversi
 
   return CourseState.CAN_SUBSCRIBE;
 }
