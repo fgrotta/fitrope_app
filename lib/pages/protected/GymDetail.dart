@@ -1,4 +1,5 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
+import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -51,6 +52,10 @@ class _GymDetailState extends State<GymDetail> {
     setState(() { });
   }
 
+  void onSubscribe(Course course) {
+    subscribeToCourse(course.id, user.uid);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,6 +102,7 @@ class _GymDetailState extends State<GymDetail> {
                       title: course.name, 
                       description: getCourseTimeRange(course),
                       courseState: getCourseState(course, user),
+                      onClickAction: () => onSubscribe(course),
                     )
                   )
                 ).toList(),

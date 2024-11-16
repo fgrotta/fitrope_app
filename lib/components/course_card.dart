@@ -45,8 +45,10 @@ class _CourseCardState extends State<CourseCard> {
     late String buttonText;
     late Color buttonColor;
     late Color buttonTextColor;
+    bool canBeClicked = false;
 
     if(widget.courseState == CourseState.CAN_SUBSCRIBE) {
+      canBeClicked = true;
       buttonText = 'Prenotati';
       buttonColor = actionColor;
       buttonTextColor = Colors.white;
@@ -63,11 +65,11 @@ class _CourseCardState extends State<CourseCard> {
     }
 
     return ElevatedButton(
-      onPressed: () {
+      onPressed: canBeClicked ? () {
         if(widget.onClickAction != null) {
           widget.onClickAction!();
         }
-      },
+      } : null,
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.all(buttonColor),
         padding: WidgetStateProperty.all(const EdgeInsets.only(top: 0, left: 10, right: 10, bottom: 0)),

@@ -27,9 +27,11 @@ class _HomePageState extends State<HomePage> {
     user = store.state.user!;
 
     getAllCourses().then((List<Course> response) {
-      setState(() {
-        allCourses = response;
-      });
+      if(mounted) {
+        setState(() {
+          allCourses = response;
+        });
+      }
     });
 
     super.initState();

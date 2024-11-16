@@ -27,8 +27,8 @@ Future<void> subscribeToCourse(String courseId, String userId) async {
 
       DocumentReference userRef = firestore.collection('users').doc(userId);
 
-      DocumentSnapshot userSnapshot = await transaction.get(userRef);
-      print('asd');
+      DocumentSnapshot userSnapshot = await userRef.get();
+
       List<dynamic> userCourses = userSnapshot['courses'] ?? [];
 
       if (!userCourses.contains(courseId)) {
