@@ -16,6 +16,7 @@ class CourseCard extends StatefulWidget {
   final Function? onClick;
   final Function? onClickAction;
   final CourseState courseState;
+  final int? capacity;
 
   const CourseCard({
     super.key, 
@@ -25,7 +26,8 @@ class CourseCard extends StatefulWidget {
     this.description="",
     this.descriptionStyle,
     this.onClick,
-    this.onClickAction
+    this.onClickAction,
+    this.capacity
   });
 
   @override
@@ -72,7 +74,8 @@ class _CourseCardState extends State<CourseCard> {
       } : null,
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.all(buttonColor),
-        padding: WidgetStateProperty.all(const EdgeInsets.only(top: 0, left: 10, right: 10, bottom: 0)),
+        minimumSize: WidgetStateProperty.all(Size.zero),
+        padding: WidgetStateProperty.all(const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 10)),
         shape: WidgetStateProperty.all<RoundedRectangleBorder>(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -99,7 +102,7 @@ class _CourseCardState extends State<CourseCard> {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,7 +116,20 @@ class _CourseCardState extends State<CourseCard> {
                 if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),)
               ],
             ),
-            if(widget.courseState != CourseState.NULL)renderButton()
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if(widget.capacity != null) Row(
+                  children: [
+                    Text(widget.capacity.toString(), style: const TextStyle(color: ghostColor),),
+                    const SizedBox(width: 7.5,),
+                    const Icon(Icons.people, color: ghostColor, size: 20,),
+                  ],
+                ),
+                const SizedBox(height: 10,),
+                if(widget.courseState != CourseState.NULL) renderButton()
+              ],
+            )
           ],
         )
       ),

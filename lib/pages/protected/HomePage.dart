@@ -69,7 +69,8 @@ class _HomePageState extends State<HomePage> {
             margin: const EdgeInsets.only(bottom: 10), 
             child: CourseCard(
               title: course.name, 
-              description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}"
+              description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}",
+              capacity: course.capacity,
             )
           )
         );

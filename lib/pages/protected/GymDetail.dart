@@ -103,6 +103,7 @@ class _GymDetailState extends State<GymDetail> {
                       description: getCourseTimeRange(course),
                       courseState: getCourseState(course, user),
                       onClickAction: () => onSubscribe(course),
+                      capacity: course.capacity,
                     )
                   )
                 ).toList(),
