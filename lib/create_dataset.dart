@@ -3,8 +3,7 @@ import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/utils/randomId.dart';
 
-Future<void> createDataset() async {
-
+Future<void> createCoursesSet() async {
   Timestamp now = Timestamp.now();
 
   Timestamp oneDayLater = Timestamp.fromMillisecondsSinceEpoch(
