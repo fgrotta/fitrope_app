@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 
 enum CourseState {
   NULL,
+  EXPIRED,
   CAN_SUBSCRIBE,
-  CANT_SUBSCRIBE,
+  FULL,
   SUBSCRIBED
 }
 
@@ -55,15 +56,19 @@ class _CourseCardState extends State<CourseCard> {
       buttonColor = actionColor;
       buttonTextColor = Colors.white;
     }
-    else if(widget.courseState == CourseState.CANT_SUBSCRIBE) {
+    else if(
+      widget.courseState == CourseState.FULL ||
+      widget.courseState == CourseState.EXPIRED
+    ) {
       buttonText = 'Non disponibile';
       buttonColor = ghostColor;
       buttonTextColor = const Color.fromARGB(86, 255, 255, 255);
     }
     else if(widget.courseState == CourseState.SUBSCRIBED) {
-      buttonText = 'Iscritto';
-      buttonColor = ghostColor;
-      buttonTextColor = const Color.fromARGB(86, 255, 255, 255);
+      buttonText = 'Rimuovi iscrizione';
+      buttonColor = dangerColor;
+      buttonTextColor = Colors.white;
+      canBeClicked = true;
     }
 
     return ElevatedButton(

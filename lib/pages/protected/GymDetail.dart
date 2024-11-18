@@ -1,3 +1,4 @@
+import 'package:fitrope_app/api/courses/UnsubscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/components/course_card.dart';
@@ -53,7 +54,19 @@ class _GymDetailState extends State<GymDetail> {
   }
 
   void onSubscribe(Course course) {
-    subscribeToCourse(course.id, user.uid);
+    subscribeToCourse(course.id, user.uid).then((_) {
+      setState(() { 
+        user = store.state.user!;
+      });
+    });
+  }
+
+  void onUnsubscribe(Course course) {
+    unsubscribeToCourse(course.id, user.uid).then((_) {
+      setState(() { 
+        user = store.state.user!;
+      });
+    });
   }
 
   @override
@@ -102,7 +115,16 @@ class _GymDetailState extends State<GymDetail> {
                       title: course.name, 
                       description: getCourseTimeRange(course),
                       courseState: getCourseState(course, user),
-                      onClickAction: () => onSubscribe(course),
+                      onClickAction: () {
+                        CourseState courseState = getCourseState(course, user);
+                        
+                        if(courseState == CourseState.SUBSCRIBED) {
+                          onUnsubscribe(course);
+                        }
+                        else {
+                          onSubscribe(course);
+                        }              
+                      },
                       capacity: course.capacity,
                     )
                   )

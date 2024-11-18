@@ -6,7 +6,7 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 
 FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-Future<void> subscribeToCourse(String courseId, String userId) async {
+Future<void> unsubscribeToCourse(String courseId, String userId) async {
   QuerySnapshot querySnapshot = await firestore
       .collection('courses')
       .where('id', isEqualTo: courseId)
@@ -22,36 +22,34 @@ Future<void> subscribeToCourse(String courseId, String userId) async {
   await firestore.runTransaction((transaction) async {
     DocumentSnapshot courseSnapshot = await transaction.get(courseRef);
     int subscribed = courseSnapshot['subscribed'];
-    int capacity = courseSnapshot['capacity'];
 
-    if (subscribed < capacity) {
+    if (subscribed > 0) {
       transaction.update(courseRef, {
-        'subscribed': subscribed + 1,
+        'subscribed': subscribed - 1,
       });
 
       DocumentReference userRef = firestore.collection('users').doc(userId);
 
-      // DocumentSnapshot userSnapshot = await transaction.get(userRef);
       DocumentSnapshot userSnapshot = await userRef.get();
 
       List<dynamic> userCourses = userSnapshot['courses'] ?? [];
 
-      if (!userCourses.contains(courseId)) {
-        userCourses.add(courseId);
+      if (userCourses.contains(courseId)) {
+        userCourses.remove(courseId);
 
         transaction.update(userRef, {
           'courses': userCourses,
         });
       }
     } else {
-      throw Exception('Course is full');
+      throw Exception('No users subscribed to this course');
     }
   }).then((_) async {
     Map<String, dynamic>? userData = await getUserData(userId);
-    if(userData != null) {
+    if (userData != null) {
       store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
     }
   }).catchError((error) {
-    print("Failed to subscribe: $error");
+    print("Failed to unsubscribe: $error");
   });
 }

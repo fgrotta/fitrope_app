@@ -7,11 +7,15 @@ CourseState getCourseState(Course course, FitropeUser user) {
   int courseDay = course.startDate.millisecondsSinceEpoch;
 
   if(today > courseDay) {
-    return CourseState.CANT_SUBSCRIBE;
+    return CourseState.EXPIRED;
+  }
+
+  if(user.courses.contains(course.id)) {
+    return CourseState.SUBSCRIBED;
   }
 
   if(course.capacity <= course.subscribed) {
-    return CourseState.CANT_SUBSCRIBE;
+    return CourseState.FULL;
   }
 
   if(user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE && (user.entrateDisponibili ?? 0) > 0) {
