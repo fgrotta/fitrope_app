@@ -2,6 +2,8 @@ import 'package:fitrope_app/api/courses/UnsubscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/components/course_card.dart';
+import 'package:fitrope_app/components/loader.dart';
+import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -11,6 +13,7 @@ import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/calendar.dart';
+import 'package:flutter_redux/flutter_redux.dart';
 
 class GymDetail extends StatefulWidget {
   final Gym gym;
@@ -71,69 +74,79 @@ class _GymDetailState extends State<GymDetail> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(widget.gym.name, style: const TextStyle(color: Colors.white),),
-      ),
-      backgroundColor: backgroundColor,
-      body: SingleChildScrollView(
-        child: Column(
+    return StoreConnector<AppState, bool>(
+      converter: (store) => store.state.isLoading,
+      builder: (context, isLoading) {
+        return Stack(
           children: [
-            Theme(
-              data: ThemeData(
-                datePickerTheme: DatePickerThemeData(
-                  dayForegroundColor: WidgetStateProperty.all(Colors.white),
-                  weekdayStyle: const TextStyle(color: Colors.white),
-                  headerHeadlineStyle: const TextStyle(color: Colors.white),
-                  todayForegroundColor: WidgetStateProperty.all(Colors.white),
-                  todayBackgroundColor: WidgetStateProperty.all(const Color.fromARGB(255, 90, 90, 90)),
-                  dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return const Color.fromARGB(255, 100, 100, 100);
-                    }
-                    return null;
-                  }),)
-              ), 
-              child: Calendar(
-                onDateChanged: (DateTime value) { 
-                  onSelectDate(value);
-                }, 
-                initialDate: DateTime.now(), 
-                firstDate: firstDate, 
-                lastDate: lastDate,
+            Scaffold(
+              appBar: AppBar(
+                backgroundColor: primaryColor,
+                iconTheme: const IconThemeData(color: Colors.white),
+                title: Text(widget.gym.name, style: const TextStyle(color: Colors.white),),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
-              child: Column(
-                children: selectedCourses.map(
-                  (Course course) => Container(
-                    margin: const EdgeInsets.only(bottom: 10), 
-                    child: CourseCard(
-                      title: course.name, 
-                      description: getCourseTimeRange(course),
-                      courseState: getCourseState(course, user),
-                      onClickAction: () {
-                        CourseState courseState = getCourseState(course, user);
-                        
-                        if(courseState == CourseState.SUBSCRIBED) {
-                          onUnsubscribe(course);
-                        }
-                        else {
-                          onSubscribe(course);
-                        }              
-                      },
-                      capacity: course.capacity,
+              backgroundColor: backgroundColor,
+              body: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Theme(
+                      data: ThemeData(
+                        datePickerTheme: DatePickerThemeData(
+                          dayForegroundColor: WidgetStateProperty.all(Colors.white),
+                          weekdayStyle: const TextStyle(color: Colors.white),
+                          headerHeadlineStyle: const TextStyle(color: Colors.white),
+                          todayForegroundColor: WidgetStateProperty.all(Colors.white),
+                          todayBackgroundColor: WidgetStateProperty.all(const Color.fromARGB(255, 90, 90, 90)),
+                          dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return const Color.fromARGB(255, 100, 100, 100);
+                            }
+                            return null;
+                          }),)
+                      ), 
+                      child: Calendar(
+                        onDateChanged: (DateTime value) { 
+                          onSelectDate(value);
+                        }, 
+                        initialDate: DateTime.now(), 
+                        firstDate: firstDate, 
+                        lastDate: lastDate,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
+                      child: Column(
+                        children: selectedCourses.map(
+                          (Course course) => Container(
+                            margin: const EdgeInsets.only(bottom: 10), 
+                            child: CourseCard(
+                              title: course.name, 
+                              description: getCourseTimeRange(course),
+                              courseState: getCourseState(course, user),
+                              onClickAction: () {
+                                CourseState courseState = getCourseState(course, user);
+                                
+                                if(courseState == CourseState.SUBSCRIBED) {
+                                  onUnsubscribe(course);
+                                }
+                                else {
+                                  onSubscribe(course);
+                                }              
+                              },
+                              capacity: course.capacity,
+                            )
+                          )
+                        ).toList(),
+                      ),
                     )
-                  )
-                ).toList(),
-              ),
-            )
-          ],
-        ),
-      ),
+                  ],
+                ),
+              )
+            ),
+            if (isLoading) const Loader(),
+          ]
+        );
+      }
     );
   }
 }

@@ -20,6 +20,7 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
   DocumentReference courseRef = querySnapshot.docs.first.reference;
 
   await firestore.runTransaction((transaction) async {
+    store.dispatch(StartLoadingAction());
     DocumentSnapshot courseSnapshot = await transaction.get(courseRef);
     int subscribed = courseSnapshot['subscribed'];
 
@@ -48,6 +49,7 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
     Map<String, dynamic>? userData = await getUserData(userId);
     if (userData != null) {
       store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
+      store.dispatch(FinishLoadingAction());
     }
   }).catchError((error) {
     print("Failed to unsubscribe: $error");

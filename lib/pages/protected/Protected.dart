@@ -2,15 +2,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/logout.dart';
+import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/pages/protected/GymsPage.dart';
 import 'package:fitrope_app/pages/protected/Homepage.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
+import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_bottom_navigation_bar.dart';
+import 'package:flutter_redux/flutter_redux.dart';
 
 class Protected extends StatefulWidget {
   const Protected({super.key});
@@ -70,32 +73,42 @@ class _ProtectedState extends State<Protected> {
 
   @override
   Widget build(BuildContext context) {    
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      bottomNavigationBar: CustomBottomNavigationBar(
-        items: const [
-          CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
-          CustomBottomNavigationBarItem(icon: Icons.list, label: 'Gyms'),
-        ], 
-        colors: const CustomBottomNavigationBarColors(
-          backgroundColor: primaryColor, 
-          selectedItemColor: Colors.white, 
-          unselectedItemColor: ghostColor,
-        ), 
-        onChangePage: (int index) {
-          setState(() {
-            currentIndex = index;
-          });
-        }, 
-        currentIndex: currentIndex, 
-      ),
-      body: SingleChildScrollView(
-        child: Column(
+    return StoreConnector<AppState, bool>(
+      converter: (store) => store.state.isLoading,
+      builder: (context, isLoading) {
+        return Stack(
           children: [
-            if(user != null) getPage(),
-          ],
-        ),
-      ),
+            Scaffold(
+              backgroundColor: backgroundColor,
+              bottomNavigationBar: CustomBottomNavigationBar(
+                items: const [
+                  CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
+                  CustomBottomNavigationBarItem(icon: Icons.list, label: 'Gyms'),
+                ], 
+                colors: const CustomBottomNavigationBarColors(
+                  backgroundColor: primaryColor, 
+                  selectedItemColor: Colors.white, 
+                  unselectedItemColor: ghostColor,
+                ), 
+                onChangePage: (int index) {
+                  setState(() {
+                    currentIndex = index;
+                  });
+                }, 
+                currentIndex: currentIndex, 
+              ),
+              body: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    if(user != null) getPage(),
+                  ],
+                ),
+              ),
+            ),
+            if (isLoading) const Loader(),
+          ]
+        );
+      }
     );
   }
 }

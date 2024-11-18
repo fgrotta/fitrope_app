@@ -5,3 +5,11 @@ class SetUserAction {
 
   SetUserAction(this.user);
 }
+
+class StartLoadingAction {
+  StartLoadingAction();
+}
+
+class FinishLoadingAction {
+  FinishLoadingAction();
+}

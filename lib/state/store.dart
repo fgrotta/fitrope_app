@@ -4,7 +4,7 @@ import 'package:redux/redux.dart';
 import 'package:redux_thunk/redux_thunk.dart'; 
 
 final store = Store<AppState>(
-  userReducer,
-  initialState: AppState.initialState(),
+  appReducer,
+  initialState: AppState.initialState(false),
   middleware: [thunkMiddleware], 
 );
