@@ -4,6 +4,7 @@ import 'package:fitrope_app/authentication/login.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
+import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 
@@ -41,25 +42,56 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          const Text('Login'),
-          TextField(
-            controller: _emailController,
-            decoration: const InputDecoration(labelText: 'Email'),
-          ),
-          TextField(
-            controller: _passwordController,
-            decoration: const InputDecoration(labelText: 'Password'),
-            obscureText: true,
-          ),
-          ElevatedButton(
-            onPressed: () {
-              onLogin();
-            },
-            child: const Text('Login'),
-          )
-        ],
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      backgroundColor: primaryColor,
+      body: Padding(
+        padding: const EdgeInsets.all(pagePadding),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Email', style: TextStyle(color: ghostColor),),
+                TextField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                  ),
+                ),
+                const SizedBox(height: 50,),
+                const Text('Password', style: TextStyle(color: ghostColor),),
+                TextField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                  ),
+                  obscureText: true,
+                ),
+              ],
+            ),
+            SizedBox(
+              width: MediaQuery.of(context).size.width - pagePadding * 2,
+              child: ElevatedButton(
+                onPressed: () {
+                  onLogin();
+                },
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.all(secondaryColor),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    )
+                  )
+                ), 
+                child: const Text('Login', style: TextStyle(color: Colors.white),),
+              ),
+            )
+          ],
+        ),
       )
     );
   }

@@ -1,5 +1,6 @@
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/router.dart';
+import 'package:fitrope_app/style.dart';
 import 'package:flutter/material.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -21,12 +22,55 @@ class _WelcomePageState extends State<WelcomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          const Text('Welcome Page'),
-          ElevatedButton(onPressed: () { Navigator.pushNamed(context, LOGIN_ROUTE); }, child: const Text('Entra')),
-          ElevatedButton(onPressed: () { Navigator.pushNamed(context, REGISTRATION_ROUTE); }, child: const Text('Registrati')),
-        ],
+      backgroundColor: primaryColor,
+      body: Padding(
+        padding: const EdgeInsets.all(pagePadding),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Fit Rope', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),),
+                Column(
+                  children: [
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width - pagePadding * 2,
+                      child: ElevatedButton(
+                        onPressed: () { Navigator.pushNamed(context, LOGIN_ROUTE); }, 
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.all(secondaryColor),
+                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            )
+                          )
+                        ),
+                        child: const Text('Entra', style: TextStyle(color: Colors.white),)
+                      ),
+                    ),
+                    const SizedBox(height: 20,),
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width - pagePadding * 2,
+                      child: ElevatedButton(
+                        onPressed: () { Navigator.pushNamed(context, REGISTRATION_ROUTE); },
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.all(secondaryColor),
+                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            )
+                          )
+                        ), 
+                        child: const Text('Registrati', style: TextStyle(color: Colors.white),)
+                      ),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
