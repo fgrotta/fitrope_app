@@ -91,12 +91,18 @@ class _GymDetailState extends State<GymDetail> {
                   children: [
                     Theme(
                       data: ThemeData(
+                        colorScheme: const ColorScheme.light(
+                          onSurface: Colors.white
+                        ),
                         datePickerTheme: DatePickerThemeData(
                           dayForegroundColor: WidgetStateProperty.all(Colors.white),
                           weekdayStyle: const TextStyle(color: Colors.white),
                           headerHeadlineStyle: const TextStyle(color: Colors.white),
                           todayForegroundColor: WidgetStateProperty.all(Colors.white),
                           todayBackgroundColor: WidgetStateProperty.all(const Color.fromARGB(255, 90, 90, 90)),
+                          yearOverlayColor: WidgetStateProperty.all(ghostColor),
+                          yearBackgroundColor: WidgetStateProperty.all(primaryColor),
+                          yearForegroundColor: WidgetStateProperty.all(Colors.white),
                           dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
                             if (states.contains(WidgetState.selected)) {
                               return const Color.fromARGB(255, 100, 100, 100);

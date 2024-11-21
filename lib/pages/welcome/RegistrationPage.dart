@@ -47,13 +47,33 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 const Text('Email', style: TextStyle(color: ghostColor),),
                 TextField(
                   controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
+                  style: const TextStyle(color: Colors.white),
+                  cursorColor: ghostColor,
+                  decoration: const InputDecoration(
+                    hintText: 'Email',
+                    hintStyle: TextStyle(color: ghostColor),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.white
+                      )
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 50,),
                 const Text('Password', style: TextStyle(color: ghostColor),),
                 TextField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(labelText: 'Password'),
+                  style: const TextStyle(color: Colors.white),
+                  cursorColor: ghostColor,
+                  decoration: const InputDecoration(
+                    hintText: 'Password',
+                    hintStyle: TextStyle(color: ghostColor),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.white
+                      )
+                    ),
+                  ),
                   obscureText: true,
                 ),
               ],

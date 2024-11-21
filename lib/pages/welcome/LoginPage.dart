@@ -58,16 +58,32 @@ class _LoginPageState extends State<LoginPage> {
                 const Text('Email', style: TextStyle(color: ghostColor),),
                 TextField(
                   controller: _emailController,
+                  style: const TextStyle(color: Colors.white),
+                  cursorColor: ghostColor,
                   decoration: const InputDecoration(
-                    labelText: 'Email',
+                    hintText: 'Email',
+                    hintStyle: TextStyle(color: ghostColor),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.white
+                      )
+                    ),
                   ),
                 ),
                 const SizedBox(height: 50,),
                 const Text('Password', style: TextStyle(color: ghostColor),),
                 TextField(
                   controller: _passwordController,
+                  style: const TextStyle(color: Colors.white),
+                  cursorColor: ghostColor,
                   decoration: const InputDecoration(
-                    labelText: 'Password',
+                    hintText: 'Password',
+                    hintStyle: TextStyle(color: ghostColor),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.white
+                      )
+                    ),
                   ),
                   obscureText: true,
                 ),
