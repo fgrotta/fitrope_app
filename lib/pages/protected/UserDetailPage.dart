@@ -30,7 +30,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       ),
       backgroundColor: backgroundColor,
       body: Padding(
-        padding: const EdgeInsets.all(pagePadding),
+        padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
         child: Column(
           children: [
             TextField(

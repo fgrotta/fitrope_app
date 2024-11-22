@@ -48,7 +48,7 @@ class _LoginPageState extends State<LoginPage> {
       ),
       backgroundColor: primaryColor,
       body: Padding(
-        padding: const EdgeInsets.all(pagePadding),
+        padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

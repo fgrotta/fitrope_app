@@ -24,7 +24,7 @@ class _WelcomePageState extends State<WelcomePage> {
     return Scaffold(
       backgroundColor: primaryColor,
       body: Padding(
-        padding: const EdgeInsets.all(pagePadding),
+        padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
