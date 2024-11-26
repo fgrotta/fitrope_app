@@ -42,6 +42,7 @@ Future<void> subscribeToCourse(String courseId, String userId) async {
 
         transaction.update(userRef, {
           'courses': userCourses,
+          'entrateDisponibili': userSnapshot['entrateDisponibili'] - 1
         });
       }
     } else {
