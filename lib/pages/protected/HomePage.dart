@@ -6,6 +6,7 @@ import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/formatDate.dart';
+import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:flutter/material.dart';
@@ -61,7 +62,7 @@ class _HomePageState extends State<HomePage> {
     for(int n=0;n<user.courses.length;n++) {
       Course? course = allCourses.where((Course course) => course.id == user.courses[n]).firstOrNull;
 
-      if(course != null) {
+      if(course != null && getCourseState(course, user) != CourseState.EXPIRED) {
         DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
 
         render.add(
