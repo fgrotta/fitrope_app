@@ -39,8 +39,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget renderSubscriptionCard() {
-    if(user.tipologiaIscrizione == null) {
-      return const Text('Nessun abbonamento disponibile');
+    if(
+      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO && 
+      user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE
+    ) {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.only(top: 20, bottom: 10),
+            width: double.infinity,
+            child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+          ),
+          const SizedBox(height: 20,),
+          const Text('Nessun abbonamento disponibile', style: TextStyle(color: ghostColor),),
+          const SizedBox(height: 30,),
+        ],
+      );
     }
 
     return Column(
@@ -57,6 +71,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<Widget> renderCourses() {
+    if(user.courses.isEmpty) {
+      return [
+        const SizedBox(height: 10,),
+        const Text('Nessun corso disponibile', style: TextStyle(color: ghostColor),)
+      ];
+    }
+
     List<Widget> render = [];
 
     for(int n=0;n<user.courses.length;n++) {
