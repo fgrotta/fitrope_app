@@ -4,7 +4,6 @@ import 'package:fitrope_app/pages/protected/GymDetail.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/gym.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_design_system/components/custom_card.dart';
 
 class GymsPage extends StatefulWidget {
   const GymsPage({super.key});

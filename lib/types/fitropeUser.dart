@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fitrope_app/types/course.dart';
 
 class FitropeUser {
   final String uid;
