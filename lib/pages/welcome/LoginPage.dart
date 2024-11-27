@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
+import 'package:fitrope_app/components/custom_text_field.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -56,37 +57,12 @@ class _LoginPageState extends State<LoginPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Email', style: TextStyle(color: ghostColor),),
-                TextField(
-                  controller: _emailController,
-                  style: const TextStyle(color: Colors.white),
-                  cursorColor: ghostColor,
-                  decoration: const InputDecoration(
-                    hintText: 'Email',
-                    hintStyle: TextStyle(color: ghostColor),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                        color: Colors.white
-                      )
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 50,),
+                const SizedBox(height: 10,),
+                CustomTextField(controller: _emailController, hintText: 'Enter your email',),
+                const SizedBox(height: 20,),
                 const Text('Password', style: TextStyle(color: ghostColor),),
-                TextField(
-                  controller: _passwordController,
-                  style: const TextStyle(color: Colors.white),
-                  cursorColor: ghostColor,
-                  decoration: const InputDecoration(
-                    hintText: 'Password',
-                    hintStyle: TextStyle(color: ghostColor),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                        color: Colors.white
-                      )
-                    ),
-                  ),
-                  obscureText: true,
-                ),
+                const SizedBox(height: 10,),
+                CustomTextField(controller: _passwordController, hintText: 'Enter your password', obscureText: true,),
               ],
             ),
             SizedBox(
