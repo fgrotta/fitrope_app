@@ -43,7 +43,7 @@ class FitropeUser {
           .map((courseId) => courseId.toString())
           .toList(),
       tipologiaIscrizione: json['tipologiaIscrizione'] != null 
-          ? TipologiaIscrizione.values.firstWhere((e) => e.toString().split('.').last == json['tipologiaIscrizione']) 
+          ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == json['tipologiaIscrizione']).firstOrNull
           : null,
       entrateDisponibili: json['entrateDisponibili'] as int?,
       inizioIscrizione: json['inizioIscrizione'] as Timestamp?,
@@ -54,5 +54,6 @@ class FitropeUser {
 
 enum TipologiaIscrizione {
   PACCHETTO_ENTRATE,
-  ABBONAMENTO
+  ABBONAMENTO_MENSILE,
+  ABBONAMENTO_TRIMESTRALE
 }

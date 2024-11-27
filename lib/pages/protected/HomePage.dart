@@ -40,7 +40,8 @@ class _HomePageState extends State<HomePage> {
 
   Widget renderSubscriptionCard() {
     if(
-      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO && 
+      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_MENSILE &&
+      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
       user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE
     ) {
       return Column(
