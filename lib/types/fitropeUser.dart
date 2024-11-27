@@ -7,6 +7,7 @@ class FitropeUser {
   final List<String> courses;
   final TipologiaIscrizione? tipologiaIscrizione;
   final int? entrateDisponibili;
+  final int? entrateSettimanali;
   final Timestamp? inizioIscrizione;
   final Timestamp? fineIscrizione;
 
@@ -17,6 +18,7 @@ class FitropeUser {
     required this.courses, 
     this.tipologiaIscrizione, 
     this.entrateDisponibili,
+    this.entrateSettimanali,
     this.inizioIscrizione, 
     this.fineIscrizione
   });
@@ -29,6 +31,7 @@ class FitropeUser {
       'courses': courses,
       'tipologiaIscrizione': tipologiaIscrizione?.toString().split('.').last,
       'entrateDisponibili': entrateDisponibili,
+      'entrateSettimanali': entrateSettimanali,
       'inizioIscrizione': inizioIscrizione,
       'fineIscrizione': fineIscrizione,
     };
@@ -46,6 +49,7 @@ class FitropeUser {
           ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == json['tipologiaIscrizione']).firstOrNull
           : null,
       entrateDisponibili: json['entrateDisponibili'] as int?,
+      entrateSettimanali: json['entrateSettimanali'] as int?,
       inizioIscrizione: json['inizioIscrizione'] as Timestamp?,
       fineIscrizione: json['fineIscrizione'] as Timestamp?,
     );

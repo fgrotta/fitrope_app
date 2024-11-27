@@ -65,7 +65,7 @@ class _HomePageState extends State<HomePage> {
           width: double.infinity,
           child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
         ),
-        CustomCard(title: getTipologiaIscrizioneLabel(user.tipologiaIscrizione!), description: 'Entrate disponibili: ${user.entrateDisponibili}',),
+        CustomCard(title: getTipologiaIscrizioneTitle(user.tipologiaIscrizione!), description: getTipologiaIscrizioneDescription(user),),
         const SizedBox(height: 30,),
       ],
     );
