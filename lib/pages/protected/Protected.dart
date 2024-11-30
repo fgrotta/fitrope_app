@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/components/loader.dart';
@@ -9,6 +10,7 @@ import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_bottom_navigation_bar.dart';
@@ -28,6 +30,15 @@ class _ProtectedState extends State<Protected> {
   @override
   void initState() {
     super.initState();
+
+    getAllCourses().then((List<Course> response) {
+      if(mounted) {
+        setState(() {
+          store.dispatch(SetAllCoursesAction(response));
+        });
+      }
+    });
+    
     if(!isLogged()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacementNamed(LOGIN_ROUTE);

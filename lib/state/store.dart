@@ -5,6 +5,6 @@ import 'package:redux_thunk/redux_thunk.dart';
 
 final store = Store<AppState>(
   appReducer,
-  initialState: AppState.initialState(false),
+  initialState: AppState.initialState(false, []),
   middleware: [thunkMiddleware], 
 );
