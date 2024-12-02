@@ -20,6 +20,8 @@ class RegistrationPage extends StatefulWidget {
 class _RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
 
   @override
   void initState() {
@@ -35,6 +37,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text("Registrazione", style: TextStyle(color: Colors.white),),
       ),
       backgroundColor: primaryColor,
       body: Padding(
@@ -47,11 +50,19 @@ class _RegistrationPageState extends State<RegistrationPage> {
               children: [
                 const Text('Email', style: TextStyle(color: ghostColor),),
                 const SizedBox(height: 10,),
-                CustomTextField(controller: _emailController, hintText: 'Enter your email',),
+                CustomTextField(controller: _emailController, hintText: 'Inserisci la tua email',),
                 const SizedBox(height: 20,),
                 const Text('Password', style: TextStyle(color: ghostColor),),
                 const SizedBox(height: 10,),
-                CustomTextField(controller: _passwordController, hintText: 'Enter your password', obscureText: true,),
+                CustomTextField(controller: _passwordController, hintText: 'Inserisci la password', obscureText: true,),
+                const SizedBox(height: 20,),
+                const Text('Nome', style: TextStyle(color: ghostColor),),
+                const SizedBox(height: 10,),
+                CustomTextField(controller: _nameController, hintText: 'Inserisci il tuo nome'),
+                const SizedBox(height: 20,),
+                const Text('Cognome', style: TextStyle(color: ghostColor),),
+                const SizedBox(height: 10,),
+                CustomTextField(controller: _lastNameController, hintText: 'Inserisci il tuo cognome'),
               ],
             ),
             SizedBox(
@@ -61,6 +72,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   registerWithEmailPassword(
                     _emailController.text,
                     _passwordController.text,
+                    _nameController.text,
+                    _lastNameController.text
                   ).then((FitropeUser? user) {
                     if(user != null) {
                       store.dispatch(SetUserAction(user));

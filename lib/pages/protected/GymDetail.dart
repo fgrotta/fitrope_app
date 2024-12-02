@@ -122,7 +122,7 @@ class _GymDetailState extends State<GymDetail> {
                     Padding(
                       padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
                       child: Column(
-                        children: selectedCourses.map(
+                        children: selectedCourses.isNotEmpty ? selectedCourses.map(
                           (Course course) => Container(
                             margin: const EdgeInsets.only(bottom: 10), 
                             child: CourseCard(
@@ -142,7 +142,9 @@ class _GymDetailState extends State<GymDetail> {
                               capacity: course.capacity,
                             )
                           )
-                        ).toList(),
+                        ).toList() : [
+                          const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: ghostColor),)
+                        ],
                       ),
                     )
                   ],

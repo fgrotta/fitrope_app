@@ -46,6 +46,7 @@ class _LoginPageState extends State<LoginPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text("Login", style: TextStyle(color: Colors.white)),
       ),
       backgroundColor: primaryColor,
       body: Padding(
