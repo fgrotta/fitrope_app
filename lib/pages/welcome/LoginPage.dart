@@ -1,4 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
+import 'dart:math';
+
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
 import 'package:fitrope_app/components/custom_text_field.dart';
@@ -6,7 +8,6 @@ import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -19,6 +20,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  String? loginError;
 
   @override
   void initState() {
@@ -29,14 +31,23 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void onLogin() async {
-    FitropeUser? userData = await signInWithEmailPassword(
+    SignInResponse? signInResponse = await signInWithEmailPassword(
       _emailController.text,
       _passwordController.text,
     );
 
-    if(userData != null) {
-      store.dispatch(SetUserAction(userData));
+    if(signInResponse.user != null) {
+      store.dispatch(SetUserAction(signInResponse.user!));
       Navigator.pushNamed(context, PROTECTED_ROUTE);
+
+      setState(() {
+        loginError = null;
+      });
+    }
+    else {
+      setState(() {
+        loginError = signInResponse.error;
+      });
     }
   }
 
@@ -64,6 +75,8 @@ class _LoginPageState extends State<LoginPage> {
                 const Text('Password', style: TextStyle(color: ghostColor),),
                 const SizedBox(height: 10,),
                 CustomTextField(controller: _passwordController, hintText: 'Enter your password', obscureText: true,),
+                const SizedBox(height: 10,),
+                if(loginError != null) Text(loginError!, style: const TextStyle(color: dangerColor),) 
               ],
             ),
             SizedBox(

@@ -3,7 +3,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 
-Future<FitropeUser?> signInWithEmailPassword(String email, String password) async {
+class SignInResponse {
+  final FitropeUser? user;
+  final String error;
+
+  SignInResponse({
+    this.user,
+    required this.error
+  });
+}
+
+Future<SignInResponse> signInWithEmailPassword(String email, String password) async {
   try {
     UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
       email: email,
@@ -17,10 +27,10 @@ Future<FitropeUser?> signInWithEmailPassword(String email, String password) asyn
       Map<String, dynamic>? userData = await getUserData(uid);
 
       if(userData != null) {
-        return FitropeUser.fromJson(userData);
+        return SignInResponse(user: FitropeUser.fromJson(userData), error: "");
       }
 
-      return null;
+      return SignInResponse(error: "Email o password sbagliati");
     }
   } 
   on FirebaseAuthException catch (e) {
@@ -38,5 +48,5 @@ Future<FitropeUser?> signInWithEmailPassword(String email, String password) asyn
     print(e);
   }
 
-  return null;
+  return SignInResponse(error: "Email o password sbagliati");
 }
