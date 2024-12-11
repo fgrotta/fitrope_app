@@ -1,7 +1,9 @@
 import 'package:fitrope_app/authentication/logout.dart';
+import 'package:fitrope_app/components/custom_text_field.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/formatDate.dart';
 import 'package:flutter/material.dart';
 
 class UserDetailPage extends StatefulWidget {
@@ -32,19 +34,24 @@ class _UserDetailPageState extends State<UserDetailPage> {
       body: Padding(
         padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(text: user.name),
-              style: const TextStyle(color: ghostColor),
-              canRequestFocus: false,
-            ),
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(text: user.lastName),
-              style: const TextStyle(color: ghostColor),
-              canRequestFocus: false,
-            ),
+            const Text('Nome', style: TextStyle(color: ghostColor),),
+            const SizedBox(height: 10,),
+            CustomTextField(controller: TextEditingController(text: user.name), disabled: true,),
+            const SizedBox(height: 20,),
+
+            const Text('Cognome', style: TextStyle(color: ghostColor),),
+            const SizedBox(height: 10,),
+            CustomTextField(controller: TextEditingController(text: user.lastName), disabled: true,),
+            const SizedBox(height: 20,),
+
+            if(user.fineIscrizione != null) ...[
+              const Text('Fine iscrizione', style: TextStyle(color: ghostColor),),
+              const SizedBox(height: 10,),
+              CustomTextField(controller: TextEditingController(text: formatDate(DateTime.fromMillisecondsSinceEpoch(user.fineIscrizione!.millisecondsSinceEpoch))), disabled: true,),
+            ],
+
             const SizedBox(height: 20,),
             ElevatedButton(
               onPressed: () {

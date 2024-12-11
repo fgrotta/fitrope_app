@@ -8,7 +8,6 @@ class FitropeUser {
   final TipologiaIscrizione? tipologiaIscrizione;
   final int? entrateDisponibili;
   final int? entrateSettimanali;
-  final Timestamp? inizioIscrizione;
   final Timestamp? fineIscrizione;
 
   const FitropeUser({
@@ -19,7 +18,6 @@ class FitropeUser {
     this.tipologiaIscrizione, 
     this.entrateDisponibili,
     this.entrateSettimanali,
-    this.inizioIscrizione, 
     this.fineIscrizione
   });
 
@@ -32,7 +30,6 @@ class FitropeUser {
       'tipologiaIscrizione': tipologiaIscrizione?.toString().split('.').last,
       'entrateDisponibili': entrateDisponibili,
       'entrateSettimanali': entrateSettimanali,
-      'inizioIscrizione': inizioIscrizione,
       'fineIscrizione': fineIscrizione,
     };
   }
@@ -50,7 +47,6 @@ class FitropeUser {
           : null,
       entrateDisponibili: json['entrateDisponibili'] as int?,
       entrateSettimanali: json['entrateSettimanali'] as int?,
-      inizioIscrizione: json['inizioIscrizione'] as Timestamp?,
       fineIscrizione: json['fineIscrizione'] as Timestamp?,
     );
   }

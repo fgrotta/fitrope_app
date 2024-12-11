@@ -20,10 +20,10 @@ Future<FitropeUser?> registerWithEmailPassword(String email, String password, St
       'name': name,
       'lastName': lastName,
       'courses': [],
-      'tipologiaIscrizione': 'PACCHETTO_ENTRATE',
-      'entrateDisponibili': 74,
-      'inizioIscrizione': FieldValue.serverTimestamp(),
-      'fineIscrizione': FieldValue.serverTimestamp()
+      'tipologiaIscrizione': null,
+      'entrateDisponibili': 0,
+      'entrateSettimanali': 0,
+      'fineIscrizione': null
     });
 
     Map<String, dynamic>? userData = await getUserData(uid);

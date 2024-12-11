@@ -6,11 +6,13 @@ class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
   final bool obscureText;
   final void Function(PointerDownEvent _)? onTapOutside;
-  const CustomTextField({super.key, required this.controller, this.hintText="", this.obscureText=false, this.onTapOutside});
+  final bool disabled;
+  const CustomTextField({super.key, required this.controller, this.hintText="", this.obscureText=false, this.onTapOutside, this.disabled=false});
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      readOnly: disabled,
       onTapOutside: onTapOutside ?? (_) {},
       controller: controller,
       style: const TextStyle(color: Colors.white),
