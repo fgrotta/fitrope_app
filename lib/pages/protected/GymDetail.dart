@@ -47,10 +47,20 @@ class _GymDetailState extends State<GymDetail> {
 
   void updateCourses() {
     getCourses(widget.gym.id).then((List<Course> response) {
-      setState(() {
-        courses = response;
-        onSelectDate(currentDate);
-      });
+      if(mounted) { 
+        setState(() {
+          courses = response;
+          onSelectDate(currentDate);
+        });
+      }
+    });
+
+    getAllCourses().then((List<Course> response) {
+      if(mounted) {
+        setState(() {
+          store.dispatch(SetAllCoursesAction(response));
+        });
+      }
     });
   }
 
