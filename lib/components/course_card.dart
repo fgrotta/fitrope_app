@@ -18,6 +18,7 @@ class CourseCard extends StatefulWidget {
   final Function? onClickAction;
   final CourseState courseState;
   final int? capacity;
+  final int? subscribed;
 
   const CourseCard({
     super.key, 
@@ -28,7 +29,8 @@ class CourseCard extends StatefulWidget {
     this.descriptionStyle,
     this.onClick,
     this.onClickAction,
-    this.capacity
+    this.capacity,
+    this.subscribed
   });
 
   @override
@@ -124,9 +126,9 @@ class _CourseCardState extends State<CourseCard> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if(widget.capacity != null) Row(
+                if(widget.capacity != null && widget.subscribed != null) Row(
                   children: [
-                    Text(widget.capacity.toString(), style: const TextStyle(color: ghostColor),),
+                    Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: ghostColor),),
                     const SizedBox(width: 7.5,),
                     const Icon(Icons.people, color: ghostColor, size: 20,),
                   ],

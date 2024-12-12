@@ -85,6 +85,7 @@ class _HomePageState extends State<HomePage> {
               title: course.name, 
               description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}",
               capacity: course.capacity,
+              subscribed: course.subscribed,
             )
           )
         );

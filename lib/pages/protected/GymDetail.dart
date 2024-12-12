@@ -3,6 +3,7 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/components/loader.dart';
+import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -29,6 +30,7 @@ class _GymDetailState extends State<GymDetail> {
   List<Course> courses = [];
   List<Course> selectedCourses = [];
   late FitropeUser user;
+  late DateTime currentDate;
 
   @override
   void initState() {
@@ -43,7 +45,17 @@ class _GymDetailState extends State<GymDetail> {
     super.initState();
   }
 
+  void updateCourses() {
+    getCourses(widget.gym.id).then((List<Course> response) {
+      setState(() {
+        courses = response;
+        onSelectDate(currentDate);
+      });
+    });
+  }
+
   void onSelectDate(DateTime selectedDate) {
+    currentDate = selectedDate;
     selectedCourses = [];
 
     for(int n=0;n<courses.length;n++) {
@@ -60,6 +72,7 @@ class _GymDetailState extends State<GymDetail> {
     subscribeToCourse(course.id, user.uid).then((_) {
       setState(() { 
         user = store.state.user!;
+        updateCourses();
       });
     });
   }
@@ -68,15 +81,16 @@ class _GymDetailState extends State<GymDetail> {
     unsubscribeToCourse(course.id, user.uid).then((_) {
       setState(() { 
         user = store.state.user!;
+        updateCourses();
       });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return StoreConnector<AppState, bool>(
-      converter: (store) => store.state.isLoading,
-      builder: (context, isLoading) {
+    return StoreConnector<AppState, AppState>(
+      converter: (store) => store.state,
+      builder: (context, state) {
         return Stack(
           children: [
             Scaffold(
@@ -140,6 +154,7 @@ class _GymDetailState extends State<GymDetail> {
                                 }              
                               },
                               capacity: course.capacity,
+                              subscribed: course.subscribed,
                             )
                           )
                         ).toList() : [
@@ -151,7 +166,7 @@ class _GymDetailState extends State<GymDetail> {
                 ),
               )
             ),
-            if (isLoading) const Loader(),
+            if (state.isLoading) const Loader(),
           ]
         );
       }
