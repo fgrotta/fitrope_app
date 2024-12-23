@@ -22,8 +22,10 @@ Future<List<Course>> getAllCourses() async {
   List<Course> courses = [];
 
   for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-    Course course = Course.fromJson(doc.data() as Map<String, dynamic>);
-    courses.add(course);
+    if((doc.data() as Map<String, dynamic>)['id'] != null) {
+      Course course = Course.fromJson(doc.data() as Map<String, dynamic>);
+      courses.add(course);
+    }
   }
 
   return courses;
