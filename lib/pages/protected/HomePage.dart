@@ -92,6 +92,13 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
+    if(render.isEmpty) {
+      return [
+        const SizedBox(height: 10,),
+        const Text('Nessun corso disponibile', style: TextStyle(color: ghostColor),)
+      ];
+    }
+
     return render;
   }
   
