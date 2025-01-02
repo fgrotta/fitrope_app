@@ -11,11 +11,11 @@ Future<void> createCoursesSet() async {
   );
 
   List<Future<void>> courses = [
-    createCourse(Course(gymId: 1, name: 'Corso 1', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
-    createCourse(Course(gymId: 1, name: 'Corso 2', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
-    createCourse(Course(gymId: 1, name: 'Corso 3', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
-    createCourse(Course(gymId: 1, name: 'Corso 4', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
-    createCourse(Course(gymId: 1, name: 'Corso 5', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
+    createCourse(Course(name: 'Corso 1', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
+    createCourse(Course(name: 'Corso 2', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
+    createCourse(Course(name: 'Corso 3', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
+    createCourse(Course(name: 'Corso 4', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
+    createCourse(Course(name: 'Corso 5', startDate: oneDayLater, endDate: oneDayLater, id: randomId(), capacity: 20, subscribed: 5)),
   ];
 
   await Future.wait(courses);
