@@ -130,6 +130,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       initialDate: DateTime.now(), 
                       firstDate: firstDate, 
                       lastDate: lastDate,
+                      filledDays: courses.map((Course course) => course.startDate.toDate()).toList()
                     ),
                   ),
                   Padding(
