@@ -1,5 +1,7 @@
+import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
+import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -25,7 +27,16 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     user = store.state.user!;
-    allCourses = store.state.allCourses;
+
+    getAllCourses().then((List<Course> response) {
+      setState(() {
+        if(mounted) {
+          allCourses = response;
+          store.dispatch(SetAllCoursesAction(response));
+        }
+      });
+    });
+    
     super.initState();
   }
 
