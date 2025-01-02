@@ -31,7 +31,12 @@ class _WelcomePageState extends State<WelcomePage> {
             Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Fit House Monza', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),),
+                const Column(
+                  children: [
+                    Text('Fit House Monza', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),),
+                    Image(image: AssetImage('assets/Logo.png'), width: 200,),
+                  ],
+                ),
                 Column(
                   children: [
                     SizedBox(
