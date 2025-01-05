@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
+import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 
 FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -35,12 +36,19 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
 
       List<dynamic> userCourses = userSnapshot['courses'] ?? [];
 
+      DateTime endDate = store.state.allCourses.where((Course course) => course.id == courseId).first.endDate.toDate();
+
+      Duration difference = endDate.difference(DateTime.now());
+
+      int hoursDifference = difference.inHours;
+
+
       if (userCourses.contains(courseId)) {
         userCourses.remove(courseId);
 
         transaction.update(userRef, {
           'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] + 1
+          'entrateDisponibili': userSnapshot['entrateDisponibili'] + (hoursDifference > 12 ? 1 : 0)
         });
       }
     } else {

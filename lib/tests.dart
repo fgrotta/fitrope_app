@@ -7,7 +7,7 @@ void tests() async {
   Timestamp now = Timestamp.now();
 
   Timestamp oneDayLater = Timestamp.fromMillisecondsSinceEpoch(
-    now.millisecondsSinceEpoch + const Duration(days: 3).inMilliseconds,
+    now.millisecondsSinceEpoch + const Duration(days: 1).inMilliseconds,
   );
 
   // cleanCourses();
