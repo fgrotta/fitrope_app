@@ -64,6 +64,13 @@ CourseState getCourseState(Course course, FitropeUser user) {
       return CourseState.NULL;
     }
 
+    if(
+      user.fineIscrizione != null && 
+      today > user.fineIscrizione!.toDate().millisecondsSinceEpoch
+    ) {
+      return CourseState.NULL;
+    }
+
     return CourseState.CAN_SUBSCRIBE;
   }
 

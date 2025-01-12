@@ -60,6 +60,18 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    bool isExpired = false;
+    int today = DateTime.now().millisecondsSinceEpoch;
+
+    if(
+      (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
+      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE) &&
+      user.fineIscrizione != null && 
+      today > user.fineIscrizione!.toDate().millisecondsSinceEpoch
+    ) {
+      isExpired = true;
+    }
+
     return Column(
       children: [
         Container(
@@ -67,7 +79,7 @@ class _HomePageState extends State<HomePage> {
           width: double.infinity,
           child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
         ),
-        CustomCard(title: getTipologiaIscrizioneTitle(user.tipologiaIscrizione!), description: getTipologiaIscrizioneDescription(user),),
+        CustomCard(title: getTipologiaIscrizioneTitle(user.tipologiaIscrizione!, isExpired), description: getTipologiaIscrizioneDescription(user),),
         const SizedBox(height: 30,),
       ],
     );
