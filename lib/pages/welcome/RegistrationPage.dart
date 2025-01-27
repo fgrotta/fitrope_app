@@ -29,6 +29,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
   String? confirmPasswordError;
   String? nameError;
   String? lastNameError;
+  String? registrationError;
+
+  bool validatingEmail = false;
 
   @override
   void initState() {
@@ -81,6 +84,35 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   @override
   Widget build(BuildContext context) {
+    if(validatingEmail) {
+      return Scaffold(
+        backgroundColor: primaryColor,
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Center(
+              child: Column(
+                children: [
+                  const Icon(Icons.email, size: 60, color: Colors.blueAccent,),
+                  const SizedBox(height: 30,),
+                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: Colors.white)),
+                  const SizedBox(height: 30,),
+                  ElevatedButton(
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.all(Colors.blueAccent)
+                    ),
+                    onPressed: () {
+                      Navigator.pushNamed(context, LOGIN_ROUTE);
+                    }, child: const Text("Login", style: TextStyle(color: Colors.white),)
+                  )
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -134,6 +166,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   const SizedBox(height: 20,),
                 ],
               ),
+              Text(registrationError ?? '', style: const TextStyle(color: dangerColor),),
+              const SizedBox(height: 10,),
               SizedBox(
                 width: MediaQuery.of(context).size.width - pagePadding * 2,
                 child: ElevatedButton(
@@ -155,16 +189,23 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       return;
                     }
 
-
                     registerWithEmailPassword(
                       _emailController.text,
                       _passwordController.text,
                       _nameController.text,
                       _lastNameController.text
-                    ).then((FitropeUser? user) {
-                      if(user != null) {
-                        store.dispatch(SetUserAction(user));
-                        Navigator.pushNamed(context, PROTECTED_ROUTE);
+                    ).then((SignUpResponse? response) {
+                      if(response != null && response.user != null) {
+                        store.dispatch(SetUserAction(response.user!));
+
+                        setState(() {
+                          validatingEmail = true;
+                        });
+                      }
+                      else {
+                        setState(() {
+                          registrationError = response!.error;
+                        });
                       }
                     });
                   },

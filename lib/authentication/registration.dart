@@ -4,7 +4,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 
-Future<FitropeUser?> registerWithEmailPassword(String email, String password, String name, String lastName) async {
+class SignUpResponse {
+  final FitropeUser? user;
+  final String? error;
+
+  SignUpResponse({
+    this.user,
+    this.error,
+  });
+}
+
+Future<SignUpResponse> registerWithEmailPassword(String email, String password, String name, String lastName) async {
   try {
     UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
       email: email,
@@ -23,31 +33,44 @@ Future<FitropeUser?> registerWithEmailPassword(String email, String password, St
       'tipologiaIscrizione': null,
       'entrateDisponibili': 0,
       'entrateSettimanali': 0,
-      'fineIscrizione': null
+      'fineIscrizione': null,
     });
+
+    await userCredential.user!.sendEmailVerification();
+    print("Email di verifica inviata a $email");
 
     Map<String, dynamic>? userData = await getUserData(uid);
 
-    if(userData != null) {
-      return FitropeUser.fromJson(userData);
+    if (userData != null) {
+      return SignUpResponse(
+        user: FitropeUser.fromJson(userData),
+      );
     }
 
     print("User registered: ${userCredential.user!.email}");
   } 
   on FirebaseAuthException catch (e) {
     if (e.code == 'weak-password') {
-      print('The password provided is too weak.');
+      return SignUpResponse(
+        error: 'The password is too weak'
+      );
     } 
     else if (e.code == 'email-already-in-use') {
-      print('The account already exists for that email.');
+      return SignUpResponse(
+        error: 'The account already exists for that email.'
+      );
     } 
     else {
-      print(e.message);
+      return SignUpResponse(
+        error: e.message
+      );
     }
   } 
   catch (e) {
     print(e);
   }
   
-  return null;
+  return SignUpResponse(
+    error: 'Error'
+  );
 }

@@ -11,7 +11,7 @@ class SignInResponse {
 
   SignInResponse({
     this.user,
-    required this.error
+    required this.error,
   });
 }
 
@@ -23,33 +23,37 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
       password: password,
     );
 
-    print("User signed in: ${userCredential.user!.email}");
+    User? user = userCredential.user;
 
-    if(userCredential.user != null) {
-      String uid = userCredential.user!.uid;
+    if (user != null) {
+      if (!user.emailVerified) {
+        store.dispatch(FinishLoadingAction());
+        print('Email non verificata.');
+        return SignInResponse(error: "Email non verificata. Controlla la tua casella di posta per il link di verifica.");
+      }
+
+      print("User signed in: ${user.email}");
+
+      String uid = user.uid;
       Map<String, dynamic>? userData = await getUserData(uid);
 
       store.dispatch(FinishLoadingAction());
 
-      if(userData != null) {
+      if (userData != null) {
         return SignInResponse(user: FitropeUser.fromJson(userData), error: "");
       }
 
       return SignInResponse(error: "Email o password sbagliati");
     }
-  } 
-  on FirebaseAuthException catch (e) {
+  } on FirebaseAuthException catch (e) {
     if (e.code == 'user-not-found') {
       print('No user found for that email.');
-    } 
-    else if (e.code == 'wrong-password') {
+    } else if (e.code == 'wrong-password') {
       print('Wrong password provided.');
-    } 
-    else {
+    } else {
       print(e.message);
     }
-  } 
-  catch (e) {
+  } catch (e) {
     print(e);
   }
 
