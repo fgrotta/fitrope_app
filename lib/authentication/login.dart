@@ -8,10 +8,12 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 class SignInResponse {
   final FitropeUser? user;
   final String error;
+  final bool emailNotVerified;
 
   SignInResponse({
     this.user,
     required this.error,
+    this.emailNotVerified=false,
   });
 }
 
@@ -29,7 +31,7 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
       if (!user.emailVerified) {
         store.dispatch(FinishLoadingAction());
         print('Email non verificata.');
-        return SignInResponse(error: "Email non verificata. Controlla la tua casella di posta per il link di verifica.");
+        return SignInResponse(error: "Email non verificata. Controlla la tua casella di posta per il link di verifica.", emailNotVerified: true);
       }
 
       print("User signed in: ${user.email}");

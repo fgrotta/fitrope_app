@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
+import 'package:fitrope_app/authentication/resendVerificationEmail.dart';
 import 'package:fitrope_app/components/custom_text_field.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/router.dart';
@@ -24,6 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   String? loginError;
+  bool emailNotVerified = false;
 
   @override
   void initState() {
@@ -51,6 +53,10 @@ class _LoginPageState extends State<LoginPage> {
     else {
       setState(() {
         loginError = signInResponse.error;
+
+        if(signInResponse.emailNotVerified) {
+          emailNotVerified = true;
+        }
       });
     }
   }
@@ -85,7 +91,17 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 10,),
                         CustomTextField(controller: _passwordController, hintText: 'Enter your password', obscureText: true,),
                         const SizedBox(height: 10,),
-                        if(loginError != null) Text(loginError!, style: const TextStyle(color: dangerColor),) 
+                        if(loginError != null) Text(loginError!, style: const TextStyle(color: dangerColor),),
+                        const SizedBox(height: 10,),
+                        if(emailNotVerified) ElevatedButton(
+                          style: ButtonStyle(
+                            backgroundColor: WidgetStateProperty.all(Colors.blueAccent)
+                          ),
+                          onPressed: () {
+                            resendVerificationEmail();
+                          }, 
+                          child: const Text('Invia di nuovo email', style: TextStyle(color: Colors.white),),
+                        )
                       ],
                     ),
                     SizedBox(
