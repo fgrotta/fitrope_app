@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 bool isLogged() {
   User? user = FirebaseAuth.instance.currentUser;
-  return user != null;
+  return user != null && user.emailVerified;
 }
 
 void loggedRedirect(BuildContext context) {
