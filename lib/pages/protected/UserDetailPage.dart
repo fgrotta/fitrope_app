@@ -1,3 +1,4 @@
+import 'package:fitrope_app/authentication/deleteUser.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/components/custom_text_field.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -69,6 +70,43 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 )
               ), 
               child: const Text('Logout', style: TextStyle(color: Colors.white),)
+            ),
+
+            const SizedBox(height: 20,),
+            ElevatedButton(
+              onPressed: () {
+                showDialog(context: context, builder:(context) => AlertDialog(
+                  backgroundColor: primaryColor,
+                  title: const Text('Elimina Account', style: TextStyle(color: Colors.white),),
+                  content: const Text('Sei sicuro di voler eliminare il tuo account?', style: TextStyle(color: Colors.white),),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      }, 
+                      child: const Text('Annulla', style: TextStyle(color: Colors.white),),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        deleteUser().then((_) {
+                          logoutRedirect(context);
+                        });
+                      }, 
+                      child: const Text('Elimina', style: TextStyle(color: Colors.white),),
+                    )
+                  ],
+                ));
+              },
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.all(const Color.fromARGB(255, 230, 34, 34)),
+                padding: WidgetStateProperty.all(const EdgeInsets.only(top: 0, left: 10, right: 10, bottom: 0)),
+                shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  )
+                )
+              ), 
+              child: const Text('Elimina Account', style: TextStyle(color: Colors.white),)
             )
           ],
         ),
