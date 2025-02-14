@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:30076380522:android:c191e009acd5a8d5527113",
+        "android_client_info": {
+          "package_name": "com.FitHouseMonza.FitRope"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCP08HValdX6C44no-4WdgYtWFuOGpq2Gw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:30076380522:android:8750e72642dc627c527113",
         "android_client_info": {
           "package_name": "com.fitrope.FitRope"

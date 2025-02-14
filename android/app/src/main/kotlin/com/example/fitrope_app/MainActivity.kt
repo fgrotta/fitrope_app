@@ -1,4 +1,4 @@
-package com.fitrope.FitRope
+package com.FitHouseMonza.FitRope
 
 import io.flutter.embedding.android.FlutterActivity
 
