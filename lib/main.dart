@@ -1,7 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/tests.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'firebase_options.dart';
@@ -12,9 +11,11 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(
-    StoreProvider(
-      store: store,
-      child: const MyApp()
+    SafeArea(
+      child: StoreProvider(
+        store: store,
+        child: const MyApp()
+      ),
     )
   );
 
