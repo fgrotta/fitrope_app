@@ -7,8 +7,9 @@ class Course {
   final Timestamp endDate;
   final int capacity;
   final int subscribed;
+  final List<String> subscribers;
 
-  const Course({ required this.name, required this.startDate, required this.endDate, required this.id, required this.capacity, required this.subscribed });
+  const Course({ required this.name, required this.startDate, required this.endDate, required this.id, required this.capacity, required this.subscribed, this.subscribers = const [] });
 
   factory Course.fromJson(Map<String, dynamic> json) {
     return Course(
@@ -17,7 +18,8 @@ class Course {
       startDate: json['startDate'] as Timestamp,
       endDate: json['endDate'] as Timestamp,
       capacity: json['capacity'] as int,
-      subscribed: json['subscribed'] as int
+      subscribed: json['subscribed'] as int,
+      subscribers: (json['subscribers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
     );
   }
 
@@ -28,7 +30,8 @@ class Course {
       'startDate': startDate,
       'endDate': endDate,
       'capacity': capacity,
-      'subscribed': subscribed
+      'subscribed': subscribed,
+      'subscribers': subscribers,
     };
   }
 }

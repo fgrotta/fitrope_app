@@ -12,6 +12,7 @@ import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -85,6 +86,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<List<String>> getSubscriberNames(List<String> userIds) async {
+    if (userIds.isEmpty) return [];
+    var usersCollection = FirebaseFirestore.instance.collection('users');
+    var snapshots = await usersCollection.where('uid', whereIn: userIds).get();
+    return snapshots.docs.map((doc) => "${doc['name']} ${doc['lastName']}").toList();
+  }
+
   List<Widget> renderCourses() {
     if(user.courses.isEmpty) {
       return [
@@ -102,14 +110,27 @@ class _HomePageState extends State<HomePage> {
         DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
 
         render.add(
-          Container(
-            margin: const EdgeInsets.only(bottom: 10), 
-            child: CourseCard(
-              title: course.name, 
-              description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}",
-              capacity: course.capacity,
-              subscribed: course.subscribed,
-            )
+          FutureBuilder<List<String>>(
+            future: getSubscriberNames(course.subscribers),
+            builder: (context, snapshot) {
+              String iscritti = "";
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                iscritti = "Caricamento iscritti...";
+              } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                iscritti = "Iscritti: " + snapshot.data!.join(", ");
+              } else {
+                iscritti = "Nessun iscritto";
+              }
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10), 
+                child: CourseCard(
+                  title: course.name, 
+                  description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}\n$iscritti",
+                  capacity: course.capacity,
+                  subscribed: course.subscribed,
+                )
+              );
+            },
           )
         );
       }

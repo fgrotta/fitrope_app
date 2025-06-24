@@ -26,8 +26,13 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
     int subscribed = courseSnapshot['subscribed'];
 
     if (subscribed > 0) {
+      List<dynamic> subscribers = courseSnapshot['subscribers'] ?? [];
+      if (subscribers.contains(userId)) {
+        subscribers.remove(userId);
+      }
       transaction.update(courseRef, {
         'subscribed': subscribed - 1,
+        'subscribers': subscribers,
       });
 
       DocumentReference userRef = firestore.collection('users').doc(userId);

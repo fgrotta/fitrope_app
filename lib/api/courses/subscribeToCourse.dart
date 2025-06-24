@@ -26,8 +26,13 @@ Future<void> subscribeToCourse(String courseId, String userId) async {
     int capacity = courseSnapshot['capacity'];
 
     if (subscribed < capacity) {
+      List<dynamic> subscribers = courseSnapshot['subscribers'] ?? [];
+      if (!subscribers.contains(userId)) {
+        subscribers.add(userId);
+      }
       transaction.update(courseRef, {
         'subscribed': subscribed + 1,
+        'subscribers': subscribers,
       });
 
       DocumentReference userRef = firestore.collection('users').doc(userId);

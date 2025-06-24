@@ -14,6 +14,7 @@ import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/calendar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -87,6 +88,13 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
+  Future<List<String>> getSubscriberNames(List<String> userIds) async {
+    if (userIds.isEmpty) return [];
+    var usersCollection = FirebaseFirestore.instance.collection('users');
+    var snapshots = await usersCollection.where('uid', whereIn: userIds).get();
+    return snapshots.docs.map((doc) => "${doc['name']} ${doc['lastName']}").toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, AppState>(
@@ -137,25 +145,37 @@ class _CalendarPageState extends State<CalendarPage> {
                     padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
                     child: Column(
                       children: selectedCourses.isNotEmpty ? selectedCourses.map(
-                        (Course course) => Container(
-                          margin: const EdgeInsets.only(bottom: 10), 
-                          child: CourseCard(
-                            title: course.name, 
-                            description: getCourseTimeRange(course),
-                            courseState: getCourseState(course, user),
-                            onClickAction: () {
-                              CourseState courseState = getCourseState(course, user);
-                              
-                              if(courseState == CourseState.SUBSCRIBED) {
-                                onUnsubscribe(course);
-                              }
-                              else {
-                                onSubscribe(course);
-                              }              
-                            },
-                            capacity: course.capacity,
-                            subscribed: course.subscribed,
-                          )
+                        (Course course) => FutureBuilder<List<String>>(
+                          future: getSubscriberNames(course.subscribers),
+                          builder: (context, snapshot) {
+                            String iscritti = "";
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              iscritti = "Caricamento iscritti...";
+                            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                              iscritti = "Iscritti: " + snapshot.data!.join(", ");
+                            } else {
+                              iscritti = "Nessun iscritto";
+                            }
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10), 
+                              child: CourseCard(
+                                title: course.name, 
+                                description: getCourseTimeRange(course) + "\n" + iscritti,
+                                courseState: getCourseState(course, user),
+                                onClickAction: () {
+                                  CourseState courseState = getCourseState(course, user);
+                                  if(courseState == CourseState.SUBSCRIBED) {
+                                    onUnsubscribe(course);
+                                  }
+                                  else {
+                                    onSubscribe(course);
+                                  }              
+                                },
+                                capacity: course.capacity,
+                                subscribed: course.subscribed,
+                              )
+                            );
+                          },
                         )
                       ).toList() : [
                         const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: ghostColor),)

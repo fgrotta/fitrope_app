@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
 import 'package:fitrope_app/authentication/resendVerificationEmail.dart';
+import 'package:fitrope_app/authentication/resetPassword.dart';
 import 'package:fitrope_app/components/custom_text_field.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/router.dart';
@@ -61,6 +62,45 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void showResetPasswordDialog() {
+    final TextEditingController emailController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Reset password'),
+          content: TextField(
+            controller: emailController,
+            decoration: const InputDecoration(hintText: 'Inserisci la tua email'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annulla'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await resetPassword(emailController.text);
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Email di reset inviata!')),
+                  );
+                } catch (e) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Errore durante l\'invio')), 
+                  );
+                }
+              },
+              child: const Text('Invia'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, bool>(
@@ -101,7 +141,12 @@ class _LoginPageState extends State<LoginPage> {
                             resendVerificationEmail();
                           }, 
                           child: const Text('Invia di nuovo email', style: TextStyle(color: Colors.white),),
-                        )
+                        ),
+                        const SizedBox(height: 10,),
+                        GestureDetector(
+                          onTap: showResetPasswordDialog,
+                          child: const Text('Password dimenticata?', style: TextStyle(color: Colors.blueAccent, decoration: TextDecoration.underline)),
+                        ),
                       ],
                     ),
                     SizedBox(
