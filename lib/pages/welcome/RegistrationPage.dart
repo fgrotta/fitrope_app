@@ -9,6 +9,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -30,8 +31,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
   String? nameError;
   String? lastNameError;
   String? registrationError;
+  String? privacyError;
 
   bool validatingEmail = false;
+  bool privacyAccepted = false;
 
   @override
   void initState() {
@@ -164,9 +167,45 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   Text(lastNameError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: privacyAccepted,
+                        onChanged: (value) {
+                          setState(() {
+                            privacyAccepted = value ?? false;
+                          });
+                        },
+                      ),
+                      const Text('Accetto la '),
+                      GestureDetector(
+                        onTap: () async {
+                          final url = Uri.parse('https://www.google.it');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: const Text(
+                          'Privacy Policy',
+                          style: TextStyle(
+                            color: Colors.blueAccent,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               Text(registrationError ?? '', style: const TextStyle(color: dangerColor),),
+              if (privacyError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    privacyError!,
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                ),
               const SizedBox(height: 10,),
               SizedBox(
                 width: MediaQuery.of(context).size.width - pagePadding * 2,
@@ -177,14 +216,20 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       validateLastName();
                       validateEmail();
                       validatePassword();
+                      if (!privacyAccepted) {
+                        privacyError = 'Devi accettare la privacy policy';
+                      } else {
+                        privacyError = null;
+                      }
                     });
 
-                    if(
+                    if (
                       nameError != null ||
                       lastNameError != null ||
-                      emailError != null || 
-                      passwordError != null || 
-                      confirmPasswordError != null
+                      emailError != null ||
+                      passwordError != null ||
+                      confirmPasswordError != null ||
+                      !privacyAccepted
                     ) {
                       return;
                     }
@@ -195,14 +240,13 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       _nameController.text,
                       _lastNameController.text
                     ).then((SignUpResponse? response) {
-                      if(response != null && response.user != null) {
+                      if (response != null && response.user != null) {
                         store.dispatch(SetUserAction(response.user!));
 
                         setState(() {
                           validatingEmail = true;
                         });
-                      }
-                      else {
+                      } else {
                         setState(() {
                           registrationError = response!.error;
                         });
