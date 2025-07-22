@@ -34,6 +34,7 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
       'entrateDisponibili': 0,
       'entrateSettimanali': 0,
       'fineIscrizione': null,
+      'ruolo': 'User',
     });
 
     await userCredential.user!.sendEmailVerification();

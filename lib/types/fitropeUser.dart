@@ -9,6 +9,7 @@ class FitropeUser {
   final int? entrateDisponibili;
   final int? entrateSettimanali;
   final Timestamp? fineIscrizione;
+  final String ruolo;
 
   const FitropeUser({
     required this.name, 
@@ -18,7 +19,8 @@ class FitropeUser {
     this.tipologiaIscrizione, 
     this.entrateDisponibili,
     this.entrateSettimanali,
-    this.fineIscrizione
+    this.fineIscrizione,
+    required this.ruolo,
   });
 
   Map<String, dynamic> toJson() {
@@ -31,6 +33,7 @@ class FitropeUser {
       'entrateDisponibili': entrateDisponibili,
       'entrateSettimanali': entrateSettimanali,
       'fineIscrizione': fineIscrizione,
+      'ruolo': ruolo,
     };
   }
 
@@ -48,6 +51,7 @@ class FitropeUser {
       entrateDisponibili: json['entrateDisponibili'] as int?,
       entrateSettimanali: json['entrateSettimanali'] as int?,
       fineIscrizione: json['fineIscrizione'] as Timestamp?,
+      ruolo: json['ruolo'] ?? 'User',
     );
   }
 }
