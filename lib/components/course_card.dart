@@ -10,6 +10,7 @@ enum CourseState {
 }
 
 class CourseCard extends StatefulWidget {
+  final String courseId;
   final String title;
   final TextStyle? titleStyle;
   final String description;
@@ -21,9 +22,12 @@ class CourseCard extends StatefulWidget {
   final int? subscribed;
   final List<String>? subscribersNames;
   final VoidCallback? onDuplicate;
+  final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
   final bool isAdmin;
 
   const CourseCard({
+    required this.courseId,
     super.key, 
     required this.title,
     this.courseState=CourseState.NULL,
@@ -36,6 +40,8 @@ class CourseCard extends StatefulWidget {
     this.subscribed,
     this.subscribersNames,
     this.onDuplicate,
+    this.onDelete,
+    this.onEdit,
     this.isAdmin = false,
   });
 
@@ -62,6 +68,31 @@ class _CourseCardState extends State<CourseCard> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Chiudi'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Elimina Corso'),
+        content: Text('Sei sicuro di voler eliminare il corso "${widget.title}"?\n\nQuesta azione eliminerà anche tutte le iscrizioni al corso.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annulla'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              if (widget.onDelete != null) {
+                widget.onDelete!();
+              }
+            },
+            child: const Text('Elimina', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -171,14 +202,29 @@ class _CourseCardState extends State<CourseCard> {
                 ),
                 const SizedBox(height: 10,),
                 if(widget.courseState != CourseState.NULL) renderButton(),
-                if(widget.isAdmin && widget.onDuplicate != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.blue),
-                      tooltip: 'Duplica corso',
-                      onPressed: widget.onDuplicate,
-                    ),
+                if(widget.isAdmin)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if(widget.onEdit != null)
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.orange),
+                          tooltip: 'Modifica corso',
+                          onPressed: widget.onEdit,
+                        ),
+                      if(widget.onDuplicate != null)
+                        IconButton(
+                          icon: const Icon(Icons.copy, color: Colors.blue),
+                          tooltip: 'Duplica corso',
+                          onPressed: widget.onDuplicate,
+                        ),
+                      if(widget.onDelete != null)
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          tooltip: 'Elimina corso',
+                          onPressed: showDeleteConfirmationDialog,
+                        ),
+                    ],
                   ),
               ],
             )

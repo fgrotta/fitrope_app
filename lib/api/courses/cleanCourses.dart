@@ -6,9 +6,9 @@ Future<void> cleanCourses() async {
 
     QuerySnapshot snapshot = await coursesRef.get();
 
-    for (QueryDocumentSnapshot doc in snapshot.docs) {
-      await doc.reference.delete();
-    }
+    // for (QueryDocumentSnapshot doc in snapshot.docs) {
+    //   await doc.reference.delete();
+    // }
 
     await coursesRef.doc('placeholder').set({'info': 'This is a placeholder document'});
 

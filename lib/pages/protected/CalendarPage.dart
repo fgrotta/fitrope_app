@@ -2,6 +2,8 @@ import 'package:fitrope_app/api/courses/UnsubscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/createCourse.dart';
+import 'package:fitrope_app/api/courses/deleteCourse.dart';
+import 'package:fitrope_app/api/courses/updateCourse.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -79,6 +81,9 @@ class _CalendarPageState extends State<CalendarPage> {
     String indexDate = DateFormat(pattern).format(selectedDate);
     if (coursesByDate[indexDate]!=null){
       selectedCourses = coursesByDate[indexDate]!;
+      for(Course course in selectedCourses) {
+        print(course.id);
+      }
     } 
 
     setState(() { });
@@ -372,6 +377,139 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  void showEditCourseDialog(Course course) {
+    final nameController = TextEditingController(text: course.name);
+    final capacityController = TextEditingController(text: course.capacity.toString());
+    DateTime? startDate = course.startDate.toDate();
+    String? errorMsg;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Modifica Corso'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Nome corso'),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Text('Data: '),
+                        Text(startDate != null ? DateFormat('dd/MM/yyyy').format(startDate!) : 'Non selezionata'),
+                        IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialEntryMode: DatePickerEntryMode.calendar,
+                              initialDate: startDate ?? DateTime.now(),
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime(DateTime.now().year + 1),
+                            );
+                            if (picked != null) {
+                              setStateDialog(() {
+                                startDate = DateTime(picked.year, picked.month, picked.day, startDate?.hour ?? defaultTimeOfDay.hour, startDate?.minute ?? defaultTimeOfDay.minute);
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Ora: '),
+                        Text(startDate != null ? DateFormat('HH:mm').format(startDate!) : 'Non selezionata'),
+                        IconButton(
+                          icon: const Icon(Icons.access_time),
+                          onPressed: () async {
+                            final pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: startDate != null ? TimeOfDay.fromDateTime(startDate!) : defaultTimeOfDay,
+                              builder: (context, child) {
+                                return MediaQuery(
+                                  data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (pickedTime != null) {
+                              setStateDialog(() {
+                                startDate = DateTime(startDate?.year ?? currentDate.year, startDate?.month ?? currentDate.month, startDate?.day ?? currentDate.day, pickedTime.hour, pickedTime.minute);
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: capacityController,
+                      decoration: const InputDecoration(labelText: 'Numero massimo partecipanti'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    if (errorMsg != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(errorMsg!, style: const TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annulla'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    final capacity = int.tryParse(capacityController.text.trim()) ?? 0;
+                    
+                    if (name.isEmpty || startDate == null || capacity <= 0) {
+                      setStateDialog(() { errorMsg = 'Compila tutti i campi correttamente'; });
+                      return;
+                    }
+                    
+                    // Calcola la durata dal corso originale
+                    final duration = course.endDate.toDate().difference(course.startDate.toDate()).inHours;
+                    final endDate = startDate!.add(Duration(hours: duration));
+                    
+                    final updatedCourse = Course(
+                      id: course.id,
+                      name: name,
+                      startDate: Timestamp.fromDate(startDate!),
+                      endDate: Timestamp.fromDate(endDate),
+                      capacity: capacity,
+                      subscribed: course.subscribed,
+                      subscribers: course.subscribers,
+                    );
+                    
+                    await updateCourse(updatedCourse);
+                    Navigator.pop(context);
+                    updateCourses();
+                  },
+                  child: const Text('Salva'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void deleteCourseAndUpdate(Course course) async {
+    await deleteCourse(course.id);
+    updateCourses();
+  }
+
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, AppState>(
@@ -439,6 +577,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 10), 
                                   child: CourseCard(
+                                    courseId: course.id,
                                     title: course.name, 
                                     description: getCourseTimeRange(course) + "\n" + iscritti,
                                     courseState: getCourseState(course, user),
@@ -456,6 +595,8 @@ class _CalendarPageState extends State<CalendarPage> {
                                     subscribersNames: names,
                                     isAdmin: user.role == 'Admin',
                                     onDuplicate: () => showDuplicateCourseDialog(course),
+                                    onDelete: () => deleteCourseAndUpdate(course),
+                                    onEdit: () => showEditCourseDialog(course),
                                   )
                                 );
                               },

@@ -1,5 +1,4 @@
 // ignore_for_file: use_build_context_synchronously
-import 'dart:math';
 
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/login.dart';
@@ -23,8 +22,8 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController(text: 'grotta.francesco+admin@gmail.com');
+  final TextEditingController _passwordController = TextEditingController(text: 'grotta.francesco+admin@gmail.com');
   String? loginError;
   bool emailNotVerified = false;
 
