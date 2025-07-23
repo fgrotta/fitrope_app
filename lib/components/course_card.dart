@@ -19,6 +19,7 @@ class CourseCard extends StatefulWidget {
   final CourseState courseState;
   final int? capacity;
   final int? subscribed;
+  final List<String>? subscribersNames;
 
   const CourseCard({
     super.key, 
@@ -30,7 +31,8 @@ class CourseCard extends StatefulWidget {
     this.onClick,
     this.onClickAction,
     this.capacity,
-    this.subscribed
+    this.subscribed,
+    this.subscribersNames,
   });
 
   @override
@@ -38,6 +40,30 @@ class CourseCard extends StatefulWidget {
 }
 
 class _CourseCardState extends State<CourseCard> {
+  void showSubscribersDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Iscritti al corso'),
+        content: widget.subscribersNames == null || widget.subscribersNames!.isEmpty
+          ? const Text('Nessun iscritto')
+          : SizedBox(
+              width: 300,
+              child: ListView(
+                shrinkWrap: true,
+                children: widget.subscribersNames!.map((name) => ListTile(title: Text(name))).toList(),
+              ),
+            ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Chiudi'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget renderTitle() {
     if(widget.titleStyle != null) {
       return Text(widget.title, overflow: TextOverflow.visible, style: widget.titleStyle,);
@@ -117,6 +143,12 @@ class _CourseCardState extends State<CourseCard> {
                 Row(
                   children: [
                     renderTitle(),
+                    if(widget.subscribersNames != null && widget.subscribersNames!.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.people),
+                        tooltip: 'Vedi iscritti',
+                        onPressed: showSubscribersDialog,
+                      ),
                   ],
                 ),
                 if(widget.description != "") const SizedBox(height: 10,),

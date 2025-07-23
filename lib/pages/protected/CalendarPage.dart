@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/calendar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -25,11 +26,14 @@ class CalendarPage extends StatefulWidget {
 
 class _CalendarPageState extends State<CalendarPage> {
   DateTime firstDate = DateTime(DateTime.now().year);
-  DateTime lastDate = DateTime(DateTime.now().year + 2);
+  DateTime lastDate = DateTime(DateTime.now().year + 1);
   List<Course> courses = [];
+  Map<String, List<Course>> coursesByDate = {};
   List<Course> selectedCourses = [];
   late FitropeUser user;
   late DateTime currentDate;
+  var pattern = "yyyy-MM-dd";
+
 
   @override
   void initState() {
@@ -38,6 +42,14 @@ class _CalendarPageState extends State<CalendarPage> {
     getAllCourses().then((List<Course> response) {
       setState(() {
         courses = response;
+        for(Course course in courses) {
+          DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
+          String indexDate = DateFormat(pattern).format(courseDate);
+          if(!coursesByDate.containsKey(indexDate)) {
+            coursesByDate[indexDate] = [];
+          }
+          coursesByDate[indexDate]!.add(course);
+        }
         onSelectDate(DateTime.now());
       });
     });
@@ -59,13 +71,10 @@ class _CalendarPageState extends State<CalendarPage> {
   void onSelectDate(DateTime selectedDate) {
     currentDate = selectedDate;
     selectedCourses = [];
-
-    for(int n=0;n<courses.length;n++) {
-      DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courses[n].startDate.millisecondsSinceEpoch);
-      if(selectedDate.year == courseDate.year && selectedDate.month == courseDate.month && selectedDate.day == courseDate.day) {
-        selectedCourses.add(courses[n]);
-      }
-    }
+    String indexDate = DateFormat(pattern).format(selectedDate);
+    if (coursesByDate[indexDate]!=null){
+      selectedCourses = coursesByDate[indexDate]!;
+    } 
 
     setState(() { });
   }
@@ -88,10 +97,9 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  Future<List<String>> getSubscriberNames(List<String> userIds) async {
-    if (userIds.isEmpty) return [];
+  Future<List<String>> getSubscriberNames(String courseId) async {
     var usersCollection = FirebaseFirestore.instance.collection('users');
-    var snapshots = await usersCollection.where('uid', whereIn: userIds).get();
+    var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
     return snapshots.docs.map((doc) => "${doc['name']} ${doc['lastName']}").toList();
   }
 
@@ -146,13 +154,15 @@ class _CalendarPageState extends State<CalendarPage> {
                     child: Column(
                       children: selectedCourses.isNotEmpty ? selectedCourses.map(
                         (Course course) => FutureBuilder<List<String>>(
-                          future: getSubscriberNames(course.subscribers),
+                          future: getSubscriberNames(course.id),
                           builder: (context, snapshot) {
                             String iscritti = "";
+                            List<String> names = [];
                             if (snapshot.connectionState == ConnectionState.waiting) {
                               iscritti = "Caricamento iscritti...";
                             } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                               iscritti = "Iscritti: " + snapshot.data!.join(", ");
+                              names = snapshot.data!;
                             } else {
                               iscritti = "Nessun iscritto";
                             }
@@ -173,6 +183,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                 },
                                 capacity: course.capacity,
                                 subscribed: course.subscribed,
+                                subscribersNames: names,
                               )
                             );
                           },
