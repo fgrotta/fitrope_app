@@ -46,7 +46,7 @@ class _CalendarPageState extends State<CalendarPage> {
       setState(() {
         courses = response;
         for(Course course in courses) {
-          addCourseToMap(course);
+          updateCourseToMap(course, null);
         }
         onSelectDate(DateTime.now());
       });
@@ -54,13 +54,20 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
   }
 
-  void addCourseToMap(Course course) {
-    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
+  void updateCourseToMap(Course newCourse, Course? oldCourse ) {
+    if (oldCourse != null) {
+      removeCoruseFromMap(oldCourse);
+    }
+    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(newCourse.startDate.millisecondsSinceEpoch);
     String indexDate = DateFormat(pattern).format(courseDate);
     if(!coursesByDate.containsKey(indexDate)) {
       coursesByDate[indexDate] = [];
     }
-    coursesByDate[indexDate]!.add(course);
+    coursesByDate[indexDate]!.add(newCourse);
+  }
+
+  void removeCoruseFromMap(Course oldCourse) {
+    coursesByDate[DateFormat(pattern).format(oldCourse.startDate.toDate())]!.remove(oldCourse);
   }
 
   void updateCourses() {
@@ -81,9 +88,6 @@ class _CalendarPageState extends State<CalendarPage> {
     String indexDate = DateFormat(pattern).format(selectedDate);
     if (coursesByDate[indexDate]!=null){
       selectedCourses = coursesByDate[indexDate]!;
-      for(Course course in selectedCourses) {
-        print(course.id);
-      }
     } 
 
     setState(() { });
@@ -244,7 +248,6 @@ class _CalendarPageState extends State<CalendarPage> {
                     }
                     
                     final endDate = startDate!.add(Duration(hours: duration.toInt()));
-                    
                     if (courseToEdit != null) {
                       // Modifica corso esistente
                       final updatedCourse = Course(
@@ -260,6 +263,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       await updateCourse(updatedCourse);
                       Navigator.pop(context);
                       updateCourses();
+                      updateCourseToMap(updatedCourse, courseToEdit);
                     } else {
                       // Crea nuovo corso (creazione o duplicazione)
                       final newCourse = Course(
@@ -274,7 +278,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       await createCourse(newCourse);
                       Navigator.pop(context);
                       updateCourses();
-                      addCourseToMap(newCourse);
+                      updateCourseToMap(newCourse, null);
                     }
                   },
                   child: Text(actionButtonText),
@@ -313,6 +317,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void deleteCourseAndUpdate(Course course) async {
     await deleteCourse(course.id);
+    removeCoruseFromMap(course);
     updateCourses();
   }
 
@@ -364,7 +369,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     ),
                     
                     Padding(
-                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
+                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding),
                       child: Column(
                           children: selectedCourses.isNotEmpty ? selectedCourses.map(
                             (Course course) => FutureBuilder<List<String>>(

@@ -18,8 +18,7 @@ class Course {
       startDate: json['startDate'] as Timestamp,
       endDate: json['endDate'] as Timestamp,
       capacity: json['capacity'] as int,
-      subscribed: json['subscribed'] as int,
-      subscribers: (json['subscribers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      subscribed: json['subscribed'] as int
     );
   }
 
@@ -30,8 +29,7 @@ class Course {
       'startDate': startDate,
       'endDate': endDate,
       'capacity': capacity,
-      'subscribed': subscribed,
-      'subscribers': subscribers,
+      'subscribed': subscribed
     };
   }
 }
