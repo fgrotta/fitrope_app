@@ -110,8 +110,8 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void showCreateCourseDialog() {
     final nameController = TextEditingController();
-    final durationController = TextEditingController();
-    final capacityController = TextEditingController();
+    final durationController = TextEditingController(text: '1');
+    final capacityController = TextEditingController(text: '6');
     DateTime? startDate = currentDate;
     String? errorMsg;
 
@@ -130,37 +130,52 @@ class _CalendarPageState extends State<CalendarPage> {
                       controller: nameController,
                       decoration: const InputDecoration(labelText: 'Nome corso'),
                     ),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
-                        const Text('Data inizio: '),
-                        Text(startDate != null ? startDate.toString() : 'Non selezionata'),
+                        const Text('Data: '),
+                        Text(startDate != null ? DateFormat('dd/MM/yyyy').format(startDate!) : 'Non selezionata'),
                         IconButton(
                           icon: const Icon(Icons.calendar_today),
                           onPressed: () async {
                             final picked = await showDatePicker(
                               context: context,
                               initialEntryMode: DatePickerEntryMode.calendar,
-                              initialDate: currentDate,
+                              initialDate: DateTime(currentDate.year, currentDate.month, currentDate.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute),
                               firstDate: DateTime.now(),
                               lastDate: DateTime(DateTime.now().year + 1),
                             );
                             if (picked != null) {
-                              
-                              final pickedTime = await showTimePicker(
-                                context: context,
-                                initialTime: defaultTimeOfDay,
-                                builder: (context, child) {
-                                  return MediaQuery(
-                                    data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                                    child: child!,
-                                  );
-                                },
-                              );
-                              if (pickedTime != null) {
-                                setStateDialog(() {
-                                  startDate = DateTime(picked.year, picked.month, picked.day, pickedTime.hour, pickedTime.minute);
-                                });
-                              }
+                              setStateDialog(() {
+                                startDate = DateTime(picked.year, picked.month, picked.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute);
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Ora: '),
+                        Text(startDate != null ? DateFormat('HH:mm').format(startDate!) : 'Non selezionata'),
+                        IconButton(
+                          icon: const Icon(Icons.access_time),
+                          onPressed: () async {
+                            final pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: defaultTimeOfDay,
+                              builder: (context, child) {
+                                return MediaQuery(
+                                  data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (pickedTime != null) {
+                              setStateDialog(() {
+                                startDate = DateTime(startDate?.year ?? currentDate.year, startDate?.month ?? currentDate.month, startDate?.day ?? currentDate.day, pickedTime.hour, pickedTime.minute);
+                              });
                             }
                           },
                         ),
