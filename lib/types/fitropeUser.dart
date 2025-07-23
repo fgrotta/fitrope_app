@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FitropeUser {
   final String uid;
+  final String email;
   final String name;
   final String lastName;
   final List<String> courses;
@@ -10,22 +11,26 @@ class FitropeUser {
   final int? entrateSettimanali;
   final Timestamp? fineIscrizione;
   final String role;
+  final DateTime createdAt;
 
   const FitropeUser({
     required this.name, 
     required this.lastName, 
     required this.uid, 
+    required this.email,
     required this.courses, 
     this.tipologiaIscrizione, 
     this.entrateDisponibili,
     this.entrateSettimanali,
     this.fineIscrizione,
     required this.role,
+    required this.createdAt,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'uid': uid,
+      'email': email,
       'name': name,
       'lastName': lastName,
       'courses': courses,
@@ -34,17 +39,19 @@ class FitropeUser {
       'entrateSettimanali': entrateSettimanali,
       'fineIscrizione': fineIscrizione,
       'role': role,
+      'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
   factory FitropeUser.fromJson(Map<String, dynamic> json) {
     return FitropeUser(
       uid: json['uid'] as String,
+      email: json['email'] as String? ?? '',
       name: json['name'] as String,
       lastName: json['lastName'] as String,
-      courses: (json['courses'] as List<dynamic>)
-          .map((courseId) => courseId.toString())
-          .toList(),
+      courses: (json['courses'] as List<dynamic>?)
+          ?.map((courseId) => courseId.toString())
+          .toList() ?? [],
       tipologiaIscrizione: json['tipologiaIscrizione'] != null 
           ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == json['tipologiaIscrizione']).firstOrNull
           : null,
@@ -52,6 +59,9 @@ class FitropeUser {
       entrateSettimanali: json['entrateSettimanali'] as int?,
       fineIscrizione: json['fineIscrizione'] as Timestamp?,
       role: json['role'] ?? 'User',
+      createdAt: json['createdAt'] != null 
+          ? (json['createdAt'] as Timestamp).toDate() 
+          : DateTime.now(),
     );
   }
 }

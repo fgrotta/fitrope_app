@@ -6,6 +6,7 @@ import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/pages/protected/CalendarPage.dart';
 import 'package:fitrope_app/pages/protected/Homepage.dart';
+import 'package:fitrope_app/pages/protected/AdminUsersPage.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -80,6 +81,7 @@ class _ProtectedState extends State<Protected> {
     switch(currentIndex) {
       case 0: return const HomePage();
       case 1: return const CalendarPage();
+      case 2: return const AdminUsersPage();
       default: return const HomePage();
     }
   }
@@ -94,9 +96,11 @@ class _ProtectedState extends State<Protected> {
             Scaffold(
               backgroundColor: backgroundColor,
               bottomNavigationBar: CustomBottomNavigationBar(
-                items: const [
-                  CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
-                  CustomBottomNavigationBarItem(icon: Icons.calendar_month, label: 'Calendario'),
+                items: [
+                  const CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
+                  const CustomBottomNavigationBarItem(icon: Icons.calendar_month, label: 'Calendario'),
+                  if (user?.role == 'Admin')
+                    const CustomBottomNavigationBarItem(icon: Icons.people, label: 'Utenti'),
                 ], 
                 colors: const CustomBottomNavigationBarColors(
                   backgroundColor: primaryColor, 
