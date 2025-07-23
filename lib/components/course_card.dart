@@ -20,6 +20,8 @@ class CourseCard extends StatefulWidget {
   final int? capacity;
   final int? subscribed;
   final List<String>? subscribersNames;
+  final VoidCallback? onDuplicate;
+  final bool isAdmin;
 
   const CourseCard({
     super.key, 
@@ -33,6 +35,8 @@ class CourseCard extends StatefulWidget {
     this.capacity,
     this.subscribed,
     this.subscribersNames,
+    this.onDuplicate,
+    this.isAdmin = false,
   });
 
   @override
@@ -166,7 +170,16 @@ class _CourseCardState extends State<CourseCard> {
                   ],
                 ),
                 const SizedBox(height: 10,),
-                if(widget.courseState != CourseState.NULL) renderButton()
+                if(widget.courseState != CourseState.NULL) renderButton(),
+                if(widget.isAdmin && widget.onDuplicate != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.blue),
+                      tooltip: 'Duplica corso',
+                      onPressed: widget.onDuplicate,
+                    ),
+                  ),
               ],
             )
           ],

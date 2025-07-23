@@ -240,6 +240,138 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  void showDuplicateCourseDialog(Course originalCourse) {
+    final nameController = TextEditingController(text: originalCourse.name);
+    final durationController = TextEditingController(text: (originalCourse.endDate.toDate().difference(originalCourse.startDate.toDate()).inHours).toString());
+    final capacityController = TextEditingController(text: originalCourse.capacity.toString());
+    DateTime? startDate = currentDate;
+    String? errorMsg;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Duplica Corso'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Nome corso'),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Text('Data: '),
+                        Text(startDate != null ? DateFormat('dd/MM/yyyy').format(startDate!) : 'Non selezionata'),
+                        IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialEntryMode: DatePickerEntryMode.calendar,
+                              initialDate: DateTime(currentDate.year, currentDate.month, currentDate.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute),
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime(DateTime.now().year + 1),
+                            );
+                            if (picked != null) {
+                              setStateDialog(() {
+                                startDate = DateTime(picked.year, picked.month, picked.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute);
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Ora: '),
+                        Text(startDate != null ? DateFormat('HH:mm').format(startDate!) : 'Non selezionata'),
+                        IconButton(
+                          icon: const Icon(Icons.access_time),
+                          onPressed: () async {
+                            final pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: defaultTimeOfDay,
+                              builder: (context, child) {
+                                return MediaQuery(
+                                  data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (pickedTime != null) {
+                              setStateDialog(() {
+                                startDate = DateTime(startDate?.year ?? currentDate.year, startDate?.month ?? currentDate.month, startDate?.day ?? currentDate.day, pickedTime.hour, pickedTime.minute);
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: durationController,
+                      decoration: const InputDecoration(labelText: 'Durata (ore)'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    TextField(
+                      controller: capacityController,
+                      decoration: const InputDecoration(labelText: 'Numero massimo partecipanti'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    if (errorMsg != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(errorMsg!, style: const TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annulla'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    final duration = double.tryParse(durationController.text.trim()) ?? 0;
+                    final capacity = int.tryParse(capacityController.text.trim()) ?? 0;
+                    
+                    if (name.isEmpty || startDate == null || duration <= 0 || capacity <= 0) {
+                      setStateDialog(() { errorMsg = 'Compila tutti i campi correttamente'; });
+                      return;
+                    }
+                    
+                    final endDate = startDate!.add(Duration(hours: duration.toInt()));
+                    final course = Course(
+                      id: '',
+                      name: name,
+                      startDate: Timestamp.fromDate(startDate!),
+                      endDate: Timestamp.fromDate(endDate),
+                      capacity: capacity,
+                      subscribed: 0,
+                    );
+                    
+                    await createCourse(course);
+                    Navigator.pop(context);
+                    updateCourses();
+                    addCourseToMap(course);
+                  },
+                  child: const Text('Duplica'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, AppState>(
@@ -322,6 +454,8 @@ class _CalendarPageState extends State<CalendarPage> {
                                     capacity: course.capacity,
                                     subscribed: course.subscribed,
                                     subscribersNames: names,
+                                    isAdmin: user.role == 'Admin',
+                                    onDuplicate: () => showDuplicateCourseDialog(course),
                                   )
                                 );
                               },
