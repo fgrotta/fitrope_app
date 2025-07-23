@@ -1,6 +1,7 @@
 import 'package:fitrope_app/api/courses/UnsubscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
+import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -33,8 +34,8 @@ class _CalendarPageState extends State<CalendarPage> {
   late FitropeUser user;
   late DateTime currentDate;
   var pattern = "yyyy-MM-dd";
-
-
+  final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
+  
   @override
   void initState() {
     user = store.state.user!;
@@ -43,17 +44,21 @@ class _CalendarPageState extends State<CalendarPage> {
       setState(() {
         courses = response;
         for(Course course in courses) {
-          DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
-          String indexDate = DateFormat(pattern).format(courseDate);
-          if(!coursesByDate.containsKey(indexDate)) {
-            coursesByDate[indexDate] = [];
-          }
-          coursesByDate[indexDate]!.add(course);
+          addCourseToMap(course);
         }
         onSelectDate(DateTime.now());
       });
     });
     super.initState();
+  }
+
+  void addCourseToMap(Course course) {
+    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
+    String indexDate = DateFormat(pattern).format(courseDate);
+    if(!coursesByDate.containsKey(indexDate)) {
+      coursesByDate[indexDate] = [];
+    }
+    coursesByDate[indexDate]!.add(course);
   }
 
   void updateCourses() {
@@ -103,99 +108,225 @@ class _CalendarPageState extends State<CalendarPage> {
     return snapshots.docs.map((doc) => "${doc['name']} ${doc['lastName']}").toList();
   }
 
+  void showCreateCourseDialog() {
+    final nameController = TextEditingController();
+    final durationController = TextEditingController();
+    final capacityController = TextEditingController();
+    DateTime? startDate = currentDate;
+    String? errorMsg;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Crea Nuovo Corso'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Nome corso'),
+                    ),
+                    Row(
+                      children: [
+                        const Text('Data inizio: '),
+                        Text(startDate != null ? startDate.toString() : 'Non selezionata'),
+                        IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialEntryMode: DatePickerEntryMode.calendar,
+                              initialDate: currentDate,
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime(DateTime.now().year + 1),
+                            );
+                            if (picked != null) {
+                              
+                              final pickedTime = await showTimePicker(
+                                context: context,
+                                initialTime: defaultTimeOfDay,
+                                builder: (context, child) {
+                                  return MediaQuery(
+                                    data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (pickedTime != null) {
+                                setStateDialog(() {
+                                  startDate = DateTime(picked.year, picked.month, picked.day, pickedTime.hour, pickedTime.minute);
+                                });
+                              }
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: durationController,
+                      decoration: const InputDecoration(labelText: 'Durata (ore)'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    TextField(
+                      controller: capacityController,
+                      decoration: const InputDecoration(labelText: 'Numero massimo partecipanti'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    if (errorMsg != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(errorMsg!, style: const TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annulla'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    final duration = double.tryParse(durationController.text.trim()) ?? 0;
+                    final capacity = int.tryParse(capacityController.text.trim()) ?? 0;
+                    
+                    if (name.isEmpty || startDate == null || duration <= 0 || capacity <= 0) {
+                      setStateDialog(() { errorMsg = 'Compila tutti i campi correttamente'; });
+                      return;
+                    }
+                    
+                    final endDate = startDate!.add(Duration(hours: duration.toInt()));
+                    final course = Course(
+                      id: '',
+                      name: name,
+                      startDate: Timestamp.fromDate(startDate!),
+                      endDate: Timestamp.fromDate(endDate),
+                      capacity: capacity,
+                      subscribed: 0,
+                    );
+                    
+                    await createCourse(course);
+                    updateCourses();
+                    addCourseToMap(course);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Crea'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, AppState>(
       converter: (store) => store.state,
       builder: (context, state) {
         return Stack(
-          children: [
+            children: [
             SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
-                    child: const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
-                  ),
-                  Theme(
-                    data: ThemeData(
-                      colorScheme: const ColorScheme.light(
-                        onSurface: Colors.white
-                      ),
-                      datePickerTheme: DatePickerThemeData(
-                        dayForegroundColor: WidgetStateProperty.all(Colors.white),
-                        weekdayStyle: const TextStyle(color: Colors.white),
-                        headerHeadlineStyle: const TextStyle(color: Colors.white),
-                        todayForegroundColor: WidgetStateProperty.all(Colors.white),
-                        todayBackgroundColor: WidgetStateProperty.all(const Color.fromARGB(255, 90, 90, 90)),
-                        yearOverlayColor: WidgetStateProperty.all(ghostColor),
-                        yearBackgroundColor: WidgetStateProperty.all(primaryColor),
-                        yearForegroundColor: WidgetStateProperty.all(Colors.white),
-                        dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
-                          if (states.contains(WidgetState.selected)) {
-                            return const Color.fromARGB(255, 100, 100, 100);
-                          }
-                          return null;
-                        }),)
-                    ), 
-                    child: Calendar(
-                      onDateChanged: (DateTime value) { 
-                        onSelectDate(value);
-                      }, 
-                      initialDate: DateTime.now(), 
-                      firstDate: firstDate, 
-                      lastDate: lastDate,
-                      filledDays: courses.map((Course course) => course.startDate.toDate()).toList()
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
+                      child: const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
-                    child: Column(
-                      children: selectedCourses.isNotEmpty ? selectedCourses.map(
-                        (Course course) => FutureBuilder<List<String>>(
-                          future: getSubscriberNames(course.id),
-                          builder: (context, snapshot) {
-                            String iscritti = "";
-                            List<String> names = [];
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              iscritti = "Caricamento iscritti...";
-                            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                              iscritti = "Iscritti: " + snapshot.data!.join(", ");
-                              names = snapshot.data!;
-                            } else {
-                              iscritti = "Nessun iscritto";
+                    Theme(
+                      data: ThemeData(
+                        colorScheme: const ColorScheme.light(
+                          onSurface: Colors.white
+                        ),
+                        datePickerTheme: DatePickerThemeData(
+                          dayForegroundColor: WidgetStateProperty.all(Colors.white),
+                          weekdayStyle: const TextStyle(color: Colors.white),
+                          headerHeadlineStyle: const TextStyle(color: Colors.white),
+                          todayForegroundColor: WidgetStateProperty.all(Colors.white),
+                          todayBackgroundColor: WidgetStateProperty.all(const Color.fromARGB(255, 90, 90, 90)),
+                          yearOverlayColor: WidgetStateProperty.all(ghostColor),
+                          yearBackgroundColor: WidgetStateProperty.all(primaryColor),
+                          yearForegroundColor: WidgetStateProperty.all(Colors.white),
+                          dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return const Color.fromARGB(255, 100, 100, 100);
                             }
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10), 
-                              child: CourseCard(
-                                title: course.name, 
-                                description: getCourseTimeRange(course) + "\n" + iscritti,
-                                courseState: getCourseState(course, user),
-                                onClickAction: () {
-                                  CourseState courseState = getCourseState(course, user);
-                                  if(courseState == CourseState.SUBSCRIBED) {
-                                    onUnsubscribe(course);
-                                  }
-                                  else {
-                                    onSubscribe(course);
-                                  }              
-                                },
-                                capacity: course.capacity,
-                                subscribed: course.subscribed,
-                                subscribersNames: names,
-                              )
-                            );
-                          },
-                        )
-                      ).toList() : [
-                        const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: ghostColor),)
-                      ],
+                            return null;
+                          }),)
+                      ), 
+                      child: Calendar(
+                        onDateChanged: (DateTime value) { 
+                          onSelectDate(value);
+                        }, 
+                        initialDate: DateTime.now(), 
+                        firstDate: firstDate, 
+                        lastDate: lastDate,
+                        filledDays: courses.map((Course course) => course.startDate.toDate()).toList()
+                      ),
                     ),
-                  )
-                ],
+                    
+                    Padding(
+                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
+                      child: Column(
+                          children: selectedCourses.isNotEmpty ? selectedCourses.map(
+                            (Course course) => FutureBuilder<List<String>>(
+                              future: getSubscriberNames(course.id),
+                              builder: (context, snapshot) {
+                                String iscritti = "";
+                                List<String> names = [];
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  iscritti = "Caricamento iscritti...";
+                                } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                  iscritti = "Iscritti: " + snapshot.data!.join(", ");
+                                  names = snapshot.data!;
+                                } else {
+                                  iscritti = "Nessun iscritto";
+                                }
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 10), 
+                                  child: CourseCard(
+                                    title: course.name, 
+                                    description: getCourseTimeRange(course) + "\n" + iscritti,
+                                    courseState: getCourseState(course, user),
+                                    onClickAction: () {
+                                      CourseState courseState = getCourseState(course, user);
+                                      if(courseState == CourseState.SUBSCRIBED) {
+                                        onUnsubscribe(course);
+                                      }
+                                      else {
+                                        onSubscribe(course);
+                                      }              
+                                    },
+                                    capacity: course.capacity,
+                                    subscribed: course.subscribed,
+                                    subscribersNames: names,
+                                  )
+                                );
+                              },
+                            )
+                          ).toList() : [
+                            const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: ghostColor),)
+                        ],
+                      ),
+                    ),
+                    if (user.role == 'Admin') 
+                      Padding(
+                        padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
+                        child: ElevatedButton(
+                          onPressed: showCreateCourseDialog,
+                          child: const Text('Crea nuovo corso'),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
             if (state.isLoading) const Loader(),
           ]
         );

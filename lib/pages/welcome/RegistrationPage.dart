@@ -7,7 +7,6 @@ import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
