@@ -380,7 +380,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                 if (snapshot.connectionState == ConnectionState.waiting) {
                                   iscritti = "Caricamento iscritti...";
                                 } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                  iscritti = "Iscritti: " + snapshot.data!.join(", ");
+                                  iscritti = "Iscritti:\n" + snapshot.data!.join("\n");
                                   names = snapshot.data!;
                                 } else {
                                   iscritti = "Nessun iscritto";
