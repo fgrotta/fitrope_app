@@ -1,5 +1,6 @@
 import 'package:fitrope_app/api/authentication/deleteUser.dart';
 import 'package:fitrope_app/api/authentication/updateUser.dart';
+import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/style.dart';
@@ -161,7 +162,30 @@ class _UserDetailPageState extends State<UserDetailPage> {
       Navigator.pop(context, updatedUser);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Utente aggiornato con successo')),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Utente aggiornato con successo',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          margin: const EdgeInsets.all(16),
+        ),
       );
     } catch (e) {
       setState(() { errorMsg = 'Errore durante l\'aggiornamento'; });
@@ -189,12 +213,131 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 } catch (e) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Errore durante il logout')),
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error, color: Colors.white),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Errore durante il logout',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 4),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      margin: const EdgeInsets.all(16),
+                    ),
                   );
                 }
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void showDeleteAccountConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Cancellazione Account'),
+          content: const Text(
+            'Sei sicuro di voler Disattivare il tuo account?\n\n'
+            'I tuoi dati verranno mantenuti ma non sarai più in grado di utilizzare l\'applicazione.\n\n'
+            'Se cambi idea, contatta l\'amministratore per riattivare il tuo account.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annulla'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  // Disattiva l'account dell'utente
+                  await toggleUserStatus(widget.user.uid, false);
+                  Navigator.pop(context); // Chiudi la modale
+                  
+                  // Mostra messaggio di conferma
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Account disattivato con successo. Sei stato sloggato.',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 4),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      margin: const EdgeInsets.all(16),
+                    ),
+                  );
+                  
+                  // Effettua il logout immediatamente
+                  await signOut();
+                  // Verifica se il context è ancora valido prima di navigare
+                  if (context.mounted) {
+                    logoutRedirect(context);
+                  }
+                } catch (e) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error, color: Colors.white),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Errore durante la cancellazione dell\'account',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 4),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      margin: const EdgeInsets.all(16),
+                    ),
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Cancella Account'),
             ),
           ],
         );
@@ -211,11 +354,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
         foregroundColor: Colors.white,
         title: Text('Dettagli Utente'),
         actions: [
-          if (!isEditing)
+          if (!isEditing) ...[            
+            IconButton(
+              icon: const Icon(Icons.delete_forever, color: Colors.red),
+              onPressed: showDeleteAccountConfirmation,
+              tooltip: 'Cancella Account',
+            ),
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: toggleEdit,
             ),
+          ],
           if (isEditing) ...[
             IconButton(
               icon: const Icon(Icons.save),
@@ -226,7 +375,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
               onPressed: toggleEdit,
             ),
           ],
-
         ],
       ),
       body: SingleChildScrollView(
@@ -387,7 +535,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
+                  backgroundColor: Colors.orange,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

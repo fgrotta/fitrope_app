@@ -10,6 +10,7 @@ Future<List<String>> getSubscribers(String courseId) async {
 
 Future<void> deleteCourse(String courseId) async {
   try {
+    print('Deleting course $courseId');
     // Prima rimuovi il corso da tutti gli utenti iscritti
     final courseDoc = await FirebaseFirestore.instance.collection('courses').doc(courseId).get();
     if (courseDoc.exists) {

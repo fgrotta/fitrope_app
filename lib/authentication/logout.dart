@@ -8,7 +8,8 @@ Future<void> signOut() async {
 }
 
 void logoutRedirect(BuildContext context) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
+  // Verifica se il context è ancora valido prima di navigare
+  if (context.mounted) {
     Navigator.of(context).pushReplacementNamed(WELCOME_ROUTE);
-  });
+  }
 }
