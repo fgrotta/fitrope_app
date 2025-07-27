@@ -63,13 +63,25 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     });
   }
 
-  void showUserDetails(FitropeUser user) {
-    Navigator.push(
+  void showUserDetails(FitropeUser user) async {
+    final updatedUser = await Navigator.push<FitropeUser>(
       context,
       MaterialPageRoute(
         builder: (context) => UserDetailPage(user: user),
       ),
     );
+    
+    // Se l'utente è stato aggiornato, aggiorna la lista
+    if (updatedUser != null) {
+      setState(() {
+        final index = users.indexWhere((u) => u.uid == updatedUser.uid);
+        if (index != -1) {
+          users[index] = updatedUser;
+          // Ricarica anche la lista filtrata
+          filterUsers(searchController.text);
+        }
+      });
+    }
   }
 
 

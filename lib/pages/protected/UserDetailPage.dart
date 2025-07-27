@@ -1,11 +1,12 @@
 import 'package:fitrope_app/api/authentication/deleteUser.dart';
+import 'package:fitrope_app/api/authentication/updateUser.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
@@ -38,6 +39,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     selectedRole = widget.user.role;
     selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
     selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
+    //print(widget.user.toJson());
     loadCourses();
   }
 
@@ -109,37 +111,48 @@ class _UserDetailPageState extends State<UserDetailPage> {
       setState(() { errorMsg = 'Compila tutti i campi obbligatori'; });
       return;
     }
-
-    if (entrateDisponibili != null && entrateDisponibili < 0) {
-      setState(() { errorMsg = 'Le entrate disponibili non possono essere negative'; });
-      return;
-    }
-
+  
     if (entrateSettimanali != null && entrateSettimanali < 0) {
       setState(() { errorMsg = 'Le entrate settimanali non possono essere negative'; });
       return;
     }
 
     try {
-      final updateData = {
-        'name': name,
-        'lastName': lastName,
-        'role': selectedRole,
-        'tipologiaIscrizione': selectedTipologiaIscrizione?.toString().split('.').last,
-        'entrateDisponibili': entrateDisponibili,
-        'entrateSettimanali': entrateSettimanali,
-        'fineIscrizione': selectedFineIscrizione != null ? Timestamp.fromDate(selectedFineIscrizione!) : null,
-      };
+      await updateUser(
+        uid: widget.user.uid,
+        name: name,
+        lastName: lastName,
+        role: selectedRole,
+        tipologiaIscrizione: selectedTipologiaIscrizione,
+        entrateDisponibili: entrateDisponibili,
+        entrateSettimanali: entrateSettimanali,
+        fineIscrizione: selectedFineIscrizione,
+      );
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.user.uid)
-          .update(updateData);
+      // Crea un nuovo oggetto utente con i dati aggiornati
+      final updatedUser = FitropeUser(
+        uid: widget.user.uid,
+        email: widget.user.email,
+        name: name,
+        lastName: lastName,
+        role: selectedRole,
+        courses: widget.user.courses,
+        tipologiaIscrizione: selectedTipologiaIscrizione,
+        entrateDisponibili: entrateDisponibili,
+        entrateSettimanali: entrateSettimanali,
+        fineIscrizione: selectedFineIscrizione != null 
+            ? Timestamp.fromDate(DateTime(selectedFineIscrizione!.year, selectedFineIscrizione!.month, selectedFineIscrizione!.day, 23, 59))
+            : null,
+        createdAt: widget.user.createdAt,
+      );
 
       setState(() {
         isEditing = false;
         errorMsg = null;
       });
+
+      // Notifica la pagina precedente del cambiamento
+      Navigator.pop(context, updatedUser);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Utente aggiornato con successo')),
