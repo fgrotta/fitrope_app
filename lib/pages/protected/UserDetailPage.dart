@@ -30,6 +30,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late TipologiaIscrizione? selectedTipologiaIscrizione;
   late DateTime? selectedFineIscrizione;
   late bool selectedIsActive;
+  late bool selectedIsAnonymous;
   String? errorMsg;
   List<Course> allCourses = [];
 
@@ -44,7 +45,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
     selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
     selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
     selectedIsActive = widget.user.isActive;
-    //print(widget.user.toJson());
+    selectedIsAnonymous = widget.user.isAnonymous;
+    // print(widget.user.isAnonymous);
     loadCourses();
   }
 
@@ -81,6 +83,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
         selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
         selectedIsActive = widget.user.isActive;
+        selectedIsAnonymous = widget.user.isAnonymous;
         errorMsg = null;
       }
     });
@@ -134,6 +137,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         entrateSettimanali: entrateSettimanali,
         fineIscrizione: selectedFineIscrizione,
         isActive: selectedIsActive,
+        isAnonymous: selectedIsAnonymous,
       );
 
       // Crea un nuovo oggetto utente con i dati aggiornati
@@ -150,7 +154,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         fineIscrizione: selectedFineIscrizione != null 
             ? Timestamp.fromDate(DateTime(selectedFineIscrizione!.year, selectedFineIscrizione!.month, selectedFineIscrizione!.day, 23, 59))
             : null,
-        isActive: widget.user.isActive,
+        isActive: selectedIsActive,
+        isAnonymous: selectedIsAnonymous,
         createdAt: widget.user.createdAt,
       );
 
@@ -378,6 +383,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 _buildInfoRow('Email', widget.user.email, null, false),
                 _buildInfoRow('Ruolo', widget.user.role, null, isEditing, isDropdown: true),
                 _buildInfoRow('Stato', widget.user.isActive ? 'Attivo' : 'Disattivato', null, isEditing, isStatusDropdown: true),
+                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No', null, isEditing, isAnonymousDropdown: true),
               ],
             ),
             
@@ -495,7 +501,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false}) {
+  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -631,6 +637,41 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                 onChanged: (newValue) {
                                   setState(() {
                                     selectedIsActive = newValue!;
+                                  });
+                                },
+                              )
+                            : isEditable && isAnonymousDropdown
+                            ? DropdownButtonFormField<bool>(
+                                value: selectedIsAnonymous,
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: false,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.person, color: Colors.green),
+                                        SizedBox(width: 8),
+                                        Text('No'),
+                                      ],
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: true,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.visibility_off, color: Colors.grey),
+                                        SizedBox(width: 8),
+                                        Text('Sì'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (newValue) {
+                                  setState(() {
+                                    selectedIsAnonymous = newValue!;
                                   });
                                 },
                               )

@@ -10,6 +10,7 @@ import 'package:fitrope_app/utils/formatDate.dart';
 import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
+import 'package:fitrope_app/utils/user_display_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -90,7 +91,10 @@ class _HomePageState extends State<HomePage> {
     if (userIds.isEmpty) return [];
     var usersCollection = FirebaseFirestore.instance.collection('users');
     var snapshots = await usersCollection.where('uid', whereIn: userIds).get();
-    return snapshots.docs.map((doc) => "${doc['name']} ${doc['lastName']}").toList();
+    return snapshots.docs.map((doc) {
+      final user = FitropeUser.fromJson(doc.data());
+      return UserDisplayUtils.getDisplayName(user, user.role == 'Admin');
+    }).toList();
   }
 
   List<Widget> renderCourses() {

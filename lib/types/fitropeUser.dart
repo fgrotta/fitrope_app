@@ -12,6 +12,7 @@ class FitropeUser {
   final Timestamp? fineIscrizione;
   final String role;
   final bool isActive;
+  final bool isAnonymous;
   final DateTime createdAt;
 
   const FitropeUser({
@@ -26,6 +27,7 @@ class FitropeUser {
     this.fineIscrizione,
     required this.role,
     this.isActive = true,
+    this.isAnonymous = false,
     required this.createdAt,
   });
 
@@ -42,6 +44,7 @@ class FitropeUser {
       'fineIscrizione': fineIscrizione,
       'role': role,
       'isActive': isActive,
+      'isAnonymous': isAnonymous,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -63,6 +66,7 @@ class FitropeUser {
       fineIscrizione: json['fineIscrizione'] as Timestamp?,
       role: json['role'] ?? 'User',
       isActive: json['isActive'] as bool? ?? true,
+      isAnonymous: json['isAnonymous'] as bool? ?? false,
       createdAt: json['createdAt'] != null 
           ? (json['createdAt'] as Timestamp).toDate() 
           : DateTime.now(),

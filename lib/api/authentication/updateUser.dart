@@ -12,6 +12,7 @@ Future<void> updateUser({
   int? entrateSettimanali,
   DateTime? fineIscrizione,
   bool? isActive,
+  bool? isAnonymous,
 }) async {
   try {
     final updateData = <String, dynamic>{
@@ -23,6 +24,7 @@ Future<void> updateUser({
       'entrateSettimanali': entrateSettimanali,
       'fineIscrizione': fineIscrizione != null ? Timestamp.fromDate(DateTime(fineIscrizione.year, fineIscrizione.month, fineIscrizione.day, 23, 59)) : null,
       'isActive': isActive,
+      'isAnonymous': isAnonymous,
     };
 
     // Rimuovi i campi null per non sovrascriverli con null

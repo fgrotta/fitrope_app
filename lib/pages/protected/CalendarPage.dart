@@ -5,6 +5,7 @@ import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
 import 'package:fitrope_app/api/courses/updateCourse.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/user_display_utils.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -112,10 +113,14 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  Future<List<String>> getSubscriberNames(String courseId) async {
+  Future<List<String>> getSubscriberNames(String courseId, bool isAdmin) async {
     var usersCollection = FirebaseFirestore.instance.collection('users');
     var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
-    return snapshots.docs.map((doc) => "${doc['name']} ${doc['lastName']}").toList();
+    return snapshots.docs.map((doc) {
+      final user = FitropeUser.fromJson(doc.data());
+      // Gli admin vedono sempre i nomi completi, con icona fantasma per gli anonimi
+      return UserDisplayUtils.getDisplayName(user, isAdmin);
+    }).toList();
   }
 
   void showCourseDialog({
@@ -421,7 +426,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       child: Column(
                           children: selectedCourses.isNotEmpty ? selectedCourses.map(
                             (Course course) => FutureBuilder<List<String>>(
-                              future: getSubscriberNames(course.id),
+                              future: getSubscriberNames(course.id, user.role == 'Admin'),
                               builder: (context, snapshot) {
                                 String iscritti = "";
                                 List<String> names = [];
