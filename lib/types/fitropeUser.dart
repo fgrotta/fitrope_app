@@ -11,6 +11,7 @@ class FitropeUser {
   final int? entrateSettimanali;
   final Timestamp? fineIscrizione;
   final String role;
+  final bool isActive;
   final DateTime createdAt;
 
   const FitropeUser({
@@ -24,6 +25,7 @@ class FitropeUser {
     this.entrateSettimanali,
     this.fineIscrizione,
     required this.role,
+    this.isActive = true,
     required this.createdAt,
   });
 
@@ -39,6 +41,7 @@ class FitropeUser {
       'entrateSettimanali': entrateSettimanali,
       'fineIscrizione': fineIscrizione,
       'role': role,
+      'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -59,6 +62,7 @@ class FitropeUser {
       entrateSettimanali: json['entrateSettimanali'] as int?,
       fineIscrizione: json['fineIscrizione'] as Timestamp?,
       role: json['role'] ?? 'User',
+      isActive: json['isActive'] as bool? ?? true,
       createdAt: json['createdAt'] != null 
           ? (json['createdAt'] as Timestamp).toDate() 
           : DateTime.now(),

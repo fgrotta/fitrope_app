@@ -11,6 +11,7 @@ Future<void> updateUser({
   int? entrateDisponibili,
   int? entrateSettimanali,
   DateTime? fineIscrizione,
+  bool? isActive,
 }) async {
   try {
     final updateData = <String, dynamic>{
@@ -21,6 +22,7 @@ Future<void> updateUser({
       'entrateDisponibili': entrateDisponibili,
       'entrateSettimanali': entrateSettimanali,
       'fineIscrizione': fineIscrizione != null ? Timestamp.fromDate(DateTime(fineIscrizione.year, fineIscrizione.month, fineIscrizione.day, 23, 59)) : null,
+      'isActive': isActive,
     };
 
     // Rimuovi i campi null per non sovrascriverli con null
@@ -32,7 +34,7 @@ Future<void> updateUser({
         .update(updateData);
 
     invalidateUsersCache(); // Invalida la cache dopo l'aggiornamento
-    print('User updated successfully: $uid');
+    print('User updated successfully: $uid ');
   } catch (e) {
     print('Error updating user: $e');
     throw e;

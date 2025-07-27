@@ -1,5 +1,6 @@
 import 'package:fitrope_app/api/authentication/deleteUser.dart';
 import 'package:fitrope_app/api/authentication/updateUser.dart';
+import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -26,6 +27,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late String selectedRole;
   late TipologiaIscrizione? selectedTipologiaIscrizione;
   late DateTime? selectedFineIscrizione;
+  late bool selectedIsActive;
   String? errorMsg;
   List<Course> allCourses = [];
 
@@ -39,6 +41,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     selectedRole = widget.user.role;
     selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
     selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
+    selectedIsActive = widget.user.isActive;
     //print(widget.user.toJson());
     loadCourses();
   }
@@ -75,6 +78,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         selectedRole = widget.user.role;
         selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
         selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
+        selectedIsActive = widget.user.isActive;
         errorMsg = null;
       }
     });
@@ -127,6 +131,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         entrateDisponibili: entrateDisponibili,
         entrateSettimanali: entrateSettimanali,
         fineIscrizione: selectedFineIscrizione,
+        isActive: selectedIsActive,
       );
 
       // Crea un nuovo oggetto utente con i dati aggiornati
@@ -143,6 +148,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         fineIscrizione: selectedFineIscrizione != null 
             ? Timestamp.fromDate(DateTime(selectedFineIscrizione!.year, selectedFineIscrizione!.month, selectedFineIscrizione!.day, 23, 59))
             : null,
+        isActive: widget.user.isActive,
         createdAt: widget.user.createdAt,
       );
 
@@ -162,13 +168,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
     }
   }
 
-  void showDeleteConfirmation() {
+  void showLogoutConfirmation() {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Elimina Utente'),
-          content: Text('Sei sicuro di voler eliminare l\'utente ${widget.user.name} ${widget.user.lastName}? Questa azione non può essere annullata.'),
+          title: const Text('Conferma Logout'),
+          content: const Text('Sei sicuro di voler effettuare il logout?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -177,21 +183,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  await deleteUser(widget.user.uid);
-                  Navigator.pop(context);
-                  Navigator.pop(context); // Torna alla lista utenti
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Utente eliminato con successo')),
-                  );
+                  await signOut();
+                  Navigator.pop(context); // Chiudi la modale
+                  logoutRedirect(context); // Reindirizza al login
                 } catch (e) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Errore durante l\'eliminazione')),
+                    const SnackBar(content: Text('Errore durante il logout')),
                   );
                 }
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Elimina'),
+              child: const Text('Logout'),
             ),
           ],
         );
@@ -223,25 +226,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
               onPressed: toggleEdit,
             ),
           ],
-          PopupMenuButton(
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Elimina', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-            onSelected: (value) {
-              if (value == 'delete') {
-                showDeleteConfirmation();
-              }
-            },
-          ),
+
         ],
       ),
       body: SingleChildScrollView(
@@ -275,19 +260,48 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: primaryColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      widget.user.role,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          widget.user.role,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (!widget.user.isActive) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.block, color: Colors.white, size: 16),
+                              SizedBox(width: 4),
+                              Text(
+                                'Disattivato',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -302,6 +316,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 _buildInfoRow('Cognome', widget.user.lastName, lastNameController, isEditing),
                 _buildInfoRow('Email', widget.user.email, null, false),
                 _buildInfoRow('Ruolo', widget.user.role, null, isEditing, isDropdown: true),
+                _buildInfoRow('Stato', widget.user.isActive ? 'Attivo' : 'Disattivato', null, isEditing, isStatusDropdown: true),
               ],
             ),
             
@@ -355,6 +370,31 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   ),
                 ),
               ),
+            
+            // Pulsante Logout
+            const SizedBox(height: 32),
+            Container(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: showLogoutConfirmation,
+                icon: const Icon(Icons.logout, color: Colors.white),
+                label: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -394,7 +434,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false}) {
+  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -463,7 +503,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               });
                             },
                           )
-                        : isEditable && isDatePicker
+                                                    : isEditable && isDatePicker
                             ? InkWell(
                                 onTap: () async {
                                   final DateTime? picked = await showDatePicker(
@@ -497,6 +537,41 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                     ],
                                   ),
                                 ),
+                              )
+                            : isEditable && isStatusDropdown
+                            ? DropdownButtonFormField<bool>(
+                                value: selectedIsActive,
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: true,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.check_circle, color: Colors.green),
+                                        SizedBox(width: 8),
+                                        Text('Attivo'),
+                                      ],
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: false,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.block, color: Colors.red),
+                                        SizedBox(width: 8),
+                                        Text('Disattivato'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (newValue) {
+                                  setState(() {
+                                    selectedIsActive = newValue!;
+                                  });
+                                },
                               )
                             : Text(
                                 value,

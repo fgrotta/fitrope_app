@@ -1,5 +1,6 @@
 import 'package:fitrope_app/api/authentication/deleteUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -86,13 +87,17 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
 
 
-  void showDeleteUserDialog(FitropeUser user) {
+  void showToggleUserStatusDialog(FitropeUser user) {
+    final isCurrentlyActive = user.isActive;
+    final action = isCurrentlyActive ? 'disattivare' : 'attivare';
+    final actionPast = isCurrentlyActive ? 'disattivato' : 'attivato';
+    
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Elimina Utente'),
-          content: Text('Sei sicuro di voler eliminare l\'utente ${user.name} ${user.lastName}? Questa azione non può essere annullata.'),
+          title: Text(isCurrentlyActive ? 'Disattiva Utente' : 'Attiva Utente'),
+          content: Text('Sei sicuro di voler $action l\'utente ${user.name} ${user.lastName}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -101,22 +106,23 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  await deleteUser(user.uid);
+                  await toggleUserStatus(user.uid, !isCurrentlyActive);
                   Navigator.pop(context);
-                  invalidateUsersCache(); // Invalida la cache
                   loadUsers(); // Ricarica la lista
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Utente eliminato con successo')),
+                    SnackBar(content: Text('Utente $actionPast con successo')),
                   );
                 } catch (e) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Errore durante l\'eliminazione')),
+                    SnackBar(content: Text('Errore durante l\'operazione')),
                   );
                 }
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: Text('Elimina'),
+              style: TextButton.styleFrom(
+                foregroundColor: isCurrentlyActive ? Colors.orange : Colors.green
+              ),
+              child: Text(isCurrentlyActive ? 'Disattiva' : 'Attiva'),
             ),
           ],
         );
@@ -185,12 +191,33 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: primaryColor,
-                        child: Text(
-                          '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
-                          style: TextStyle(color: Colors.white),
-                        ),
+                      leading: Stack(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: primaryColor,
+                            child: Text(
+                              '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          if (!user.isActive)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.block,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       title: Text('${user.name} ${user.lastName}'),
                       subtitle: Column(
@@ -213,12 +240,20 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                             ),
                           ),
                           PopupMenuItem(
-                            value: 'delete',
+                            value: 'toggle',
                             child: Row(
                               children: [
-                                Icon(Icons.delete, color: Colors.red),
+                                Icon(
+                                  user.isActive ? Icons.block : Icons.check_circle,
+                                  color: user.isActive ? Colors.orange : Colors.green
+                                ),
                                 SizedBox(width: 8),
-                                Text('Elimina', style: TextStyle(color: Colors.red)),
+                                Text(
+                                  user.isActive ? 'Disattiva' : 'Attiva',
+                                  style: TextStyle(
+                                    color: user.isActive ? Colors.orange : Colors.green
+                                  )
+                                ),
                               ],
                             ),
                           ),
@@ -228,8 +263,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                             case 'details':
                               showUserDetails(user);
                               break;
-                            case 'delete':
-                              showDeleteUserDialog(user);
+                            case 'toggle':
+                              showToggleUserStatusDialog(user);
                               break;
                           }
                         },
