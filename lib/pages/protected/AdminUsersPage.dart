@@ -1,4 +1,5 @@
 import 'package:fitrope_app/api/authentication/deleteUser.dart';
+import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -6,8 +7,6 @@ import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -34,21 +33,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     });
 
     try {
-      final usersCollection = FirebaseFirestore.instance.collection('users');
-      final snapshot = await usersCollection.get();
-      
-      final usersList = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return FitropeUser(
-          uid: doc.id,
-          email: data['email'] ?? '',
-          name: data['name'] ?? '',
-          lastName: data['lastName'] ?? '',
-          role: data['role'] ?? 'User',
-          courses: List<String>.from(data['courses'] ?? []),
-          createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
-        );
-      }).toList();
+      final usersList = await getUsers();
 
       setState(() {
         users = usersList;
@@ -59,7 +44,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       print('Error loading users: $e');
       setState(() {
         isLoading = false;
-      });
+      }); 
     }
   }
 

@@ -20,7 +20,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
   bool isEditing = false;
   late TextEditingController nameController;
   late TextEditingController lastNameController;
+  late TextEditingController entrateDisponibiliController;
+  late TextEditingController entrateSettimanaliController;
   late String selectedRole;
+  late TipologiaIscrizione? selectedTipologiaIscrizione;
+  late DateTime? selectedFineIscrizione;
   String? errorMsg;
   List<Course> allCourses = [];
 
@@ -29,7 +33,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
     super.initState();
     nameController = TextEditingController(text: widget.user.name);
     lastNameController = TextEditingController(text: widget.user.lastName);
+    entrateDisponibiliController = TextEditingController(text: widget.user.entrateDisponibili?.toString() ?? '');
+    entrateSettimanaliController = TextEditingController(text: widget.user.entrateSettimanali?.toString() ?? '');
     selectedRole = widget.user.role;
+    selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
+    selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
     loadCourses();
   }
 
@@ -48,6 +56,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void dispose() {
     nameController.dispose();
     lastNameController.dispose();
+    entrateDisponibiliController.dispose();
+    entrateSettimanaliController.dispose();
     super.dispose();
   }
 
@@ -58,7 +68,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
         // Reset to original values if canceling edit
         nameController.text = widget.user.name;
         lastNameController.text = widget.user.lastName;
+        entrateDisponibiliController.text = widget.user.entrateDisponibili?.toString() ?? '';
+        entrateSettimanaliController.text = widget.user.entrateSettimanali?.toString() ?? '';
         selectedRole = widget.user.role;
+        selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
+        selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
         errorMsg = null;
       }
     });
@@ -88,21 +102,39 @@ class _UserDetailPageState extends State<UserDetailPage> {
   Future<void> saveChanges() async {
     final name = nameController.text.trim();
     final lastName = lastNameController.text.trim();
+    final entrateDisponibili = int.tryParse(entrateDisponibiliController.text.trim());
+    final entrateSettimanali = int.tryParse(entrateSettimanaliController.text.trim());
     
     if (name.isEmpty || lastName.isEmpty) {
-      setState(() { errorMsg = 'Compila tutti i campi'; });
+      setState(() { errorMsg = 'Compila tutti i campi obbligatori'; });
+      return;
+    }
+
+    if (entrateDisponibili != null && entrateDisponibili < 0) {
+      setState(() { errorMsg = 'Le entrate disponibili non possono essere negative'; });
+      return;
+    }
+
+    if (entrateSettimanali != null && entrateSettimanali < 0) {
+      setState(() { errorMsg = 'Le entrate settimanali non possono essere negative'; });
       return;
     }
 
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.user.uid)
-          .update({
+      final updateData = {
         'name': name,
         'lastName': lastName,
         'role': selectedRole,
-      });
+        'tipologiaIscrizione': selectedTipologiaIscrizione?.toString().split('.').last,
+        'entrateDisponibili': entrateDisponibili,
+        'entrateSettimanali': entrateSettimanali,
+        'fineIscrizione': selectedFineIscrizione != null ? Timestamp.fromDate(selectedFineIscrizione!) : null,
+      };
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.user.uid)
+          .update(updateData);
 
       setState(() {
         isEditing = false;
@@ -262,6 +294,19 @@ class _UserDetailPageState extends State<UserDetailPage> {
             
             const SizedBox(height: 24),
             
+            // Sezione piano di iscrizione
+            _buildSection(
+              'Piano di Iscrizione',
+              [
+                _buildInfoRow('Tipologia', _getTipologiaLabel(widget.user.tipologiaIscrizione), null, isEditing, isTipologiaDropdown: true),
+                _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, isEditing),
+                _buildInfoRow('Entrate Settimanali', widget.user.entrateSettimanali?.toString() ?? '0', entrateSettimanaliController, isEditing),
+                _buildInfoRow('Fine Iscrizione', widget.user.fineIscrizione != null ? DateFormat('dd/MM/yyyy').format(widget.user.fineIscrizione!.toDate()) : 'Non impostata', null, isEditing, isDatePicker: true),
+              ],
+            ),
+            
+            const SizedBox(height: 24),
+            
             // Sezione informazioni account
             _buildSection(
               'Informazioni Account',
@@ -336,7 +381,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false}) {
+  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -356,6 +401,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             child: isEditable && controller != null
                 ? TextField(
                     controller: controller,
+                    keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -380,15 +426,86 @@ class _UserDetailPageState extends State<UserDetailPage> {
                           });
                         },
                       )
-                    : Text(
-                        value,
-                        style: const TextStyle(
-                          fontSize: 16,
-                        ),
-                      ),
+                    : isEditable && isTipologiaDropdown
+                        ? DropdownButtonFormField<String>(
+                            value: selectedTipologiaIscrizione?.toString().split('.').last,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: null, child: Text('Nessuna')),
+                              ...TipologiaIscrizione.values.map((tipologia) {
+                                return DropdownMenuItem(
+                                  value: tipologia.toString().split('.').last,
+                                  child: Text(_getTipologiaLabel(tipologia)),
+                                );
+                              }),
+                            ],
+                            onChanged: (newValue) {
+                              setState(() {
+                                selectedTipologiaIscrizione = newValue != null 
+                                    ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == newValue).firstOrNull
+                                    : null;
+                              });
+                            },
+                          )
+                        : isEditable && isDatePicker
+                            ? InkWell(
+                                onTap: () async {
+                                  final DateTime? picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: selectedFineIscrizione ?? DateTime.now(),
+                                    firstDate: DateTime.now(),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      selectedFineIscrizione = picked;
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        selectedFineIscrizione != null 
+                                            ? DateFormat('dd/MM/yyyy').format(selectedFineIscrizione!)
+                                            : 'Seleziona data',
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                      const Icon(Icons.calendar_today),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                value,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                ),
+                              ),
           ),
         ],
       ),
     );
+  }
+
+  String _getTipologiaLabel(TipologiaIscrizione? tipologia) {
+    if (tipologia == null) return 'Nessuna';
+    switch (tipologia) {
+      case TipologiaIscrizione.PACCHETTO_ENTRATE:
+        return 'Pacchetto Entrate';
+      case TipologiaIscrizione.ABBONAMENTO_MENSILE:
+        return 'Abbonamento Mensile';
+      case TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE:
+        return 'Abbonamento Trimestrale';
+    }
   }
 }
