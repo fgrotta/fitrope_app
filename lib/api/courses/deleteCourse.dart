@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/courses/unsubscribeToCourse.dart';
+import 'package:fitrope_app/api/courses/getCourses.dart';
 
 Future<List<String>> getSubscribers(String courseId) async {
   var usersCollection = FirebaseFirestore.instance.collection('users');
@@ -21,6 +22,7 @@ Future<void> deleteCourse(String courseId) async {
         }
       }
       await FirebaseFirestore.instance.collection('courses').doc(courseId).delete();
+      invalidateCoursesCache(); // Invalida la cache dopo l'eliminazione
     }
     
     // Poi elimina il corso

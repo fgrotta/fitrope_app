@@ -3,6 +3,7 @@ import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/api/courses/getCourses.dart';
 
 FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -54,6 +55,7 @@ Future<void> subscribeToCourse(String courseId, String userId) async {
       throw Exception('Course is full');
     }
   }).then((_) async {
+    invalidateCoursesCache(); // Invalida la cache dopo l'iscrizione
     Map<String, dynamic>? userData = await getUserData(userId);
     if(userData != null) {
       store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));

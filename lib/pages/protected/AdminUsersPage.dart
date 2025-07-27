@@ -91,6 +91,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 try {
                   await deleteUser(user.uid);
                   Navigator.pop(context);
+                  invalidateUsersCache(); // Invalida la cache
                   loadUsers(); // Ricarica la lista
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Utente eliminato con successo')),

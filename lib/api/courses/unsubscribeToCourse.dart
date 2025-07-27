@@ -4,6 +4,7 @@ import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/api/courses/getCourses.dart';
 
 FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -60,6 +61,7 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
       throw Exception('No users subscribed to this course');
     }
   }).then((_) async {
+    invalidateCoursesCache(); // Invalida la cache dopo la disiscrizione
     Map<String, dynamic>? userData = await getUserData(userId);
     if (userData != null) {
       store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
