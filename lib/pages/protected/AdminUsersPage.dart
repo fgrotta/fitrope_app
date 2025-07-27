@@ -1,6 +1,7 @@
 import 'package:fitrope_app/api/authentication/deleteUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
+import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -109,13 +110,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   await toggleUserStatus(user.uid, !isCurrentlyActive);
                   Navigator.pop(context);
                   loadUsers(); // Ricarica la lista
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Utente $actionPast con successo')),
+                  SnackBarUtils.showSuccessSnackBar(
+                    context,
+                    'Utente $actionPast con successo',
                   );
                 } catch (e) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Errore durante l\'operazione')),
+                  SnackBarUtils.showErrorSnackBar(
+                    context,
+                    'Errore durante l\'operazione',
                   );
                 }
               },

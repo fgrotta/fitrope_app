@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/authentication/deleteUser.dart';
 import 'package:fitrope_app/api/authentication/updateUser.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/authentication/logout.dart';
+import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -161,31 +162,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
       // Notifica la pagina precedente del cambiamento
       Navigator.pop(context, updatedUser);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Utente aggiornato con successo',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
+      SnackBarUtils.showSuccessSnackBar(
+        context,
+        'Utente aggiornato con successo',
       );
     } catch (e) {
       setState(() { errorMsg = 'Errore durante l\'aggiornamento'; });
@@ -212,31 +191,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   logoutRedirect(context); // Reindirizza al login
                 } catch (e) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          const Icon(Icons.error, color: Colors.white),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              'Errore durante il logout',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: Colors.red,
-                      duration: const Duration(seconds: 4),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      margin: const EdgeInsets.all(16),
-                    ),
+                  SnackBarUtils.showErrorSnackBar(
+                    context,
+                    'Errore durante il logout',
                   );
                 }
               },
@@ -273,31 +230,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   Navigator.pop(context); // Chiudi la modale
                   
                   // Mostra messaggio di conferma
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          const Icon(Icons.check_circle, color: Colors.white),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              'Account disattivato con successo. Sei stato sloggato.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: Colors.green,
-                      duration: const Duration(seconds: 4),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      margin: const EdgeInsets.all(16),
-                    ),
+                  SnackBarUtils.showSuccessSnackBar(
+                    context,
+                    'Account disattivato con successo. Sei stato sloggato.',
                   );
                   
                   // Effettua il logout immediatamente
@@ -308,31 +243,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   }
                 } catch (e) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          const Icon(Icons.error, color: Colors.white),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              'Errore durante la cancellazione dell\'account',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: Colors.red,
-                      duration: const Duration(seconds: 4),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      margin: const EdgeInsets.all(16),
-                    ),
+                  SnackBarUtils.showErrorSnackBar(
+                    context,
+                    'Errore durante la cancellazione dell\'account',
                   );
                 }
               },

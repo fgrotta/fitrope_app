@@ -4,6 +4,7 @@ import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
 import 'package:fitrope_app/api/courses/updateCourse.dart';
+import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -267,59 +268,15 @@ class _CalendarPageState extends State<CalendarPage> {
                         updateCourseToMap(updatedCourse, courseToEdit);
                         
                         // Mostra SnackBar di successo
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(Icons.check_circle, color: Colors.white),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Text(
-                                    'Corso modificato con successo',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: Colors.green,
-                            duration: const Duration(seconds: 3),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            margin: const EdgeInsets.all(16),
-                          ),
+                        SnackBarUtils.showSuccessSnackBar(
+                          context,
+                          'Corso modificato con successo',
                         );
                       } catch (e) {
                         // Mostra SnackBar di errore
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(Icons.error, color: Colors.white),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Text(
-                                    'Errore durante la modifica del corso',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 4),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            margin: const EdgeInsets.all(16),
-                          ),
+                        SnackBarUtils.showErrorSnackBar(
+                          context,
+                          'Errore durante la modifica del corso',
                         );
                       }
                     } else {
@@ -344,60 +301,16 @@ class _CalendarPageState extends State<CalendarPage> {
                         
                         // Mostra SnackBar di successo
                         final isDuplication = courseToDuplicate != null;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(Icons.check_circle, color: Colors.white),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    isDuplication ? 'Corso duplicato con successo' : 'Corso creato con successo',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: Colors.green,
-                            duration: const Duration(seconds: 3),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            margin: const EdgeInsets.all(16),
-                          ),
+                        SnackBarUtils.showSuccessSnackBar(
+                          context,
+                          isDuplication ? 'Corso duplicato con successo' : 'Corso creato con successo',
                         );
                       } catch (e) {
                         // Mostra SnackBar di errore
                         final isDuplication = courseToDuplicate != null;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(Icons.error, color: Colors.white),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    isDuplication ? 'Errore durante la duplicazione del corso' : 'Errore durante la creazione del corso',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 4),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            margin: const EdgeInsets.all(16),
-                          ),
+                        SnackBarUtils.showErrorSnackBar(
+                          context,
+                          isDuplication ? 'Errore durante la duplicazione del corso' : 'Errore durante la creazione del corso',
                         );
                       }
                     }
@@ -443,59 +356,15 @@ class _CalendarPageState extends State<CalendarPage> {
       updateCourses();
       
       // Mostra SnackBar di successo
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Corso cancellato con successo',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
+      SnackBarUtils.showSuccessSnackBar(
+        context,
+        'Corso cancellato con successo',
       );
     } catch (e) {
       // Mostra SnackBar di errore
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Errore durante la cancellazione del corso',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
+      SnackBarUtils.showErrorSnackBar(
+        context,
+        'Errore durante la cancellazione del corso',
       );
     }
   }
