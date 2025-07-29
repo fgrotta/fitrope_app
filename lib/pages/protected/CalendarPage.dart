@@ -101,7 +101,7 @@ class _CalendarPageState extends State<CalendarPage> {
   void onSubscribe(Course course) {
     subscribeToCourse(course.id, user.uid).then((_) {
       setState(() { 
-        user = store.state.user!;
+        print('onSubscribe');
         updateCourses();
       });
     });
@@ -110,7 +110,7 @@ class _CalendarPageState extends State<CalendarPage> {
   void onUnsubscribe(Course course) {
     unsubscribeToCourse(course.id, user.uid).then((_) {
       setState(() { 
-        user = store.state.user!;
+        print('onUnsubscribe');
         updateCourses();
       });
     });
@@ -283,13 +283,13 @@ class _CalendarPageState extends State<CalendarPage> {
                       // Modifica corso esistente
                       try {
                         final updatedCourse = Course(
-                          id: courseToEdit.id,
+                          uid: courseToEdit.uid,
+                          id: courseToEdit.uid, //Deprecated
                           name: name,
                           startDate: Timestamp.fromDate(startDate!),
                           endDate: Timestamp.fromDate(endDate),
                           capacity: capacity,
                           subscribed: courseToEdit.subscribed,
-                          subscribers: courseToEdit.subscribers,
                           trainerId: selectedTrainerId,
                         );
                         
@@ -314,7 +314,8 @@ class _CalendarPageState extends State<CalendarPage> {
                       // Crea nuovo corso (creazione o duplicazione)
                       try {
                         final newCourse = Course(
-                          id: '',
+                          uid: '',
+                          id: '', //Deprecated
                           name: name,
                           startDate: Timestamp.fromDate(startDate!),
                           endDate: Timestamp.fromDate(endDate),

@@ -7,12 +7,14 @@ Future<Course?> createCourse(Course course) async {
     CollectionReference postsRef = FirebaseFirestore.instance.collection('courses');
     
     // Se l'id non è presente, genera un id univoco
-    if (course.id.isEmpty) {
+    if (course.uid.isEmpty) {
+      var newID = postsRef.doc().id;
       Course newCourse = new Course(
+        uid: newID,
+        id: newID, //Deprecated
         name: course.name, 
         startDate: course.startDate, 
         endDate: course.endDate, 
-        id: postsRef.doc().id, 
         capacity: course.capacity, 
         subscribed: course.subscribed,
         trainerId: course.trainerId,

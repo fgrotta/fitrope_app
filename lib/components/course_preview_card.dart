@@ -17,6 +17,7 @@ class CoursePreviewCard extends StatelessWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
+  final VoidCallback? onRefresh; // Callback per aggiornare la lista
   final bool showDate;
 
   const CoursePreviewCard({
@@ -29,6 +30,7 @@ class CoursePreviewCard extends StatelessWidget {
     this.onDuplicate,
     this.onDelete,
     this.onEdit,
+    this.onRefresh,
     this.showDate = true,
   });
 
@@ -60,9 +62,6 @@ class CoursePreviewCard extends StatelessWidget {
   bool _canViewUserDetails() {
     return currentUser.role == 'Admin' || currentUser.role == 'Trainer';
   }
-
-
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -110,6 +109,7 @@ class CoursePreviewCard extends StatelessWidget {
             onDuplicate: onDuplicate,
             onDelete: onDelete,
             onEdit: onEdit,
+            onRefresh: onRefresh,
           ),
         );
       },

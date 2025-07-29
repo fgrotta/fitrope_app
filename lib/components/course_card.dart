@@ -1,6 +1,8 @@
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
+import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:flutter/material.dart';
 
 enum CourseState {
@@ -27,6 +29,7 @@ class CourseCard extends StatefulWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
+  final VoidCallback? onRefresh; // Callback per aggiornare la lista
   final bool isAdmin;
   final bool showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
 
@@ -47,6 +50,7 @@ class CourseCard extends StatefulWidget {
     this.onDuplicate,
     this.onDelete,
     this.onEdit,
+    this.onRefresh,
     this.isAdmin = false,
     this.showClickableSubscribers = false,
   });
@@ -114,11 +118,40 @@ class _CourseCardState extends State<CourseCard> {
     );
   }
 
+  void _showAddSubscriberDialog(BuildContext context) async {
+    final result = await showDialog(
+      context: context,
+      builder: (context) => AddSubscriberDialog(
+        courseId: widget.courseId,
+        courseName: widget.title,
+        existingSubscribers: widget.subscribersUsers ?? [],
+        capacity: widget.capacity ?? 0,
+      ),
+    );
+    
+    // Se è stato aggiunto un utente, aggiorna la lista
+    if (result == true && widget.onRefresh != null) {
+      widget.onRefresh!();
+    }
+  }
+
   Widget _buildClickableSubscribersList(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            // Icona + per aggiungere iscritti (solo per Admin)
+            if (widget.isAdmin)
+              IconButton(
+                icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                onPressed: () => _showAddSubscriberDialog(context),
+                tooltip: 'Aggiungi iscritto',
+              ),
+          ],
+        ),
         const SizedBox(height: 4),
         ...widget.subscribersUsers!.map((user) {
           final displayName = '${user.name} ${user.lastName}';
@@ -279,7 +312,7 @@ class _CourseCardState extends State<CourseCard> {
               ],
             ),
             // Mostra la lista cliccabile degli iscritti se richiesto
-            if(widget.showClickableSubscribers && widget.subscribersUsers != null && widget.subscribersUsers!.isNotEmpty)
+            if(widget.showClickableSubscribers)
               Container(
                 margin: const EdgeInsets.only(top: 0),
                 padding: const EdgeInsets.all(12),
@@ -293,5 +326,166 @@ class _CourseCardState extends State<CourseCard> {
         ),
       ),
     );
+  }
+}
+
+class AddSubscriberDialog extends StatefulWidget {
+  final String courseId;
+  final String courseName;
+  final List<FitropeUser> existingSubscribers;
+  final int capacity;
+
+  const AddSubscriberDialog({
+    super.key,
+    required this.courseId,
+    required this.courseName,
+    required this.existingSubscribers,
+    required this.capacity,
+  });
+
+  @override
+  State<AddSubscriberDialog> createState() => _AddSubscriberDialogState();
+}
+
+class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
+  List<FitropeUser> allUsers = [];
+  List<FitropeUser> filteredUsers = [];
+  TextEditingController searchController = TextEditingController();
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final users = await getUsers();
+      setState(() {
+        allUsers = users.where((user) => 
+          user.isActive && 
+          !widget.existingSubscribers.any((sub) => sub.uid == user.uid)
+        ).toList();
+        filteredUsers = allUsers;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Errore nel caricamento degli utenti';
+        isLoading = false;
+      });
+    }
+  }
+
+  void _filterUsers(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        filteredUsers = allUsers;
+      } else {
+        filteredUsers = allUsers.where((user) {
+          final fullName = '${user.name} ${user.lastName}'.toLowerCase();
+          return fullName.contains(query.toLowerCase());
+        }).toList();
+      }
+    });
+  }
+
+  Future<void> _addSubscriber(String userId) async {
+    try {
+      await subscribeToCourse(widget.courseId, userId, force: true);
+      //Navigator.pop(context, true); // Chiudi il dialog e indica che è stato aggiunto un utente
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Errore nell\'aggiunta dell\'utente al corso';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Aggiungi iscritto a "${widget.courseName}"'),
+      content: SizedBox(
+        width: 400,
+        height: 500,
+        child: Column(
+          children: [
+            // Campo di ricerca
+            TextField(
+              controller: searchController,
+              decoration: const InputDecoration(
+                labelText: 'Cerca per nome o cognome',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: _filterUsers,
+            ),
+            const SizedBox(height: 16),
+            
+            // Messaggio di errore
+            if (errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            
+            // Lista utenti
+            Expanded(
+              child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredUsers.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Nessun utente disponibile',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredUsers.length,
+                      itemBuilder: (context, index) {
+                        final user = filteredUsers[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            child: Text(
+                              '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
+                            ),
+                          ),
+                          title: Text('${user.name} ${user.lastName}'),
+                          subtitle: Text(user.email),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () => _addSubscriber(user.uid),
+                            tooltip: 'Aggiungi al corso',
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Chiudi'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 }

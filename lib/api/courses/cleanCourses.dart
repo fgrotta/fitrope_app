@@ -11,7 +11,7 @@ Future<void> cleanCourses() async {
     //   await doc.reference.delete();
     // }
 
-    await coursesRef.doc('placeholder').set({'info': 'This is a placeholder document'});
+    // await coursesRef.doc('placeholder').set({'info': 'This is a placeholder document'});
     invalidateCoursesCache(); // Invalida la cache dopo la pulizia
 
     print('Courses collection cleaned successfully, placeholder added!');
