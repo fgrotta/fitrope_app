@@ -32,14 +32,17 @@ class CoursePreviewCard extends StatelessWidget {
     this.showDate = true,
   });
 
-  Future<List<String>> getSubscriberNames(String courseId, bool isAdmin) async {
+  Future<List<Map<String, dynamic>>> getSubscriberNames(String courseId, bool isAdmin) async {
     var usersCollection = FirebaseFirestore.instance.collection('users');
     //TODO: Forse si può Ottimizzare per usare la cache, ma non è urgente
     var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
     return snapshots.docs.map((doc) {
       final user = FitropeUser.fromJson(doc.data());
       // Gli admin vedono sempre i nomi completi, con icona fantasma per gli anonimi
-      return UserDisplayUtils.getDisplayName(user, isAdmin);
+      return {
+        'displayName': UserDisplayUtils.getDisplayName(user, isAdmin),
+        'user': user,
+      };
     }).toList();
   }
 
@@ -54,21 +57,26 @@ class CoursePreviewCard extends StatelessWidget {
     }
   }
 
+  bool _canViewUserDetails() {
+    return currentUser.role == 'Admin' || currentUser.role == 'Trainer';
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
-    print(course.id);
-    print(currentUser.role);
-    return FutureBuilder<List<String>>(
+    return FutureBuilder<List<Map<String, dynamic>>>(
       future: getSubscriberNames(course.id, currentUser.role == 'Admin'),
       builder: (context, snapshot) {
         String iscritti = "";
         List<String> names = [];
+        List<FitropeUser> users = [];
         
         if (snapshot.connectionState == ConnectionState.waiting) {
           iscritti = "Iscritti: Caricamento iscritti...";
-        } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-          iscritti = "Iscritti:\n${snapshot.data!.join("\n")}";
-          names = snapshot.data!;
+        } else if (snapshot.hasData) {
+          names = snapshot.data!.map((s) => s['displayName'] as String).toList();
+          users = snapshot.data!.map((s) => s['user'] as FitropeUser).toList();
         } else {
           iscritti = "Iscritti: Nessun iscritto";
         }
@@ -92,7 +100,12 @@ class CoursePreviewCard extends StatelessWidget {
             },
             capacity: course.capacity,
             subscribed: course.subscribed,
-            subscribersNames: names,
+            // Passa una lista vuota per Admin e Trainer per evitare la duplicazione
+            subscribersNames: _canViewUserDetails() ? [] : names,
+            // Passa la lista degli utenti per la versione cliccabile
+            subscribersUsers: _canViewUserDetails() ? users : null,
+            // Abilita la lista cliccabile per Admin e Trainer
+            showClickableSubscribers: _canViewUserDetails(),
             isAdmin: currentUser.role == 'Admin',
             onDuplicate: onDuplicate,
             onDelete: onDelete,

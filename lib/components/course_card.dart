@@ -1,4 +1,6 @@
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:flutter/material.dart';
 
 enum CourseState {
@@ -21,10 +23,12 @@ class CourseCard extends StatefulWidget {
   final int? capacity;
   final int? subscribed;
   final List<String>? subscribersNames;
+  final List<FitropeUser>? subscribersUsers; // Lista degli utenti iscritti per la versione cliccabile
   final VoidCallback? onDuplicate;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
   final bool isAdmin;
+  final bool showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
 
   const CourseCard({
     required this.courseId,
@@ -39,10 +43,12 @@ class CourseCard extends StatefulWidget {
     this.capacity,
     this.subscribed,
     this.subscribersNames,
+    this.subscribersUsers,
     this.onDuplicate,
     this.onDelete,
     this.onEdit,
     this.isAdmin = false,
+    this.showClickableSubscribers = false,
   });
 
   @override
@@ -99,12 +105,50 @@ class _CourseCardState extends State<CourseCard> {
     );
   }
 
+  void _showUserDetails(BuildContext context, FitropeUser user) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserDetailPage(user: user),
+      ),
+    );
+  }
+
+  Widget _buildClickableSubscribersList(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        ...widget.subscribersUsers!.map((user) {
+          final displayName = '${user.name} ${user.lastName}';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: GestureDetector(
+              onTap: () => _showUserDetails(context, user),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Text(
+                  '• $displayName',
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    decoration: TextDecoration.none, 
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
   Widget renderTitle() {
     if(widget.titleStyle != null) {
-      return Text(widget.title, overflow: TextOverflow.visible, style: widget.titleStyle,);
+      return Text("Corso: " + widget.title, overflow: TextOverflow.visible, style: widget.titleStyle,);
     }
 
-    return Text(widget.title, style: const TextStyle(color: Colors.white, ),);
+    return Text("Corso: " + widget.title, style: const TextStyle(color: Colors.white, ),);
   }
 
   Widget renderButton() {
@@ -168,68 +212,85 @@ class _CourseCardState extends State<CourseCard> {
           color: primaryColor,
           borderRadius: BorderRadius.all(Radius.circular(10)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    renderTitle(),
-                    if(widget.subscribersNames != null && widget.subscribersNames!.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.people),
-                        tooltip: 'Vedi iscritti',
-                        onPressed: showSubscribersDialog,
+                    Row(
+                      children: [
+                        renderTitle(),
+                      ],
+                    ),
+                    if(widget.description != "") const SizedBox(height: 10,),
+                    if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),)
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if(widget.capacity != null && widget.subscribed != null && !widget.isAdmin) Row(
+                      children: [
+                        Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: ghostColor),),
+                        const SizedBox(width: 7.5,),
+                        IconButton(
+                            icon: const Icon(Icons.people),
+                            tooltip: 'Vedi iscritti',
+                            onPressed: showSubscribersDialog,
+                            color: ghostColor, 
+                            iconSize: 20,
+                          ),
+                        
+                      ],
+                    ),
+                    const SizedBox(height: 10,),
+                    if(widget.courseState != CourseState.NULL && !widget.isAdmin) renderButton(),
+                    if(widget.isAdmin)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if(widget.onEdit != null)
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.orange),
+                              tooltip: 'Modifica corso',
+                              onPressed: widget.onEdit,
+                            ),
+                          if(widget.onDuplicate != null)
+                            IconButton(
+                              icon: const Icon(Icons.copy, color: Colors.blue),
+                              tooltip: 'Duplica corso',
+                              onPressed: widget.onDuplicate,
+                            ),
+                          if(widget.onDelete != null)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              tooltip: 'Elimina corso',
+                              onPressed: showDeleteConfirmationDialog,
+                            ),
+                        ],
                       ),
                   ],
-                ),
-                if(widget.description != "") const SizedBox(height: 10,),
-                if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),)
+                )
               ],
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if(widget.capacity != null && widget.subscribed != null) Row(
-                  children: [
-                    Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: ghostColor),),
-                    const SizedBox(width: 7.5,),
-                    const Icon(Icons.people, color: ghostColor, size: 20,),
-                  ],
+            // Mostra la lista cliccabile degli iscritti se richiesto
+            if(widget.showClickableSubscribers && widget.subscribersUsers != null && widget.subscribersUsers!.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 0),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 10,),
-                if(widget.courseState != CourseState.NULL) renderButton(),
-                if(widget.isAdmin)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if(widget.onEdit != null)
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.orange),
-                          tooltip: 'Modifica corso',
-                          onPressed: widget.onEdit,
-                        ),
-                      if(widget.onDuplicate != null)
-                        IconButton(
-                          icon: const Icon(Icons.copy, color: Colors.blue),
-                          tooltip: 'Duplica corso',
-                          onPressed: widget.onDuplicate,
-                        ),
-                      if(widget.onDelete != null)
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          tooltip: 'Elimina corso',
-                          onPressed: showDeleteConfirmationDialog,
-                        ),
-                    ],
-                  ),
-              ],
-            )
+                child: _buildClickableSubscribersList(context),
+              ),
           ],
-        )
+        ),
       ),
     );
   }
