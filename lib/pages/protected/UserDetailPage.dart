@@ -263,21 +263,110 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
+  bool _canViewUser() {
+    final currentUser = store.state.user;
+    if (currentUser == null) return false;
+    
+    // L'utente può sempre vedere il suo profilo
+    if (currentUser.uid == widget.user.uid) {
+      return true;
+    }
+    
+    // Admin può vedere tutti gli utenti
+    if (currentUser.role == 'Admin') {
+      return true;
+    }
+    
+    // Trainer può vedere solo utenti con ruolo User
+    if (currentUser.role == 'Trainer') {
+      return widget.user.role == 'User';
+    }
+    
+    // User può vedere solo il suo profilo (già controllato sopra)
+    return false;
+  }
+
+  bool _canEditUser() {
+    final currentUser = store.state.user;
+    if (currentUser == null) return false;
+    // L'utente può sempre modificare il suo profilo
+    if (currentUser.uid == widget.user.uid || currentUser.role == 'Admin') {
+      return true;
+    }
+    // Trainer può modificare solo Nome e Cognome di utenti con ruolo User
+    if (currentUser.role == 'Trainer') {
+      return widget.user.role == 'User';
+    }
+    // User può modificare solo il suo profilo (già controllato sopra)
+    return false;
+  }
+
+  bool _canEditSpecificField(String fieldName) {
+    final currentUser = store.state.user;
+  
+    if (currentUser == null) return false;
+    // Admin può modificare tutti i campi
+    if (currentUser.role == 'Admin') {
+      return true;
+    }
+    // Trainer può modificare solo Nome e Cognome di utenti con ruolo User
+    if (currentUser.role == 'Trainer' && widget.user.role == 'User') {
+      return fieldName == 'Nome' || fieldName == 'Cognome' || fieldName == 'Anonimo';
+    }
+
+    // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo e Fine Iscrizione sono gestiti solo dagli Admin
+    if (fieldName == 'Stato' || fieldName == 'Tipologia' || fieldName == 'Entrate Disponibili' || 
+        fieldName == 'Entrate Settimanali' || fieldName == 'Fine Iscrizione' ||fieldName == 'Ruolo') {
+      return currentUser.role == 'Admin';
+    }
+    return true;
+  }
+
+  String _getValidRoleForDropdown() {
+    // Se l'utente corrente non è Admin e selectedRole è Trainer, 
+    // restituisci 'User' come fallback
+    if (store.state.user?.role != 'Admin' && selectedRole == 'Trainer') {
+      return 'User';
+    }
+    return selectedRole;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Controlla se l'utente corrente può vedere questo utente
+    if (!_canViewUser()) {
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: AppBar(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          title: const Text('Accesso Negato'),
+        ),
+        body: const Center(
+          child: Text(
+            'Non hai i permessi per visualizzare i dettagli di questo utente.',
+            style: TextStyle(color: Colors.white, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
-        title: Text('Dettagli Utente'),
+        title: Text(store.state.user?.uid == widget.user.uid ? 'Il Mio Profilo' : 'Dettagli Utente'),
         actions: [
-          if (!isEditing) ...[            
-            IconButton(
-              icon: const Icon(Icons.delete_forever, color: Colors.red),
-              onPressed: showDeleteAccountConfirmation,
-              tooltip: 'Cancella Account',
-            ),
+          if (!isEditing && _canEditUser()) ...[            
+            // Pulsante Cancella Account solo per il proprio profilo
+            if (store.state.user?.uid == widget.user.uid)
+              IconButton(
+                icon: const Icon(Icons.delete_forever, color: Colors.red),
+                onPressed: showDeleteAccountConfirmation,
+                tooltip: 'Cancella Account',
+              ),
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: toggleEdit,
@@ -378,12 +467,15 @@ class _UserDetailPageState extends State<UserDetailPage> {
             _buildSection(
               'Informazioni Personali',
               [
-                _buildInfoRow('Nome', widget.user.name, nameController, isEditing),
-                _buildInfoRow('Cognome', widget.user.lastName, lastNameController, isEditing),
+                _buildInfoRow('Nome', widget.user.name, nameController, _canEditSpecificField('Nome') && isEditing),
+                _buildInfoRow('Cognome', widget.user.lastName, lastNameController, _canEditSpecificField('Cognome') && isEditing),
                 _buildInfoRow('Email', widget.user.email, null, false),
-                _buildInfoRow('Ruolo', widget.user.role, null, isEditing, isDropdown: true),
-                _buildInfoRow('Stato', widget.user.isActive ? 'Attivo' : 'Disattivato', null, isEditing, isStatusDropdown: true),
-                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No', null, isEditing, isAnonymousDropdown: true),
+                if (isAdmin)
+                _buildInfoRow('Ruolo', widget.user.role, null, _canEditSpecificField('Ruolo') && isEditing, isDropdown: true),
+                // Campo Stato visibile solo agli Admin
+                if (isAdmin)
+                  _buildInfoRow('Stato', widget.user.isActive ? 'Attivo' : 'Disattivato', null, _canEditSpecificField('Stato') && isEditing, isStatusDropdown: true),
+                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No', null, _canEditSpecificField('Anonimo') && isEditing, isAnonymousDropdown: true),
               ],
             ),
             
@@ -393,10 +485,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
             _buildSection(
               'Piano di Iscrizione',
               [
-                _buildInfoRow('Tipologia', _getTipologiaLabel(widget.user.tipologiaIscrizione), null, isEditing, isTipologiaDropdown: true),
-                _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, isEditing),
-                _buildInfoRow('Entrate Settimanali', widget.user.entrateSettimanali?.toString() ?? '0', entrateSettimanaliController, isEditing),
-                _buildInfoRow('Fine Iscrizione', widget.user.fineIscrizione != null ? DateFormat('dd/MM/yyyy').format(widget.user.fineIscrizione!.toDate()) : 'Non impostata', null, isEditing, isDatePicker: true),
+                _buildInfoRow('Tipologia', _getTipologiaLabel(widget.user.tipologiaIscrizione), null, _canEditSpecificField('Tipologia') && isEditing, isTipologiaDropdown: true),
+                _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, _canEditSpecificField('Entrate Disponibili') && isEditing),
+                _buildInfoRow('Entrate Settimanali', widget.user.entrateSettimanali?.toString() ?? '0', entrateSettimanaliController, _canEditSpecificField('Entrate Settimanali') && isEditing),
+                _buildInfoRow('Fine Iscrizione', widget.user.fineIscrizione != null ? DateFormat('dd/MM/yyyy').format(widget.user.fineIscrizione!.toDate()) : 'Non impostata', null, _canEditSpecificField('Fine Iscrizione') && isEditing, isDatePicker: true),
               ],
             ),
             
@@ -438,35 +530,39 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 ),
               ),
             
-            // Pulsante Logout
-            const SizedBox(height: 32),
-            Container(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: showLogoutConfirmation,
-                icon: const Icon(Icons.logout, color: Colors.white),
-                label: const Text(
-                  'Logout',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            // Pulsante Logout (solo per il proprio profilo)
+            if (store.state.user?.uid == widget.user.uid) ...[
+              const SizedBox(height: 32),
+              Container(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: showLogoutConfirmation,
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  bool get isAdmin => store.state.user?.role == 'Admin';
 
   Widget _buildSection(String title, List<Widget> children) {
     return Container(
@@ -529,7 +625,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   )
                 : isEditable && isDropdown
                     ? DropdownButtonFormField<String>(
-                        value: selectedRole,
+                        value: _getValidRoleForDropdown(),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -540,7 +636,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                             child: Text('User'),
                           ),
                           // Solo gli admin possono assegnare il ruolo Trainer
-                          if (store.state.user?.role == 'Admin')
+                          if (isAdmin)
                             DropdownMenuItem(
                               value: 'Trainer',
                               child: Text('Trainer'),
