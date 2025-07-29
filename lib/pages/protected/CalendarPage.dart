@@ -5,9 +5,8 @@ import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
 import 'package:fitrope_app/api/courses/updateCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
-import 'package:fitrope_app/utils/user_display_utils.dart';
-import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -15,8 +14,6 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/utils/getCourseState.dart';
-import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/calendar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -117,17 +114,6 @@ class _CalendarPageState extends State<CalendarPage> {
         updateCourses();
       });
     });
-  }
-
-  Future<List<String>> getSubscriberNames(String courseId, bool isAdmin) async {
-    var usersCollection = FirebaseFirestore.instance.collection('users');
-    //TODO: Forse si può Ottimizzare per usare la cache, ma non è urgente
-    var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
-    return snapshots.docs.map((doc) {
-      final user = FitropeUser.fromJson(doc.data());
-      // Gli admin vedono sempre i nomi completi, con icona fantasma per gli anonimi
-      return UserDisplayUtils.getDisplayName(user, isAdmin);
-    }).toList();
   }
 
   void showCourseDialog({
@@ -466,47 +452,17 @@ class _CalendarPageState extends State<CalendarPage> {
                       padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding),
                       child: Column(
                           children: selectedCourses.isNotEmpty ? selectedCourses.map(
-                            (Course course) => FutureBuilder<List<String>>(
-                              future: getSubscriberNames(course.id, user.role == 'Admin'),
-                              builder: (context, snapshot) {
-                                String iscritti = "";
-                                List<String> names = [];
-                                String trainer = "Trainer: " + UserDisplayUtils.getTrainerName(course.trainerId, trainers);
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  iscritti = "Iscritti: Caricamento iscritti...";
-                                } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                  iscritti = "Iscritti:\n" + snapshot.data!.join("\n");
-                                  names = snapshot.data!;
-                                } else {
-                                  iscritti = "Iscritti: Nessun iscritto";
-                                }
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 10), 
-                                  child: CourseCard(
-                                    courseId: course.id,
-                                    title: course.name, 
-                                    description: getCourseTimeRange(course) + "\n" + trainer + "\n" + iscritti,
-                                    courseState: getCourseState(course, user),
-                                    onClickAction: () {
-                                      CourseState courseState = getCourseState(course, user);
-                                      if(courseState == CourseState.SUBSCRIBED) {
-                                        onUnsubscribe(course);
-                                      }
-                                      else {
-                                        onSubscribe(course);
-                                      }              
-                                    },
-                                    capacity: course.capacity,
-                                    subscribed: course.subscribed,
-                                    subscribersNames: names,
-                                    isAdmin: user.role == 'Admin',
-                                    onDuplicate: () => showDuplicateCourseDialog(course),
-                                    onDelete: () => deleteCourseAndUpdate(course),
-                                    onEdit: () => showEditCourseDialog(course),
-                                  )
-                                );
-                              },
-                            )
+                            (Course course) => CoursePreviewCard(
+                              course: course,
+                              currentUser: user,
+                              trainers: trainers,
+                              showDate: false,
+                              onSubscribe: () => onSubscribe(course),
+                              onUnsubscribe: () => onUnsubscribe(course),
+                              onDuplicate: () => showDuplicateCourseDialog(course),
+                              onDelete: () => deleteCourseAndUpdate(course),
+                              onEdit: () => showEditCourseDialog(course),
+                            ),
                           ).toList() : [
                             const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: ghostColor),)
                         ],

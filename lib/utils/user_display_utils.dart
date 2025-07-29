@@ -11,14 +11,14 @@ class UserDisplayUtils {
 
     if ( isAdmin) {
       if (user.isAnonymous) {
-      return '${user.name} ${user.lastName} - ${user.email} (Anonimo)';
+      return '${user.name} ${user.lastName} - (Anonimo)';
     }
-    return '${user.name} ${user.lastName} - ${user.email}';}
+    return '${user.name} ${user.lastName}';}
     else {
       if (user.isAnonymous) {
       return '(Anonimo)';
     }
-    return '${user.name} ${user.lastName} - ${user.email}';
+    return '${user.name} ${user.lastName}';
     }
   }
 

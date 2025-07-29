@@ -1,20 +1,17 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
-import 'package:fitrope_app/components/course_card.dart';
+import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/utils/formatDate.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/utils/getCourseState.dart';
-import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
-import 'package:fitrope_app/utils/user_display_utils.dart';
+import 'package:fitrope_app/components/course_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,7 +23,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late FitropeUser user;
   List<Course> allCourses = [];
-List<FitropeUser> trainers = [];
+  List<FitropeUser> trainers = [];
+
   @override
   void initState() {
     user = store.state.user!;
@@ -91,16 +89,6 @@ List<FitropeUser> trainers = [];
       ],
     );
   }
-//TODO: Muovere in utils e spostare Get Users nella API, e aggiungere Cache
-  Future<List<String>> getSubscriberNames(List<String> userIds) async {
-    if (userIds.isEmpty) return [];
-    var usersCollection = FirebaseFirestore.instance.collection('users');
-    var snapshots = await usersCollection.where('uid', whereIn: userIds).get();
-    return snapshots.docs.map((doc) {
-      final user = FitropeUser.fromJson(doc.data());
-      return UserDisplayUtils.getDisplayName(user, user.role == 'Admin');
-    }).toList();
-  }
 
   List<Widget> renderCourses() {
     if(user.courses.isEmpty) {
@@ -112,38 +100,17 @@ List<FitropeUser> trainers = [];
 
     List<Widget> render = [];
 
-    for(int n=0;n<user.courses.length;n++) {
+    for(int n=0; n<user.courses.length; n++) {
       Course? course = allCourses.where((Course course) => course.id == user.courses[n]).firstOrNull;
 
       if(course != null && getCourseState(course, user) != CourseState.EXPIRED) {
-        DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
-
         render.add(
-          FutureBuilder<List<String>>(
-            future: getSubscriberNames(course.subscribers),
-            builder: (context, snapshot) {
-              String iscritti = "";
-              String trainer = "Trainer: " + UserDisplayUtils.getTrainerName(course.trainerId, trainers);
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                iscritti = "Iscritti: Caricamento iscritti...";
-              } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                iscritti = "Iscritti:\n" + snapshot.data!.join("\n");
-              } else {
-                iscritti = "Iscritti: Nessun iscritto";
-              }
-              
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10), 
-                child: CourseCard(
-                  courseId: course.id,
-                  title: course.name, 
-                  description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}\n$trainer\n$iscritti",
-                  capacity: course.capacity,
-                  subscribed: course.subscribed,
-                )
-              );
-            },
-          )
+          CoursePreviewCard(
+            course: course,
+            currentUser: user,
+            trainers: trainers,
+            showDate: true,
+          ),
         );
       }
     }
