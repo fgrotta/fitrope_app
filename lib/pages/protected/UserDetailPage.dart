@@ -1,9 +1,9 @@
-import 'package:fitrope_app/api/authentication/deleteUser.dart';
 import 'package:fitrope_app/api/authentication/updateUser.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
+import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
@@ -420,7 +420,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 ).toList(),
               ),
             ],
-            
+            //TODO aggiungere corsi fatti nel caso sia Trainer
             if (errorMsg != null)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
@@ -534,12 +534,22 @@ class _UserDetailPageState extends State<UserDetailPage> {
                           border: OutlineInputBorder(),
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
-                        items: ['User', 'Trainer', 'Admin'].map((role) {
-                          return DropdownMenuItem(
-                            value: role,
-                            child: Text(role),
-                          );
-                        }).toList(),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'User',
+                            child: Text('User'),
+                          ),
+                          // Solo gli admin possono assegnare il ruolo Trainer
+                          if (store.state.user?.role == 'Admin')
+                            DropdownMenuItem(
+                              value: 'Trainer',
+                              child: Text('Trainer'),
+                            ),
+                          DropdownMenuItem(
+                            value: 'Admin',
+                            child: Text('Admin'),
+                          ),
+                        ],
                         onChanged: (newValue) {
                           setState(() {
                             selectedRole = newValue!;

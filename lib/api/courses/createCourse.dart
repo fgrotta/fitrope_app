@@ -8,7 +8,15 @@ Future<Course?> createCourse(Course course) async {
     
     // Se l'id non è presente, genera un id univoco
     if (course.id.isEmpty) {
-      Course newCourse = new Course(name: course.name, startDate: course.startDate, endDate: course.endDate, id: postsRef.doc().id, capacity: course.capacity, subscribed: course.subscribed);
+      Course newCourse = new Course(
+        name: course.name, 
+        startDate: course.startDate, 
+        endDate: course.endDate, 
+        id: postsRef.doc().id, 
+        capacity: course.capacity, 
+        subscribed: course.subscribed,
+        trainerId: course.trainerId,
+      );
       await postsRef.doc(newCourse.id).set(newCourse.toJson());
       invalidateCoursesCache(); // Invalida la cache dopo la creazione
       

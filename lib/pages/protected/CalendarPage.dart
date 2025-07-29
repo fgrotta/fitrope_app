@@ -4,6 +4,7 @@ import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
 import 'package:fitrope_app/api/courses/updateCourse.dart';
+import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/user_display_utils.dart';
 import 'package:fitrope_app/components/course_card.dart';
@@ -33,6 +34,7 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime firstDate = DateTime(DateTime.now().year);
   DateTime lastDate = DateTime(DateTime.now().year + 1);
   List<Course> courses = [];
+  List<FitropeUser> trainers = [];
   Map<String, List<Course>> coursesByDate = {};
   List<Course> selectedCourses = [];
   late FitropeUser user;
@@ -43,7 +45,11 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   void initState() {
     user = store.state.user!;
-    
+    getTrainers().then((List<FitropeUser> response) {
+      setState(() {
+        trainers = response;
+      });
+    });
     getAllCourses().then((List<Course> response) {
       setState(() {
         courses = response;
@@ -115,6 +121,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Future<List<String>> getSubscriberNames(String courseId, bool isAdmin) async {
     var usersCollection = FirebaseFirestore.instance.collection('users');
+    //TODO: Forse si può Ottimizzare per usare la cache, ma non è urgente
     var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
     return snapshots.docs.map((doc) {
       final user = FitropeUser.fromJson(doc.data());
@@ -144,13 +151,13 @@ class _CalendarPageState extends State<CalendarPage> {
     );
     
     DateTime? startDate = courseToEdit?.startDate.toDate() ?? courseToDuplicate?.startDate.toDate() ?? currentDate;
+    String? selectedTrainerId = courseToEdit?.trainerId ?? courseToDuplicate?.trainerId;
     String? errorMsg;
-
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setStateDialog) {
+          builder: (context, setStateDialog) { 
             return AlertDialog(
               title: Text(title),
               content: SingleChildScrollView(
@@ -224,6 +231,38 @@ class _CalendarPageState extends State<CalendarPage> {
                       decoration: const InputDecoration(labelText: 'Numero massimo partecipanti'),
                       keyboardType: TextInputType.number,
                     ),
+                    const SizedBox(height: 16),
+                    // Selezione del trainer (solo per admin)
+                    if (user.role == 'Admin') ...[
+                      const Text('Trainer:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: selectedTrainerId,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          hint: const Text('Seleziona un trainer'),
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('Nessun trainer'),
+                            ),
+                            ...trainers.map((trainer) {
+                              return DropdownMenuItem<String>(
+                                value: trainer.uid,
+                                child: Text('${trainer.name} ${trainer.lastName}'),
+                              );
+                            }).toList(),
+                          ],
+                          onChanged: (newValue) {
+                            setStateDialog(() {
+                              selectedTrainerId = newValue;
+                            });
+                          },
+                        ),
+                      const SizedBox(height: 16),
+                    ],
                     if (errorMsg != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8.0),
@@ -265,6 +304,7 @@ class _CalendarPageState extends State<CalendarPage> {
                           capacity: capacity,
                           subscribed: courseToEdit.subscribed,
                           subscribers: courseToEdit.subscribers,
+                          trainerId: selectedTrainerId,
                         );
                         
                         await updateCourse(updatedCourse);
@@ -294,6 +334,7 @@ class _CalendarPageState extends State<CalendarPage> {
                           endDate: Timestamp.fromDate(endDate),
                           capacity: capacity,
                           subscribed: 0,
+                          trainerId: selectedTrainerId,
                         );
                         
                         Course? createdCourse = await createCourse(newCourse);
@@ -430,20 +471,21 @@ class _CalendarPageState extends State<CalendarPage> {
                               builder: (context, snapshot) {
                                 String iscritti = "";
                                 List<String> names = [];
+                                String trainer = "Trainer: " + UserDisplayUtils.getTrainerName(course.trainerId, trainers);
                                 if (snapshot.connectionState == ConnectionState.waiting) {
-                                  iscritti = "Caricamento iscritti...";
+                                  iscritti = "Iscritti: Caricamento iscritti...";
                                 } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                                   iscritti = "Iscritti:\n" + snapshot.data!.join("\n");
                                   names = snapshot.data!;
                                 } else {
-                                  iscritti = "Nessun iscritto";
+                                  iscritti = "Iscritti: Nessun iscritto";
                                 }
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 10), 
                                   child: CourseCard(
                                     courseId: course.id,
                                     title: course.name, 
-                                    description: getCourseTimeRange(course) + "\n" + iscritti,
+                                    description: getCourseTimeRange(course) + "\n" + trainer + "\n" + iscritti,
                                     courseState: getCourseState(course, user),
                                     onClickAction: () {
                                       CourseState courseState = getCourseState(course, user);

@@ -7,6 +7,7 @@ import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/formatDate.dart';
+import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
@@ -25,11 +26,15 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late FitropeUser user;
   List<Course> allCourses = [];
-
+List<FitropeUser> trainers = [];
   @override
   void initState() {
     user = store.state.user!;
-
+    getTrainers().then((List<FitropeUser> response) {
+      setState(() {
+        trainers = response;
+      });
+    });
     getAllCourses().then((List<Course> response) {
       setState(() {
         if(mounted) {
@@ -86,7 +91,7 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
-
+//TODO: Muovere in utils e spostare Get Users nella API, e aggiungere Cache
   Future<List<String>> getSubscriberNames(List<String> userIds) async {
     if (userIds.isEmpty) return [];
     var usersCollection = FirebaseFirestore.instance.collection('users');
@@ -118,19 +123,21 @@ class _HomePageState extends State<HomePage> {
             future: getSubscriberNames(course.subscribers),
             builder: (context, snapshot) {
               String iscritti = "";
+              String trainer = "Trainer: " + UserDisplayUtils.getTrainerName(course.trainerId, trainers);
               if (snapshot.connectionState == ConnectionState.waiting) {
-                iscritti = "Caricamento iscritti...";
+                iscritti = "Iscritti: Caricamento iscritti...";
               } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                iscritti = "Iscritti: " + snapshot.data!.join(", ");
+                iscritti = "Iscritti:\n" + snapshot.data!.join("\n");
               } else {
-                iscritti = "Nessun iscritto";
+                iscritti = "Iscritti: Nessun iscritto";
               }
+              
               return Container(
                 margin: const EdgeInsets.only(bottom: 10), 
                 child: CourseCard(
                   courseId: course.id,
                   title: course.name, 
-                  description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}\n$iscritti",
+                  description: "${formatDate(courseDate)}, ${getCourseTimeRange(course)}\n$trainer\n$iscritti",
                   capacity: course.capacity,
                   subscribed: course.subscribed,
                 )

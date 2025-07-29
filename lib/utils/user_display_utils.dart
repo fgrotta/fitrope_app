@@ -1,4 +1,5 @@
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/api/authentication/getUsers.dart';
 
 class UserDisplayUtils {
  
@@ -25,5 +26,25 @@ class UserDisplayUtils {
   /// Gli admin vedono sempre i nomi completi
   static bool shouldShowAsAnonymous(FitropeUser user, bool isAdmin) {
     return user.isAnonymous && !isAdmin;
+  }
+
+  /// Ottiene il nome del trainer da un ID
+  static String getTrainerName(String? trainerId, List<FitropeUser> trainers) {
+    if (trainerId == null || trainerId.isEmpty) {
+      return 'Nessun trainer assegnato';
+    }
+    
+    try {
+      final trainer = trainers.where((user) => user.uid == trainerId).firstOrNull;
+      
+      if (trainer != null) {
+        return '${trainer.name} ${trainer.lastName}';
+      } else {
+        return 'Trainer non trovato';
+      }
+    } catch (e) {
+      print('Error getting trainer name: $e');
+      return 'Errore nel caricamento trainer';
+    }
   }
 } 
