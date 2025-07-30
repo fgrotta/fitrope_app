@@ -5,7 +5,7 @@ import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/pages/protected/CalendarPage.dart';
-import 'package:fitrope_app/pages/protected/Homepage.dart';
+import 'package:fitrope_app/pages/protected/HomePage.dart';
 import 'package:fitrope_app/pages/protected/AdminUsersPage.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
