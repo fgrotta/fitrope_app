@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Abilita aggiornamenti per le dipendenze di Dart/Flutter
+  - package-ecosystem: "pub"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "dellarosamarco"
+    assignees:
+      - "dellarosamarco"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+
+  # Abilita aggiornamenti per le GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "dellarosamarco"
+    assignees:
+      - "dellarosamarco" 
