@@ -59,7 +59,6 @@ jobs:
       
   #     - name: Setup Flutter
   #       uses: subosito/flutter-action@v2
-  #       with:
   #         flutter-version: '3.24.0'
   #         channel: 'stable'
       
@@ -98,24 +97,26 @@ jobs:
         with:
           name: fitrope-web-release
           path: build/web
-          
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/release'
-        uses: peaceiris/actions-gh-pages@v4.0.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build/web
-          publish_branch: release
-          force_orphan: true
 
   deploy:
     needs: [build-web]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/release'
     steps:
-      - name: Download all artifacts
+      - name: Download web artifact
         uses: actions/download-artifact@v4.3.0
-        
+        with:
+          name: fitrope-web-release
+          path: ./web-build
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4.0.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web-build
+          publish_branch: release
+          force_orphan: true
+          
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1.1.4
