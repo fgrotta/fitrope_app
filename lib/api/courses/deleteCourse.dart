@@ -6,7 +6,8 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 
 Future<List<String>> getSubscribers(String courseId) async {
   var usersCollection = FirebaseFirestore.instance.collection('users');
-  var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
+  var snapshots =
+      await usersCollection.where('courses', arrayContains: courseId).get();
   return snapshots.docs.map((doc) => "${doc['uid']}").toList();
 }
 
@@ -18,14 +19,16 @@ Future<void> deleteCourse(String courseId) async {
     // Rimuovi il corso dalla lista corsi di ogni utente iscritto
     for (String userId in subscribers) {
       await unsubscribeToCourse(courseId, userId);
-    }    
+    }
     // Poi elimina il corso
-    await FirebaseFirestore.instance.collection('courses').doc(courseId).delete();
+    await FirebaseFirestore.instance
+        .collection('courses')
+        .doc(courseId)
+        .delete();
     invalidateCoursesCache(); // Invalida la cache dopo l'eliminazione
-    
+
     print('Course ${courseId} and all subscriptions deleted successfully!');
   } catch (e) {
     print('Error deleting course: $e');
   }
-  
-} 
+}

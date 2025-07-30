@@ -39,8 +39,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
     super.initState();
     nameController = TextEditingController(text: widget.user.name);
     lastNameController = TextEditingController(text: widget.user.lastName);
-    entrateDisponibiliController = TextEditingController(text: widget.user.entrateDisponibili?.toString() ?? '');
-    entrateSettimanaliController = TextEditingController(text: widget.user.entrateSettimanali?.toString() ?? '');
+    entrateDisponibiliController = TextEditingController(
+        text: widget.user.entrateDisponibili?.toString() ?? '');
+    entrateSettimanaliController = TextEditingController(
+        text: widget.user.entrateSettimanali?.toString() ?? '');
     selectedRole = widget.user.role;
     selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
     selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
@@ -77,8 +79,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         // Reset to original values if canceling edit
         nameController.text = widget.user.name;
         lastNameController.text = widget.user.lastName;
-        entrateDisponibiliController.text = widget.user.entrateDisponibili?.toString() ?? '';
-        entrateSettimanaliController.text = widget.user.entrateSettimanali?.toString() ?? '';
+        entrateDisponibiliController.text =
+            widget.user.entrateDisponibili?.toString() ?? '';
+        entrateSettimanaliController.text =
+            widget.user.entrateSettimanali?.toString() ?? '';
         selectedRole = widget.user.role;
         selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
         selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
@@ -91,38 +95,49 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   List<Map<String, String>> getUserCourses() {
     List<Map<String, String>> userCourses = [];
-    
-    var userCoursesIds = widget.user.courses.length > 10 ? widget.user.courses.sublist(widget.user.courses.length - 10) : widget.user.courses;
+
+    var userCoursesIds = widget.user.courses.length > 10
+        ? widget.user.courses.sublist(widget.user.courses.length - 10)
+        : widget.user.courses;
     for (String courseId in userCoursesIds) {
       Course? course = allCourses.where((c) => c.id == courseId).firstOrNull;
       if (course != null) {
         String courseName = course.name;
-        String courseDate = DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
+        String courseDate =
+            DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
         userCourses.add({
           'name': courseName,
           'date': courseDate,
         });
       }
     }
-    
+
     // Ordina per data (più recenti prima) e prendi solo gli ultimi 10
-    userCourses.sort((a, b) => DateFormat('dd/MM/yyyy').parse(b['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!)));
+    userCourses.sort((a, b) => DateFormat('dd/MM/yyyy')
+        .parse(b['date']!)
+        .compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!)));
     return userCourses;
   }
 
   Future<void> saveChanges() async {
     final name = nameController.text.trim();
     final lastName = lastNameController.text.trim();
-    final entrateDisponibili = int.tryParse(entrateDisponibiliController.text.trim());
-    final entrateSettimanali = int.tryParse(entrateSettimanaliController.text.trim());
-    
+    final entrateDisponibili =
+        int.tryParse(entrateDisponibiliController.text.trim());
+    final entrateSettimanali =
+        int.tryParse(entrateSettimanaliController.text.trim());
+
     if (name.isEmpty || lastName.isEmpty) {
-      setState(() { errorMsg = 'Compila tutti i campi obbligatori'; });
+      setState(() {
+        errorMsg = 'Compila tutti i campi obbligatori';
+      });
       return;
     }
-  
+
     if (entrateSettimanali != null && entrateSettimanali < 0) {
-      setState(() { errorMsg = 'Le entrate settimanali non possono essere negative'; });
+      setState(() {
+        errorMsg = 'Le entrate settimanali non possono essere negative';
+      });
       return;
     }
 
@@ -151,8 +166,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
         tipologiaIscrizione: selectedTipologiaIscrizione,
         entrateDisponibili: entrateDisponibili,
         entrateSettimanali: entrateSettimanali,
-        fineIscrizione: selectedFineIscrizione != null 
-            ? Timestamp.fromDate(DateTime(selectedFineIscrizione!.year, selectedFineIscrizione!.month, selectedFineIscrizione!.day, 23, 59))
+        fineIscrizione: selectedFineIscrizione != null
+            ? Timestamp.fromDate(DateTime(
+                selectedFineIscrizione!.year,
+                selectedFineIscrizione!.month,
+                selectedFineIscrizione!.day,
+                23,
+                59))
             : null,
         isActive: selectedIsActive,
         isAnonymous: selectedIsAnonymous,
@@ -172,7 +192,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
         'Utente aggiornato con successo',
       );
     } catch (e) {
-      setState(() { errorMsg = 'Errore durante l\'aggiornamento'; });
+      setState(() {
+        errorMsg = 'Errore durante l\'aggiornamento';
+      });
     }
   }
 
@@ -233,13 +255,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   // Disattiva l'account dell'utente
                   await toggleUserStatus(widget.user.uid, false);
                   Navigator.pop(context); // Chiudi la modale
-                  
+
                   // Mostra messaggio di conferma
                   SnackBarUtils.showSuccessSnackBar(
                     context,
                     'Account disattivato con successo. Sei stato sloggato.',
                   );
-                  
+
                   // Effettua il logout immediatamente
                   await signOut();
                   // Verifica se il context è ancora valido prima di navigare
@@ -266,22 +288,22 @@ class _UserDetailPageState extends State<UserDetailPage> {
   bool _canViewUser() {
     final currentUser = store.state.user;
     if (currentUser == null) return false;
-    
+
     // L'utente può sempre vedere il suo profilo
     if (currentUser.uid == widget.user.uid) {
       return true;
     }
-    
+
     // Admin può vedere tutti gli utenti
     if (currentUser.role == 'Admin') {
       return true;
     }
-    
+
     // Trainer può vedere solo utenti con ruolo User
     if (currentUser.role == 'Trainer') {
       return widget.user.role == 'User';
     }
-    
+
     // User può vedere solo il suo profilo (già controllato sopra)
     return false;
   }
@@ -303,7 +325,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   bool _canEditSpecificField(String fieldName) {
     final currentUser = store.state.user;
-  
+
     if (currentUser == null) return false;
     // Admin può modificare tutti i campi
     if (currentUser.role == 'Admin') {
@@ -311,19 +333,25 @@ class _UserDetailPageState extends State<UserDetailPage> {
     }
     // Trainer può modificare solo Nome e Cognome di utenti con ruolo User
     if (currentUser.role == 'Trainer' && widget.user.role == 'User') {
-      return fieldName == 'Nome' || fieldName == 'Cognome' || fieldName == 'Anonimo';
+      return fieldName == 'Nome' ||
+          fieldName == 'Cognome' ||
+          fieldName == 'Anonimo';
     }
 
     // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo e Fine Iscrizione sono gestiti solo dagli Admin
-    if (fieldName == 'Stato' || fieldName == 'Tipologia' || fieldName == 'Entrate Disponibili' || 
-        fieldName == 'Entrate Settimanali' || fieldName == 'Fine Iscrizione' ||fieldName == 'Ruolo') {
+    if (fieldName == 'Stato' ||
+        fieldName == 'Tipologia' ||
+        fieldName == 'Entrate Disponibili' ||
+        fieldName == 'Entrate Settimanali' ||
+        fieldName == 'Fine Iscrizione' ||
+        fieldName == 'Ruolo') {
       return currentUser.role == 'Admin';
     }
     return true;
   }
 
   String _getValidRoleForDropdown() {
-    // Se l'utente corrente non è Admin e selectedRole è Trainer, 
+    // Se l'utente corrente non è Admin e selectedRole è Trainer,
     // restituisci 'User' come fallback
     if (store.state.user?.role != 'Admin' && selectedRole == 'Trainer') {
       return 'User';
@@ -357,9 +385,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
       appBar: AppBar(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
-        title: Text(store.state.user?.uid == widget.user.uid ? 'Il Mio Profilo' : 'Dettagli Utente'),
+        title: Text(store.state.user?.uid == widget.user.uid
+            ? 'Il Mio Profilo'
+            : 'Dettagli Utente'),
         actions: [
-          if (!isEditing && _canEditUser()) ...[            
+          if (!isEditing && _canEditUser()) ...[
             // Pulsante Cancella Account solo per il proprio profilo
             if (store.state.user?.uid == widget.user.uid)
               IconButton(
@@ -419,7 +449,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: primaryColor,
                           borderRadius: BorderRadius.circular(20),
@@ -435,7 +466,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       if (!widget.user.isActive) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(20),
@@ -462,54 +494,96 @@ class _UserDetailPageState extends State<UserDetailPage> {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Sezione informazioni personali
             _buildSection(
               'Informazioni Personali',
               [
-                _buildInfoRow('Nome', widget.user.name, nameController, _canEditSpecificField('Nome') && isEditing),
-                _buildInfoRow('Cognome', widget.user.lastName, lastNameController, _canEditSpecificField('Cognome') && isEditing),
+                _buildInfoRow('Nome', widget.user.name, nameController,
+                    _canEditSpecificField('Nome') && isEditing),
+                _buildInfoRow(
+                    'Cognome',
+                    widget.user.lastName,
+                    lastNameController,
+                    _canEditSpecificField('Cognome') && isEditing),
                 _buildInfoRow('Email', widget.user.email, null, false),
                 if (isAdmin)
-                _buildInfoRow('Ruolo', widget.user.role, null, _canEditSpecificField('Ruolo') && isEditing, isDropdown: true),
+                  _buildInfoRow('Ruolo', widget.user.role, null,
+                      _canEditSpecificField('Ruolo') && isEditing,
+                      isDropdown: true),
                 // Campo Stato visibile solo agli Admin
                 if (isAdmin)
-                  _buildInfoRow('Stato', widget.user.isActive ? 'Attivo' : 'Disattivato', null, _canEditSpecificField('Stato') && isEditing, isStatusDropdown: true),
-                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No', null, _canEditSpecificField('Anonimo') && isEditing, isAnonymousDropdown: true),
+                  _buildInfoRow(
+                      'Stato',
+                      widget.user.isActive ? 'Attivo' : 'Disattivato',
+                      null,
+                      _canEditSpecificField('Stato') && isEditing,
+                      isStatusDropdown: true),
+                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No',
+                    null, _canEditSpecificField('Anonimo') && isEditing,
+                    isAnonymousDropdown: true),
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Sezione piano di iscrizione
             _buildSection(
               'Piano di Iscrizione',
               [
-                _buildInfoRow('Tipologia', _getTipologiaLabel(widget.user.tipologiaIscrizione), null, _canEditSpecificField('Tipologia') && isEditing, isTipologiaDropdown: true),
-                _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, _canEditSpecificField('Entrate Disponibili') && isEditing),
-                _buildInfoRow('Entrate Settimanali', widget.user.entrateSettimanali?.toString() ?? '0', entrateSettimanaliController, _canEditSpecificField('Entrate Settimanali') && isEditing),
-                _buildInfoRow('Fine Iscrizione', widget.user.fineIscrizione != null ? DateFormat('dd/MM/yyyy').format(widget.user.fineIscrizione!.toDate()) : 'Non impostata', null, _canEditSpecificField('Fine Iscrizione') && isEditing, isDatePicker: true),
+                _buildInfoRow(
+                    'Tipologia',
+                    _getTipologiaLabel(widget.user.tipologiaIscrizione),
+                    null,
+                    _canEditSpecificField('Tipologia') && isEditing,
+                    isTipologiaDropdown: true),
+                _buildInfoRow(
+                    'Entrate Disponibili',
+                    widget.user.entrateDisponibili?.toString() ?? '0',
+                    entrateDisponibiliController,
+                    _canEditSpecificField('Entrate Disponibili') && isEditing),
+                _buildInfoRow(
+                    'Entrate Settimanali',
+                    widget.user.entrateSettimanali?.toString() ?? '0',
+                    entrateSettimanaliController,
+                    _canEditSpecificField('Entrate Settimanali') && isEditing),
+                _buildInfoRow(
+                    'Fine Iscrizione',
+                    widget.user.fineIscrizione != null
+                        ? DateFormat('dd/MM/yyyy')
+                            .format(widget.user.fineIscrizione!.toDate())
+                        : 'Non impostata',
+                    null,
+                    _canEditSpecificField('Fine Iscrizione') && isEditing,
+                    isDatePicker: true),
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Sezione informazioni account
             _buildSection(
               'Informazioni Account',
               [
-                _buildInfoRow('Data Registrazione', DateFormat('dd/MM/yyyy HH:mm').format(widget.user.createdAt), null, false),
-                _buildInfoRow('Corsi Iscritti', '${widget.user.courses.length}', null, false),
+                _buildInfoRow(
+                    'Data Registrazione',
+                    DateFormat('dd/MM/yyyy HH:mm')
+                        .format(widget.user.createdAt),
+                    null,
+                    false),
+                _buildInfoRow('Corsi Iscritti', '${widget.user.courses.length}',
+                    null, false),
               ],
             ),
-            
+
             if (widget.user.courses.isNotEmpty) ...[
               const SizedBox(height: 24),
               _buildSection(
                 'Ultimi 10 iscrizioni',
-                getUserCourses().map((courseInfo) => 
-                  _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false)
-                ).toList(),
+                getUserCourses()
+                    .map((courseInfo) => _buildInfoRow(
+                        courseInfo['name']!, courseInfo['date']!, null, false))
+                    .toList(),
               ),
             ],
             //TODO aggiungere corsi fatti nel caso sia Trainer
@@ -529,7 +603,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   ),
                 ),
               ),
-            
+
             // Pulsante Logout (solo per il proprio profilo)
             if (store.state.user?.uid == widget.user.uid) ...[
               const SizedBox(height: 32),
@@ -597,7 +671,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false}) {
+  Widget _buildInfoRow(String label, String value,
+      TextEditingController? controller, bool isEditable,
+      {bool isDropdown = false,
+      bool isTipologiaDropdown = false,
+      bool isDatePicker = false,
+      bool isStatusDropdown = false,
+      bool isAnonymousDropdown = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -620,7 +700,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                   )
                 : isEditable && isDropdown
@@ -628,7 +709,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                         value: _getValidRoleForDropdown(),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
                         items: [
                           DropdownMenuItem(
@@ -654,13 +736,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       )
                     : isEditable && isTipologiaDropdown
                         ? DropdownButtonFormField<String>(
-                            value: selectedTipologiaIscrizione?.toString().split('.').last,
+                            value: selectedTipologiaIscrizione
+                                ?.toString()
+                                .split('.')
+                                .last,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                             ),
                             items: [
-                              DropdownMenuItem(value: null, child: Text('Nessuna')),
+                              DropdownMenuItem(
+                                  value: null, child: Text('Nessuna')),
                               ...TipologiaIscrizione.values.map((tipologia) {
                                 return DropdownMenuItem(
                                   value: tipologia.toString().split('.').last,
@@ -670,20 +757,26 @@ class _UserDetailPageState extends State<UserDetailPage> {
                             ],
                             onChanged: (newValue) {
                               setState(() {
-                                selectedTipologiaIscrizione = newValue != null 
-                                    ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == newValue).firstOrNull
+                                selectedTipologiaIscrizione = newValue != null
+                                    ? TipologiaIscrizione.values
+                                        .where((e) =>
+                                            e.toString().split('.').last ==
+                                            newValue)
+                                        .firstOrNull
                                     : null;
                               });
                             },
                           )
-                                                    : isEditable && isDatePicker
+                        : isEditable && isDatePicker
                             ? InkWell(
                                 onTap: () async {
                                   final DateTime? picked = await showDatePicker(
                                     context: context,
-                                    initialDate: selectedFineIscrizione ?? DateTime.now(),
+                                    initialDate: selectedFineIscrizione ??
+                                        DateTime.now(),
                                     firstDate: DateTime.now(),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    lastDate: DateTime.now()
+                                        .add(const Duration(days: 365)),
                                   );
                                   if (picked != null) {
                                     setState(() {
@@ -692,17 +785,20 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                   }
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
                                   decoration: BoxDecoration(
                                     border: Border.all(color: Colors.grey),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        selectedFineIscrizione != null 
-                                            ? DateFormat('dd/MM/yyyy').format(selectedFineIscrizione!)
+                                        selectedFineIscrizione != null
+                                            ? DateFormat('dd/MM/yyyy')
+                                                .format(selectedFineIscrizione!)
                                             : 'Seleziona data',
                                         style: const TextStyle(fontSize: 16),
                                       ),
@@ -712,81 +808,87 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                 ),
                               )
                             : isEditable && isStatusDropdown
-                            ? DropdownButtonFormField<bool>(
-                                value: selectedIsActive,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                items: [
-                                  DropdownMenuItem(
-                                    value: true,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.check_circle, color: Colors.green),
-                                        SizedBox(width: 8),
-                                        Text('Attivo'),
-                                      ],
+                                ? DropdownButtonFormField<bool>(
+                                    value: selectedIsActive,
+                                    decoration: const InputDecoration(
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
                                     ),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: false,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.block, color: Colors.red),
-                                        SizedBox(width: 8),
-                                        Text('Disattivato'),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (newValue) {
-                                  setState(() {
-                                    selectedIsActive = newValue!;
-                                  });
-                                },
-                              )
-                            : isEditable && isAnonymousDropdown
-                            ? DropdownButtonFormField<bool>(
-                                value: selectedIsAnonymous,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                items: [
-                                  DropdownMenuItem(
-                                    value: false,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.person, color: Colors.green),
-                                        SizedBox(width: 8),
-                                        Text('No'),
-                                      ],
-                                    ),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: true,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.visibility_off, color: Colors.grey),
-                                        SizedBox(width: 8),
-                                        Text('Sì'),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (newValue) {
-                                  setState(() {
-                                    selectedIsAnonymous = newValue!;
-                                  });
-                                },
-                              )
-                            : Text(
-                                value,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                ),
-                              ),
+                                    items: [
+                                      DropdownMenuItem(
+                                        value: true,
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.check_circle,
+                                                color: Colors.green),
+                                            SizedBox(width: 8),
+                                            Text('Attivo'),
+                                          ],
+                                        ),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: false,
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.block,
+                                                color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Disattivato'),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (newValue) {
+                                      setState(() {
+                                        selectedIsActive = newValue!;
+                                      });
+                                    },
+                                  )
+                                : isEditable && isAnonymousDropdown
+                                    ? DropdownButtonFormField<bool>(
+                                        value: selectedIsAnonymous,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 8),
+                                        ),
+                                        items: [
+                                          DropdownMenuItem(
+                                            value: false,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.person,
+                                                    color: Colors.green),
+                                                SizedBox(width: 8),
+                                                Text('No'),
+                                              ],
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: true,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.visibility_off,
+                                                    color: Colors.grey),
+                                                SizedBox(width: 8),
+                                                Text('Sì'),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        onChanged: (newValue) {
+                                          setState(() {
+                                            selectedIsAnonymous = newValue!;
+                                          });
+                                        },
+                                      )
+                                    : Text(
+                                        value,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                        ),
+                                      ),
           ),
         ],
       ),

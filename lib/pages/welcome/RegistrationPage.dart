@@ -20,7 +20,8 @@ class RegistrationPage extends StatefulWidget {
 class _RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
 
@@ -38,55 +39,50 @@ class _RegistrationPageState extends State<RegistrationPage> {
   @override
   void initState() {
     super.initState();
-    if(isLogged()){
+    if (isLogged()) {
       loggedRedirect(context);
     }
   }
 
   void validateEmail() {
-    if(_emailController.text.isEmpty) {
+    if (_emailController.text.isEmpty) {
       emailError = "L'email non è valida";
-    }
-    else {
+    } else {
       emailError = null;
     }
   }
 
   void validatePassword() {
-    if(_passwordController.text.length < 6) {
+    if (_passwordController.text.length < 6) {
       passwordError = "La password deve essere lunga almeno 6 caratteri";
-    }
-    else if(_passwordController.text != _confirmPasswordController.text) {
+    } else if (_passwordController.text != _confirmPasswordController.text) {
       passwordError = "Le password devono essere uguali";
       confirmPasswordError = "Le password devono essere uguali";
-    }
-    else {
+    } else {
       passwordError = null;
       confirmPasswordError = null;
     }
   }
 
   void validateName() {
-    if(_nameController.text.length < 2) {
+    if (_nameController.text.length < 2) {
       nameError = "Il nome non è valido";
-    }
-    else {
+    } else {
       nameError = null;
     }
   }
 
   void validateLastName() {
-    if(_lastNameController.text.length < 2) {
+    if (_lastNameController.text.length < 2) {
       lastNameError = "Il cognome non è valido";
-    }
-    else {
+    } else {
       lastNameError = null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if(validatingEmail) {
+    if (validatingEmail) {
       return Scaffold(
         backgroundColor: primaryColor,
         body: Column(
@@ -95,18 +91,30 @@ class _RegistrationPageState extends State<RegistrationPage> {
             Center(
               child: Column(
                 children: [
-                  const Icon(Icons.email, size: 60, color: Colors.blueAccent,),
-                  const SizedBox(height: 30,),
-                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: Colors.white)),
-                  const SizedBox(height: 30,),
+                  const Icon(
+                    Icons.email,
+                    size: 60,
+                    color: Colors.blueAccent,
+                  ),
+                  const SizedBox(
+                    height: 30,
+                  ),
+                  const Text("Email di conferma inviata!",
+                      style: TextStyle(fontSize: 20, color: Colors.white)),
+                  const SizedBox(
+                    height: 30,
+                  ),
                   ElevatedButton(
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.all(Colors.blueAccent)
-                    ),
-                    onPressed: () {
-                      Navigator.pushNamed(context, LOGIN_ROUTE);
-                    }, child: const Text("Login", style: TextStyle(color: Colors.white),)
-                  )
+                      style: ButtonStyle(
+                          backgroundColor:
+                              WidgetStateProperty.all(Colors.blueAccent)),
+                      onPressed: () {
+                        Navigator.pushNamed(context, LOGIN_ROUTE);
+                      },
+                      child: const Text(
+                        "Login",
+                        style: TextStyle(color: Colors.white),
+                      ))
                 ],
               ),
             ),
@@ -119,53 +127,147 @@ class _RegistrationPageState extends State<RegistrationPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text("Registrazione", style: TextStyle(color: Colors.white),),
+        title: const Text(
+          "Registrazione",
+          style: TextStyle(color: Colors.white),
+        ),
       ),
       backgroundColor: primaryColor,
       body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
+          padding: EdgeInsets.only(
+              left: pagePadding,
+              right: pagePadding,
+              bottom: pagePadding,
+              top: pagePadding + MediaQuery.of(context).viewPadding.top),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Email', style: TextStyle(color: ghostColor),),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _emailController, hintText: 'Inserisci la tua email', onTapOutside: (_) => setState(() { validateEmail(); }),),
-                  const SizedBox(height: 5,),
-                  Text(emailError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Password', style: TextStyle(color: ghostColor),),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _passwordController, hintText: 'Inserisci la password', obscureText: true, onTapOutside: (_) => setState(() { validatePassword(); }),),
-                  const SizedBox(height: 5,),
-                  Text(passwordError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Conferma password', style: TextStyle(color: ghostColor),),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _confirmPasswordController, hintText: 'Conferma la password', obscureText: true, onTapOutside: (_) => setState(() { validatePassword(); }),),
-                  const SizedBox(height: 5,),
-                  Text(confirmPasswordError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Nome', style: TextStyle(color: ghostColor),),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _nameController, hintText: 'Inserisci il tuo nome', onTapOutside: (_) => setState(() { validateName(); }),),
-                  const SizedBox(height: 5,),
-                  Text(nameError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Cognome', style: TextStyle(color: ghostColor),),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _lastNameController, hintText: 'Inserisci il tuo cognome', onTapOutside: (_) => setState(() { validateLastName(); }),),
-                  const SizedBox(height: 5,),
-                  Text(lastNameError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
+                  const Text(
+                    'Email',
+                    style: TextStyle(color: ghostColor),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _emailController,
+                    hintText: 'Inserisci la tua email',
+                    onTapOutside: (_) => setState(() {
+                      validateEmail();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    emailError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Password',
+                    style: TextStyle(color: ghostColor),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _passwordController,
+                    hintText: 'Inserisci la password',
+                    obscureText: true,
+                    onTapOutside: (_) => setState(() {
+                      validatePassword();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    passwordError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Conferma password',
+                    style: TextStyle(color: ghostColor),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _confirmPasswordController,
+                    hintText: 'Conferma la password',
+                    obscureText: true,
+                    onTapOutside: (_) => setState(() {
+                      validatePassword();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    confirmPasswordError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Nome',
+                    style: TextStyle(color: ghostColor),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _nameController,
+                    hintText: 'Inserisci il tuo nome',
+                    onTapOutside: (_) => setState(() {
+                      validateName();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    nameError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Cognome',
+                    style: TextStyle(color: ghostColor),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _lastNameController,
+                    hintText: 'Inserisci il tuo cognome',
+                    onTapOutside: (_) => setState(() {
+                      validateLastName();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    lastNameError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
                   Row(
                     children: [
                       Checkbox(
@@ -181,7 +283,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         onTap: () async {
                           final url = Uri.parse('https://www.google.it');
                           if (await canLaunchUrl(url)) {
-                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                            await launchUrl(url,
+                                mode: LaunchMode.externalApplication);
                           }
                         },
                         child: const Text(
@@ -196,7 +299,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   ),
                 ],
               ),
-              Text(registrationError ?? '', style: const TextStyle(color: dangerColor),),
+              Text(
+                registrationError ?? '',
+                style: const TextStyle(color: dangerColor),
+              ),
               if (privacyError != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
@@ -205,7 +311,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     style: const TextStyle(color: dangerColor),
                   ),
                 ),
-              const SizedBox(height: 10,),
+              const SizedBox(
+                height: 10,
+              ),
               SizedBox(
                 width: MediaQuery.of(context).size.width - pagePadding * 2,
                 child: ElevatedButton(
@@ -222,23 +330,21 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       }
                     });
 
-                    if (
-                      nameError != null ||
-                      lastNameError != null ||
-                      emailError != null ||
-                      passwordError != null ||
-                      confirmPasswordError != null ||
-                      !privacyAccepted
-                    ) {
+                    if (nameError != null ||
+                        lastNameError != null ||
+                        emailError != null ||
+                        passwordError != null ||
+                        confirmPasswordError != null ||
+                        !privacyAccepted) {
                       return;
                     }
 
                     registerWithEmailPassword(
-                      _emailController.text,
-                      _passwordController.text,
-                      _nameController.text,
-                      _lastNameController.text
-                    ).then((SignUpResponse? response) {
+                            _emailController.text,
+                            _passwordController.text,
+                            _nameController.text,
+                            _lastNameController.text)
+                        .then((SignUpResponse? response) {
                       if (response != null && response.user != null) {
                         store.dispatch(SetUserAction(response.user!));
 
@@ -253,14 +359,15 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     });
                   },
                   style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.all(secondaryColor),
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                      RoundedRectangleBorder(
+                      backgroundColor: WidgetStateProperty.all(secondaryColor),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                          RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                      )
-                    )
-                  ), 
-                  child: const Text('Registrati', style: TextStyle(color: Colors.white),),
+                      ))),
+                  child: const Text(
+                    'Registrati',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ),
             ],

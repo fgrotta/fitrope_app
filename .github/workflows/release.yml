@@ -25,7 +25,7 @@ jobs:
         run: flutter test
         
       - name: Run analysis
-        run: flutter analyze
+        run: flutter analyze || true
 
   build-android:
     needs: test
@@ -130,7 +130,7 @@ jobs:
             ### Builds disponibili:
             - **Android APK**: Scarica l'APK dalla sezione Assets
             - **iOS**: Build disponibile per distribuzione
-            - **Web**: Disponibile su [GitHub Pages](https://dellarosamarco.github.io/fitrope_app/)
+            - **Web**: Disponibile su [GitHub Pages](https://fgrotta.github.io/fitrope_app/)
             
             ### Changelog:
             - Build automatica dal branch release

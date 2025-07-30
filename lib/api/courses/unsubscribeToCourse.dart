@@ -26,7 +26,6 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
     int subscribed = courseSnapshot['subscribed'];
 
     if (subscribed > 0) {
-      
       transaction.update(courseRef, {
         'subscribed': subscribed - 1,
       });
@@ -43,13 +42,13 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
 
       int hoursDifference = difference.inHours;
 
-
       if (userCourses.contains(courseId)) {
         userCourses.remove(courseId);
 
         transaction.update(userRef, {
           'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] + (hoursDifference > 12 ? 1 : 0)
+          'entrateDisponibili': userSnapshot['entrateDisponibili'] +
+              (hoursDifference > 12 ? 1 : 0)
         });
       }
     } else {
@@ -63,7 +62,7 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
       if (userData != null) {
         store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
       }
-    }   
+    }
     store.dispatch(FinishLoadingAction());
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());

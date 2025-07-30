@@ -14,7 +14,7 @@ class _WelcomePageState extends State<WelcomePage> {
   @override
   void initState() {
     super.initState();
-    if(isLogged()){
+    if (isLogged()) {
       loggedRedirect(context);
     }
   }
@@ -24,7 +24,11 @@ class _WelcomePageState extends State<WelcomePage> {
     return Scaffold(
       backgroundColor: primaryColor,
       body: Padding(
-        padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + 12.5 + MediaQuery.of(context).viewPadding.top),
+        padding: EdgeInsets.only(
+            left: pagePadding,
+            right: pagePadding,
+            bottom: pagePadding,
+            top: pagePadding + 12.5 + MediaQuery.of(context).viewPadding.top),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -33,42 +37,63 @@ class _WelcomePageState extends State<WelcomePage> {
               children: [
                 const Column(
                   children: [
-                    Text('Fit House Monza', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),),
-                    Image(image: AssetImage('assets/Logo.png'), width: 200,),
+                    Text(
+                      'Fit House Monza',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    Image(
+                      image: AssetImage('assets/Logo.png'),
+                      width: 200,
+                    ),
                   ],
                 ),
                 Column(
                   children: [
                     SizedBox(
-                      width: MediaQuery.of(context).size.width - pagePadding * 2,
+                      width:
+                          MediaQuery.of(context).size.width - pagePadding * 2,
                       child: ElevatedButton(
-                        onPressed: () { Navigator.pushNamed(context, LOGIN_ROUTE); }, 
-                        style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.all(secondaryColor),
-                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            )
-                          )
-                        ),
-                        child: const Text('Entra', style: TextStyle(color: Colors.white),)
-                      ),
+                          onPressed: () {
+                            Navigator.pushNamed(context, LOGIN_ROUTE);
+                          },
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  WidgetStateProperty.all(secondaryColor),
+                              shape: WidgetStateProperty.all<
+                                      RoundedRectangleBorder>(
+                                  RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ))),
+                          child: const Text(
+                            'Entra',
+                            style: TextStyle(color: Colors.white),
+                          )),
                     ),
-                    const SizedBox(height: 20,),
+                    const SizedBox(
+                      height: 20,
+                    ),
                     SizedBox(
-                      width: MediaQuery.of(context).size.width - pagePadding * 2,
+                      width:
+                          MediaQuery.of(context).size.width - pagePadding * 2,
                       child: ElevatedButton(
-                        onPressed: () { Navigator.pushNamed(context, REGISTRATION_ROUTE); },
-                        style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.all(secondaryColor),
-                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            )
-                          )
-                        ), 
-                        child: const Text('Registrati', style: TextStyle(color: Colors.white),)
-                      ),
+                          onPressed: () {
+                            Navigator.pushNamed(context, REGISTRATION_ROUTE);
+                          },
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  WidgetStateProperty.all(secondaryColor),
+                              shape: WidgetStateProperty.all<
+                                      RoundedRectangleBorder>(
+                                  RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ))),
+                          child: const Text(
+                            'Registrati',
+                            style: TextStyle(color: Colors.white),
+                          )),
                     ),
                   ],
                 )

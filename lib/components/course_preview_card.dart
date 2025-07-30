@@ -34,10 +34,12 @@ class CoursePreviewCard extends StatelessWidget {
     this.showDate = true,
   });
 
-  Future<List<Map<String, dynamic>>> getSubscriberNames(Course course, bool isAdmin) async {
+  Future<List<Map<String, dynamic>>> getSubscriberNames(
+      Course course, bool isAdmin) async {
     var usersCollection = FirebaseFirestore.instance.collection('users');
     //TODO: Forse si può Ottimizzare per usare la cache, ma non è urgente
-    var snapshots = await usersCollection.where('courses', arrayContains: course.uid).get();
+    var snapshots =
+        await usersCollection.where('courses', arrayContains: course.uid).get();
     return snapshots.docs.map((doc) {
       final user = FitropeUser.fromJson(doc.data());
       // Gli admin vedono sempre i nomi completi, con icona fantasma per gli anonimi
@@ -49,10 +51,12 @@ class CoursePreviewCard extends StatelessWidget {
   }
 
   String _buildDescription() {
-    final trainer = "Trainer: ${UserDisplayUtils.getTrainerName(course.trainerId, trainers)}";
-    
+    final trainer =
+        "Trainer: ${UserDisplayUtils.getTrainerName(course.trainerId, trainers)}";
+
     if (showDate) {
-      final courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
+      final courseDate = DateTime.fromMillisecondsSinceEpoch(
+          course.startDate.millisecondsSinceEpoch);
       return "${formatDate(courseDate)}, ${getCourseTimeRange(course)}\n$trainer";
     } else {
       return "${getCourseTimeRange(course)}\n$trainer";
@@ -62,6 +66,7 @@ class CoursePreviewCard extends StatelessWidget {
   bool _canViewUserDetails() {
     return currentUser.role == 'Admin' || currentUser.role == 'Trainer';
   }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -70,11 +75,12 @@ class CoursePreviewCard extends StatelessWidget {
         String iscritti = "";
         List<String> names = [];
         List<FitropeUser> users = [];
-        
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           iscritti = "Iscritti: Caricamento iscritti...";
         } else if (snapshot.hasData) {
-          names = snapshot.data!.map((s) => s['displayName'] as String).toList();
+          names =
+              snapshot.data!.map((s) => s['displayName'] as String).toList();
           users = snapshot.data!.map((s) => s['user'] as FitropeUser).toList();
         } else {
           iscritti = "Iscritti: Nessun iscritto";
@@ -116,4 +122,4 @@ class CoursePreviewCard extends StatelessWidget {
       },
     );
   }
-} 
+}

@@ -3,7 +3,8 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 
 Future<void> cleanCourses() async {
   try {
-    CollectionReference coursesRef = FirebaseFirestore.instance.collection('courses');
+    CollectionReference coursesRef =
+        FirebaseFirestore.instance.collection('courses');
 
     QuerySnapshot snapshot = await coursesRef.get();
 

@@ -11,15 +11,14 @@ class Course {
   final int subscribed;
   final String? trainerId; // ID del trainer assegnato al corso
 
-  const Course({ 
-    @Deprecated('Use uid instead')
-    required this.id, 
+  const Course({
+    @Deprecated('Use uid instead') required this.id,
     required this.uid,
-    required this.name, 
-    required this.startDate, 
-    required this.endDate, 
-    required this.capacity, 
-    required this.subscribed, 
+    required this.name,
+    required this.startDate,
+    required this.endDate,
+    required this.capacity,
+    required this.subscribed,
     this.trainerId,
   });
 

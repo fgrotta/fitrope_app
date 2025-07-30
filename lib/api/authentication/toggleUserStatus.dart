@@ -3,10 +3,7 @@ import 'package:fitrope_app/api/authentication/getUsers.dart';
 
 Future<void> toggleUserStatus(String uid, bool isActive) async {
   try {
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .update({
+    await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'isActive': isActive,
     });
 
@@ -16,4 +13,4 @@ Future<void> toggleUserStatus(String uid, bool isActive) async {
     print('Error updating user status: $e');
     throw e;
   }
-} 
+}

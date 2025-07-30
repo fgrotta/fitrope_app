@@ -35,32 +35,42 @@ class _HomePageState extends State<HomePage> {
     });
     getAllCourses().then((List<Course> response) {
       setState(() {
-        if(mounted) {
+        if (mounted) {
           allCourses = response;
           store.dispatch(SetAllCoursesAction(response));
         }
       });
     });
-    
+
     super.initState();
   }
 
   Widget renderSubscriptionCard() {
-    if(
-      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_MENSILE &&
-      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
-      user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE
-    ) {
+    if (user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_MENSILE &&
+        user.tipologiaIscrizione !=
+            TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
+        user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE) {
       return Column(
         children: [
           Container(
             padding: const EdgeInsets.only(top: 20, bottom: 10),
             width: double.infinity,
-            child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+            child: const Text(
+              'Il mio abbonamento',
+              textAlign: TextAlign.left,
+              style: TextStyle(color: Colors.white, fontSize: 20),
+            ),
           ),
-          const SizedBox(height: 20,),
-          const Text('Nessun abbonamento disponibile', style: TextStyle(color: ghostColor),),
-          const SizedBox(height: 30,),
+          const SizedBox(
+            height: 20,
+          ),
+          const Text(
+            'Nessun abbonamento disponibile',
+            style: TextStyle(color: ghostColor),
+          ),
+          const SizedBox(
+            height: 30,
+          ),
         ],
       );
     }
@@ -68,12 +78,11 @@ class _HomePageState extends State<HomePage> {
     bool isExpired = false;
     int today = DateTime.now().millisecondsSinceEpoch;
 
-    if(
-      (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
-      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE) &&
-      user.fineIscrizione != null && 
-      today > user.fineIscrizione!.toDate().millisecondsSinceEpoch
-    ) {
+    if ((user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
+            user.tipologiaIscrizione ==
+                TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE) &&
+        user.fineIscrizione != null &&
+        today > user.fineIscrizione!.toDate().millisecondsSinceEpoch) {
       isExpired = true;
     }
 
@@ -82,28 +91,46 @@ class _HomePageState extends State<HomePage> {
         Container(
           padding: const EdgeInsets.only(top: 20, bottom: 10),
           width: double.infinity,
-          child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+          child: const Text(
+            'Il mio abbonamento',
+            textAlign: TextAlign.left,
+            style: TextStyle(color: Colors.white, fontSize: 20),
+          ),
         ),
-        CustomCard(title: getTipologiaIscrizioneTitle(user.tipologiaIscrizione!, isExpired), description: getTipologiaIscrizioneDescription(user),),
-        const SizedBox(height: 30,),
+        CustomCard(
+          title:
+              getTipologiaIscrizioneTitle(user.tipologiaIscrizione!, isExpired),
+          description: getTipologiaIscrizioneDescription(user),
+        ),
+        const SizedBox(
+          height: 30,
+        ),
       ],
     );
   }
 
   List<Widget> renderCourses() {
-    if(user.courses.isEmpty) {
+    if (user.courses.isEmpty) {
       return [
-        const SizedBox(height: 10,),
-        const Text('Nessun corso disponibile', style: TextStyle(color: ghostColor),)
+        const SizedBox(
+          height: 10,
+        ),
+        const Text(
+          'Nessun corso disponibile',
+          style: TextStyle(color: ghostColor),
+        )
       ];
     }
 
     List<Widget> render = [];
 
-    for(int n=0; n<user.courses.length; n++) {
-      Course? course = allCourses.where((Course course) => course.id == user.courses[n]).firstOrNull;
+    for (int n = 0; n < user.courses.length; n++) {
+      Course? course = allCourses
+          .where((Course course) => course.id == user.courses[n])
+          .firstOrNull;
 
-      if(course != null && getCourseState(course, user) != CourseState.EXPIRED) {
+      if (course != null &&
+          getCourseState(course, user) != CourseState.EXPIRED) {
         render.add(
           CoursePreviewCard(
             course: course,
@@ -115,20 +142,29 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    if(render.isEmpty) {
+    if (render.isEmpty) {
       return [
-        const SizedBox(height: 10,),
-        const Text('Nessun corso disponibile', style: TextStyle(color: ghostColor),)
+        const SizedBox(
+          height: 10,
+        ),
+        const Text(
+          'Nessun corso disponibile',
+          style: TextStyle(color: ghostColor),
+        )
       ];
     }
 
     return render;
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
+      padding: EdgeInsets.only(
+          left: pagePadding,
+          right: pagePadding,
+          bottom: pagePadding,
+          top: pagePadding + MediaQuery.of(context).viewPadding.top),
       child: Column(
         children: [
           // HEADER
@@ -136,7 +172,13 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
+              const Text(
+                'Home',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 30,
+                    color: Colors.white),
+              ),
               GestureDetector(
                 child: CircleAvatar(
                   backgroundColor: const Color.fromARGB(255, 113, 129, 219),
@@ -145,7 +187,8 @@ class _HomePageState extends State<HomePage> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                    MaterialPageRoute(
+                        builder: (context) => UserDetailPage(user: user)),
                   );
                 },
               )
@@ -161,7 +204,11 @@ class _HomePageState extends State<HomePage> {
               Container(
                 padding: const EdgeInsets.only(bottom: 10),
                 width: double.infinity,
-                child: const Text('I miei corsi', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+                child: const Text(
+                  'I miei corsi',
+                  textAlign: TextAlign.left,
+                  style: TextStyle(color: Colors.white, fontSize: 20),
+                ),
               ),
               ...renderCourses()
             ],

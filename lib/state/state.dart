@@ -6,7 +6,8 @@ class AppState {
   final FitropeUser? user;
   final List<Course> allCourses;
 
-  AppState({required this.user, required this.isLoading, required this.allCourses});
+  AppState(
+      {required this.user, required this.isLoading, required this.allCourses});
 
-  AppState.initialState(this.isLoading, this.allCourses) : user=null;
+  AppState.initialState(this.isLoading, this.allCourses) : user = null;
 }

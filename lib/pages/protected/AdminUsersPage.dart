@@ -45,7 +45,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       print('Error loading users: $e');
       setState(() {
         isLoading = false;
-      }); 
+      });
     }
   }
 
@@ -71,7 +71,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         builder: (context) => UserDetailPage(user: user),
       ),
     );
-    
+
     // Se l'utente è stato aggiornato, aggiorna la lista
     if (updatedUser != null) {
       setState(() {
@@ -85,19 +85,18 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     }
   }
 
-
-
   void showToggleUserStatusDialog(FitropeUser user) {
     final isCurrentlyActive = user.isActive;
     final action = isCurrentlyActive ? 'disattivare' : 'attivare';
     final actionPast = isCurrentlyActive ? 'disattivato' : 'attivato';
-    
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: Text(isCurrentlyActive ? 'Disattiva Utente' : 'Attiva Utente'),
-          content: Text('Sei sicuro di voler $action l\'utente ${user.name} ${user.lastName}?'),
+          content: Text(
+              'Sei sicuro di voler $action l\'utente ${user.name} ${user.lastName}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -122,8 +121,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 }
               },
               style: TextButton.styleFrom(
-                foregroundColor: isCurrentlyActive ? Colors.orange : Colors.green
-              ),
+                  foregroundColor:
+                      isCurrentlyActive ? Colors.orange : Colors.green),
               child: Text(isCurrentlyActive ? 'Disattiva' : 'Attiva'),
             ),
           ],
@@ -186,94 +185,102 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     ),
                   ),
                   SizedBox(height: 8),
-                  ...filteredUsers.map((user) => Container(
-                    margin: EdgeInsets.symmetric(horizontal: pagePadding, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ListTile(
-                      leading: Stack(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: primaryColor,
-                            child: Text(
-                              '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
-                              style: TextStyle(color: Colors.white),
+                  ...filteredUsers
+                      .map((user) => Container(
+                            margin: EdgeInsets.symmetric(
+                                horizontal: pagePadding, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ),
-                          if (!user.isActive)
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                padding: EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.block,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
+                            child: ListTile(
+                              leading: Stack(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: primaryColor,
+                                    child: Text(
+                                      '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                  if (!user.isActive)
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        padding: EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.block,
+                                          color: Colors.white,
+                                          size: 12,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
+                              title: Text('${user.name} ${user.lastName}'),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(user.email),
+                                  Text('Ruolo: ${user.role}'),
+                                ],
+                              ),
+                              trailing: PopupMenuButton(
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: 'details',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.info),
+                                        SizedBox(width: 8),
+                                        Text('Dettagli'),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'toggle',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                            user.isActive
+                                                ? Icons.block
+                                                : Icons.check_circle,
+                                            color: user.isActive
+                                                ? Colors.orange
+                                                : Colors.green),
+                                        SizedBox(width: 8),
+                                        Text(
+                                            user.isActive
+                                                ? 'Disattiva'
+                                                : 'Attiva',
+                                            style: TextStyle(
+                                                color: user.isActive
+                                                    ? Colors.orange
+                                                    : Colors.green)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                onSelected: (value) {
+                                  switch (value) {
+                                    case 'details':
+                                      showUserDetails(user);
+                                      break;
+                                    case 'toggle':
+                                      showToggleUserStatusDialog(user);
+                                      break;
+                                  }
+                                },
+                              ),
+                              onTap: () => showUserDetails(user),
                             ),
-                        ],
-                      ),
-                      title: Text('${user.name} ${user.lastName}'),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(user.email),
-                          Text('Ruolo: ${user.role}'),
-                        ],
-                      ),
-                      trailing: PopupMenuButton(
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'details',
-                            child: Row(
-                              children: [
-                                Icon(Icons.info),
-                                SizedBox(width: 8),
-                                Text('Dettagli'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'toggle',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  user.isActive ? Icons.block : Icons.check_circle,
-                                  color: user.isActive ? Colors.orange : Colors.green
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  user.isActive ? 'Disattiva' : 'Attiva',
-                                  style: TextStyle(
-                                    color: user.isActive ? Colors.orange : Colors.green
-                                  )
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onSelected: (value) {
-                          switch (value) {
-                            case 'details':
-                              showUserDetails(user);
-                              break;
-                            case 'toggle':
-                              showToggleUserStatusDialog(user);
-                              break;
-                          }
-                        },
-                      ),
-                      onTap: () => showUserDetails(user),
-                    ),
-                  )).toList(),
+                          ))
+                      .toList(),
                   if (filteredUsers.isEmpty && !isLoading)
                     Padding(
                       padding: EdgeInsets.all(pagePadding),
@@ -293,4 +300,4 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       },
     );
   }
-} 
+}

@@ -34,23 +34,21 @@ class _ProtectedState extends State<Protected> {
     super.initState();
 
     getAllCourses().then((List<Course> response) {
-      if(mounted) {
+      if (mounted) {
         setState(() {
           store.dispatch(SetAllCoursesAction(response));
         });
       }
     });
-    
-    if(!isLogged()) {
+
+    if (!isLogged()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacementNamed(LOGIN_ROUTE);
       });
-    }
-    else {
-      if(user != null) {
+    } else {
+      if (user != null) {
         print("${user!.name} ${user!.lastName} logged");
-      }
-      else {
+      } else {
         resetUser();
       }
     }
@@ -61,71 +59,74 @@ class _ProtectedState extends State<Protected> {
 
     Map<String, dynamic>? userData = await getUserData(uid);
 
-    if(userData != null) {
+    if (userData != null) {
       setState(() {
         store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
         user = store.state.user;
         print("${user!.name} ${user!.lastName} logged");
       });
-    }
-    else {
+    } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         signOut().then((_) {
           logoutRedirect(context);
-        }); 
+        });
       });
     }
   }
 
   Widget getPage() {
-    switch(currentIndex) {
-      case 0: return const HomePage();
-      case 1: return const CalendarPage();
-      case 2: return const AdminUsersPage();
-      default: return const HomePage();
+    switch (currentIndex) {
+      case 0:
+        return const HomePage();
+      case 1:
+        return const CalendarPage();
+      case 2:
+        return const AdminUsersPage();
+      default:
+        return const HomePage();
     }
   }
 
   @override
-  Widget build(BuildContext context) {    
+  Widget build(BuildContext context) {
     return StoreConnector<AppState, bool>(
-      converter: (store) => store.state.isLoading,
-      builder: (context, isLoading) {
-        return Stack(
-          children: [
+        converter: (store) => store.state.isLoading,
+        builder: (context, isLoading) {
+          return Stack(children: [
             Scaffold(
               backgroundColor: backgroundColor,
               bottomNavigationBar: CustomBottomNavigationBar(
                 items: [
-                  const CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
-                  const CustomBottomNavigationBarItem(icon: Icons.calendar_month, label: 'Calendario'),
+                  const CustomBottomNavigationBarItem(
+                      icon: Icons.home, label: 'Home'),
+                  const CustomBottomNavigationBarItem(
+                      icon: Icons.calendar_month, label: 'Calendario'),
                   if (user?.role == 'Admin')
-                    const CustomBottomNavigationBarItem(icon: Icons.people, label: 'Utenti'),
-                ], 
+                    const CustomBottomNavigationBarItem(
+                        icon: Icons.people, label: 'Utenti'),
+                ],
                 colors: const CustomBottomNavigationBarColors(
-                  backgroundColor: primaryColor, 
-                  selectedItemColor: Colors.white, 
+                  backgroundColor: primaryColor,
+                  selectedItemColor: Colors.white,
                   unselectedItemColor: ghostColor,
-                ), 
+                ),
                 onChangePage: (int index) {
                   setState(() {
                     currentIndex = index;
                   });
-                }, 
-                currentIndex: currentIndex, 
+                },
+                currentIndex: currentIndex,
               ),
               body: SingleChildScrollView(
                 child: Column(
                   children: [
-                    if(user != null) getPage(),
+                    if (user != null) getPage(),
                   ],
                 ),
               ),
             ),
             if (isLoading) const Loader(),
-          ]
-        );
-      }
-    );
+          ]);
+        });
   }
 }

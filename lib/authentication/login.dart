@@ -13,14 +13,16 @@ class SignInResponse {
   SignInResponse({
     this.user,
     required this.error,
-    this.emailNotVerified=false,
+    this.emailNotVerified = false,
   });
 }
 
-Future<SignInResponse> signInWithEmailPassword(String email, String password) async {
+Future<SignInResponse> signInWithEmailPassword(
+    String email, String password) async {
   store.dispatch(StartLoadingAction());
   try {
-    UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+    UserCredential userCredential =
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
@@ -31,7 +33,10 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
       if (!user.emailVerified) {
         store.dispatch(FinishLoadingAction());
         print('Email non verificata.');
-        return SignInResponse(error: "Email non verificata. Controlla la tua casella di posta per il link di verifica.", emailNotVerified: true);
+        return SignInResponse(
+            error:
+                "Email non verificata. Controlla la tua casella di posta per il link di verifica.",
+            emailNotVerified: true);
       }
 
       print("User signed in: ${user.email}");
@@ -43,14 +48,16 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
 
       if (userData != null) {
         final fitropeUser = FitropeUser.fromJson(userData);
-        
+
         // Controlla se l'utente è attivo
         if (!fitropeUser.isActive) {
           // Disconnetti l'utente da Firebase Auth
           await FirebaseAuth.instance.signOut();
-          return SignInResponse(error: "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
+          return SignInResponse(
+              error:
+                  "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
         }
-        
+
         return SignInResponse(user: fitropeUser, error: "");
       }
 

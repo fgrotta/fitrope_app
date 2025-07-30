@@ -79,9 +79,10 @@ Il progetto utilizza Dependabot per:
 ### Troubleshooting
 
 #### Build Fallite
-1. Verificare che tutti i test passino localmente
-2. Controllare la formattazione del codice: `flutter format .`
+1. Verificare che tutti i test passino localmente: `flutter test`
+2. Controllare la formattazione del codice: `dart format .`
 3. Verificare le dipendenze: `flutter pub deps`
+4. Eseguire l'analisi del codice: `flutter analyze`
 
 #### Problemi iOS
 - Assicurarsi che Xcode sia aggiornato

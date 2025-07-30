@@ -38,7 +38,7 @@ class _CalendarPageState extends State<CalendarPage> {
   late DateTime currentDate;
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
-  
+
   @override
   void initState() {
     user = store.state.user!;
@@ -50,7 +50,7 @@ class _CalendarPageState extends State<CalendarPage> {
     getAllCourses().then((List<Course> response) {
       setState(() {
         courses = response;
-        for(Course course in courses) {
+        for (Course course in courses) {
           updateCourseToMap(course, null);
         }
         onSelectDate(DateTime.now());
@@ -59,25 +59,27 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
   }
 
-  void updateCourseToMap(Course newCourse, Course? oldCourse ) {
+  void updateCourseToMap(Course newCourse, Course? oldCourse) {
     if (oldCourse != null) {
       removeCoruseFromMap(oldCourse);
     }
-    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(newCourse.startDate.millisecondsSinceEpoch);
+    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(
+        newCourse.startDate.millisecondsSinceEpoch);
     String indexDate = DateFormat(pattern).format(courseDate);
-    if(!coursesByDate.containsKey(indexDate)) {
+    if (!coursesByDate.containsKey(indexDate)) {
       coursesByDate[indexDate] = [];
     }
     coursesByDate[indexDate]!.add(newCourse);
   }
 
   void removeCoruseFromMap(Course oldCourse) {
-    coursesByDate[DateFormat(pattern).format(oldCourse.startDate.toDate())]!.remove(oldCourse);
+    coursesByDate[DateFormat(pattern).format(oldCourse.startDate.toDate())]!
+        .remove(oldCourse);
   }
 
   void updateCourses() {
     getAllCourses().then((List<Course> response) {
-      if(mounted) { 
+      if (mounted) {
         setState(() {
           courses = response;
           onSelectDate(currentDate);
@@ -91,16 +93,16 @@ class _CalendarPageState extends State<CalendarPage> {
     currentDate = selectedDate;
     selectedCourses = [];
     String indexDate = DateFormat(pattern).format(selectedDate);
-    if (coursesByDate[indexDate]!=null){
+    if (coursesByDate[indexDate] != null) {
       selectedCourses = coursesByDate[indexDate]!;
-    } 
+    }
 
-    setState(() { });
+    setState(() {});
   }
 
   void onSubscribe(Course course) {
     subscribeToCourse(course.id, user.uid).then((_) {
-      setState(() { 
+      setState(() {
         print('onSubscribe');
         updateCourses();
       });
@@ -109,7 +111,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void onUnsubscribe(Course course) {
     unsubscribeToCourse(course.id, user.uid).then((_) {
-      setState(() { 
+      setState(() {
         print('onUnsubscribe');
         updateCourses();
       });
@@ -123,27 +125,37 @@ class _CalendarPageState extends State<CalendarPage> {
     Course? courseToDuplicate,
   }) {
     final nameController = TextEditingController(
-      text: courseToEdit?.name ?? courseToDuplicate?.name ?? ''
-    );
+        text: courseToEdit?.name ?? courseToDuplicate?.name ?? '');
     final durationController = TextEditingController(
-      text: courseToEdit != null 
-        ? (courseToEdit.endDate.toDate().difference(courseToEdit.startDate.toDate()).inHours).toString()
-        : courseToDuplicate != null 
-          ? (courseToDuplicate.endDate.toDate().difference(courseToDuplicate.startDate.toDate()).inHours).toString()
-          : '1'
-    );
+        text: courseToEdit != null
+            ? (courseToEdit.endDate
+                    .toDate()
+                    .difference(courseToEdit.startDate.toDate())
+                    .inHours)
+                .toString()
+            : courseToDuplicate != null
+                ? (courseToDuplicate.endDate
+                        .toDate()
+                        .difference(courseToDuplicate.startDate.toDate())
+                        .inHours)
+                    .toString()
+                : '1');
     final capacityController = TextEditingController(
-      text: courseToEdit?.capacity.toString() ?? courseToDuplicate?.capacity.toString() ?? '6'
-    );
-    
-    DateTime? startDate = courseToEdit?.startDate.toDate() ?? courseToDuplicate?.startDate.toDate() ?? currentDate;
-    String? selectedTrainerId = courseToEdit?.trainerId ?? courseToDuplicate?.trainerId;
+        text: courseToEdit?.capacity.toString() ??
+            courseToDuplicate?.capacity.toString() ??
+            '6');
+
+    DateTime? startDate = courseToEdit?.startDate.toDate() ??
+        courseToDuplicate?.startDate.toDate() ??
+        currentDate;
+    String? selectedTrainerId =
+        courseToEdit?.trainerId ?? courseToDuplicate?.trainerId;
     String? errorMsg;
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setStateDialog) { 
+          builder: (context, setStateDialog) {
             return AlertDialog(
               title: Text(title),
               content: SingleChildScrollView(
@@ -152,26 +164,41 @@ class _CalendarPageState extends State<CalendarPage> {
                   children: [
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Nome corso'),
+                      decoration:
+                          const InputDecoration(labelText: 'Nome corso'),
                     ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         const Text('Data: '),
-                        Text(startDate != null ? DateFormat('dd/MM/yyyy').format(startDate!) : 'Non selezionata'),
+                        Text(startDate != null
+                            ? DateFormat('dd/MM/yyyy').format(startDate!)
+                            : 'Non selezionata'),
                         IconButton(
                           icon: const Icon(Icons.calendar_today),
                           onPressed: () async {
                             final picked = await showDatePicker(
                               context: context,
                               initialEntryMode: DatePickerEntryMode.calendar,
-                              initialDate: startDate ?? DateTime(currentDate.year, currentDate.month, currentDate.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute),
+                              initialDate: startDate ??
+                                  DateTime(
+                                      currentDate.year,
+                                      currentDate.month,
+                                      currentDate.day,
+                                      defaultTimeOfDay.hour,
+                                      defaultTimeOfDay.minute),
                               firstDate: DateTime.now(),
                               lastDate: DateTime(DateTime.now().year + 1),
                             );
                             if (picked != null) {
                               setStateDialog(() {
-                                startDate = DateTime(picked.year, picked.month, picked.day, startDate?.hour ?? defaultTimeOfDay.hour, startDate?.minute ?? defaultTimeOfDay.minute);
+                                startDate = DateTime(
+                                    picked.year,
+                                    picked.month,
+                                    picked.day,
+                                    startDate?.hour ?? defaultTimeOfDay.hour,
+                                    startDate?.minute ??
+                                        defaultTimeOfDay.minute);
                               });
                             }
                           },
@@ -182,23 +209,33 @@ class _CalendarPageState extends State<CalendarPage> {
                     Row(
                       children: [
                         const Text('Ora: '),
-                        Text(startDate != null ? DateFormat('HH:mm').format(startDate!) : 'Non selezionata'),
+                        Text(startDate != null
+                            ? DateFormat('HH:mm').format(startDate!)
+                            : 'Non selezionata'),
                         IconButton(
                           icon: const Icon(Icons.access_time),
                           onPressed: () async {
                             final pickedTime = await showTimePicker(
                               context: context,
-                              initialTime: startDate != null ? TimeOfDay.fromDateTime(startDate!) : defaultTimeOfDay,
+                              initialTime: startDate != null
+                                  ? TimeOfDay.fromDateTime(startDate!)
+                                  : defaultTimeOfDay,
                               builder: (context, child) {
                                 return MediaQuery(
-                                  data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                  data: MediaQuery.of(context)
+                                      .copyWith(alwaysUse24HourFormat: true),
                                   child: child!,
                                 );
                               },
                             );
                             if (pickedTime != null) {
                               setStateDialog(() {
-                                startDate = DateTime(startDate?.year ?? currentDate.year, startDate?.month ?? currentDate.month, startDate?.day ?? currentDate.day, pickedTime.hour, pickedTime.minute);
+                                startDate = DateTime(
+                                    startDate?.year ?? currentDate.year,
+                                    startDate?.month ?? currentDate.month,
+                                    startDate?.day ?? currentDate.day,
+                                    pickedTime.hour,
+                                    pickedTime.minute);
                               });
                             }
                           },
@@ -209,50 +246,56 @@ class _CalendarPageState extends State<CalendarPage> {
                     if (courseToEdit == null)
                       TextField(
                         controller: durationController,
-                        decoration: const InputDecoration(labelText: 'Durata (ore)'),
+                        decoration:
+                            const InputDecoration(labelText: 'Durata (ore)'),
                         keyboardType: TextInputType.number,
                       ),
                     TextField(
                       controller: capacityController,
-                      decoration: const InputDecoration(labelText: 'Numero massimo partecipanti'),
+                      decoration: const InputDecoration(
+                          labelText: 'Numero massimo partecipanti'),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
                     // Selezione del trainer (solo per admin)
                     if (user.role == 'Admin') ...[
-                      const Text('Trainer:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Trainer:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: selectedTrainerId,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                          hint: const Text('Seleziona un trainer'),
-                          items: [
-                            const DropdownMenuItem<String>(
-                              value: null,
-                              child: Text('Nessun trainer'),
-                            ),
-                            ...trainers.map((trainer) {
-                              return DropdownMenuItem<String>(
-                                value: trainer.uid,
-                                child: Text('${trainer.name} ${trainer.lastName}'),
-                              );
-                            }).toList(),
-                          ],
-                          onChanged: (newValue) {
-                            setStateDialog(() {
-                              selectedTrainerId = newValue;
-                            });
-                          },
+                      DropdownButtonFormField<String>(
+                        value: selectedTrainerId,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
+                        hint: const Text('Seleziona un trainer'),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('Nessun trainer'),
+                          ),
+                          ...trainers.map((trainer) {
+                            return DropdownMenuItem<String>(
+                              value: trainer.uid,
+                              child:
+                                  Text('${trainer.name} ${trainer.lastName}'),
+                            );
+                          }).toList(),
+                        ],
+                        onChanged: (newValue) {
+                          setStateDialog(() {
+                            selectedTrainerId = newValue;
+                          });
+                        },
+                      ),
                       const SizedBox(height: 16),
                     ],
                     if (errorMsg != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(errorMsg!, style: const TextStyle(color: Colors.red)),
+                        child: Text(errorMsg!,
+                            style: const TextStyle(color: Colors.red)),
                       ),
                   ],
                 ),
@@ -265,20 +308,27 @@ class _CalendarPageState extends State<CalendarPage> {
                 TextButton(
                   onPressed: () async {
                     final name = nameController.text.trim();
-                    final duration = double.tryParse(durationController.text.trim()) ?? 0;
-                    final capacity = int.tryParse(capacityController.text.trim()) ?? 0;
-                    
+                    final duration =
+                        double.tryParse(durationController.text.trim()) ?? 0;
+                    final capacity =
+                        int.tryParse(capacityController.text.trim()) ?? 0;
+
                     if (name.isEmpty || startDate == null || capacity <= 0) {
-                      setStateDialog(() { errorMsg = 'Compila tutti i campi correttamente'; });
+                      setStateDialog(() {
+                        errorMsg = 'Compila tutti i campi correttamente';
+                      });
                       return;
                     }
-                    
+
                     if (courseToEdit == null && duration <= 0) {
-                      setStateDialog(() { errorMsg = 'Compila tutti i campi correttamente'; });
+                      setStateDialog(() {
+                        errorMsg = 'Compila tutti i campi correttamente';
+                      });
                       return;
                     }
-                    
-                    final endDate = startDate!.add(Duration(hours: duration.toInt()));
+
+                    final endDate =
+                        startDate!.add(Duration(hours: duration.toInt()));
                     if (courseToEdit != null) {
                       // Modifica corso esistente
                       try {
@@ -292,12 +342,12 @@ class _CalendarPageState extends State<CalendarPage> {
                           subscribed: courseToEdit.subscribed,
                           trainerId: selectedTrainerId,
                         );
-                        
+
                         await updateCourse(updatedCourse);
                         Navigator.pop(context);
                         updateCourses();
                         updateCourseToMap(updatedCourse, courseToEdit);
-                        
+
                         // Mostra SnackBar di successo
                         SnackBarUtils.showSuccessSnackBar(
                           context,
@@ -323,27 +373,31 @@ class _CalendarPageState extends State<CalendarPage> {
                           subscribed: 0,
                           trainerId: selectedTrainerId,
                         );
-                        
+
                         Course? createdCourse = await createCourse(newCourse);
-                        
+
                         Navigator.pop(context);
                         updateCourses();
                         if (createdCourse != null) {
                           updateCourseToMap(createdCourse, null);
                         }
-                        
+
                         // Mostra SnackBar di successo
                         final isDuplication = courseToDuplicate != null;
                         SnackBarUtils.showSuccessSnackBar(
                           context,
-                          isDuplication ? 'Corso duplicato con successo' : 'Corso creato con successo',
+                          isDuplication
+                              ? 'Corso duplicato con successo'
+                              : 'Corso creato con successo',
                         );
                       } catch (e) {
                         // Mostra SnackBar di errore
                         final isDuplication = courseToDuplicate != null;
                         SnackBarUtils.showErrorSnackBar(
                           context,
-                          isDuplication ? 'Errore durante la duplicazione del corso' : 'Errore durante la creazione del corso',
+                          isDuplication
+                              ? 'Errore durante la duplicazione del corso'
+                              : 'Errore durante la creazione del corso',
                         );
                       }
                     }
@@ -387,7 +441,7 @@ class _CalendarPageState extends State<CalendarPage> {
       await deleteCourse(course.id);
       removeCoruseFromMap(course);
       updateCourses();
-      
+
       // Mostra SnackBar di successo
       SnackBarUtils.showSuccessSnackBar(
         context,
@@ -405,85 +459,114 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, AppState>(
-      converter: (store) => store.state,
-      builder: (context, state) {
-        return Stack(
-            children: [
+        converter: (store) => store.state,
+        builder: (context, state) {
+          return Stack(children: [
             SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
-                      child: const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(
+                        left: pagePadding,
+                        right: pagePadding,
+                        bottom: pagePadding,
+                        top: pagePadding +
+                            MediaQuery.of(context).viewPadding.top),
+                    child: const Text(
+                      'Calendario corsi',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 30,
+                          color: Colors.white),
                     ),
-                    Theme(
-                      data: ThemeData(
-                        colorScheme: const ColorScheme.light(
-                          onSurface: Colors.white
-                        ),
+                  ),
+                  Theme(
+                    data: ThemeData(
+                        colorScheme:
+                            const ColorScheme.light(onSurface: Colors.white),
                         datePickerTheme: DatePickerThemeData(
-                          dayForegroundColor: WidgetStateProperty.all(Colors.white),
+                          dayForegroundColor:
+                              WidgetStateProperty.all(Colors.white),
                           weekdayStyle: const TextStyle(color: Colors.white),
-                          headerHeadlineStyle: const TextStyle(color: Colors.white),
-                          todayForegroundColor: WidgetStateProperty.all(Colors.white),
-                          todayBackgroundColor: WidgetStateProperty.all(const Color.fromARGB(255, 90, 90, 90)),
+                          headerHeadlineStyle:
+                              const TextStyle(color: Colors.white),
+                          todayForegroundColor:
+                              WidgetStateProperty.all(Colors.white),
+                          todayBackgroundColor: WidgetStateProperty.all(
+                              const Color.fromARGB(255, 90, 90, 90)),
                           yearOverlayColor: WidgetStateProperty.all(ghostColor),
-                          yearBackgroundColor: WidgetStateProperty.all(primaryColor),
-                          yearForegroundColor: WidgetStateProperty.all(Colors.white),
-                          dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                          yearBackgroundColor:
+                              WidgetStateProperty.all(primaryColor),
+                          yearForegroundColor:
+                              WidgetStateProperty.all(Colors.white),
+                          dayBackgroundColor:
+                              WidgetStateProperty.resolveWith((states) {
                             if (states.contains(WidgetState.selected)) {
                               return const Color.fromARGB(255, 100, 100, 100);
                             }
                             return null;
-                          }),)
-                      ), 
-                      child: Calendar(
-                        onDateChanged: (DateTime value) { 
+                          }),
+                        )),
+                    child: Calendar(
+                        onDateChanged: (DateTime value) {
                           onSelectDate(value);
-                        }, 
-                        initialDate: DateTime.now(), 
-                        firstDate: firstDate, 
+                        },
+                        initialDate: DateTime.now(),
+                        firstDate: firstDate,
                         lastDate: lastDate,
-                        filledDays: courses.map((Course course) => course.startDate.toDate()).toList()
-                      ),
+                        filledDays: courses
+                            .map((Course course) => course.startDate.toDate())
+                            .toList()),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                        left: pagePadding,
+                        right: pagePadding,
+                        bottom: pagePadding,
+                        top: pagePadding),
+                    child: Column(
+                      children: selectedCourses.isNotEmpty
+                          ? selectedCourses
+                              .map(
+                                (Course course) => CoursePreviewCard(
+                                  course: course,
+                                  currentUser: user,
+                                  trainers: trainers,
+                                  showDate: false,
+                                  onSubscribe: () => onSubscribe(course),
+                                  onUnsubscribe: () => onUnsubscribe(course),
+                                  onDuplicate: () =>
+                                      showDuplicateCourseDialog(course),
+                                  onDelete: () => deleteCourseAndUpdate(course),
+                                  onEdit: () => showEditCourseDialog(course),
+                                ),
+                              )
+                              .toList()
+                          : [
+                              const Text(
+                                'Nessun corso disponibile in questa giornata',
+                                style: TextStyle(color: ghostColor),
+                              )
+                            ],
                     ),
-                    
+                  ),
+                  if (user.role == 'Admin')
                     Padding(
-                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding),
-                      child: Column(
-                          children: selectedCourses.isNotEmpty ? selectedCourses.map(
-                            (Course course) => CoursePreviewCard(
-                              course: course,
-                              currentUser: user,
-                              trainers: trainers,
-                              showDate: false,
-                              onSubscribe: () => onSubscribe(course),
-                              onUnsubscribe: () => onUnsubscribe(course),
-                              onDuplicate: () => showDuplicateCourseDialog(course),
-                              onDelete: () => deleteCourseAndUpdate(course),
-                              onEdit: () => showEditCourseDialog(course),
-                            ),
-                          ).toList() : [
-                            const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: ghostColor),)
-                        ],
+                      padding: const EdgeInsets.only(
+                          left: pagePadding,
+                          right: pagePadding,
+                          bottom: pagePadding),
+                      child: ElevatedButton(
+                        onPressed: showCreateCourseDialog,
+                        child: const Text('Crea nuovo corso'),
                       ),
                     ),
-                    if (user.role == 'Admin') 
-                      Padding(
-                        padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
-                        child: ElevatedButton(
-                          onPressed: showCreateCourseDialog,
-                          child: const Text('Crea nuovo corso'),
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
+            ),
             if (state.isLoading) const Loader(),
-          ]
-        );
-      }
-    );
+          ]);
+        });
   }
 }

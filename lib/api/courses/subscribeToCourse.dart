@@ -7,7 +7,8 @@ import 'package:fitrope_app/api/authentication/getUsers.dart';
 
 FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-Future<void> subscribeToCourse(String courseId, String userId, {bool force = false}) async {
+Future<void> subscribeToCourse(String courseId, String userId,
+    {bool force = false}) async {
   QuerySnapshot querySnapshot = await firestore
       .collection('courses')
       .where('uid', isEqualTo: courseId)
@@ -26,7 +27,7 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
     DocumentSnapshot courseSnapshot = await transaction.get(courseRef);
     int subscribed = courseSnapshot['subscribed'];
     int capacity = courseSnapshot['capacity'];
-    if (subscribed < capacity || force) {    
+    if (subscribed < capacity || force) {
       transaction.update(courseRef, {
         'subscribed': subscribed + 1,
       });
@@ -50,13 +51,13 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
       throw Exception('Course is full');
     }
   }).then((_) async {
-    invalidateUsersCache(); 
+    invalidateUsersCache();
     if (store.state.user!.uid == userId) {
       Map<String, dynamic>? userData = await getUserData(userId);
       if (userData != null) {
         store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
       }
-    }   
+    }
     store.dispatch(FinishLoadingAction());
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());

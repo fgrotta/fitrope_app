@@ -16,12 +16,12 @@ class FitropeUser {
   final DateTime createdAt;
 
   const FitropeUser({
-    required this.name, 
-    required this.lastName, 
-    required this.uid, 
+    required this.name,
+    required this.lastName,
+    required this.uid,
     required this.email,
-    required this.courses, 
-    this.tipologiaIscrizione, 
+    required this.courses,
+    this.tipologiaIscrizione,
     this.entrateDisponibili,
     this.entrateSettimanali,
     this.fineIscrizione,
@@ -56,10 +56,14 @@ class FitropeUser {
       name: json['name'] as String,
       lastName: json['lastName'] as String,
       courses: (json['courses'] as List<dynamic>?)
-          ?.map((courseId) => courseId.toString())
-          .toList() ?? [],
-      tipologiaIscrizione: json['tipologiaIscrizione'] != null 
-          ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == json['tipologiaIscrizione']).firstOrNull
+              ?.map((courseId) => courseId.toString())
+              .toList() ??
+          [],
+      tipologiaIscrizione: json['tipologiaIscrizione'] != null
+          ? TipologiaIscrizione.values
+              .where((e) =>
+                  e.toString().split('.').last == json['tipologiaIscrizione'])
+              .firstOrNull
           : null,
       entrateDisponibili: json['entrateDisponibili'] as int?,
       entrateSettimanali: json['entrateSettimanali'] as int?,
@@ -67,8 +71,8 @@ class FitropeUser {
       role: json['role'] ?? 'User',
       isActive: json['isActive'] as bool? ?? true,
       isAnonymous: json['isAnonymous'] as bool? ?? false,
-      createdAt: json['createdAt'] != null 
-          ? (json['createdAt'] as Timestamp).toDate() 
+      createdAt: json['createdAt'] != null
+          ? (json['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
     );
   }

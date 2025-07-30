@@ -22,15 +22,17 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _emailController = TextEditingController(text: 'grotta.francesco+admin@gmail.com');
-  final TextEditingController _passwordController = TextEditingController(text: 'grotta.francesco+admin@gmail.com');
+  final TextEditingController _emailController =
+      TextEditingController(text: 'grotta.francesco+admin@gmail.com');
+  final TextEditingController _passwordController =
+      TextEditingController(text: 'grotta.francesco+admin@gmail.com');
   String? loginError;
   bool emailNotVerified = false;
 
   @override
   void initState() {
     super.initState();
-    if(isLogged()){
+    if (isLogged()) {
       print("User is logged");
       loggedRedirect(context);
     }
@@ -42,19 +44,18 @@ class _LoginPageState extends State<LoginPage> {
       _passwordController.text,
     );
 
-    if(signInResponse.user != null) {
+    if (signInResponse.user != null) {
       store.dispatch(SetUserAction(signInResponse.user!));
       Navigator.pushNamed(context, PROTECTED_ROUTE);
 
       setState(() {
         loginError = null;
       });
-    }
-    else {
+    } else {
       setState(() {
         loginError = signInResponse.error;
 
-        if(signInResponse.emailNotVerified) {
+        if (signInResponse.emailNotVerified) {
           emailNotVerified = true;
         }
       });
@@ -70,7 +71,8 @@ class _LoginPageState extends State<LoginPage> {
           title: const Text('Reset password'),
           content: TextField(
             controller: emailController,
-            decoration: const InputDecoration(hintText: 'Inserisci la tua email'),
+            decoration:
+                const InputDecoration(hintText: 'Inserisci la tua email'),
           ),
           actions: [
             TextButton(
@@ -88,7 +90,7 @@ class _LoginPageState extends State<LoginPage> {
                 } catch (e) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Errore durante l\'invio')), 
+                    const SnackBar(content: Text('Errore durante l\'invio')),
                   );
                 }
               },
@@ -103,76 +105,120 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, bool>(
-      converter: (store) => store.state.isLoading,
-      builder: (context, isLoading) {
-        return Stack(
-          children: [
-            Scaffold(
-              appBar: AppBar(
-                backgroundColor: Colors.transparent,
-                iconTheme: const IconThemeData(color: Colors.white),
-                title: const Text("Login", style: TextStyle(color: Colors.white)),
-              ),
-              backgroundColor: primaryColor,
-              body: Padding(
-                padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        converter: (store) => store.state.isLoading,
+        builder: (context, isLoading) {
+          return Stack(
+            children: [
+              Scaffold(
+                  appBar: AppBar(
+                    backgroundColor: Colors.transparent,
+                    iconTheme: const IconThemeData(color: Colors.white),
+                    title: const Text("Login",
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                  backgroundColor: primaryColor,
+                  body: Padding(
+                    padding: EdgeInsets.only(
+                        left: pagePadding,
+                        right: pagePadding,
+                        bottom: pagePadding,
+                        top: pagePadding +
+                            MediaQuery.of(context).viewPadding.top),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Email', style: TextStyle(color: ghostColor),),
-                        const SizedBox(height: 10,),
-                        CustomTextField(controller: _emailController, hintText: 'Enter your email',),
-                        const SizedBox(height: 20,),
-                        const Text('Password', style: TextStyle(color: ghostColor),),
-                        const SizedBox(height: 10,),
-                        CustomTextField(controller: _passwordController, hintText: 'Enter your password', obscureText: true,),
-                        const SizedBox(height: 10,),
-                        if(loginError != null) Text(loginError!, style: const TextStyle(color: dangerColor),),
-                        const SizedBox(height: 10,),
-                        if(emailNotVerified) ElevatedButton(
-                          style: ButtonStyle(
-                            backgroundColor: WidgetStateProperty.all(Colors.blueAccent)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Email',
+                              style: TextStyle(color: ghostColor),
+                            ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            CustomTextField(
+                              controller: _emailController,
+                              hintText: 'Enter your email',
+                            ),
+                            const SizedBox(
+                              height: 20,
+                            ),
+                            const Text(
+                              'Password',
+                              style: TextStyle(color: ghostColor),
+                            ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            CustomTextField(
+                              controller: _passwordController,
+                              hintText: 'Enter your password',
+                              obscureText: true,
+                            ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            if (loginError != null)
+                              Text(
+                                loginError!,
+                                style: const TextStyle(color: dangerColor),
+                              ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            if (emailNotVerified)
+                              ElevatedButton(
+                                style: ButtonStyle(
+                                    backgroundColor: WidgetStateProperty.all(
+                                        Colors.blueAccent)),
+                                onPressed: () {
+                                  resendVerificationEmail();
+                                },
+                                child: const Text(
+                                  'Invia di nuovo email',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            GestureDetector(
+                              onTap: showResetPasswordDialog,
+                              child: const Text('Password dimenticata?',
+                                  style: TextStyle(
+                                      color: Colors.blueAccent,
+                                      decoration: TextDecoration.underline)),
+                            ),
+                          ],
+                        ),
+                        SizedBox(
+                          width: MediaQuery.of(context).size.width -
+                              pagePadding * 2,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              onLogin();
+                            },
+                            style: ButtonStyle(
+                                backgroundColor:
+                                    WidgetStateProperty.all(secondaryColor),
+                                shape: WidgetStateProperty.all<
+                                        RoundedRectangleBorder>(
+                                    RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ))),
+                            child: const Text(
+                              'Login',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ),
-                          onPressed: () {
-                            resendVerificationEmail();
-                          }, 
-                          child: const Text('Invia di nuovo email', style: TextStyle(color: Colors.white),),
-                        ),
-                        const SizedBox(height: 10,),
-                        GestureDetector(
-                          onTap: showResetPasswordDialog,
-                          child: const Text('Password dimenticata?', style: TextStyle(color: Colors.blueAccent, decoration: TextDecoration.underline)),
-                        ),
+                        )
                       ],
                     ),
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width - pagePadding * 2,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          onLogin();
-                        },
-                        style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.all(secondaryColor),
-                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            )
-                          )
-                        ), 
-                        child: const Text('Login', style: TextStyle(color: Colors.white),),
-                      ),
-                    )
-                  ],
-                ),
-              )
-            ),
-            if (isLoading) const Loader(),
-          ],
-        );
-      }
-    );
+                  )),
+              if (isLoading) const Loader(),
+            ],
+          );
+        });
   }
 }

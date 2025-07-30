@@ -2,23 +2,20 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/types/course.dart';
 
 class UserDisplayUtils {
- 
-
   /// Restituisce il nome da visualizzare per un utente (solo per admin o trainer)
   /// Se l'utente è anonimo, restituisce il nome completo con icona fantasma
   /// Altrimenti restituisce il nome completo
   static String getDisplayName(FitropeUser user, bool isAdmin) {
-
-    if ( isAdmin) {
+    if (isAdmin) {
       if (user.isAnonymous) {
-      return '${user.name} ${user.lastName} - (Anonimo)';
-    }
-    return '${user.name} ${user.lastName}';}
-    else {
+        return '${user.name} ${user.lastName} - (Anonimo)';
+      }
+      return '${user.name} ${user.lastName}';
+    } else {
       if (user.isAnonymous) {
-      return '(Anonimo)';
-    }
-    return '${user.name} ${user.lastName}';
+        return '(Anonimo)';
+      }
+      return '${user.name} ${user.lastName}';
     }
   }
 
@@ -33,10 +30,11 @@ class UserDisplayUtils {
     if (trainerId == null || trainerId.isEmpty) {
       return 'Nessun trainer assegnato';
     }
-    
+
     try {
-      final trainer = trainers.where((user) => user.uid == trainerId).firstOrNull;
-      
+      final trainer =
+          trainers.where((user) => user.uid == trainerId).firstOrNull;
+
       if (trainer != null) {
         return '${trainer.name} ${trainer.lastName}';
       } else {
@@ -47,4 +45,4 @@ class UserDisplayUtils {
       return 'Errore nel caricamento trainer';
     }
   }
-} 
+}

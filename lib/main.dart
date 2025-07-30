@@ -5,19 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'firebase_options.dart';
 
-void main() async {  
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(
-    SafeArea(
-      child: StoreProvider(
-        store: store,
-        child: const MyApp()
-      ),
-    )
-  );
+
+  // Initialize Firebase only if not in test environment
+  if (!const bool.fromEnvironment('FLUTTER_TEST')) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  runApp(SafeArea(
+    child: StoreProvider(store: store, child: const MyApp()),
+  ));
 
   // tests();
 }
