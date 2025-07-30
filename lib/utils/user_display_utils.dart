@@ -1,5 +1,4 @@
 import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/types/course.dart';
 
 class UserDisplayUtils {
   /// Restituisce il nome da visualizzare per un utente (solo per admin o trainer)
