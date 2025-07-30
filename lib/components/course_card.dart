@@ -4,6 +4,7 @@ import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:flutter/material.dart';
+import 'package:fitrope_app/types/course.dart';
 
 enum CourseState {
   NULL,
@@ -15,6 +16,7 @@ enum CourseState {
 
 class CourseCard extends StatefulWidget {
   final String courseId;
+  final Course course;
   final String title;
   final TextStyle? titleStyle;
   final String description;
@@ -35,6 +37,7 @@ class CourseCard extends StatefulWidget {
 
   const CourseCard({
     required this.courseId,
+    required this.course,
     super.key, 
     required this.title,
     this.courseState=CourseState.NULL,
@@ -154,7 +157,7 @@ class _CourseCardState extends State<CourseCard> {
         ),
         const SizedBox(height: 4),
         ...widget.subscribersUsers!.map((user) {
-          final displayName = '${user.name} ${user.lastName}';
+          String displayName = getDisplayName(user);
           return Padding(
             padding: const EdgeInsets.only(bottom: 2),
             child: GestureDetector(
@@ -175,6 +178,19 @@ class _CourseCardState extends State<CourseCard> {
       ],
     );
   }
+
+String getDisplayName(FitropeUser user) {
+    
+    bool hasValidSubscription = false;
+    if (user.fineIscrizione != null) {
+      DateTime subscriptionEnd = user.fineIscrizione!.toDate();
+      hasValidSubscription = subscriptionEnd.isAfter(widget.course.startDate.toDate());
+    }
+    if (!hasValidSubscription) {
+      return '${user.name} ${user.lastName} - (Prova)';
+    }
+    return '${user.name} ${user.lastName}';
+}
 
   Widget renderTitle() {
     if(widget.titleStyle != null) {

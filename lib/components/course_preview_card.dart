@@ -34,10 +34,10 @@ class CoursePreviewCard extends StatelessWidget {
     this.showDate = true,
   });
 
-  Future<List<Map<String, dynamic>>> getSubscriberNames(String courseId, bool isAdmin) async {
+  Future<List<Map<String, dynamic>>> getSubscriberNames(Course course, bool isAdmin) async {
     var usersCollection = FirebaseFirestore.instance.collection('users');
     //TODO: Forse si può Ottimizzare per usare la cache, ma non è urgente
-    var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
+    var snapshots = await usersCollection.where('courses', arrayContains: course.uid).get();
     return snapshots.docs.map((doc) {
       final user = FitropeUser.fromJson(doc.data());
       // Gli admin vedono sempre i nomi completi, con icona fantasma per gli anonimi
@@ -65,7 +65,7 @@ class CoursePreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: getSubscriberNames(course.id, currentUser.role == 'Admin'),
+      future: getSubscriberNames(course, _canViewUserDetails()),
       builder: (context, snapshot) {
         String iscritti = "";
         List<String> names = [];
@@ -86,7 +86,8 @@ class CoursePreviewCard extends StatelessWidget {
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           child: CourseCard(
-            courseId: course.id,
+            courseId: course.uid,
+            course: course,
             title: course.name,
             description: description,
             courseState: courseState,

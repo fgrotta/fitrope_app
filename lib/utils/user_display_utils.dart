@@ -1,10 +1,10 @@
 import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/types/course.dart';
 
 class UserDisplayUtils {
  
 
-  /// Restituisce il nome da visualizzare per un utente (solo per admin)
+  /// Restituisce il nome da visualizzare per un utente (solo per admin o trainer)
   /// Se l'utente è anonimo, restituisce il nome completo con icona fantasma
   /// Altrimenti restituisce il nome completo
   static String getDisplayName(FitropeUser user, bool isAdmin) {
