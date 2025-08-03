@@ -93,8 +93,25 @@ jobs:
       - name: Build Web
         run: flutter build web --release --base-href /fitrope_app/
         
+      - name: Debug - Check repository name
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Repository name: ${{ github.event.repository.name }}"
+        
       - name: Add .nojekyll file
         run: touch build/web/.nojekyll
+        
+      - name: Copy .htaccess file
+        run: cp web/.htaccess build/web/.htaccess
+        
+      - name: Debug - List build files
+        run: |
+          echo "=== Build directory contents ==="
+          ls -la build/web/
+          echo "=== JS files ==="
+          find build/web/ -name "*.js" -type f
+          echo "=== Main.dart.js ==="
+          ls -la build/web/main.dart.js || echo "main.dart.js not found"
         
       - name: Upload Web build
         uses: actions/upload-artifact@v4.6.2
