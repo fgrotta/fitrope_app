@@ -10,9 +10,14 @@ void main() async {
 
   // Initialize Firebase only if not in test environment
   if (!const bool.fromEnvironment('FLUTTER_TEST')) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } catch (e) {
+      // Log error but continue with app initialization
+      print('Firebase initialization error: $e');
+    }
   }
 
   runApp(SafeArea(
@@ -28,8 +33,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'FitRope',
+      debugShowCheckedModeBanner: false,
       initialRoute: INITIAL_ROUTE,
       routes: routes,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          child: child!,
+        );
+      },
     );
   }
 }
