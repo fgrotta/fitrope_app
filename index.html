@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/fitrope_app/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="FitRope - App per la gestione dei corsi di fitness">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="FitRope">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>FitRope</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+    
+    .loading-spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #0175C2;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      color: #0175C2;
+      font-size: 18px;
+      font-weight: 500;
+    }
+    
+    #flutter_target {
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading" class="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Caricamento FitRope...</div>
+  </div>
+  
+  <div id="flutter_target"></div>
+  
+  <script>
+    // Set a timeout for loading
+    setTimeout(function() {
+      if (document.getElementById('loading').style.display !== 'none') {
+        document.getElementById('loading').innerHTML = 
+          '<div style="color: orange; text-align: center; padding: 20px;">' +
+          '<h3>Caricamento lento</h3>' +
+          '<p>Il caricamento sta impiegando più tempo del previsto.</p>' +
+          '<p>Se il problema persiste, ricarica la pagina.</p>' +
+          '</div>';
+      }
+    }, 10000); // 10 seconds timeout
+
+    window.addEventListener('load', function(ev) {
+      // Download main.dart.js
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+            // Hide loading screen
+            document.getElementById('loading').style.display = 'none';
+          }).catch(function(error) {
+            console.error('Error running app:', error);
+            document.getElementById('loading').innerHTML = 
+              '<div style="color: red; text-align: center; padding: 20px;">' +
+              '<h3>Errore nel caricamento dell\'app</h3>' +
+              '<p>Si è verificato un errore durante il caricamento di FitRope.</p>' +
+              '<p>Ricarica la pagina o riprova più tardi.</p>' +
+              '</div>';
+          });
+        },
+        onEntrypointLoadError: function(error) {
+          console.error('Error loading entrypoint:', error);
+          document.getElementById('loading').innerHTML = 
+            '<div style="color: red; text-align: center; padding: 20px;">' +
+            '<h3>Errore nel caricamento</h3>' +
+            '<p>Impossibile caricare FitRope.</p>' +
+            '<p>Ricarica la pagina o riprova più tardi.</p>' +
+            '</div>';
+        }
+      });
+    });
+  </script>
+  
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
