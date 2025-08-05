@@ -33,6 +33,7 @@ class CourseCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onRefresh; // Callback per aggiornare la lista
   final bool isAdmin;
+  final String? userRole; // Ruolo dell'utente corrente
   final bool showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
 
   const CourseCard({
@@ -55,6 +56,7 @@ class CourseCard extends StatefulWidget {
     this.onEdit,
     this.onRefresh,
     this.isAdmin = false,
+    this.userRole,
     this.showClickableSubscribers = false,
   });
 
@@ -315,7 +317,8 @@ String getDisplayName(FitropeUser user) {
                               tooltip: 'Duplica corso',
                               onPressed: widget.onDuplicate,
                             ),
-                          if(widget.onDelete != null)
+                          // Solo gli Admin possono eliminare i corsi
+                          if(widget.onDelete != null && widget.userRole == 'Admin')
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               tooltip: 'Elimina corso',

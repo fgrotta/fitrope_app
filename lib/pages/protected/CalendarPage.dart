@@ -1,9 +1,7 @@
 import 'package:fitrope_app/api/courses/unsubscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
-import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
-import 'package:fitrope_app/api/courses/updateCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
@@ -14,10 +12,10 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/calendar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -80,6 +78,11 @@ class _CalendarPageState extends State<CalendarPage> {
       if(mounted) { 
         setState(() {
           courses = response;
+          // Ricostruisci la mappa dei corsi
+          coursesByDate.clear();
+          for(Course course in courses) {
+            updateCourseToMap(course, null);
+          }
           onSelectDate(currentDate);
           store.dispatch(SetAllCoursesAction(response));
         });
@@ -116,282 +119,59 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  void showCourseDialog({
-    required String title,
-    required String actionButtonText,
-    Course? courseToEdit,
-    Course? courseToDuplicate,
-  }) {
-    final nameController = TextEditingController(
-      text: courseToEdit?.name ?? courseToDuplicate?.name ?? ''
-    );
-    final durationController = TextEditingController(
-      text: courseToEdit != null 
-        ? (courseToEdit.endDate.toDate().difference(courseToEdit.startDate.toDate()).inHours).toString()
-        : courseToDuplicate != null 
-          ? (courseToDuplicate.endDate.toDate().difference(courseToDuplicate.startDate.toDate()).inHours).toString()
-          : '1'
-    );
-    final capacityController = TextEditingController(
-      text: courseToEdit?.capacity.toString() ?? courseToDuplicate?.capacity.toString() ?? '6'
-    );
-    
-    DateTime? startDate = courseToEdit?.startDate.toDate() ?? courseToDuplicate?.startDate.toDate() ?? currentDate;
-    
-    if (startDate.isBefore(DateTime.now())) {
-      DateTime now = DateTime.now();
-      startDate = DateTime(now.year, now.month, now.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute);
-    }
-    
-    String? selectedTrainerId = courseToEdit?.trainerId ?? courseToDuplicate?.trainerId;
-    String? errorMsg;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) { 
-            return AlertDialog(
-              title: Text(title),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Nome corso'),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Text('Data: '),
-                        Text(startDate != null ? DateFormat('dd/MM/yyyy').format(startDate!) : 'Non selezionata'),
-                        IconButton(
-                          icon: const Icon(Icons.calendar_today),
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialEntryMode: DatePickerEntryMode.calendar,
-                              initialDate: startDate ?? DateTime(currentDate.year, currentDate.month, currentDate.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute),
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime(DateTime.now().year + 1),
-                            );
-                            if (picked != null) {
-                              setStateDialog(() {
-                                startDate = DateTime(picked.year, picked.month, picked.day, startDate?.hour ?? defaultTimeOfDay.hour, startDate?.minute ?? defaultTimeOfDay.minute);
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Text('Ora: '),
-                        Text(startDate != null ? DateFormat('HH:mm').format(startDate!) : 'Non selezionata'),
-                        IconButton(
-                          icon: const Icon(Icons.access_time),
-                          onPressed: () async {
-                            final pickedTime = await showTimePicker(
-                              context: context,
-                              initialTime: startDate != null ? TimeOfDay.fromDateTime(startDate!) : defaultTimeOfDay,
-                              builder: (context, child) {
-                                return MediaQuery(
-                                  data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                                  child: child!,
-                                );
-                              },
-                            );
-                            if (pickedTime != null) {
-                              setStateDialog(() {
-                                startDate = DateTime(startDate?.year ?? currentDate.year, startDate?.month ?? currentDate.month, startDate?.day ?? currentDate.day, pickedTime.hour, pickedTime.minute);
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    // Mostra il campo durata solo per creazione e duplicazione
-                    if (courseToEdit == null)
-                      TextField(
-                        controller: durationController,
-                        decoration: const InputDecoration(labelText: 'Durata (ore)'),
-                        keyboardType: TextInputType.number,
-                      ),
-                    TextField(
-                      controller: capacityController,
-                      decoration: const InputDecoration(labelText: 'Numero massimo partecipanti'),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-                    // Selezione del trainer (solo per admin)
-                    if (user.role == 'Admin') ...[
-                      const Text('Trainer:', style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: selectedTrainerId,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                          hint: const Text('Seleziona un trainer'),
-                          items: [
-                            const DropdownMenuItem<String>(
-                              value: null,
-                              child: Text('Nessun trainer'),
-                            ),
-                            ...trainers.map((trainer) {
-                              return DropdownMenuItem<String>(
-                                value: trainer.uid,
-                                child: Text('${trainer.name} ${trainer.lastName}'),
-                              );
-                            }).toList(),
-                          ],
-                          onChanged: (newValue) {
-                            setStateDialog(() {
-                              selectedTrainerId = newValue;
-                            });
-                          },
-                        ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (errorMsg != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(errorMsg!, style: const TextStyle(color: Colors.red)),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Annulla'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    final duration = double.tryParse(durationController.text.trim()) ?? 0;
-                    final capacity = int.tryParse(capacityController.text.trim()) ?? 0;
-                    
-                    if (name.isEmpty || startDate == null || capacity <= 0) {
-                      setStateDialog(() { errorMsg = 'Compila tutti i campi correttamente'; });
-                      return;
-                    }
-                    
-                    if (courseToEdit == null && duration <= 0) {
-                      setStateDialog(() { errorMsg = 'Compila tutti i campi correttamente'; });
-                      return;
-                    }
-                    
-                    final endDate = startDate!.add(Duration(hours: duration.toInt()));
-                    if (courseToEdit != null) {
-                      // Modifica corso esistente
-                      try {
-                        final updatedCourse = Course(
-                          uid: courseToEdit.uid,
-                          id: courseToEdit.uid, //Deprecated
-                          name: name,
-                          startDate: Timestamp.fromDate(startDate!),
-                          endDate: Timestamp.fromDate(endDate),
-                          capacity: capacity,
-                          subscribed: courseToEdit.subscribed,
-                          trainerId: selectedTrainerId,
-                        );
-                        
-                        await updateCourse(updatedCourse);
-                        Navigator.pop(context);
-                        updateCourses();
-                        updateCourseToMap(updatedCourse, courseToEdit);
-                        
-                        // Mostra SnackBar di successo
-                        SnackBarUtils.showSuccessSnackBar(
-                          context,
-                          'Corso modificato con successo',
-                        );
-                      } catch (e) {
-                        // Mostra SnackBar di errore
-                        SnackBarUtils.showErrorSnackBar(
-                          context,
-                          'Errore durante la modifica del corso',
-                        );
-                      }
-                    } else {
-                      // Crea nuovo corso (creazione o duplicazione)
-                      try {
-                        final newCourse = Course(
-                          uid: '',
-                          id: '', //Deprecated
-                          name: name,
-                          startDate: Timestamp.fromDate(startDate!),
-                          endDate: Timestamp.fromDate(endDate),
-                          capacity: capacity,
-                          subscribed: 0,
-                          trainerId: selectedTrainerId,
-                        );
-                        
-                        Course? createdCourse = await createCourse(newCourse);
-                        
-                        Navigator.pop(context);
-                        updateCourses();
-                        if (createdCourse != null) {
-                          updateCourseToMap(createdCourse, null);
-                        }
-                        
-                        // Mostra SnackBar di successo
-                        final isDuplication = courseToDuplicate != null;
-                        SnackBarUtils.showSuccessSnackBar(
-                          context,
-                          isDuplication ? 'Corso duplicato con successo' : 'Corso creato con successo',
-                        );
-                      } catch (e) {
-                        // Mostra SnackBar di errore
-                        final isDuplication = courseToDuplicate != null;
-                        SnackBarUtils.showErrorSnackBar(
-                          context,
-                          isDuplication ? 'Errore durante la duplicazione del corso' : 'Errore durante la creazione del corso',
-                        );
-                      }
-                    }
-                  },
-                  child: Text(actionButtonText),
-                ),
-              ],
-            );
-          },
-        );
+  // Funzioni per navigare alla pagina di gestione corsi
+  void showCreateCoursePage() {
+    Navigator.pushNamed(
+      context,
+      COURSE_MANAGEMENT_ROUTE,
+      arguments: {
+        'mode': 'create',
       },
-    );
+    ).then((result) {
+      if (result == true) {
+        updateCourses();
+      }
+    });
   }
 
-  // Wrapper functions per mantenere la compatibilità
-  void showCreateCourseDialog() {
-    showCourseDialog(
-      title: 'Crea Nuovo Corso',
-      actionButtonText: 'Crea',
-    );
+  void showDuplicateCoursePage(Course originalCourse) {
+    Navigator.pushNamed(
+      context,
+      COURSE_MANAGEMENT_ROUTE,
+      arguments: {
+        'mode': 'duplicate',
+        'courseToDuplicate': originalCourse,
+      },
+    ).then((result) {
+      if (result == true) {
+        updateCourses();
+      }
+    });
   }
 
-  void showDuplicateCourseDialog(Course originalCourse) {
-    showCourseDialog(
-      title: 'Duplica Corso',
-      actionButtonText: 'Duplica',
-      courseToDuplicate: originalCourse,
-    );
+  void showEditCoursPage(Course course) {
+    Navigator.pushNamed(
+      context,
+      COURSE_MANAGEMENT_ROUTE,
+      arguments: {
+        'mode': 'edit',
+        'courseToEdit': course,
+      },
+    ).then((result) {
+      if (result == true) {
+        updateCourses();
+      }
+    });
   }
 
-  void showEditCourseDialog(Course course) {
-    showCourseDialog(
-      title: 'Modifica Corso',
-      actionButtonText: 'Salva',
-      courseToEdit: course,
-    );
+  // Funzione di utilità per verificare se un corso è nel futuro
+  bool _isCourseInFuture(Course course) {
+    return course.startDate.toDate().isAfter(DateTime.now());
   }
 
   void deleteCourseAndUpdate(Course course) async {
     try {
       await deleteCourse(course.id);
-      removeCoruseFromMap(course);
       updateCourses();
       
       // Mostra SnackBar di successo
@@ -466,20 +246,22 @@ class _CalendarPageState extends State<CalendarPage> {
                               showDate: false,
                               onSubscribe: () => onSubscribe(course),
                               onUnsubscribe: () => onUnsubscribe(course),
-                              onDuplicate: () => showDuplicateCourseDialog(course),
-                              onDelete: () => deleteCourseAndUpdate(course),
-                              onEdit: () => showEditCourseDialog(course),
+                              onDuplicate: () => showDuplicateCoursePage(course),
+                              onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
+                              onEdit: (user.role == 'Admin' || (user.role == 'Trainer' && (course.trainerId == null || course.trainerId == user.uid))) 
+                                ? (_isCourseInFuture(course) ? () => showEditCoursPage(course) : null)
+                                : null,
                             ),
                           ).toList() : [
                             const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: ghostColor),)
                         ],
                       ),
                     ),
-                    if (user.role == 'Admin') 
+                    if (user.role == 'Admin' || user.role == 'Trainer') 
                       Padding(
                         padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
                         child: ElevatedButton(
-                          onPressed: showCreateCourseDialog,
+                          onPressed: showCreateCoursePage,
                           child: const Text('Crea nuovo corso'),
                         ),
                       ),

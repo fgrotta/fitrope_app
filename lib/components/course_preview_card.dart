@@ -106,7 +106,8 @@ class CoursePreviewCard extends StatelessWidget {
             subscribersUsers: _canViewUserDetails() ? users : null,
             // Abilita la lista cliccabile per Admin e Trainer
             showClickableSubscribers: _canViewUserDetails(),
-            isAdmin: currentUser.role == 'Admin',
+            isAdmin: currentUser.role == 'Admin' || currentUser.role == 'Trainer',
+            userRole: currentUser.role,
             onDuplicate: onDuplicate,
             onDelete: onDelete,
             onEdit: onEdit,
