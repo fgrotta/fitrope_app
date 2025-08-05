@@ -2,7 +2,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 
 class SignUpResponse {
