@@ -137,6 +137,12 @@ class _CalendarPageState extends State<CalendarPage> {
     );
     
     DateTime? startDate = courseToEdit?.startDate.toDate() ?? courseToDuplicate?.startDate.toDate() ?? currentDate;
+    
+    if (startDate.isBefore(DateTime.now())) {
+      DateTime now = DateTime.now();
+      startDate = DateTime(now.year, now.month, now.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute);
+    }
+    
     String? selectedTrainerId = courseToEdit?.trainerId ?? courseToDuplicate?.trainerId;
     String? errorMsg;
     showDialog(
