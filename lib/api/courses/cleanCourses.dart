@@ -1,11 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 
 Future<void> cleanCourses() async {
   try {
-    CollectionReference coursesRef = FirebaseFirestore.instance.collection('courses');
+    // CollectionReference coursesRef = FirebaseFirestore.instance.collection('courses');
 
-    QuerySnapshot snapshot = await coursesRef.get();
+    // QuerySnapshot snapshot = await coursesRef.get();
 
     // for (QueryDocumentSnapshot doc in snapshot.docs) {
     //   await doc.reference.delete();
