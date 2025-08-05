@@ -163,7 +163,17 @@ class _CalendarPageState extends State<CalendarPage> {
       }
     });
   }
-
+  
+  void showRecurringCoursePage() {
+    Navigator.pushNamed(
+      context,
+      RECURRING_COURSE_ROUTE,
+    ).then((result) {
+      if (result == true) {
+        updateCourses();
+      }
+    });
+  }
   // Funzione di utilità per verificare se un corso è nel futuro
   bool _isCourseInFuture(Course course) {
     return course.startDate.toDate().isAfter(DateTime.now());
@@ -257,14 +267,32 @@ class _CalendarPageState extends State<CalendarPage> {
                         ],
                       ),
                     ),
-                    if (user.role == 'Admin' || user.role == 'Trainer') 
+                    if (user.role == 'Admin' || user.role == 'Trainer') ...[
                       Padding(
                         padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
-                        child: ElevatedButton(
-                          onPressed: showCreateCoursePage,
-                          child: const Text('Crea nuovo corso'),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: showCreateCoursePage,
+                                child: const Text('Crea nuovo corso'),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: showRecurringCoursePage,
+                                icon: const Icon(Icons.repeat),
+                                label: const Text('Corsi ricorrenti'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),

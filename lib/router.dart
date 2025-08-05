@@ -5,6 +5,7 @@ import 'package:fitrope_app/pages/protected/CourseManagementPage.dart';
 import 'package:fitrope_app/pages/welcome/LoginPage.dart';
 import 'package:fitrope_app/pages/welcome/RegistrationPage.dart';
 import 'package:fitrope_app/pages/welcome/WelcomePage.dart';
+import 'package:fitrope_app/pages/protected/RecurringCoursePage.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:flutter/material.dart';
 
@@ -13,6 +14,7 @@ const LOGIN_ROUTE = '/login';
 const REGISTRATION_ROUTE = '/registration';
 const PROTECTED_ROUTE = '/protected';
 const COURSE_MANAGEMENT_ROUTE = '/course-management';
+const RECURRING_COURSE_ROUTE = '/recurring-course';
 
 const INITIAL_ROUTE = WELCOME_ROUTE;
 
@@ -21,6 +23,7 @@ Map<String, Widget Function(BuildContext)> routes = {
   LOGIN_ROUTE: (context) => const LoginPage(),
   REGISTRATION_ROUTE: (context) => const RegistrationPage(),
   PROTECTED_ROUTE: (context) => const Protected(),
+  RECURRING_COURSE_ROUTE: (context) => const RecurringCoursePage(),
   COURSE_MANAGEMENT_ROUTE: (context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     final courseToEdit = args?['courseToEdit'] as Course?;
