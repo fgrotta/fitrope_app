@@ -1,5 +1,4 @@
 import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/types/course.dart';
 
 class UserDisplayUtils {
  
