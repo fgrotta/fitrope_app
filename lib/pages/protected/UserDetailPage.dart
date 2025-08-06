@@ -679,11 +679,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                                     : isEditable && isDatePicker
                             ? InkWell(
                                 onTap: () async {
+                                  final DateTime now = DateTime.now();
+                                  final DateTime initialDate = selectedFineIscrizione != null && selectedFineIscrizione!.isAfter(now)
+                                      ? selectedFineIscrizione!
+                                      : now;
+                                  
                                   final DateTime? picked = await showDatePicker(
                                     context: context,
-                                    initialDate: selectedFineIscrizione ?? DateTime.now(),
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    initialDate: initialDate,
+                                    firstDate: now,
+                                    lastDate: now.add(const Duration(days: 365 * 2)),
                                   );
                                   if (picked != null) {
                                     setState(() {
@@ -802,6 +807,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         return 'Abbonamento Mensile';
       case TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE:
         return 'Abbonamento Trimestrale';
+      case TipologiaIscrizione.ABBONAMENTO_SEMESTRALE:
+        return 'Abbonamento Semestrale';
+      case TipologiaIscrizione.ABBONAMENTO_ANNUALE:
+        return 'Abbonamento Annuale';
     }
   }
 }

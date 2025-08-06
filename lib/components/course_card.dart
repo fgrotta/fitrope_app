@@ -3,6 +3,8 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
+import 'package:fitrope_app/api/courses/deleteCourse.dart';
+import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/types/course.dart';
 
@@ -140,6 +142,48 @@ class _CourseCardState extends State<CourseCard> {
     }
   }
 
+  void _showRemoveUserConfirmationDialog(BuildContext context, FitropeUser user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rimuovi Iscrizione'),
+        content: Text(
+          'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dal corso "${widget.title}"?\n\n'
+          'L\'utente riceverà il rimborso del credito se ha un pacchetto entrate.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Rimuovi', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await removeUserFromCourse(widget.courseId, user.uid);
+        SnackBarUtils.showSuccessSnackBar(
+          context,
+          'Utente rimosso con successo dal corso',
+        );
+        // Aggiorna la lista
+        if (widget.onRefresh != null) {
+          widget.onRefresh!();
+        }
+      } catch (e) {
+        SnackBarUtils.showErrorSnackBar(
+          context,
+          'Errore durante la rimozione: ${e.toString()}',
+        );
+      }
+    }
+  }
+
   Widget _buildClickableSubscribersList(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,18 +206,33 @@ class _CourseCardState extends State<CourseCard> {
           String displayName = getDisplayName(user);
           return Padding(
             padding: const EdgeInsets.only(bottom: 2),
-            child: GestureDetector(
-              onTap: () => _showUserDetails(context, user),
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Text(
-                  '• $displayName',
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    decoration: TextDecoration.none, 
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _showUserDetails(context, user),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Text(
+                        '• $displayName',
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.none, 
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                // Pulsante di rimozione per admin/trainer
+                if (widget.isAdmin || widget.userRole == 'Trainer')
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 16),
+                    onPressed: () => _showRemoveUserConfirmationDialog(context, user),
+                    tooltip: 'Rimuovi iscrizione',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+              ],
             ),
           );
         }).toList(),

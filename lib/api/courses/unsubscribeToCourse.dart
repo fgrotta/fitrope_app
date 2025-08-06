@@ -7,7 +7,7 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 
 FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-Future<void> unsubscribeToCourse(String courseId, String userId) async {
+Future<void> unsubscribeToCourse(String courseId, String userId, {bool userConfirmed = false}) async {
   QuerySnapshot querySnapshot = await firestore
       .collection('courses')
       .where('uid', isEqualTo: courseId)
@@ -37,19 +37,31 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
 
       List<dynamic> userCourses = userSnapshot['courses'] ?? [];
 
-      DateTime endDate = courseSnapshot['endDate'].toDate();
+      DateTime startDate = courseSnapshot['startDate'].toDate();
+      DateTime now = DateTime.now();
 
-      Duration difference = endDate.difference(DateTime.now());
-
+      Duration difference = startDate.difference(now);
       int hoursDifference = difference.inHours;
 
+      // Controlla il tipo di abbonamento dell'utente
+      String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
+      bool isPacchettoEntrate = tipologiaIscrizione == 'PACCHETTO_ENTRATE';
+      
+      // Per il pacchetto entrate, controlla se la disiscrizione è nelle 8 ore precedenti
+      bool shouldRefund = true;
+      if (isPacchettoEntrate && hoursDifference <= 8) {
+        if (!userConfirmed) {
+          throw Exception('CONFIRMATION_REQUIRED');
+        }
+        shouldRefund = false;
+      }
 
       if (userCourses.contains(courseId)) {
         userCourses.remove(courseId);
 
         transaction.update(userRef, {
           'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] + (hoursDifference > 12 ? 1 : 0)
+          'entrateDisponibili': userSnapshot['entrateDisponibili'] + (shouldRefund ? 1 : 0)
         });
       }
     } else {
@@ -68,5 +80,6 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
     print("Failed to unsubscribe: $error");
+    throw error;
   });
 }

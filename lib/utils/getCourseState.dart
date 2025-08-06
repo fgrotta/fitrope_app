@@ -25,7 +25,9 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   if(
     user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
-    user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE
+    user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
+    user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
+    user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE
   ) {
     List<Course> allCourses = store.state.allCourses;
     List<Course> allSubscribedCourse = [];

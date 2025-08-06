@@ -110,13 +110,61 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  void onUnsubscribe(Course course) {
-    unsubscribeToCourse(course.id, user.uid).then((_) {
+  void onUnsubscribe(Course course) async {
+    try {
+      await unsubscribeToCourse(course.id, user.uid);
       setState(() { 
         print('onUnsubscribe');
         updateCourses();
       });
-    });
+    } catch (e) {
+      if (e.toString().contains('CONFIRMATION_REQUIRED')) {
+        // Mostra dialog di conferma
+        bool? confirmed = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Conferma Disiscrizione'),
+              content: const Text(
+                'Sei sicuro di voler disiscriverti da questo corso? '
+                'Essendo nelle 8 ore precedenti all\'inizio del corso, '
+                'perderai l\'ingresso senza rimborso del credito.'
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Annulla'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Conferma'),
+                ),
+              ],
+            );
+          },
+        );
+        
+        if (confirmed == true) {
+          try {
+            await unsubscribeToCourse(course.id, user.uid, userConfirmed: true);
+            setState(() { 
+              print('onUnsubscribe confirmed');
+              updateCourses();
+            });
+          } catch (e) {
+            SnackBarUtils.showErrorSnackBar(
+              context,
+              'Errore durante la disiscrizione: ${e.toString()}',
+            );
+          }
+        }
+      } else {
+        SnackBarUtils.showErrorSnackBar(
+          context,
+          'Errore durante la disiscrizione: ${e.toString()}',
+        );
+      }
+    }
   }
 
   // Funzioni per navigare alla pagina di gestione corsi
