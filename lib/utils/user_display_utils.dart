@@ -1,4 +1,5 @@
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/week_utils.dart';
 
 class UserDisplayUtils {
  
@@ -46,4 +47,31 @@ class UserDisplayUtils {
       return 'Errore nel caricamento trainer';
     }
   }
+} 
+
+String getDisdetteTardiveInfo(FitropeUser user) {
+  if (user.disdetteTardiveSettimanali == null || user.disdetteTardiveSettimanali!.isEmpty) {
+    return 'Nessuna disdetta tardiva';
+  }
+
+  List<String> info = [];
+  user.disdetteTardiveSettimanali!.forEach((weekKey, count) {
+    // Parsing della chiave settimana (YYYY-WW)
+    List<String> parts = weekKey.split('-');
+    if (parts.length == 2) {
+      int year = int.tryParse(parts[0]) ?? 0;
+      int week = int.tryParse(parts[1]) ?? 0;
+      info.add('Settimana $week/$year: $count disdette tardive');
+    }
+  });
+
+  return info.join(', ');
+}
+
+String getCurrentWeekDisdetteTardive(FitropeUser user) {
+  if (user.disdetteTardiveSettimanali == null) return '0';
+  
+  String currentWeekKey = WeekUtils.getWeekKey(DateTime.now());
+  int count = user.disdetteTardiveSettimanali![currentWeekKey] ?? 0;
+  return count.toString();
 } 

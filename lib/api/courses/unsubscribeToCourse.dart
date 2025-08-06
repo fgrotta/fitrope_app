@@ -4,6 +4,7 @@ import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/week_utils.dart';
 
 FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -46,6 +47,9 @@ Future<void> unsubscribeToCourse(String courseId, String userId, {bool userConfi
       // Controlla il tipo di abbonamento dell'utente
       String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
       bool isPacchettoEntrate = tipologiaIscrizione == 'PACCHETTO_ENTRATE';
+      bool isAbbonamentoConLimiti = tipologiaIscrizione == 'ABBONAMENTO_TRIMESTRALE' || 
+                                   tipologiaIscrizione == 'ABBONAMENTO_SEMESTRALE' || 
+                                   tipologiaIscrizione == 'ABBONAMENTO_ANNUALE';
       
       // Per il pacchetto entrate, controlla se la disiscrizione è nelle 8 ore precedenti
       bool shouldRefund = true;
@@ -56,13 +60,29 @@ Future<void> unsubscribeToCourse(String courseId, String userId, {bool userConfi
         shouldRefund = false;
       }
 
-      if (userCourses.contains(courseId)) {
-        userCourses.remove(courseId);
+      // Per gli abbonamenti con limiti settimanali, gestisci le disdette tardive
+      Map<String, dynamic> userUpdateData = {
+        'courses': userCourses.where((course) => course != courseId).toList(),
+      };
 
-        transaction.update(userRef, {
-          'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] + (shouldRefund ? 1 : 0)
-        });
+      if (isPacchettoEntrate) {
+        userUpdateData['entrateDisponibili'] = userSnapshot['entrateDisponibili'] + (shouldRefund ? 1 : 0);
+      } else if (isAbbonamentoConLimiti && hoursDifference <= 2) {
+        // Disdetta tardiva per abbonamenti con limiti settimanali
+        if (!userConfirmed) {
+          throw Exception('CONFIRMATION_REQUIRED_ABBONAMENTO');
+        }
+        
+        // Incrementa il contatore delle disdette tardive per la settimana corrente
+        Map<String, dynamic> currentDisdette = userSnapshot['disdetteTardiveSettimanali'] ?? {};
+        String weekKey = WeekUtils.getWeekKey(startDate);
+        currentDisdette[weekKey] = (currentDisdette[weekKey] ?? 0) + 1;
+        
+        userUpdateData['disdetteTardiveSettimanali'] = currentDisdette;
+      }
+
+      if (userCourses.contains(courseId)) {
+        transaction.update(userRef, userUpdateData);
       }
     } else {
       print('No users subscribed to this course');

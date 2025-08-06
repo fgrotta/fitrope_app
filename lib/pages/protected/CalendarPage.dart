@@ -119,7 +119,7 @@ class _CalendarPageState extends State<CalendarPage> {
       });
     } catch (e) {
       if (e.toString().contains('CONFIRMATION_REQUIRED')) {
-        // Mostra dialog di conferma
+        // Mostra dialog di conferma per pacchetti entrate
         bool? confirmed = await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {
@@ -149,6 +149,47 @@ class _CalendarPageState extends State<CalendarPage> {
             await unsubscribeToCourse(course.id, user.uid, userConfirmed: true);
             setState(() { 
               print('onUnsubscribe confirmed');
+              updateCourses();
+            });
+          } catch (e) {
+            SnackBarUtils.showErrorSnackBar(
+              context,
+              'Errore durante la disiscrizione: ${e.toString()}',
+            );
+          }
+        }
+      } else if (e.toString().contains('CONFIRMATION_REQUIRED_ABBONAMENTO')) {
+        // Mostra dialog di conferma per abbonamenti con limiti settimanali
+        bool? confirmed = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Conferma Disiscrizione Tardiva'),
+              content: const Text(
+                'Sei sicuro di voler disiscriverti da questo corso? '
+                'Essendo nelle 2 ore precedenti all\'inizio del corso, '
+                'questa lezione verrà conteggiata come persa per il limite settimanale. '
+                'Non potrai più iscriverti ad altre lezioni questa settimana.'
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Annulla'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Conferma'),
+                ),
+              ],
+            );
+          },
+        );
+        
+        if (confirmed == true) {
+          try {
+            await unsubscribeToCourse(course.id, user.uid, userConfirmed: true);
+            setState(() { 
+              print('onUnsubscribe confirmed for abbonamento');
               updateCourses();
             });
           } catch (e) {

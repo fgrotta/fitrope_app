@@ -2,6 +2,7 @@ import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/week_utils.dart';
 
 CourseState getCourseState(Course course, FitropeUser user) {
   int today = DateTime.now().millisecondsSinceEpoch;
@@ -43,19 +44,25 @@ CourseState getCourseState(Course course, FitropeUser user) {
     int subscriptionCounter = 0;
 
     DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
-    DateTime startOfWeek = courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
-    startOfWeek = DateTime.utc(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-    DateTime endOfWeek = startOfWeek.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
-    int startOfWeekMillis = startOfWeek.millisecondsSinceEpoch;
-    int endOfWeekMillis = endOfWeek.millisecondsSinceEpoch;
-
+    String weekKey = WeekUtils.getWeekKey(courseDate);
+    
+    // Conta le iscrizioni attive per la settimana
     for(int n=0;n<allSubscribedCourse.length;n++) {
       int courseStart = allSubscribedCourse[n].startDate.millisecondsSinceEpoch;
-      bool isWithinCourseWeek = courseStart >= startOfWeekMillis && courseStart <= endOfWeekMillis;
-
-      if(isWithinCourseWeek) {
+      DateTime subscribedCourseDate = DateTime.fromMillisecondsSinceEpoch(courseStart);
+      
+      if(WeekUtils.isDateInWeek(subscribedCourseDate, weekKey)) {
         subscriptionCounter += 1;
       }
+    }
+
+    // Aggiungi le disdette tardive al conteggio per gli abbonamenti con limiti settimanali
+    if(user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
+       user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
+       user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE) {
+      
+      int disdetteTardive = WeekUtils.getDisdetteTardiveForWeek(user.disdetteTardiveSettimanali, weekKey);
+      subscriptionCounter += disdetteTardive;
     }
 
     if(user.entrateSettimanali == null) {

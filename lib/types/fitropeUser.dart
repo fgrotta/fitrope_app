@@ -14,6 +14,7 @@ class FitropeUser {
   final bool isActive;
   final bool isAnonymous;
   final DateTime createdAt;
+  final Map<String, int>? disdetteTardiveSettimanali; // Mappa: "YYYY-WW" -> numero disdette tardive
 
   const FitropeUser({
     required this.name, 
@@ -29,6 +30,7 @@ class FitropeUser {
     this.isActive = true,
     this.isAnonymous = false,
     required this.createdAt,
+    this.disdetteTardiveSettimanali,
   });
 
   Map<String, dynamic> toJson() {
@@ -46,10 +48,19 @@ class FitropeUser {
       'isActive': isActive,
       'isAnonymous': isAnonymous,
       'createdAt': Timestamp.fromDate(createdAt),
+      'disdetteTardiveSettimanali': disdetteTardiveSettimanali,
     };
   }
 
   factory FitropeUser.fromJson(Map<String, dynamic> json) {
+    Map<String, int> disdetteTardive = {};
+    if (json['disdetteTardiveSettimanali'] != null) {
+      Map<String, dynamic> raw = json['disdetteTardiveSettimanali'] as Map<String, dynamic>;
+      raw.forEach((key, value) {
+        disdetteTardive[key] = value as int;
+      });
+    }
+
     return FitropeUser(
       uid: json['uid'] as String,
       email: json['email'] as String? ?? '',
@@ -70,6 +81,7 @@ class FitropeUser {
       createdAt: json['createdAt'] != null 
           ? (json['createdAt'] as Timestamp).toDate() 
           : DateTime.now(),
+      disdetteTardiveSettimanali: disdetteTardive,
     );
   }
 }

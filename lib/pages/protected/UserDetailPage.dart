@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/authentication/updateUser.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/user_display_utils.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -489,6 +490,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, _canEditSpecificField('Entrate Disponibili') && isEditing),
                 _buildInfoRow('Entrate Settimanali', widget.user.entrateSettimanali?.toString() ?? '0', entrateSettimanaliController, _canEditSpecificField('Entrate Settimanali') && isEditing),
                 _buildInfoRow('Fine Iscrizione', widget.user.fineIscrizione != null ? DateFormat('dd/MM/yyyy').format(widget.user.fineIscrizione!.toDate()) : 'Non impostata', null, _canEditSpecificField('Fine Iscrizione') && isEditing, isDatePicker: true),
+                _buildInfoRow('Disdette Tardive Settimana Corrente', getCurrentWeekDisdetteTardive(widget.user), null, false),
+                _buildInfoRow('Storico Disdette Tardive', getDisdetteTardiveInfo(widget.user), null, false),
               ],
             ),
             
