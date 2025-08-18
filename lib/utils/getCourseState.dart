@@ -11,7 +11,8 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.EXPIRED;
   }
 
-  if(user.courses.contains(course.id)) {
+  // Usa course.uid per la verifica dell'iscrizione (più affidabile)
+  if(user.courses.contains(course.uid)) {
     return CourseState.SUBSCRIBED;
   }
 
@@ -33,8 +34,7 @@ CourseState getCourseState(Course course, FitropeUser user) {
     List<Course> allSubscribedCourse = [];
 
     for(int n=0;n<user.courses.length;n++) {
-      Course? course = allCourses.where((Course course) => course.id == user.courses[n]).firstOrNull;
-
+      Course? course = allCourses.where((Course course) => course.uid == user.courses[n]).firstOrNull;
       if(course != null) {
         allSubscribedCourse.add(course);
       }

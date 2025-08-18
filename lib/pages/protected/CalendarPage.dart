@@ -3,8 +3,10 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -47,14 +49,21 @@ class _CalendarPageState extends State<CalendarPage> {
     });
     getAllCourses().then((List<Course> response) {
       setState(() {
-        courses = response;
-        for(Course course in courses) {
-          updateCourseToMap(course, null);
-        }
+        refreshCourseMap(response);
         onSelectDate(DateTime.now());
       });
     });
     super.initState();
+  }
+
+  void refreshCourseMap(List<Course> response) {
+    coursesByDate.clear();
+    store.dispatch(SetAllCoursesAction(response));    
+    courses = response;
+    for(Course course in response) {
+      updateCourseToMap(course, null);
+    }
+    
   }
 
   void updateCourseToMap(Course newCourse, Course? oldCourse ) {
@@ -74,18 +83,15 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void updateCourses() {
+    invalidateUsersCache();
+    user = store.state.user!;
+    invalidateCoursesCache();
+    selectedCourses = [];
     getAllCourses().then((List<Course> response) {
       if(mounted) { 
-        setState(() {
-          courses = response;
-          // Ricostruisci la mappa dei corsi
-          coursesByDate.clear();
-          for(Course course in courses) {
-            updateCourseToMap(course, null);
-          }
-          onSelectDate(currentDate);
-          store.dispatch(SetAllCoursesAction(response));
-        });
+        refreshCourseMap(response);
+        onSelectDate(currentDate);
+        store.dispatch(SetAllCoursesAction(response));
       }
     });
   }
@@ -104,7 +110,6 @@ class _CalendarPageState extends State<CalendarPage> {
   void onSubscribe(Course course) {
     subscribeToCourse(course.id, user.uid).then((_) {
       setState(() { 
-        print('onSubscribe');
         updateCourses();
       });
     });
@@ -112,58 +117,52 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void onUnsubscribe(Course course) async {
     try {
-      await unsubscribeToCourse(course.id, user.uid);
-      setState(() { 
-        print('onUnsubscribe');
-        updateCourses();
-      });
-    } catch (e) {
-      if (e.toString().contains('CONFIRMATION_REQUIRED')) {
-        // Mostra dialog di conferma
-        bool? confirmed = await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Conferma Disiscrizione'),
-              content: const Text(
-                'Sei sicuro di voler disiscriverti da questo corso? '
-                'Essendo nelle 8 ore precedenti all\'inizio del corso, '
-                'perderai l\'ingresso senza rimborso del credito.'
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Annulla'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Conferma'),
-                ),
-              ],
-            );
-          },
-        );
+      print('🔄 Inizio disiscrizione per corso: ${course.name}');
+      
+      // Usa il nuovo sistema di disiscrizione intelligente
+      bool success = await CourseUnsubscribeHelper.handleUnsubscribe(
+        course,
+        user,
+        context,
+      );
+      
+      if (success) {
+        print('✅ Disiscrizione completata con successo');
         
-        if (confirmed == true) {
+        // Aggiorna lo stato dell'utente corrente
+        if (store.state.user != null && store.state.user!.uid == user.uid) {
+          // Ricarica i dati utente per aggiornare entrateDisponibili e courses
           try {
-            await unsubscribeToCourse(course.id, user.uid, userConfirmed: true);
-            setState(() { 
-              print('onUnsubscribe confirmed');
-              updateCourses();
-            });
+            print('🔄 Aggiornamento stato utente nello store');
+            final userData = await getUserData(user.uid);
+            if (userData != null) {
+              store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
+            }
           } catch (e) {
-            SnackBarUtils.showErrorSnackBar(
-              context,
-              'Errore durante la disiscrizione: ${e.toString()}',
-            );
+            print('⚠️ Errore nell\'aggiornamento stato utente: $e');
           }
         }
+        updateCourses();
+        // Mostra messaggio di successo
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Disiscrizione completata con successo'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } else {
-        SnackBarUtils.showErrorSnackBar(
-          context,
-          'Errore durante la disiscrizione: ${e.toString()}',
-        );
+        print('❌ Disiscrizione annullata dall\'utente');
+        // L'utente ha annullato la disiscrizione, non fare nulla
       }
+      
+    } catch (e) {
+      print('❌ Errore durante la disiscrizione: $e');
+      SnackBarUtils.showErrorSnackBar(
+        context,
+        'Errore durante la disiscrizione: ${e.toString()}',
+      );
     }
   }
 
@@ -229,7 +228,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void deleteCourseAndUpdate(Course course) async {
     try {
-      await deleteCourse(course.id);
+      await deleteCourse(course.uid);
       updateCourses();
       
       // Mostra SnackBar di successo
