@@ -57,19 +57,18 @@ CourseState getCourseState(Course course, FitropeUser user) {
         subscriptionCounter += 1;
       }
     }
-
+    if(
+      user.fineIscrizione != null && 
+      courseDate.isAfter(user.fineIscrizione!.toDate())
+    ) {
+      return CourseState.NULL;
+    }
+    
     if(user.entrateSettimanali == null) {
       return CourseState.NULL;
     }
 
     if(subscriptionCounter >= user.entrateSettimanali!) {
-      return CourseState.NULL;
-    }
-
-    if(
-      user.fineIscrizione != null && 
-      today > user.fineIscrizione!.toDate().millisecondsSinceEpoch
-    ) {
       return CourseState.NULL;
     }
 
