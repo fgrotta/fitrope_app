@@ -24,6 +24,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController(text: 'grotta.francesco+admin@gmail.com');
   final TextEditingController _passwordController = TextEditingController(text: 'grotta.francesco+admin@gmail.com');
+  
   String? loginError;
   bool emailNotVerified = false;
 
@@ -67,6 +68,7 @@ class _LoginPageState extends State<LoginPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: backgroundColor,
           title: const Text('Reset password'),
           content: TextField(
             controller: emailController,
@@ -75,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Annulla'),
+              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
             ),
             TextButton(
               onPressed: () async {
@@ -92,7 +94,7 @@ class _LoginPageState extends State<LoginPage> {
                   );
                 }
               },
-              child: const Text('Invia'),
+              child: const Text('Invia', style: TextStyle(color: onPrimaryColor),),
             ),
           ],
         );
@@ -109,11 +111,11 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             Scaffold(
               appBar: AppBar(
-                backgroundColor: Colors.transparent,
-                iconTheme: const IconThemeData(color: Colors.white),
-                title: const Text("Login", style: TextStyle(color: Colors.white)),
+                backgroundColor: backgroundColor,
+                iconTheme: const IconThemeData(color: onPrimaryColor),
+                title: const Text("Login", style: TextStyle(color: onPrimaryColor)),
               ),
-              backgroundColor: primaryColor,
+              backgroundColor: backgroundColor,
               body: Padding(
                 padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
                 child: Column(
@@ -122,24 +124,24 @@ class _LoginPageState extends State<LoginPage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Email', style: TextStyle(color: ghostColor),),
+                        const Text('Email test'),
                         const SizedBox(height: 10,),
-                        CustomTextField(controller: _emailController, hintText: 'Enter your email',),
+                        CustomTextField(controller: _emailController, hintText: 'Inserisci la tua email',),
                         const SizedBox(height: 20,),
-                        const Text('Password', style: TextStyle(color: ghostColor),),
+                        const Text('Password'),
                         const SizedBox(height: 10,),
-                        CustomTextField(controller: _passwordController, hintText: 'Enter your password', obscureText: true,),
+                        CustomTextField(controller: _passwordController, hintText: 'Inserisci la tua password', obscureText: true,),
                         const SizedBox(height: 10,),
                         if(loginError != null) Text(loginError!, style: const TextStyle(color: dangerColor),),
                         const SizedBox(height: 10,),
                         if(emailNotVerified) ElevatedButton(
                           style: ButtonStyle(
-                            backgroundColor: WidgetStateProperty.all(Colors.blueAccent)
+                            backgroundColor: WidgetStateProperty.all(primaryLightColor)
                           ),
                           onPressed: () {
                             resendVerificationEmail();
                           }, 
-                          child: const Text('Invia di nuovo email', style: TextStyle(color: Colors.white),),
+                          child: const Text('Invia di nuovo email', style: TextStyle(color: onBackgroundColor),),
                         ),
                         const SizedBox(height: 10,),
                         GestureDetector(
@@ -155,14 +157,14 @@ class _LoginPageState extends State<LoginPage> {
                           onLogin();
                         },
                         style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.all(secondaryColor),
+                          backgroundColor: WidgetStateProperty.all(ghostColor),
                           shape: WidgetStateProperty.all<RoundedRectangleBorder>(
                             RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             )
                           )
                         ), 
-                        child: const Text('Login', style: TextStyle(color: Colors.white),),
+                        child: const Text('Login', style: TextStyle(color: surfaceVariantColor),),
                       ),
                     )
                   ],

@@ -88,24 +88,24 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget build(BuildContext context) {
     if(validatingEmail) {
       return Scaffold(
-        backgroundColor: primaryColor,
+        backgroundColor: backgroundColor,
         body: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Center(
               child: Column(
                 children: [
-                  const Icon(Icons.email, size: 60, color: Colors.blueAccent,),
+                  const Icon(Icons.email, size: 60, color:ghostColor,),
                   const SizedBox(height: 30,),
-                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: Colors.white)),
+                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: ghostColor)),
                   const SizedBox(height: 30,),
                   ElevatedButton(
                     style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.all(Colors.blueAccent)
+                      backgroundColor: WidgetStateProperty.all(successColor)
                     ),
                     onPressed: () {
                       Navigator.pushNamed(context, LOGIN_ROUTE);
-                    }, child: const Text("Login", style: TextStyle(color: Colors.white),)
+                    }, child: const Text("Login", style: TextStyle(color: ghostColor),)
                   )
                 ],
               ),
@@ -117,11 +117,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text("Registrazione", style: TextStyle(color: Colors.white),),
+        backgroundColor: backgroundColor,
+        iconTheme: const IconThemeData(color: ghostColor),
+        title: const Text("Registrazione", style: TextStyle(color: onPrimaryColor),),
       ),
-      backgroundColor: primaryColor,
+      backgroundColor: backgroundColor,
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
@@ -131,35 +131,35 @@ class _RegistrationPageState extends State<RegistrationPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Email', style: TextStyle(color: ghostColor),),
+                  const Text('Email',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _emailController, hintText: 'Inserisci la tua email', onTapOutside: (_) => setState(() { validateEmail(); }),),
                   const SizedBox(height: 5,),
                   Text(emailError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
-                  const Text('Password', style: TextStyle(color: ghostColor),),
+                  const Text('Password',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _passwordController, hintText: 'Inserisci la password', obscureText: true, onTapOutside: (_) => setState(() { validatePassword(); }),),
                   const SizedBox(height: 5,),
                   Text(passwordError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
-                  const Text('Conferma password', style: TextStyle(color: ghostColor),),
+                  const Text('Conferma password',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _confirmPasswordController, hintText: 'Conferma la password', obscureText: true, onTapOutside: (_) => setState(() { validatePassword(); }),),
                   const SizedBox(height: 5,),
                   Text(confirmPasswordError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
-                  const Text('Nome', style: TextStyle(color: ghostColor),),
+                  const Text('Nome',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _nameController, hintText: 'Inserisci il tuo nome', onTapOutside: (_) => setState(() { validateName(); }),),
                   const SizedBox(height: 5,),
                   Text(nameError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
-                  const Text('Cognome', style: TextStyle(color: ghostColor),),
+                  const Text('Cognome',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _lastNameController, hintText: 'Inserisci il tuo cognome', onTapOutside: (_) => setState(() { validateLastName(); }),),
                   const SizedBox(height: 5,),
