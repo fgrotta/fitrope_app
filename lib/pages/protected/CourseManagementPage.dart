@@ -364,6 +364,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
                 // Selezione Data
                 Card(
+                  color: surfaceVariantColor,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -462,6 +463,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                 // Selezione Trainer (solo per admin)
                 if (user.role == 'Admin') ...[
                   Card(
+                    color: surfaceVariantColor,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -535,7 +537,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: const Text('Annulla'),
+                        child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -543,7 +545,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                       child: ElevatedButton(
                         onPressed: isLoading ? null : _saveCourse,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
+                          backgroundColor: primaryLightColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),

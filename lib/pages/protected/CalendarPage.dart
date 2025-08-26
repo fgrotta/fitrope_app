@@ -1,4 +1,3 @@
-import 'package:fitrope_app/api/courses/unsubscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
@@ -258,28 +257,29 @@ class _CalendarPageState extends State<CalendarPage> {
                   children: [
                     Padding(
                       padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
-                      child: const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
+                      child: const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
                     ),
                     Theme(
                       data: ThemeData(
-                        colorScheme: const ColorScheme.light(
-                          onSurface: Colors.white
+                        colorScheme: const ColorScheme.highContrastDark(
+                          onSurface: onPrimaryColor
                         ),
                         datePickerTheme: DatePickerThemeData(
-                          dayForegroundColor: WidgetStateProperty.all(Colors.white),
-                          weekdayStyle: const TextStyle(color: Colors.white),
-                          headerHeadlineStyle: const TextStyle(color: Colors.white),
-                          todayForegroundColor: WidgetStateProperty.all(Colors.white),
-                          todayBackgroundColor: WidgetStateProperty.all(const Color.fromARGB(255, 90, 90, 90)),
-                          yearOverlayColor: WidgetStateProperty.all(ghostColor),
-                          yearBackgroundColor: WidgetStateProperty.all(primaryColor),
-                          yearForegroundColor: WidgetStateProperty.all(Colors.white),
+                          dayForegroundColor: WidgetStateProperty.all(onSurfaceColor),
+                          weekdayStyle: const TextStyle(color: onPrimaryColor),
+                          headerHeadlineStyle: const TextStyle(color: onPrimaryColor),
+                          todayForegroundColor: WidgetStateProperty.all(onPrimaryColor),
+                          todayBackgroundColor: WidgetStateProperty.all(onSurfaceVariantColorTrasparent),
+                          yearOverlayColor: WidgetStateProperty.all(surfaceVariantColor),
+                          yearBackgroundColor: WidgetStateProperty.all(primaryLightColor),
+                          yearForegroundColor: WidgetStateProperty.all(onPrimaryColor),
                           dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
                             if (states.contains(WidgetState.selected)) {
-                              return const Color.fromARGB(255, 100, 100, 100);
+                              return primaryLightColor;
                             }
                             return null;
-                          }),)
+                          }),),
+                          
                       ), 
                       child: Calendar(
                         onDateChanged: (DateTime value) { 
@@ -310,7 +310,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                 : null,
                             ),
                           ).toList() : [
-                            const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: ghostColor),)
+                            const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: onPrimaryColor),)
                         ],
                       ),
                     ),
@@ -320,17 +320,21 @@ class _CalendarPageState extends State<CalendarPage> {
                         child: Row(
                           children: [
                             Expanded(
-                              child: ElevatedButton(
+                              child: ElevatedButton.icon(
                                 onPressed: showCreateCoursePage,
-                                child: const Text('Crea nuovo corso'),
+                                icon: const Icon(Icons.add, color: onPrimaryColor,),
+                                label: const Text('Crea nuovo corso', style: TextStyle(color: onPrimaryColor),),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: surfaceVariantColor,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: showRecurringCoursePage,
-                                icon: const Icon(Icons.repeat),
-                                label: const Text('Corsi ricorrenti'),
+                                icon: const Icon(Icons.repeat, color: onPrimaryColor,),
+                                label: const Text('Corsi ricorrenti', style: TextStyle(color: onPrimaryColor),),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.orange,
                                 ),

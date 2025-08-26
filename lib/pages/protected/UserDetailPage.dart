@@ -181,12 +181,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: backgroundColor,
           title: const Text('Conferma Logout'),
           content: const Text('Sei sicuro di voler effettuare il logout?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla'),
+              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
             ),
             TextButton(
               onPressed: () async {
@@ -202,8 +203,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   );
                 }
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Logout'),
+              style: TextButton.styleFrom(foregroundColor: warningColor),
+              child: const Text('Logout', style: TextStyle(color: warningColor, fontWeight: FontWeight.bold),),
             ),
           ],
         );
@@ -216,6 +217,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: backgroundColor,
           title: const Text('Cancellazione Account'),
           content: const Text(
             'Sei sicuro di voler Disattivare il tuo account?\n\n'
@@ -225,7 +227,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla'),
+              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
             ),
             TextButton(
               onPressed: () async {
@@ -255,7 +257,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 }
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Cancella Account'),
+              child: const Text('Cancella Account', style: TextStyle(color: errorColor, fontWeight: FontWeight.bold),),
             ),
           ],
         );
@@ -355,8 +357,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        backgroundColor: backgroundColor,
         title: Text(store.state.user?.uid == widget.user.uid ? 'Il Mio Profilo' : 'Dettagli Utente'),
         actions: [
           if (!isEditing && _canEditUser()) ...[            
@@ -393,19 +394,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
             Center(
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: primaryColor,
-                    child: Text(
-                      '${widget.user.name.isNotEmpty ? widget.user.name[0] : ''}${widget.user.lastName.isNotEmpty ? widget.user.lastName[0] : ''}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Text(
                     '${widget.user.name} ${widget.user.lastName}',
                     style: const TextStyle(
@@ -414,18 +402,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 8),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: primaryColor,
+                          color: primaryLightColor,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          widget.user.role,
+                          widget.user.name + ' ' + widget.user.lastName,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -486,7 +473,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
               'Piano di Iscrizione',
               [
                 _buildInfoRow('Tipologia', _getTipologiaLabel(widget.user.tipologiaIscrizione), null, _canEditSpecificField('Tipologia') && isEditing, isTipologiaDropdown: true),
-                _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, _canEditSpecificField('Entrate Disponibili') && isEditing),
+                if (widget.user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE || isAdmin) ...[
+                  _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, _canEditSpecificField('Entrate Disponibili') && isEditing),                  
+                ],
                 _buildInfoRow('Entrate Settimanali', widget.user.entrateSettimanali?.toString() ?? '0', entrateSettimanaliController, _canEditSpecificField('Entrate Settimanali') && isEditing),
                 _buildInfoRow('Fine Iscrizione', widget.user.fineIscrizione != null ? DateFormat('dd/MM/yyyy').format(widget.user.fineIscrizione!.toDate()) : 'Non impostata', null, _canEditSpecificField('Fine Iscrizione') && isEditing, isDatePicker: true),
               ],
@@ -569,7 +558,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: outlineColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -587,7 +576,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: primaryColor,
+              color: primaryLightColor,
             ),
           ),
           const SizedBox(height: 16),
@@ -599,7 +588,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -609,7 +598,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
               '$label:',
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
-                color: Colors.grey,
+                color: primaryLightColor,
               ),
             ),
           ),
@@ -660,7 +649,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             items: [
-                              DropdownMenuItem(value: null, child: Text('Nessuna')),
+                              const DropdownMenuItem(value: null, child: Text('Nessuna', style: TextStyle(color: onPrimaryColor),)),
                               ...TipologiaIscrizione.values.map((tipologia) {
                                 return DropdownMenuItem(
                                   value: tipologia.toString().split('.').last,
@@ -676,7 +665,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               });
                             },
                           )
-                                                    : isEditable && isDatePicker
+                  : isEditable && isDatePicker
                             ? InkWell(
                                 onTap: () async {
                                   final DateTime now = DateTime.now();
@@ -730,7 +719,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                       children: [
                                         Icon(Icons.check_circle, color: Colors.green),
                                         SizedBox(width: 8),
-                                        Text('Attivo'),
+                                        Text('Attivo', style: TextStyle(color: onPrimaryColor),),
                                       ],
                                     ),
                                   ),

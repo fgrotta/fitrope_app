@@ -348,8 +348,8 @@ String _getDayName(DateTime date) {
       backgroundColor: backgroundColor,
       appBar: AppBar(
         title: const Text('Crea Corsi Ricorrenti'),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        backgroundColor: backgroundColor,
+        foregroundColor: onPrimaryColor,
         elevation: 0,
       ),
       body: Stack(
@@ -373,6 +373,7 @@ String _getDayName(DateTime date) {
 
                 // Selezione Data di Inizio
                 Card(
+                  color: surfaceVariantColor,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -443,6 +444,7 @@ String _getDayName(DateTime date) {
 
                 // Selezione Data di Fine
                 Card(
+                  color: surfaceVariantColor,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -488,6 +490,7 @@ String _getDayName(DateTime date) {
 
                 // Selezione Giorni della Settimana
                 Card(
+                  color: surfaceVariantColor,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -546,6 +549,7 @@ String _getDayName(DateTime date) {
                 // Selezione Trainer (solo per admin)
                 if (user.role == 'Admin') ...[
                   Card(
+                    color: surfaceVariantColor,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -596,6 +600,7 @@ String _getDayName(DateTime date) {
                                 // Preview dei corsi
                 if (courseDates.isNotEmpty) ...[
                   Card(
+                    color: surfaceVariantColor,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(

@@ -96,12 +96,13 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: backgroundColor,
           title: Text(isCurrentlyActive ? 'Disattiva Utente' : 'Attiva Utente'),
           content: Text('Sei sicuro di voler $action l\'utente ${user.name} ${user.lastName}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Annulla'),
+              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
             ),
             TextButton(
               onPressed: () async {
@@ -124,7 +125,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               style: TextButton.styleFrom(
                 foregroundColor: isCurrentlyActive ? Colors.orange : Colors.green
               ),
-              child: Text(isCurrentlyActive ? 'Disattiva' : 'Attiva'),
+              child: Text(isCurrentlyActive ? 'Disattiva' : 'Attiva', style: TextStyle(color: isCurrentlyActive ? warningColor : successColor),),
             ),
           ],
         );
@@ -150,7 +151,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       bottom: pagePadding,
                       top: pagePadding + MediaQuery.of(context).viewPadding.top,
                     ),
-                    child: Text(
+                    child: const Text(
                       'Gestione Utenti',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -164,7 +165,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     child: TextField(
                       controller: searchController,
                       onChanged: filterUsers,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Cerca utenti...',
                         prefixIcon: const Icon(Icons.search),
                         border: OutlineInputBorder(),
@@ -178,7 +179,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     padding: EdgeInsets.symmetric(horizontal: pagePadding),
                     child: Text(
                       'Utenti (${filteredUsers.length})',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -196,7 +197,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       leading: Stack(
                         children: [
                           CircleAvatar(
-                            backgroundColor: primaryColor,
+                            backgroundColor: primaryLightColor,
                             child: Text(
                               '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
                               style: TextStyle(color: Colors.white),
@@ -230,8 +231,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                         ],
                       ),
                       trailing: PopupMenuButton(
+                        shadowColor: onHintColor,
+                        surfaceTintColor: primaryColor,
                         itemBuilder: (context) => [
-                          PopupMenuItem(
+                          const PopupMenuItem(
                             value: 'details',
                             child: Row(
                               children: [

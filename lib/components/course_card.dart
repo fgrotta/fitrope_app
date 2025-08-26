@@ -71,6 +71,7 @@ class _CourseCardState extends State<CourseCard> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: backgroundColor,
         title: const Text('Iscritti al corso'),
         content: widget.subscribersNames == null || widget.subscribersNames!.isEmpty
           ? const Text('Nessun iscritto')
@@ -84,7 +85,7 @@ class _CourseCardState extends State<CourseCard> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Chiudi'),
+            child: const Text('Chiudi', style: TextStyle(color: onPrimaryColor),),
           ),
         ],
       ),
@@ -95,12 +96,13 @@ class _CourseCardState extends State<CourseCard> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: backgroundColor,
         title: const Text('Elimina Corso'),
         content: Text('Sei sicuro di voler eliminare il corso "${widget.title}"?\n\nQuesta azione eliminerà anche tutte le iscrizioni al corso.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla'),
+            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
           ),
           TextButton(
             onPressed: () {
@@ -146,6 +148,7 @@ class _CourseCardState extends State<CourseCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: backgroundColor,
         title: const Text('Rimuovi Iscrizione'),
         content: Text(
           'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dal corso "${widget.title}"?\n\n'
@@ -154,7 +157,7 @@ class _CourseCardState extends State<CourseCard> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
+            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -191,11 +194,11 @@ class _CourseCardState extends State<CourseCard> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: surfaceVariantColor, fontWeight: FontWeight.bold)),
             // Icona + per aggiungere iscritti (solo per Admin)
             if (widget.isAdmin)
               IconButton(
-                icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                icon: const Icon(Icons.add, color: surfaceVariantColor, size: 20),
                 onPressed: () => _showAddSubscriberDialog(context),
                 tooltip: 'Aggiungi iscritto',
               ),
@@ -216,7 +219,7 @@ class _CourseCardState extends State<CourseCard> {
                       child: Text(
                         '• $displayName',
                         style: const TextStyle(
-                          color: Colors.blue,
+                          color: surfaceVariantColor,
                           decoration: TextDecoration.none, 
                         ),
                       ),
@@ -270,7 +273,7 @@ String getDisplayName(FitropeUser user) {
     if(widget.courseState == CourseState.CAN_SUBSCRIBE) {
       canBeClicked = true;
       buttonText = 'Prenotati';
-      buttonColor = actionColor;
+      buttonColor = ghostColor;
       buttonTextColor = Colors.white;
     }
     else if(
@@ -278,7 +281,7 @@ String getDisplayName(FitropeUser user) {
       widget.courseState == CourseState.EXPIRED
     ) {
       buttonText = 'Non disponibile';
-      buttonColor = ghostColor;
+      buttonColor = primaryLightColor;
       buttonTextColor = const Color.fromARGB(86, 255, 255, 255);
     }
     else if(widget.courseState == CourseState.SUBSCRIBED) {
@@ -319,7 +322,7 @@ String getDisplayName(FitropeUser user) {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: const BoxDecoration(
-          color: primaryColor,
+          color: primaryLightColor,
           borderRadius: BorderRadius.all(Radius.circular(10)),
         ),
         child: Column(
@@ -366,13 +369,13 @@ String getDisplayName(FitropeUser user) {
                         children: [
                           if(widget.onEdit != null)
                             IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.orange),
+                              icon: const Icon(Icons.edit, color: onPrimaryColor),
                               tooltip: 'Modifica corso',
                               onPressed: widget.onEdit,
                             ),
                           if(widget.onDuplicate != null)
                             IconButton(
-                              icon: const Icon(Icons.copy, color: Colors.blue),
+                              icon: const Icon(Icons.copy, color: tertiaryColor),
                               tooltip: 'Duplica corso',
                               onPressed: widget.onDuplicate,
                             ),
@@ -395,7 +398,7 @@ String getDisplayName(FitropeUser user) {
                 margin: const EdgeInsets.only(top: 0),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: primaryDarkColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: _buildClickableSubscribersList(context),
@@ -484,6 +487,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: backgroundColor,
       title: Text('Aggiungi iscritto a "${widget.courseName}"'),
       content: SizedBox(
         width: 400,
@@ -555,7 +559,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Chiudi'),
+          child: const Text('Chiudi', style: TextStyle(color: onPrimaryColor),),
         ),
       ],
     );

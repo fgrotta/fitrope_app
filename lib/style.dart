@@ -23,7 +23,7 @@ const Color onBackgroundColor = Color.fromRGBO(100, 116, 139, 0.4);
 const Color onSurfaceColor = Color.fromRGBO(51, 65, 85, 1);
 const Color onSurfaceVariantColor = Color.fromRGBO(100, 116, 139, 1);
 const Color onHintColor = Color.fromRGBO(226, 229, 233, 0.502);
-
+const Color onSurfaceVariantColorTrasparent = Color.fromRGBO(100, 116, 139, 0.5);
 // Colori di accento
 const Color tertiaryColor = Color.fromRGBO(245, 158, 11, 1);
 const Color successColor = Color.fromRGBO(34, 197, 94, 1);

@@ -53,9 +53,9 @@ class CoursePreviewCard extends StatelessWidget {
     
     if (showDate) {
       final courseDate = DateTime.fromMillisecondsSinceEpoch(course.startDate.millisecondsSinceEpoch);
-      return "${formatDate(courseDate)}, ${getCourseTimeRange(course)}\n$trainer";
+      return "Orario: ${formatDate(courseDate)}, ${getCourseTimeRange(course)}\n$trainer";
     } else {
-      return "${getCourseTimeRange(course)}\n$trainer";
+      return "Orario: ${getCourseTimeRange(course)}\n$trainer";
     }
   }
 

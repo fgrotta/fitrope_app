@@ -103,9 +103,9 @@ class _ProtectedState extends State<Protected> {
                     const CustomBottomNavigationBarItem(icon: Icons.people, label: 'Utenti'),
                 ], 
                 colors: const CustomBottomNavigationBarColors(
-                  backgroundColor: primaryColor, 
-                  selectedItemColor: Colors.white, 
-                  unselectedItemColor: ghostColor,
+                  backgroundColor: primaryLightColor, 
+                  selectedItemColor: onPrimaryColor, 
+                  unselectedItemColor: surfaceColor,
                 ), 
                 onChangePage: (int index) {
                   setState(() {

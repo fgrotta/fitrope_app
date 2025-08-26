@@ -1,6 +1,5 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
-import 'package:fitrope_app/api/courses/unsubscribeToCourse.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
@@ -107,7 +106,7 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Disiscrizione completata con successo'),
-              backgroundColor: Colors.green,
+              backgroundColor: successColor,
             ),
           );
         }
@@ -121,7 +120,7 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Errore durante la disiscrizione: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: errorColor,
           ),
         );
       }
@@ -132,6 +131,8 @@ class _HomePageState extends State<HomePage> {
     if(
       user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_MENSILE &&
       user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
+      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_SEMESTRALE &&
+      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_ANNUALE &&
       user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE
     ) {
       return Column(
@@ -153,7 +154,9 @@ class _HomePageState extends State<HomePage> {
 
     if(
       (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
-      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE) &&
+      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
+      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
+      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE) &&
       user.fineIscrizione != null && 
       today > user.fineIscrizione!.toDate().millisecondsSinceEpoch
     ) {
@@ -165,9 +168,9 @@ class _HomePageState extends State<HomePage> {
         Container(
           padding: const EdgeInsets.only(top: 20, bottom: 10),
           width: double.infinity,
-          child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+          child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: onPrimaryColor, fontSize: 20),),
         ),
-        CustomCard(title: getTipologiaIscrizioneTitle(user.tipologiaIscrizione!, isExpired), description: getTipologiaIscrizioneDescription(user),),
+        CustomCard(backgroundColor:onSurfaceColor,title:  getTipologiaIscrizioneTitle(user.tipologiaIscrizione!, isExpired), description: getTipologiaIscrizioneDescription(user),),
         const SizedBox(height: 30,),
       ],
     );
@@ -177,7 +180,7 @@ class _HomePageState extends State<HomePage> {
     if(user.courses.isEmpty) {
       return [
         const SizedBox(height: 10,),
-        const Text('Nessun corso disponibile', style: TextStyle(color: ghostColor),)
+        const Text('Nessun corso disponibile',)
       ];
     }
 
@@ -204,7 +207,7 @@ class _HomePageState extends State<HomePage> {
     if(render.isEmpty) {
       return [
         const SizedBox(height: 10,),
-        const Text('Nessun corso disponibile', style: TextStyle(color: ghostColor),)
+        const Text('Nessun corso disponibile', style: TextStyle(color: onPrimaryColor),)
       ];
     }
 
@@ -225,7 +228,7 @@ class _HomePageState extends State<HomePage> {
               const Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
               GestureDetector(
                 child: CircleAvatar(
-                  backgroundColor: const Color.fromARGB(255, 113, 129, 219),
+                  backgroundColor: const Color.fromARGB(255, 96, 119, 246),
                   child: Text(user.name[0] + user.lastName[0]),
                 ),
                 onTap: () {
