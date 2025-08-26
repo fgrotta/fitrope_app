@@ -349,13 +349,13 @@ String getDisplayName(FitropeUser user) {
                   children: [
                     if(widget.capacity != null && widget.subscribed != null && !widget.isAdmin) Row(
                       children: [
-                        Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: ghostColor),),
+                        Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: onPrimaryColor),),
                         const SizedBox(width: 7.5,),
                         IconButton(
                             icon: const Icon(Icons.people),
                             tooltip: 'Vedi iscritti',
                             onPressed: showSubscribersDialog,
-                            color: ghostColor, 
+                            color: onPrimaryColor, 
                             iconSize: 20,
                           ),
                         
