@@ -205,7 +205,11 @@ String _getDayName(DateTime date) {
     if (startDate == null || endDate == null) return [];
     
     List<DateTime> dates = [];
-    DateTime currentDate = startDate!;
+    DateTime currentDate = DateTime(
+      startDate!.year,
+      startDate!.month,
+      startDate!.day,
+    );
     
     while (currentDate.isBefore(endDate!) || currentDate.isAtSameMomentAs(endDate!)) {
       int weekday = currentDate.weekday;
