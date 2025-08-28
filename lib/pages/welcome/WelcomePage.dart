@@ -33,7 +33,6 @@ class _WelcomePageState extends State<WelcomePage> {
               children: [
                 const Column(
                   children: [
-                    Text('Fit House Monza', style: TextStyle(color:onSurfaceColor, fontSize: 40, fontWeight: FontWeight.bold),),
                     Image(image: AssetImage('assets/Logo.png'), width: 200,),
                   ],
                 ),

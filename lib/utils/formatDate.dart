@@ -1,4 +1,8 @@
-String formatDate(DateTime dateTime) {
+String formatDate(DateTime? dateTime) {
+  if(dateTime == null) {
+    return '';
+  }
+
   final months = [
     'Gennaio',
     'Febbraio',

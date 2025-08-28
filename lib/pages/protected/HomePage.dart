@@ -225,7 +225,8 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: Colors.white),),
+              const Image(image: AssetImage('assets/Logo_only.png'), width: 30,),
+              const Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
               GestureDetector(
                 child: CircleAvatar(
                   backgroundColor: const Color.fromARGB(255, 96, 119, 246),

@@ -1,4 +1,5 @@
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/formatDate.dart';
 
 String getTipologiaIscrizioneTitle(TipologiaIscrizione tipologiaIscrizione, bool isExpired) {
   switch(tipologiaIscrizione) {
@@ -12,11 +13,11 @@ String getTipologiaIscrizioneTitle(TipologiaIscrizione tipologiaIscrizione, bool
 
 String getTipologiaIscrizioneDescription(FitropeUser user) {
   switch(user.tipologiaIscrizione) {
-    case TipologiaIscrizione.ABBONAMENTO_MENSILE : return 'Entrate disponibili: ${user.entrateSettimanali} volte a settimana';
-    case TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE : return 'Entrate disponibili: ${user.entrateSettimanali} volte a settimana';
-    case TipologiaIscrizione.ABBONAMENTO_SEMESTRALE : return 'Entrate disponibili: ${user.entrateSettimanali} volte a settimana';
-    case TipologiaIscrizione.ABBONAMENTO_ANNUALE : return 'Entrate disponibili: ${user.entrateSettimanali} volte a settimana';
-    case TipologiaIscrizione.PACCHETTO_ENTRATE : return 'Entrate disponibili: ${user.entrateDisponibili}';
+    case TipologiaIscrizione.ABBONAMENTO_MENSILE : return 'Entrate disponibili: ${user.entrateSettimanali} volte a settimana \nScadenza Abbonamento: ${formatDate(user.fineIscrizione?.toDate())}';
+    case TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE : return 'Entrate disponibili: ${user.entrateSettimanali} volte a settimana \nScadenza Abbonamento: ${formatDate(user.fineIscrizione?.toDate())}';
+    case TipologiaIscrizione.ABBONAMENTO_SEMESTRALE : return 'Entrate disponibili: ${user.entrateSettimanali} volte a settimana \nScadenza Abbonamento: ${formatDate(user.fineIscrizione?.toDate())}';
+    case TipologiaIscrizione.ABBONAMENTO_ANNUALE : return 'Entrate disponibili: ${user.entrateSettimanali} volte a settimana \nScadenza Abbonamento: ${formatDate(user.fineIscrizione?.toDate())}';
+    case TipologiaIscrizione.PACCHETTO_ENTRATE : return 'Entrate disponibili: ${user.entrateDisponibili} \nScadenza Abbonamento: ${formatDate(user.fineIscrizione?.toDate())}';
     default: return '';
   }
 }

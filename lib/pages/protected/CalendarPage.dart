@@ -252,13 +252,24 @@ class _CalendarPageState extends State<CalendarPage> {
         return Stack(
             children: [
             SingleChildScrollView(
+              padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
-                      child: const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
-                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Image(image: AssetImage('assets/Logo_only.png'), width: 30,),
+                          const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
+                          GestureDetector(
+                            child: CircleAvatar(
+                              backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                              child: Text(user.name[0] + user.lastName[0]),
+                            ),
+                          )
+                        ],
+                      ),
                     Theme(
                       data: ThemeData(
                         colorScheme: const ColorScheme.highContrastDark(

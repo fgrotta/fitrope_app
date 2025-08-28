@@ -4,6 +4,7 @@ import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/state.dart';
+import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
@@ -21,11 +22,14 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   List<FitropeUser> filteredUsers = [];
   TextEditingController searchController = TextEditingController();
   bool isLoading = true;
+  late FitropeUser user;
 
   @override
   void initState() {
     super.initState();
+    user = store.state.user!;
     loadUsers();
+
   }
 
   Future<void> loadUsers() async {
@@ -151,13 +155,19 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       bottom: pagePadding,
                       top: pagePadding + MediaQuery.of(context).viewPadding.top,
                     ),
-                    child: const Text(
-                      'Gestione Utenti',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 30,
-                        color: Colors.white,
-                      ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Image(image: AssetImage('assets/Logo_only.png'), width: 30,),
+                        const Text('Gestione Utenti', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
+                        GestureDetector(
+                            child: CircleAvatar(
+                              backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                              child: Text(user.name[0] + user.lastName[0]),
+                            ),
+                          )
+                        ],
                     ),
                   ),
                   Padding(
@@ -213,7 +223,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                   color: Colors.red,
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(
+                                child: const Icon(
                                   Icons.block,
                                   color: Colors.white,
                                   size: 12,
