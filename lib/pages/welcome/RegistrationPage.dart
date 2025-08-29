@@ -95,9 +95,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
             Center(
               child: Column(
                 children: [
-                  const Icon(Icons.email, size: 60, color:ghostColor,),
+                  const Icon(Icons.email, size: 60, color:onPrimaryColor,),
                   const SizedBox(height: 30,),
-                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: ghostColor)),
+                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: onPrimaryColor)),
                   const SizedBox(height: 30,),
                   ElevatedButton(
                     style: ButtonStyle(
@@ -105,7 +105,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     ),
                     onPressed: () {
                       Navigator.pushNamed(context, LOGIN_ROUTE);
-                    }, child: const Text("Login", style: TextStyle(color: ghostColor),)
+                    }, child: const Text("Login", style: TextStyle(color: onPrimaryColor),)
                   )
                 ],
               ),

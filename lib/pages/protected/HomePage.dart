@@ -143,7 +143,7 @@ class _HomePageState extends State<HomePage> {
             child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
           ),
           const SizedBox(height: 20,),
-          const Text('Nessun abbonamento disponibile', style: TextStyle(color: ghostColor),),
+          const Text('Nessun abbonamento disponibile', style: TextStyle(color: onPrimaryColor),),
           const SizedBox(height: 30,),
         ],
       );
