@@ -340,8 +340,15 @@ String getDisplayName(FitropeUser user) {
                         renderTitle(),
                       ],
                     ),
-                    if(widget.description != "") const SizedBox(height: 10,),
-                    if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),)
+                    if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),),
+                    
+                    if(widget.courseState != CourseState.NULL && !widget.isAdmin)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          renderButton(),
+                        ],
+                      ),
                   ],
                 ),
                 Column(
@@ -361,8 +368,6 @@ String getDisplayName(FitropeUser user) {
                         
                       ],
                     ),
-                    const SizedBox(height: 10,),
-                    if(widget.courseState != CourseState.NULL && !widget.isAdmin) renderButton(),
                     if(widget.isAdmin)
                       Row(
                         mainAxisSize: MainAxisSize.min,
