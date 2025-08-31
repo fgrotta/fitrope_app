@@ -1,11 +1,11 @@
 {
-    "name": "fitrope_app",
-    "short_name": "fitrope_app",
+    "name": "FitRope",
+    "short_name": "FitRope",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
+    "background_color": "#ffffff",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "App per la gestione dei corsi di fitness",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

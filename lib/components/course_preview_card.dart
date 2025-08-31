@@ -36,7 +36,6 @@ class CoursePreviewCard extends StatelessWidget {
 
   Future<List<Map<String, dynamic>>> getSubscriberNames(Course course, bool isAdmin) async {
     var usersCollection = FirebaseFirestore.instance.collection('users');
-    //TODO: Forse si può Ottimizzare per usare la cache, ma non è urgente
     var snapshots = await usersCollection.where('courses', arrayContains: course.uid).get();
     return snapshots.docs.map((doc) {
       final user = FitropeUser.fromJson(doc.data());

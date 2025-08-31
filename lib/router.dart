@@ -8,6 +8,8 @@ import 'package:fitrope_app/pages/welcome/WelcomePage.dart';
 import 'package:fitrope_app/pages/protected/RecurringCoursePage.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:flutter/material.dart';
+import 'package:fitrope_app/pages/welcome/SplashScreen.dart';
+
 
 const WELCOME_ROUTE = '/';
 const LOGIN_ROUTE = '/login';
@@ -15,10 +17,12 @@ const REGISTRATION_ROUTE = '/registration';
 const PROTECTED_ROUTE = '/protected';
 const COURSE_MANAGEMENT_ROUTE = '/course-management';
 const RECURRING_COURSE_ROUTE = '/recurring-course';
+const SPLASH_ROUTE = '/splash';
 
-const INITIAL_ROUTE = WELCOME_ROUTE;
+const INITIAL_ROUTE = SPLASH_ROUTE;
 
 Map<String, Widget Function(BuildContext)> routes = {
+  SPLASH_ROUTE: (context) => const SplashScreen(),
   WELCOME_ROUTE: (context) => const WelcomePage(),
   LOGIN_ROUTE: (context) => const LoginPage(),
   REGISTRATION_ROUTE: (context) => const RegistrationPage(),

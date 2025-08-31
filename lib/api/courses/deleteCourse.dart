@@ -42,10 +42,6 @@ Future<void> removeUserFromCourse(String courseId, String userId) async {
 
     if (subscribed > 0) {
       
-      transaction.update(courseRef, {
-        'subscribed': subscribed - 1,
-      });
-
       DocumentReference userRef = firestore.collection('users').doc(userId);
 
       DocumentSnapshot userSnapshot = await userRef.get();

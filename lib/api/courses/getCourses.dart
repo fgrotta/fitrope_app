@@ -4,11 +4,11 @@ import 'package:fitrope_app/types/course.dart';
 // Cache per i corsi
 List<Course>? _cachedCourses;
 DateTime? _lastCacheTime;
-const Duration _cacheDuration = Duration(minutes: 5);
+const Duration _cacheDuration = Duration(minutes: 1);
 
-Future<List<Course>> getAllCourses() async {
+Future<List<Course>> getAllCourses({bool force = false}) async {
   // Controlla se la cache è ancora valida
-  if (_cachedCourses != null && _lastCacheTime != null) {
+  if (_cachedCourses != null && _lastCacheTime != null && !force) {
     final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
     if (timeSinceLastCache < _cacheDuration) {
       // Ritorna i dati dalla cache

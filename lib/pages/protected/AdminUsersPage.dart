@@ -38,7 +38,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     });
 
     try {
-      final usersList = await getUsers();
+      final usersList = await getUsers(force: true);
 
       setState(() {
         users = usersList;
