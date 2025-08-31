@@ -22,22 +22,26 @@ const SPLASH_ROUTE = '/splash';
 const INITIAL_ROUTE = SPLASH_ROUTE;
 
 Map<String, Widget Function(BuildContext)> routes = {
-  SPLASH_ROUTE: (context) => const SplashScreen(),
-  WELCOME_ROUTE: (context) => const WelcomePage(),
-  LOGIN_ROUTE: (context) => const LoginPage(),
-  REGISTRATION_ROUTE: (context) => const RegistrationPage(),
-  PROTECTED_ROUTE: (context) => const Protected(),
-  RECURRING_COURSE_ROUTE: (context) => const RecurringCoursePage(),
+  SPLASH_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House', child: const SplashScreen()),
+  WELCOME_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House - Welcome', child: const WelcomePage()),
+  LOGIN_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House - Login', child: const LoginPage()),
+  REGISTRATION_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House - Registrazione', child: const RegistrationPage()),
+  PROTECTED_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House', child: const Protected()),
+  RECURRING_COURSE_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House - Gestione Corso', child: const RecurringCoursePage()),
   COURSE_MANAGEMENT_ROUTE: (context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     final courseToEdit = args?['courseToEdit'] as Course?;
     final courseToDuplicate = args?['courseToDuplicate'] as Course?;
     final mode = args?['mode'] as String? ?? 'create';
     
-    return CourseManagementPage(
-      courseToEdit: courseToEdit,
-      courseToDuplicate: courseToDuplicate,
-      mode: mode,
+    return Title(
+      color: Colors.black,
+      title: 'Fit House - Gestione Corso',
+      child: CourseManagementPage(
+        courseToEdit: courseToEdit,
+        courseToDuplicate: courseToDuplicate,
+        mode: mode,
+      ),
     );
   },
 };

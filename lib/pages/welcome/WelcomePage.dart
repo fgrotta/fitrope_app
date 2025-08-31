@@ -33,7 +33,7 @@ class _WelcomePageState extends State<WelcomePage> {
               children: [
                 const Column(
                   children: [
-                    Image(image: AssetImage('assets/new_logo.png'), width: 200,),
+                    Image(image: AssetImage('assets/new_logo_only.png'), width: 200,),
                   ],
                 ),
                 Column(
