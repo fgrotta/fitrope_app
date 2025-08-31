@@ -159,7 +159,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Image(image: AssetImage('assets/Logo_only.png'), width: 30,),
+                        const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
                         const Text('Gestione Utenti', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
                         GestureDetector(
                             child: CircleAvatar(

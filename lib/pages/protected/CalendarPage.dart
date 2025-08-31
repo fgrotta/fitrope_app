@@ -260,7 +260,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Image(image: AssetImage('assets/Logo_only.png'), width: 30,),
+                          const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
                           const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
                           GestureDetector(
                             child: CircleAvatar(

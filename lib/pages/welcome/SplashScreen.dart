@@ -39,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             // La tua immagine di caricamento
             const Image(
-              image: AssetImage('assets/Logo.png'),
+              image: AssetImage('assets/new_logo.png'),
               width: 200,
               height: 200,
             ),
