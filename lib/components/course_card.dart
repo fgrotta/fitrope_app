@@ -264,7 +264,7 @@ String getDisplayName(FitropeUser user) {
     return Text("Corso: " + widget.title, style: const TextStyle(color: Colors.white, ),);
   }
 
-  Widget renderButton() {
+  Widget renderButtonSubscribe() {
     late String buttonText;
     late Color buttonColor;
     late Color buttonTextColor;
@@ -326,77 +326,29 @@ String getDisplayName(FitropeUser user) {
           borderRadius: BorderRadius.all(Radius.circular(10)),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Riga 1: Titolo + pulsanti User/Admin allineati a sinistra
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        renderTitle(),
-                      ],
-                    ),
-                    if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),),
-                    
-                    if(widget.courseState != CourseState.NULL && !widget.isAdmin)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          renderButton(),
-                        ],
-                      ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if(widget.capacity != null && widget.subscribed != null && !widget.isAdmin) Row(
-                      children: [
-                        Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: onPrimaryColor),),
-                        const SizedBox(width: 7.5,),
-                        IconButton(
-                            icon: const Icon(Icons.people),
-                            tooltip: 'Vedi iscritti',
-                            onPressed: showSubscribersDialog,
-                            color: onPrimaryColor, 
-                            iconSize: 20,
-                          ),
-                        
-                      ],
-                    ),
-                    if(widget.isAdmin)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if(widget.onEdit != null)
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: onPrimaryColor),
-                              tooltip: 'Modifica corso',
-                              onPressed: widget.onEdit,
-                            ),
-                          if(widget.onDuplicate != null)
-                            IconButton(
-                              icon: const Icon(Icons.copy, color: tertiaryColor),
-                              tooltip: 'Duplica corso',
-                              onPressed: widget.onDuplicate,
-                            ),
-                          // Solo gli Admin possono eliminare i corsi
-                          if(widget.onDelete != null && widget.userRole == 'Admin')
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              tooltip: 'Elimina corso',
-                              onPressed: showDeleteConfirmationDialog,
-                            ),
-                        ],
-                      ),
-                  ],
-                )
-              ],
-            ),
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  renderTitle(),
+                  if(widget.capacity != null && widget.subscribed != null && !widget.isAdmin) renderUserButtons(),
+                  if(widget.isAdmin) renderAdminButtons(),
+                ],
+              ),
+            // Riga 2: Descrizione
+            if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),),
+            // Riga 3: Bottoni iscrizione
+            if(widget.courseState != CourseState.NULL && !widget.isAdmin)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  renderButtonSubscribe(),
+                ],
+              ),
             // Mostra la lista cliccabile degli iscritti se richiesto
             if(widget.showClickableSubscribers)
               Container(
@@ -411,6 +363,52 @@ String getDisplayName(FitropeUser user) {
           ],
         ),
       ),
+    );
+  }
+Row renderUserButtons() {
+return 
+Row(
+                      children: [
+                        Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: onPrimaryColor),),
+                        const SizedBox(width: 7.5,),
+                        IconButton(
+                            icon: const Icon(Icons.people),
+                            tooltip: 'Vedi iscritti',
+                            onPressed: showSubscribersDialog,
+                            color: onPrimaryColor, 
+                            iconSize: 20,
+                          ),
+                        
+                      ],
+                    );
+}
+     
+
+  Widget renderAdminButtons() {
+    return Wrap(
+      alignment: WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      children: [
+        if(widget.onEdit != null)
+          IconButton(
+            icon: const Icon(Icons.edit, color: onPrimaryColor),
+            tooltip: 'Modifica corso',
+            onPressed: widget.onEdit,
+          ),
+        if(widget.onDuplicate != null)
+          IconButton(
+            icon: const Icon(Icons.copy, color: tertiaryColor),
+            tooltip: 'Duplica corso',
+            onPressed: widget.onDuplicate,
+          ),
+        if(widget.onDelete != null && widget.userRole == 'Admin')
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            tooltip: 'Elimina corso',
+            onPressed: showDeleteConfirmationDialog,
+          ),
+      ],
     );
   }
 }

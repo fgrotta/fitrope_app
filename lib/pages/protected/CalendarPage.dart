@@ -304,7 +304,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     ),
                     
                     Padding(
-                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding),
+                      padding: const EdgeInsets.all(10),
                       child: Column(
                           children: selectedCourses.isNotEmpty ? selectedCourses.map(
                             (Course course) => CoursePreviewCard(
