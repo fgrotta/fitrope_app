@@ -1,0 +1,21 @@
+version: 1
+workflows:
+  - name: "Flutter iOS Build"
+    description: "Build Flutter app for iOS using Xcode Cloud"
+    environment:
+      variables:
+        FLUTTER_ROOT: "/usr/local/bin"
+        PATH: "/usr/local/bin:$PATH"
+        FLUTTER_BUILD_MODE: "release"
+    build_settings:
+      FLUTTER_BUILD_MODE: "release"
+    actions:
+      - name: "Post-clone"
+        script: "ci_scripts/ci_post_clone.sh"
+      - name: "Pre-build"
+        script: "ci_scripts/ci_pre_xcodebuild.sh"
+      - name: "Build"
+        scheme: "Runner"
+        destination: "generic/platform=iOS"
+      - name: "Post-build"
+        script: "ci_scripts/ci_post_xcodebuild.sh"
