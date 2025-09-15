@@ -27,4 +27,12 @@ else
     echo "⚠️ iOS build artifacts not found"
 fi
 
+# Final verification of Pods files
+echo "🔍 Final verification of Pods files..."
+if [ -f "ios/Pods/Target Support Files/Pods-Runner/Pods-Runner-frameworks-Release-input-files.xcfilelist" ] && [ -f "ios/Pods/Target Support Files/Pods-Runner/Pods-Runner-frameworks-Release-output-files.xcfilelist" ]; then
+    echo "✅ All required Pods files exist"
+else
+    echo "❌ Some Pods files are missing"
+fi
+
 echo "✅ Flutter post-build setup completed!"

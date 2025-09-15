@@ -30,7 +30,24 @@ flutter build ios --no-codesign --simulator || echo "⚠️ Flutter build failed
 # Install iOS dependencies
 echo "🍎 Installing iOS dependencies..."
 cd ios
-pod install --repo-update
+
+# Clean CocoaPods cache
+echo "🧹 Cleaning CocoaPods cache..."
+pod cache clean --all || echo "⚠️ Pod cache clean failed, continuing..."
+
+# Install pods with verbose output
+echo "📦 Installing pods..."
+pod install --repo-update --verbose
+
+# Verify pod installation
+echo "✅ Verifying pod installation..."
+if [ -f "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig" ]; then
+    echo "✅ Pods configuration files exist"
+else
+    echo "❌ Pods configuration files missing, trying again..."
+    pod install --repo-update
+fi
+
 cd ..
 
 # Verify Generated.xcconfig exists, create if not
@@ -48,6 +65,11 @@ FLUTTER_BUILD_NUMBER=8
 EOF
     echo "✅ Generated.xcconfig created successfully"
 fi
+
+# Fix Xcode Cloud Pods issues
+echo "🔧 Running Xcode Cloud Pods fix..."
+chmod +x ci_scripts/fix_xcode_cloud_pods.sh
+./ci_scripts/fix_xcode_cloud_pods.sh
 
 # Verify Pods files exist
 if [ -f "ios/Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig" ]; then
