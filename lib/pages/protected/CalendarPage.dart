@@ -3,6 +3,7 @@ import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
@@ -263,11 +264,17 @@ class _CalendarPageState extends State<CalendarPage> {
                           const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
                           const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
                           GestureDetector(
-                            child: CircleAvatar(
-                              backgroundColor: const Color.fromARGB(255, 96, 119, 246),
-                              child: Text(user.name[0] + user.lastName[0]),
-                            ),
-                          )
+                child: CircleAvatar(
+                  backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                  child: Text(user.name[0] + user.lastName[0]),
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                  );
+                },
+              )
                         ],
                       ),
                     Theme(
