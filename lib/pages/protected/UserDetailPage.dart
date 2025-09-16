@@ -800,6 +800,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         return 'Abbonamento Semestrale';
       case TipologiaIscrizione.ABBONAMENTO_ANNUALE:
         return 'Abbonamento Annuale';
+      case TipologiaIscrizione.ABBONAMENTO_PROVA:
+        return 'Lezione di Prova';
+      default:
+        return 'Nessun abbonamento';
     }
   }
 }

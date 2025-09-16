@@ -20,6 +20,11 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.FULL;
   }
 
+  // NUOVO: Controlla se l'utente ha ABBONAMENTO_PROVA con entrate disponibili
+  if(user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA && (user.entrateDisponibili ?? 0) > 0) {
+    return CourseState.CAN_SUBSCRIBE;
+  }
+
   if(user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE && (user.entrateDisponibili ?? 0) > 0) {
     return CourseState.CAN_SUBSCRIBE;
   }

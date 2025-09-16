@@ -133,7 +133,8 @@ class _HomePageState extends State<HomePage> {
       user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
       user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_SEMESTRALE &&
       user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_ANNUALE &&
-      user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE
+      user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE &&
+      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_PROVA
     ) {
       return Column(
         children: [

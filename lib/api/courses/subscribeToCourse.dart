@@ -51,15 +51,14 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
     }
   }).then((_) async {
     invalidateUsersCache(); 
-    if (store.state.user!.uid == userId) {
-      Map<String, dynamic>? userData = await getUserData(userId);
-      if (userData != null) {
-        store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
-      }
-    }   
+    Map<String, dynamic>? userData = await getUserData(userId);
+    if (userData != null) {
+      store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
+    }
     store.dispatch(FinishLoadingAction());
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
-    print("Failed to subscribe: $error: ${error.toString()}");
+    print("Failed to subscribe to course: $error");
+    throw error;
   });
 }

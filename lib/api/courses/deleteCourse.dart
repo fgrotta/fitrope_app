@@ -51,13 +51,14 @@ Future<void> removeUserFromCourse(String courseId, String userId) async {
       if (userCourses.contains(courseId)) {
         userCourses.remove(courseId);
 
-        // Per la rimozione da admin/trainer, restituisci sempre il credito se è pacchetto entrate
+        // Per la rimozione da admin/trainer, restituisci sempre il credito se è pacchetto entrate o abbonamento prova
         String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
         bool isPacchettoEntrate = tipologiaIscrizione == 'PACCHETTO_ENTRATE';
+        bool isAbbonamentoProva = tipologiaIscrizione == 'ABBONAMENTO_PROVA';
         
         transaction.update(userRef, {
           'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] + (isPacchettoEntrate ? 1 : 0)
+          'entrateDisponibili': userSnapshot['entrateDisponibili'] + ((isPacchettoEntrate || isAbbonamentoProva) ? 1 : 0)
         });
       }
     } else {
@@ -117,10 +118,11 @@ Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
         // Per la cancellazione admin, restituisci sempre il credito se è pacchetto entrate
         String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
         bool isPacchettoEntrate = tipologiaIscrizione == 'PACCHETTO_ENTRATE';
+        bool isAbbonamentoProva = tipologiaIscrizione == 'ABBONAMENTO_PROVA';
         
         transaction.update(userRef, {
           'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] + (isPacchettoEntrate ? 1 : 0)
+          'entrateDisponibili': userSnapshot['entrateDisponibili'] + ((isPacchettoEntrate || isAbbonamentoProva) ? 1 : 0)
         });
       }
     } else {
