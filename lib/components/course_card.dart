@@ -244,16 +244,17 @@ class _CourseCardState extends State<CourseCard> {
   }
 
 String getDisplayName(FitropeUser user) {
+    // Usa la stessa logica di UserDisplayUtils per coerenza
+    // Questa funzione è chiamata solo per admin/trainer (showClickableSubscribers = true)
+    String baseName = '${user.name} ${user.lastName}';
     
-    bool hasValidSubscription = false;
-    if (user.fineIscrizione != null) {
-      DateTime subscriptionEnd = user.fineIscrizione!.toDate();
-      hasValidSubscription = subscriptionEnd.isAfter(widget.course.startDate.toDate());
+    if (user.isAnonymous) {
+      return '$baseName - (Anonimo)';
     }
-    if (!hasValidSubscription) {
-      return '${user.name} ${user.lastName} - (Prova)';
+    if (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+      return '$baseName - (Prova)';
     }
-    return '${user.name} ${user.lastName}';
+    return baseName;
 }
 
   Widget renderTitle() {

@@ -26,26 +26,29 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
     DocumentSnapshot courseSnapshot = await transaction.get(courseRef);
     int subscribed = courseSnapshot['subscribed'];
     int capacity = courseSnapshot['capacity'];
+    
+    DocumentReference userRef = firestore.collection('users').doc(userId);
+    
+    // CORREZIONE: Leggi l'utente DENTRO la transazione per evitare race conditions
+    DocumentSnapshot userSnapshot = await transaction.get(userRef);
+    List<dynamic> userCourses = userSnapshot['courses'] ?? [];
+
+    // Controlla PRIMA se l'utente è già iscritto
+    if (userCourses.contains(courseId)) {
+      throw Exception('User is already subscribed to this course');
+    }
+
     if (subscribed < capacity || force) {    
       transaction.update(courseRef, {
         'subscribed': subscribed + 1,
       });
 
-      DocumentReference userRef = firestore.collection('users').doc(userId);
+      userCourses.add(courseId);
 
-      // DocumentSnapshot userSnapshot = await transaction.get(userRef);
-      DocumentSnapshot userSnapshot = await userRef.get();
-
-      List<dynamic> userCourses = userSnapshot['courses'] ?? [];
-
-      if (!userCourses.contains(courseId)) {
-        userCourses.add(courseId);
-
-        transaction.update(userRef, {
-          'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] - 1
-        });
-      }
+      transaction.update(userRef, {
+        'courses': userCourses,
+        'entrateDisponibili': userSnapshot['entrateDisponibili'] - 1
+      });
     } else {
       throw Exception('Course is full');
     }

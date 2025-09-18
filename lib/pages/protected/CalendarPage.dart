@@ -264,17 +264,16 @@ class _CalendarPageState extends State<CalendarPage> {
                           const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
                           const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
                           GestureDetector(
-                child: CircleAvatar(
-                  backgroundColor: const Color.fromARGB(255, 96, 119, 246),
-                  child: Text(user.name[0] + user.lastName[0]),
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
-                  );
-                },
-              )
+                          child: CircleAvatar(
+                          backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                          child: Text(user.name[0] + user.lastName[0]),
+                            ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                            );
+                          }),
                         ],
                       ),
                     Theme(

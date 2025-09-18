@@ -24,7 +24,7 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
     String uid = userCredential.user!.uid;
 
     // Calcola la data di scadenza (45 giorni da oggi)
-    DateTime fineIscrizione = DateTime.now().add(Duration(days: 45));
+    DateTime fineIscrizione = DateTime.now().add(const Duration(days: 30));
 
     await FirebaseFirestore.instance.collection('users').doc(uid).set({
       'uid': uid,

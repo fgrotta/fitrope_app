@@ -5,19 +5,24 @@ class UserDisplayUtils {
 
   /// Restituisce il nome da visualizzare per un utente (solo per admin o trainer)
   /// Se l'utente è anonimo, restituisce il nome completo con icona fantasma
+  /// Se l'utente ha un abbonamento di prova, mostra "(Prova)"
   /// Altrimenti restituisce il nome completo
   static String getDisplayName(FitropeUser user, bool isAdmin) {
-
-    if ( isAdmin) {
+    String baseName = '${user.name} ${user.lastName}';
+    
+    if (isAdmin) {
       if (user.isAnonymous) {
-      return '${user.name} ${user.lastName} - (Anonimo)';
-    }
-    return '${user.name} ${user.lastName}';}
-    else {
+        return '$baseName - (Anonimo)';
+      }
+      if (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+        return '$baseName - (Prova)';
+      }
+      return baseName;
+    } else {
       if (user.isAnonymous) {
-      return '(Anonimo)';
-    }
-    return '${user.name} ${user.lastName}';
+        return '(Anonimo)';
+      }
+      return baseName;
     }
   }
 
