@@ -495,7 +495,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             if (widget.user.courses.isNotEmpty) ...[
               const SizedBox(height: 24),
               _buildSection(
-                'Ultimi 10 iscrizioni',
+                'Ultime 10 iscrizioni',
                 getUserCourses().map((courseInfo) => 
                   _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false)
                 ).toList(),

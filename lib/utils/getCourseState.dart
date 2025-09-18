@@ -20,15 +20,17 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.FULL;
   }
 
-  // NUOVO: Controlla se l'utente ha ABBONAMENTO_PROVA con entrate disponibili
-  if(user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA && (user.entrateDisponibili ?? 0) > 0) {
-    return CourseState.CAN_SUBSCRIBE;
+  // Definisce courseDate per i controlli di scadenza
+  DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
+    // Controlla prima se l'abbonamento è scaduto
+  if((user.fineIscrizione != null && courseDate.isAfter(user.fineIscrizione!.toDate()))|| user.entrateSettimanali == null) {
+      return CourseState.NULL;
   }
-
-  if(user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE && (user.entrateDisponibili ?? 0) > 0) {
-    return CourseState.CAN_SUBSCRIBE;
+  if((user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA || user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE) 
+      && (user.entrateDisponibili ?? 0) > 0) {
+      return CourseState.CAN_SUBSCRIBE;
   }
-
+  
   if(
     user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
     user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
@@ -47,7 +49,6 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
     int subscriptionCounter = 0;
 
-    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
     DateTime startOfWeek = courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
     startOfWeek = DateTime.utc(startOfWeek.year, startOfWeek.month, startOfWeek.day);
     DateTime endOfWeek = startOfWeek.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
@@ -61,16 +62,6 @@ CourseState getCourseState(Course course, FitropeUser user) {
       if(isWithinCourseWeek) {
         subscriptionCounter += 1;
       }
-    }
-    if(
-      user.fineIscrizione != null && 
-      courseDate.isAfter(user.fineIscrizione!.toDate())
-    ) {
-      return CourseState.NULL;
-    }
-    
-    if(user.entrateSettimanali == null) {
-      return CourseState.NULL;
     }
 
     if(subscriptionCounter >= user.entrateSettimanali!) {

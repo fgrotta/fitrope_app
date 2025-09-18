@@ -38,6 +38,16 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
       throw Exception('User is already subscribed to this course');
     }
 
+    // Controlla se l'abbonamento è valido (non scaduto)
+    if (userSnapshot['fineIscrizione'] != null) {
+      DateTime subscriptionEnd = (userSnapshot['fineIscrizione'] as Timestamp).toDate();
+      DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseSnapshot['startDate']);
+      
+      if (courseDate.isAfter(subscriptionEnd)) {
+        throw Exception('Subscription has expired. Cannot subscribe to this course.');
+      }
+    }
+
     if (subscribed < capacity || force) {    
       transaction.update(courseRef, {
         'subscribed': subscribed + 1,
