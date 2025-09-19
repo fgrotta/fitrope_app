@@ -6,6 +6,7 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 
 FirebaseFirestore firestore = FirebaseFirestore.instance;
+FitropeUser user = store.state.user!;
 
 Future<void> subscribeToCourse(String courseId, String userId, {bool force = false}) async {
   QuerySnapshot querySnapshot = await firestore
@@ -35,6 +36,7 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
 
     // Controlla PRIMA se l'utente è già iscritto
     if (userCourses.contains(courseId)) {
+      print('User is already subscribed to this course');
       throw Exception('User is already subscribed to this course');
     }
 
@@ -47,7 +49,6 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
         throw Exception('Subscription has expired. Cannot subscribe to this course.');
       }
     }
-
     if (subscribed < capacity || force) {    
       transaction.update(courseRef, {
         'subscribed': subscribed + 1,
@@ -64,9 +65,11 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
     }
   }).then((_) async {
     invalidateUsersCache(); 
-    Map<String, dynamic>? userData = await getUserData(userId);
-    if (userData != null) {
-      store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
+    if(user.role != 'Admin' && user.role != 'Trainer') {
+      Map<String, dynamic>? userData = await getUserData(userId);
+      if (userData != null ) {
+        store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
+      }
     }
     store.dispatch(FinishLoadingAction());
   }).catchError((error) {
