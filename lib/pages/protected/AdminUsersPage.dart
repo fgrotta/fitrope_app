@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/components/loader.dart';
+import 'package:fitrope_app/pages/protected/CreateUserPage.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -137,6 +138,22 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
   }
 
+  void _navigateToCreateUser() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateUserPage(
+          currentUserRole: user.role,
+        ),
+      ),
+    );
+    
+    // Se l'utente è stato creato con successo, ricarica la lista
+    if (result == true) {
+      loadUsers();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, AppState>(
@@ -162,11 +179,17 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                         const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
                         const Text('Gestione Utenti', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
                         GestureDetector(
-                            child: CircleAvatar(
-                              backgroundColor: const Color.fromARGB(255, 96, 119, 246),
-                              child: Text(user.name[0] + user.lastName[0]),
+                          child: CircleAvatar(
+                          backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                          child: Text(user.name[0] + user.lastName[0]),
                             ),
-                          )
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                            );
+                          },
+                        ),
                         ],
                     ),
                   ),
@@ -187,13 +210,27 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   SizedBox(height: 16),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: pagePadding),
-                    child: Text(
-                      'Utenti (${filteredUsers.length})',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Utenti (${filteredUsers.length})',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () => _navigateToCreateUser(),
+                          icon: const Icon(Icons.person_add, color: Colors.white),
+                          label: const Text('Crea Utente', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   SizedBox(height: 8),

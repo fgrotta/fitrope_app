@@ -163,7 +163,8 @@ class CourseUnsubscribeHelper {
     print('⏰ Differenza ore: $hoursDifference');
     
     bool isPacchettoEntrate = user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE;
-    bool requiresConfirmation = isPacchettoEntrate && hoursDifference <= 8;
+    bool isAbbonamentoProva = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA;
+    bool requiresConfirmation = (isPacchettoEntrate || isAbbonamentoProva) && hoursDifference <= 8;
     
     print('💳 È pacchetto entrate: $isPacchettoEntrate');
     print('⚠️ Richiede conferma: $requiresConfirmation');
@@ -183,7 +184,7 @@ class CourseUnsubscribeHelper {
       'canUnsubscribe': true,
       'requiresConfirmation': requiresConfirmation,
       'message': message,
-      'isPacchettoEntrate': isPacchettoEntrate,
+      'isPacchettoEntrate': isPacchettoEntrate || isAbbonamentoProva, // Includi anche ABBONAMENTO_PROVA
       'hoursRemaining': hoursDifference,
     };
   }

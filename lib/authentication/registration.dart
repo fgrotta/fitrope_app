@@ -23,6 +23,9 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
 
     String uid = userCredential.user!.uid;
 
+    // Calcola la data di scadenza (45 giorni da oggi)
+    DateTime fineIscrizione = DateTime.now().add(const Duration(days: 30));
+
     await FirebaseFirestore.instance.collection('users').doc(uid).set({
       'uid': uid,
       'email': email,
@@ -30,10 +33,10 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
       'name': name,
       'lastName': lastName,
       'courses': [],
-      'tipologiaIscrizione': null,
-      'entrateDisponibili': 0,
+      'tipologiaIscrizione': 'ABBONAMENTO_PROVA', // Assegna abbonamento di prova
+      'entrateDisponibili': 1, // 1 ingresso gratuito
       'entrateSettimanali': 0,
-      'fineIscrizione': null,
+      'fineIscrizione': Timestamp.fromDate(fineIscrizione), // 45 giorni da oggi
       'role': 'User',
     });
 

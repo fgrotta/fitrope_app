@@ -58,9 +58,10 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
             // Prepara i dati per l'aggiornamento utente
             String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
             bool isPacchettoEntrate = tipologiaIscrizione == 'PACCHETTO_ENTRATE';
+            bool isAbbonamentoProva = tipologiaIscrizione == 'ABBONAMENTO_PROVA';
             int? entrateDisponibili = userSnapshot['entrateDisponibili'];
             
-            if (isPacchettoEntrate) {
+            if (isPacchettoEntrate || isAbbonamentoProva) {
               int nuoveEntrate = (entrateDisponibili ?? 0) + 1;
               print('💳 Nuove entrate disponibili: $nuoveEntrate');
             }
@@ -68,7 +69,7 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
             // Aggiorna l'utente
             transaction.update(userRef, {
               'courses': userCourses,
-              'entrateDisponibili': userSnapshot['entrateDisponibili'] + (isPacchettoEntrate ? 1 : 0)
+              'entrateDisponibili': userSnapshot['entrateDisponibili'] + ((isPacchettoEntrate || isAbbonamentoProva) ? 1 : 0)
             });
             
               
