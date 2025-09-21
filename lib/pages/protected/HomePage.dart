@@ -200,6 +200,7 @@ class _HomePageState extends State<HomePage> {
             showDate: true,
             onSubscribe: () => onSubscribe(course),
             onUnsubscribe: () => onUnsubscribe(course),
+            onRefresh: () => refreshCourses(),
           ),
         );
       }

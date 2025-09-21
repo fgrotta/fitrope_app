@@ -802,8 +802,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
         return 'Abbonamento Annuale';
       case TipologiaIscrizione.ABBONAMENTO_PROVA:
         return 'Lezione di Prova';
-      default:
-        return 'Nessun abbonamento';
     }
   }
 }

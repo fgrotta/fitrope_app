@@ -325,6 +325,7 @@ class _CalendarPageState extends State<CalendarPage> {
                               onEdit: (user.role == 'Admin' || (user.role == 'Trainer' && (course.trainerId == null || course.trainerId == user.uid))) 
                                 ? (_isCourseInFuture(course) ? () => showEditCoursPage(course) : null)
                                 : null,
+                              onRefresh: () => updateCourses(),
                             ),
                           ).toList() : [
                             const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: onPrimaryColor),)

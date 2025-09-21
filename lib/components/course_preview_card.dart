@@ -17,7 +17,7 @@ class CoursePreviewCard extends StatelessWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
-  final VoidCallback? onRefresh; // Callback per aggiornare la lista
+  final VoidCallback onRefresh; // Callback per aggiornare la lista
   final bool showDate;
 
   const CoursePreviewCard({
@@ -30,7 +30,7 @@ class CoursePreviewCard extends StatelessWidget {
     this.onDuplicate,
     this.onDelete,
     this.onEdit,
-    this.onRefresh,
+    required this.onRefresh,
     this.showDate = true,
   });
 

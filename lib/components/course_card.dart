@@ -4,6 +4,7 @@ import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
+import 'package:fitrope_app/api/courses/updateCourseSubscribedCount.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -33,7 +34,7 @@ class CourseCard extends StatefulWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
-  final VoidCallback? onRefresh; // Callback per aggiornare la lista
+  final VoidCallback onRefresh; // Callback per aggiornare la lista
   final bool isAdmin;
   final String? userRole; // Ruolo dell'utente corrente
   final bool showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
@@ -56,7 +57,7 @@ class CourseCard extends StatefulWidget {
     this.onDuplicate,
     this.onDelete,
     this.onEdit,
-    this.onRefresh,
+    required this.onRefresh,
     this.isAdmin = false,
     this.userRole,
     this.showClickableSubscribers = false,
@@ -139,7 +140,7 @@ class _CourseCardState extends State<CourseCard> {
     );
     
     // Se è stato aggiunto un utente, aggiorna la lista
-    if (result == true && widget.onRefresh != null) {
+    if (result == true) {
       widget.onRefresh!();
     }
   }
@@ -175,15 +176,110 @@ class _CourseCardState extends State<CourseCard> {
           'Utente rimosso con successo dal corso',
         );
         // Aggiorna la lista
-        if (widget.onRefresh != null) {
-          widget.onRefresh!();
-        }
+        widget.onRefresh!();
       } catch (e) {
         SnackBarUtils.showErrorSnackBar(
           context,
           'Errore durante la rimozione: ${e.toString()}',
         );
       }
+    }
+  }
+
+  // Funzione per verificare se il numero di iscritti effettivi differisce dal valore nel corso
+  bool _hasEnrollmentMismatch() {
+    if (widget.subscribersUsers == null || widget.subscribed == null) {
+      return false;
+    }
+    return widget.subscribersUsers!.length != widget.subscribed!;
+  }
+
+  // Mostra il dialog per correggere il conteggio degli iscritti
+  void _showCorrectCountDialog(BuildContext context) {
+    if (widget.subscribersUsers == null || widget.subscribed == null) return;
+    
+    int actualCount = widget.subscribersUsers!.length;
+    int storedCount = widget.subscribed!;
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Correggi Conteggio Iscritti'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'È stata rilevata una discrepanza nel conteggio degli iscritti:',
+                style: TextStyle(color: onPrimaryColor),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Conteggio attuale nel database: $storedCount',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Numero effettivo di iscritti: $actualCount',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Vuoi aggiornare il conteggio nel database con il numero effettivo di iscritti?',
+                style: TextStyle(color: onPrimaryColor),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+            ),
+            ElevatedButton(
+              onPressed: () => _correctSubscribedCount(context, actualCount),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Correggi', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Corregge il conteggio degli iscritti nel database
+  Future<void> _correctSubscribedCount(BuildContext context, int newCount) async {
+    try {
+      Navigator.pop(context); // Chiudi il dialog
+      
+      await updateCourseSubscribedCount(widget.courseId, newCount).then((_) {
+        widget.onRefresh();
+      });
+      
+      // Mostra messaggio di successo
+      SnackBarUtils.showSuccessSnackBar(
+        context,
+        'Conteggio iscritti aggiornato con successo!',
+      );
+    
+    } catch (e) {
+      SnackBarUtils.showErrorSnackBar(
+        context,
+        'Errore durante l\'aggiornamento: ${e.toString()}',
+      );
     }
   }
 
@@ -196,13 +292,23 @@ class _CourseCardState extends State<CourseCard> {
           children: [
             Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: surfaceVariantColor, fontWeight: FontWeight.bold)),
             // Icona + per aggiungere iscritti (solo per Admin)
-            if (widget.isAdmin)
-              IconButton(
-                icon: const Icon(Icons.add, color: surfaceVariantColor, size: 20),
-                onPressed: () => _showAddSubscriberDialog(context),
-                tooltip: 'Aggiungi iscritto',
-              ),
-          ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                
+                if (widget.isAdmin)
+                  IconButton(
+                    icon: const Icon(Icons.add, color: surfaceVariantColor, size: 20),
+                    onPressed: () => _showAddSubscriberDialog(context),
+                    tooltip: 'Aggiungi iscritto',
+                  ),
+                if (_hasEnrollmentMismatch())
+                  IconButton(
+                  icon: const Icon(Icons.sync_problem, color: Colors.red, size: 20),
+                  onPressed: () => _showCorrectCountDialog(context),
+                  tooltip: 'Correggi conteggio iscritti',
+                ),
+          ])],
         ),
         const SizedBox(height: 4),
         ...widget.subscribersUsers!.map((user) {
@@ -356,7 +462,7 @@ String getDisplayName(FitropeUser user) {
                 margin: const EdgeInsets.only(top: 0),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: primaryDarkColor,
+                  color: _hasEnrollmentMismatch() ? Colors.orange : primaryDarkColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: _buildClickableSubscribersList(context),
