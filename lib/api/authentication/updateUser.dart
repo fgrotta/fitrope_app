@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
 
 Future<void> updateUser({
   required String uid,
@@ -13,6 +14,7 @@ Future<void> updateUser({
   DateTime? fineIscrizione,
   bool? isActive,
   bool? isAnonymous,
+  DateTime? certificatoScadenza,
 }) async {
   try {
     final updateData = <String, dynamic>{
@@ -25,6 +27,7 @@ Future<void> updateUser({
       'fineIscrizione': fineIscrizione != null ? Timestamp.fromDate(DateTime(fineIscrizione.year, fineIscrizione.month, fineIscrizione.day, 23, 59)) : null,
       'isActive': isActive,
       'isAnonymous': isAnonymous,
+      'certificatoScadenza': certificatoScadenza != null ? Timestamp.fromDate(DateTime(certificatoScadenza.year, certificatoScadenza.month, certificatoScadenza.day, 23, 59)) : null,
     };
 
     // Rimuovi i campi null per non sovrascriverli con null
@@ -36,6 +39,7 @@ Future<void> updateUser({
         .update(updateData);
 
     invalidateUsersCache(); // Invalida la cache dopo l'aggiornamento
+    invalidateUsersWithExpiringCertificatesCache();
     print('User updated successfully: $uid ');
   } catch (e) {
     print('Error updating user: $e');

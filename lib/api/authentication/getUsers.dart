@@ -55,6 +55,7 @@ Future<List<FitropeUser>> getUsers({bool force = false}) async {
         createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
         isActive: data['isActive'] ?? true,
         isAnonymous: data['isAnonymous'] ?? false,
+        certificatoScadenza: data['certificatoScadenza'] as Timestamp?,
       );
     }).toList();
 

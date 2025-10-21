@@ -2,6 +2,8 @@ import 'package:fitrope_app/api/authentication/updateUser.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/certificato_helper.dart';
+import 'package:fitrope_app/utils/certificate_refresh_manager.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -31,6 +33,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late DateTime? selectedFineIscrizione;
   late bool selectedIsActive;
   late bool selectedIsAnonymous;
+  late DateTime? selectedCertificatoScadenza;
   String? errorMsg;
   List<Course> allCourses = [];
 
@@ -46,6 +49,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
     selectedIsActive = widget.user.isActive;
     selectedIsAnonymous = widget.user.isAnonymous;
+    selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
     // print(widget.user.isAnonymous);
     loadCourses();
   }
@@ -84,6 +88,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
         selectedIsActive = widget.user.isActive;
         selectedIsAnonymous = widget.user.isAnonymous;
+        selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
         errorMsg = null;
       }
     });
@@ -138,6 +143,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         fineIscrizione: selectedFineIscrizione,
         isActive: selectedIsActive,
         isAnonymous: selectedIsAnonymous,
+        certificatoScadenza: selectedCertificatoScadenza,
       );
 
       // Crea un nuovo oggetto utente con i dati aggiornati
@@ -157,6 +163,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
         isActive: selectedIsActive,
         isAnonymous: selectedIsAnonymous,
         createdAt: widget.user.createdAt,
+        certificatoScadenza: selectedCertificatoScadenza != null 
+            ? Timestamp.fromDate(DateTime(selectedCertificatoScadenza!.year, selectedCertificatoScadenza!.month, selectedCertificatoScadenza!.day, 23, 59))
+            : null,
       );
 
       setState(() {
@@ -316,9 +325,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
       return fieldName == 'Nome' || fieldName == 'Cognome' || fieldName == 'Anonimo';
     }
 
-    // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo e Fine Iscrizione sono gestiti solo dagli Admin
+    // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo, Fine Iscrizione e Certificato sono gestiti solo dagli Admin
     if (fieldName == 'Stato' || fieldName == 'Tipologia' || fieldName == 'Entrate Disponibili' || 
-        fieldName == 'Entrate Settimanali' || fieldName == 'Fine Iscrizione' ||fieldName == 'Ruolo') {
+        fieldName == 'Entrate Settimanali' || fieldName == 'Fine Iscrizione' || fieldName == 'Ruolo' || fieldName == 'Certificato') {
       return currentUser.role == 'Admin';
     }
     return true;
@@ -331,6 +340,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
       return 'User';
     }
     return selectedRole;
+  }
+
+  String _getCertificatoText() {
+    if (widget.user.certificatoScadenza == null) {
+      return 'Non impostato';
+    }
+    
+    final dataFormattata = CertificatoHelper.formatDataScadenza(widget.user.certificatoScadenza);
+    final stato = CertificatoHelper.getStatoCertificato(widget.user.certificatoScadenza);
+    
+    return '$dataFormattata ($stato)';
   }
 
   @override
@@ -459,6 +479,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 _buildInfoRow('Email', widget.user.email, null, false),
                 if (isAdmin)
                 _buildInfoRow('Ruolo', widget.user.role, null, _canEditSpecificField('Ruolo') && isEditing, isDropdown: true),
+                _buildInfoRow('Certificato Medico', _getCertificatoText(), null, _canEditSpecificField('Certificato') && isEditing, isCertificatoDatePicker: true),
                 // Campo Stato visibile solo agli Admin
                 if (isAdmin)
                   _buildInfoRow('Stato', widget.user.isActive ? 'Attivo' : 'Disattivato', null, _canEditSpecificField('Stato') && isEditing, isStatusDropdown: true),
@@ -586,7 +607,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false}) {
+  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false, bool isCertificatoDatePicker = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -775,10 +796,53 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                   });
                                 },
                               )
+                            : isEditable && isCertificatoDatePicker
+                            ? InkWell(
+                                onTap: () async {
+                                  final DateTime now = DateTime.now();
+                                  final DateTime initialDate = selectedCertificatoScadenza != null && selectedCertificatoScadenza!.isAfter(now)
+                                      ? selectedCertificatoScadenza!
+                                      : now;
+                                  
+                                  final DateTime? picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: initialDate,
+                                    firstDate: now.subtract(const Duration(days: 180)),
+                                    lastDate: now.add(const Duration(days: 400)), 
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      selectedCertificatoScadenza = picked;
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        selectedCertificatoScadenza != null 
+                                            ? DateFormat('dd/MM/yyyy').format(selectedCertificatoScadenza!)
+                                            : 'Seleziona data',
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                      const Icon(Icons.calendar_today),
+                                    ],
+                                  ),
+                                ),
+                              )
                             : Text(
                                 value,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
+                                  color: label == 'Certificato Medico' && widget.user.certificatoScadenza != null
+                                      ? CertificatoHelper.getColoreScadenza(widget.user.certificatoScadenza)
+                                      : null,
                                 ),
                               ),
           ),

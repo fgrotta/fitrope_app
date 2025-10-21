@@ -9,9 +9,12 @@ import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
 import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
+import 'package:fitrope_app/utils/certificato_helper.dart';
+import 'package:fitrope_app/utils/certificate_refresh_manager.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
@@ -27,6 +30,8 @@ class _HomePageState extends State<HomePage> {
   late FitropeUser user;
   List<Course> allCourses = [];
   List<FitropeUser> trainers = [];
+  List<FitropeUser> utentiConCertificatoInScadenza = [];
+  bool isLoadingCertificati = false;
 
   @override
   void initState() {
@@ -45,7 +50,48 @@ class _HomePageState extends State<HomePage> {
       });
     });
     
+    // Carica utenti con certificati in scadenza se l'utente è Admin
+    if (user.role == 'Admin') {
+      _loadUtentiConCertificatoInScadenza();
+      
+      // Registra il listener per il refresh automatico
+      CertificateRefreshManager().addListener(_loadUtentiConCertificatoInScadenza);
+    }
+    
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    // Rimuove il listener per evitare memory leak
+    if (user.role == 'Admin') {
+      CertificateRefreshManager().removeListener(_loadUtentiConCertificatoInScadenza);
+    }
+    super.dispose();
+  }
+
+
+  // Funzione ottimizzata per caricare solo gli utenti con certificati in scadenza
+  Future<void> _loadUtentiConCertificatoInScadenza() async {
+    if (user.role != 'Admin') return;
+
+    setState(() {
+      isLoadingCertificati = true;
+    });
+
+    try {
+      final utenti = await getUsersWithExpiringCertificates();
+      
+      setState(() {
+        utentiConCertificatoInScadenza = utenti;
+        isLoadingCertificati = false;
+      });
+    } catch (e) {
+      print('Errore nel caricamento utenti con certificati in scadenza: $e');
+      setState(() {
+        isLoadingCertificati = false;
+      });
+    }
   }
 
   // Funzione per aggiornare i corsi e lo stato utente
@@ -69,6 +115,11 @@ class _HomePageState extends State<HomePage> {
           store.dispatch(SetUserAction(user));
         }
       });
+    }
+
+    // Ricarica anche i certificati in scadenza se l'utente è Admin
+    if (user.role == 'Admin') {
+      _loadUtentiConCertificatoInScadenza();
     }
   }
 
@@ -164,6 +215,10 @@ class _HomePageState extends State<HomePage> {
       isExpired = true;
     }
 
+    // Controlla se il certificato è in scadenza
+    final certificatoInScadenza = user.certificatoScadenza != null && 
+        CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
+    
     return Column(
       children: [
         Container(
@@ -171,9 +226,206 @@ class _HomePageState extends State<HomePage> {
           width: double.infinity,
           child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: onPrimaryColor, fontSize: 20),),
         ),
-        CustomCard(backgroundColor:onSurfaceColor,title:  getTipologiaIscrizioneTitle(user.tipologiaIscrizione!, isExpired), description: getTipologiaIscrizioneDescription(user),),
+        Column(
+          children: [
+            CustomCard(
+              backgroundColor: onSurfaceColor,
+              title: getTipologiaIscrizioneTitle(user.tipologiaIscrizione!, isExpired), 
+              description: getTipologiaIscrizioneDescription(user),
+            ),
+            if (certificatoInScadenza) _buildCertificatoInfo(),
+          ],
+        ),
         const SizedBox(height: 30,),
       ],
+    );
+  }
+
+  Widget _buildCertificatoInfo() {
+    final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(user.certificatoScadenza);
+    final dataScadenza = CertificatoHelper.formatDataScadenza(user.certificatoScadenza);
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: giorniRimanenti <= 3 ? Colors.red.shade100 : Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: giorniRimanenti <= 3 ? Colors.red.shade300 : Colors.orange.shade300,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.medical_services,
+            color: giorniRimanenti <= 3 ? Colors.red.shade700 : Colors.orange.shade700,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Certificato in scadenza: $dataScadenza (${giorniRimanenti} giorni)',
+              style: TextStyle(
+                color: giorniRimanenti <= 3 ? Colors.red.shade700 : Colors.orange.shade700,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCertificatiInScadenzaCard() {
+    if (user.role != 'Admin') {
+      return const SizedBox.shrink();
+    }
+
+    if (isLoadingCertificati) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Caricamento certificati in scadenza...'),
+          ],
+        ),
+      );
+    }
+    
+    if (utentiConCertificatoInScadenza.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.shade300, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red.shade700, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Certificati in Scadenza (${utentiConCertificatoInScadenza.length})',
+                style: TextStyle(
+                  color: Colors.red.shade700,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...utentiConCertificatoInScadenza.map((utente) {
+            final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(utente.certificatoScadenza);
+            final dataScadenza = CertificatoHelper.formatDataScadenza(utente.certificatoScadenza);
+            
+            return InkWell(
+              onTap: () async {
+                final updatedUser = await Navigator.push<FitropeUser>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: utente),
+                  ),
+                );
+                
+                // Se l'utente è stato aggiornato, ricarica i certificati
+                if (updatedUser != null) {
+                  _loadUtentiConCertificatoInScadenza();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.red.shade100,
+                      radius: 20,
+                      child: Text(
+                        '${utente.name.isNotEmpty ? utente.name[0] : ''}${utente.lastName.isNotEmpty ? utente.lastName[0] : ''}',
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${utente.name} ${utente.lastName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (giorniRimanenti >= 0) Text(
+                            'Scadenza: $dataScadenza',
+                            style: TextStyle(
+                              color: Colors.red.shade600,
+                              fontSize: 14,
+                            ),
+                          ) else Text('Scaduto il $dataScadenza', style: TextStyle(color: Colors.red.shade600, fontSize: 14,),),
+                          
+                          if (giorniRimanenti >= 0)
+                            Text(
+                              'Giorni rimanenti: $giorniRimanenti',
+                              style: TextStyle(
+                                color: giorniRimanenti <= 3 ? Colors.red : Colors.orange,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.red.shade400,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ],
+      ),
     );
   }
 
@@ -215,7 +467,7 @@ class _HomePageState extends State<HomePage> {
 
     return render;
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -243,6 +495,9 @@ class _HomePageState extends State<HomePage> {
               )
             ],
           ),
+
+          // CERTIFICATI IN SCADENZA (solo per Admin)
+          _buildCertificatiInScadenzaCard(),
 
           // ABBONAMENTO
           renderSubscriptionCard(),
