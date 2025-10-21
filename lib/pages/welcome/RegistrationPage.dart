@@ -44,7 +44,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   void validateEmail() {
-    if(_emailController.text.isEmpty) {
+    if(_emailController.text.trim().isEmpty) {
       emailError = "L'email non è valida";
     }
     else {
@@ -53,10 +53,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   void validatePassword() {
-    if(_passwordController.text.length < 6) {
+    if(_passwordController.text.trim().length < 6) {
       passwordError = "La password deve essere lunga almeno 6 caratteri";
     }
-    else if(_passwordController.text != _confirmPasswordController.text) {
+    else if(_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
       passwordError = "Le password devono essere uguali";
       confirmPasswordError = "Le password devono essere uguali";
     }
@@ -67,7 +67,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   void validateName() {
-    if(_nameController.text.length < 2) {
+    if(_nameController.text.trim().length < 2) {
       nameError = "Il nome non è valido";
     }
     else {
@@ -76,7 +76,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   void validateLastName() {
-    if(_lastNameController.text.length < 2) {
+    if(_lastNameController.text.trim().length < 2) {
       lastNameError = "Il cognome non è valido";
     }
     else {
@@ -234,10 +234,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     }
 
                     registerWithEmailPassword(
-                      _emailController.text,
-                      _passwordController.text,
-                      _nameController.text,
-                      _lastNameController.text
+                      _emailController.text.trim(),
+                      _passwordController.text.trim(),
+                      _nameController.text.trim(),
+                      _lastNameController.text.trim()
                     ).then((SignUpResponse? response) {
                       if (response != null && response.user != null) {
                         store.dispatch(SetUserAction(response.user!));

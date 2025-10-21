@@ -59,7 +59,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
     try {
       final response = await createUser(
         email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-        password: _passwordController.text.isEmpty ? null : _passwordController.text,
+        password: _passwordController.text.trim().isEmpty ? null : _passwordController.text.trim(),
         name: _nameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         role: _selectedRole,
@@ -141,7 +141,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                         fillColor: Colors.white,
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (value == null || value.trim().isEmpty) {
                           return 'Inserisci il nome';
                         }
                         return null;
@@ -159,7 +159,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                         fillColor: Colors.white,
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (value == null || value.trim().isEmpty) {
                           return 'Inserisci il cognome';
                         }
                         return null;
@@ -182,8 +182,8 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                  if (value != null && value.trim().isNotEmpty) {
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
                       return 'Inserisci un\'email valida';
                     }
                   }
@@ -204,8 +204,8 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 ),
                 obscureText: true,
                 validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    if (value.length < 6) {
+                  if (value != null && value.trim().isNotEmpty) {
+                    if (value.trim().length < 6) {
                       return 'La password deve essere di almeno 6 caratteri';
                     }
                   }
