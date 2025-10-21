@@ -1,9 +1,9 @@
 import 'package:fitrope_app/api/authentication/updateUser.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/authentication/logout.dart';
+import 'package:fitrope_app/authentication/resetPassword.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
-import 'package:fitrope_app/utils/certificate_refresh_manager.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -274,6 +274,49 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
+  void showResetPasswordConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Invia Email Reset Password'),
+          content: Text(
+            'Sei sicuro di voler inviare un\'email di reset password a ${widget.user.email}?\n\n'
+            'L\'utente riceverà un\'email con le istruzioni per reimpostare la propria password.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await resetPassword(widget.user.email);
+                  Navigator.pop(context); // Chiudi la modale
+                  
+                  SnackBarUtils.showSuccessSnackBar(
+                    context,
+                    'Email di reset password inviata con successo a ${widget.user.email}',
+                  );
+                } catch (e) {
+                  Navigator.pop(context);
+                  SnackBarUtils.showErrorSnackBar(
+                    context,
+                    'Errore durante l\'invio dell\'email di reset password',
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: primaryColor),
+              child: const Text('Invia Email', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   bool _canViewUser() {
     final currentUser = store.state.user;
     if (currentUser == null) return false;
@@ -484,6 +527,32 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 if (isAdmin)
                   _buildInfoRow('Stato', widget.user.isActive ? 'Attivo' : 'Disattivato', null, _canEditSpecificField('Stato') && isEditing, isStatusDropdown: true),
                 _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No', null, _canEditSpecificField('Anonimo') && isEditing, isAnonymousDropdown: true),
+                // Pulsante per inviare email di reset password (solo per Admin)
+                if (isAdmin) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: showResetPasswordConfirmation,
+                      icon: const Icon(Icons.email, color: Colors.white),
+                      label: const Text(
+                        'Invia Email Reset Password',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             

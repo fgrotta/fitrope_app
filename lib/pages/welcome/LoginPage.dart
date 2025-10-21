@@ -81,7 +81,7 @@ class _LoginPageState extends State<LoginPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  await resetPassword(emailController.text);
+                  await resetPassword(emailController.text.trim());
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Email di reset inviata!')),

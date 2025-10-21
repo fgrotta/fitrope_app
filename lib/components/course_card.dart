@@ -141,7 +141,7 @@ class _CourseCardState extends State<CourseCard> {
     
     // Se è stato aggiunto un utente, aggiorna la lista
     if (result == true) {
-      widget.onRefresh!();
+      widget.onRefresh();
     }
   }
 
@@ -176,7 +176,7 @@ class _CourseCardState extends State<CourseCard> {
           'Utente rimosso con successo dal corso',
         );
         // Aggiorna la lista
-        widget.onRefresh!();
+        widget.onRefresh();
       } catch (e) {
         SnackBarUtils.showErrorSnackBar(
           context,
