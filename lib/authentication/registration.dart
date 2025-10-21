@@ -36,7 +36,7 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
       'tipologiaIscrizione': 'ABBONAMENTO_PROVA', // Assegna abbonamento di prova
       'entrateDisponibili': 1, // 1 ingresso gratuito
       'entrateSettimanali': 0,
-      'fineIscrizione': Timestamp.fromDate(fineIscrizione), // 45 giorni da oggi
+      'fineIscrizione': Timestamp.fromDate(fineIscrizione), // 30 giorni da oggi
       'role': 'User',
     });
 
