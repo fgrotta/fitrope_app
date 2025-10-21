@@ -16,14 +16,14 @@ class CustomTextField extends StatelessWidget {
       onTapOutside: onTapOutside ?? (_) {},
       controller: controller,
       style: const TextStyle(color: Colors.white),
-      cursorColor: ghostColor,
+      cursorColor: onHintColor,
       decoration: InputDecoration(
         filled: true,
         isDense: true,
         contentPadding: const EdgeInsets.all(10),
-        fillColor: secondaryColor,
+        fillColor: onSurfaceColor,
         hintText: hintText,
-        hintStyle: const TextStyle(color: ghostColor),
+        hintStyle: const TextStyle(color: onHintColor),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10.0),
         ),

@@ -28,6 +28,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Fit House',
+      theme: ThemeData.light(),
       initialRoute: INITIAL_ROUTE,
       routes: routes,
     );

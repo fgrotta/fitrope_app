@@ -42,7 +42,16 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
       store.dispatch(FinishLoadingAction());
 
       if (userData != null) {
-        return SignInResponse(user: FitropeUser.fromJson(userData), error: "");
+        final fitropeUser = FitropeUser.fromJson(userData);
+        
+        // Controlla se l'utente è attivo
+        if (!fitropeUser.isActive) {
+          // Disconnetti l'utente da Firebase Auth
+          await FirebaseAuth.instance.signOut();
+          return SignInResponse(error: "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
+        }
+        
+        return SignInResponse(user: fitropeUser, error: "");
       }
 
       return SignInResponse(error: "Email o password sbagliati");

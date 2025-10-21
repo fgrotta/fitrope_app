@@ -7,8 +7,8 @@ import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -30,8 +30,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
   String? nameError;
   String? lastNameError;
   String? registrationError;
+  String? privacyError;
 
   bool validatingEmail = false;
+  bool privacyAccepted = false;
 
   @override
   void initState() {
@@ -86,24 +88,24 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget build(BuildContext context) {
     if(validatingEmail) {
       return Scaffold(
-        backgroundColor: primaryColor,
+        backgroundColor: backgroundColor,
         body: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Center(
               child: Column(
                 children: [
-                  const Icon(Icons.email, size: 60, color: Colors.blueAccent,),
+                  const Icon(Icons.email, size: 60, color:onPrimaryColor,),
                   const SizedBox(height: 30,),
-                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: Colors.white)),
+                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: onPrimaryColor)),
                   const SizedBox(height: 30,),
                   ElevatedButton(
                     style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.all(Colors.blueAccent)
+                      backgroundColor: WidgetStateProperty.all(successColor)
                     ),
                     onPressed: () {
                       Navigator.pushNamed(context, LOGIN_ROUTE);
-                    }, child: const Text("Login", style: TextStyle(color: Colors.white),)
+                    }, child: const Text("Login", style: TextStyle(color: onPrimaryColor),)
                   )
                 ],
               ),
@@ -115,11 +117,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text("Registrazione", style: TextStyle(color: Colors.white),),
+        backgroundColor: backgroundColor,
+        iconTheme: const IconThemeData(color: ghostColor),
+        title: const Text("Registrazione", style: TextStyle(color: onPrimaryColor),),
       ),
-      backgroundColor: primaryColor,
+      backgroundColor: backgroundColor,
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
@@ -129,44 +131,80 @@ class _RegistrationPageState extends State<RegistrationPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Email', style: TextStyle(color: ghostColor),),
+                  const Text('Email',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _emailController, hintText: 'Inserisci la tua email', onTapOutside: (_) => setState(() { validateEmail(); }),),
                   const SizedBox(height: 5,),
                   Text(emailError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
-                  const Text('Password', style: TextStyle(color: ghostColor),),
+                  const Text('Password',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _passwordController, hintText: 'Inserisci la password', obscureText: true, onTapOutside: (_) => setState(() { validatePassword(); }),),
                   const SizedBox(height: 5,),
                   Text(passwordError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
-                  const Text('Conferma password', style: TextStyle(color: ghostColor),),
+                  const Text('Conferma password',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _confirmPasswordController, hintText: 'Conferma la password', obscureText: true, onTapOutside: (_) => setState(() { validatePassword(); }),),
                   const SizedBox(height: 5,),
                   Text(confirmPasswordError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
-                  const Text('Nome', style: TextStyle(color: ghostColor),),
+                  const Text('Nome',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _nameController, hintText: 'Inserisci il tuo nome', onTapOutside: (_) => setState(() { validateName(); }),),
                   const SizedBox(height: 5,),
                   Text(nameError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
-                  const Text('Cognome', style: TextStyle(color: ghostColor),),
+                  const Text('Cognome',),
                   const SizedBox(height: 10,),
                   CustomTextField(controller: _lastNameController, hintText: 'Inserisci il tuo cognome', onTapOutside: (_) => setState(() { validateLastName(); }),),
                   const SizedBox(height: 5,),
                   Text(lastNameError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: privacyAccepted,
+                        onChanged: (value) {
+                          setState(() {
+                            privacyAccepted = value ?? false;
+                          });
+                        },
+                      ),
+                      const Text('Accetto la '),
+                      GestureDetector(
+                        onTap: () async {
+                          final url = Uri.parse('https://www.google.it');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: const Text(
+                          'Privacy Policy',
+                          style: TextStyle(
+                            color: Colors.blueAccent,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               Text(registrationError ?? '', style: const TextStyle(color: dangerColor),),
+              if (privacyError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    privacyError!,
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                ),
               const SizedBox(height: 10,),
               SizedBox(
                 width: MediaQuery.of(context).size.width - pagePadding * 2,
@@ -177,14 +215,20 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       validateLastName();
                       validateEmail();
                       validatePassword();
+                      if (!privacyAccepted) {
+                        privacyError = 'Devi accettare la privacy policy';
+                      } else {
+                        privacyError = null;
+                      }
                     });
 
-                    if(
+                    if (
                       nameError != null ||
                       lastNameError != null ||
-                      emailError != null || 
-                      passwordError != null || 
-                      confirmPasswordError != null
+                      emailError != null ||
+                      passwordError != null ||
+                      confirmPasswordError != null ||
+                      !privacyAccepted
                     ) {
                       return;
                     }
@@ -195,14 +239,13 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       _nameController.text,
                       _lastNameController.text
                     ).then((SignUpResponse? response) {
-                      if(response != null && response.user != null) {
+                      if (response != null && response.user != null) {
                         store.dispatch(SetUserAction(response.user!));
 
                         setState(() {
                           validatingEmail = true;
                         });
-                      }
-                      else {
+                      } else {
                         setState(() {
                           registrationError = response!.error;
                         });

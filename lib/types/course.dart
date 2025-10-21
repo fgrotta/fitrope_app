@@ -1,37 +1,57 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Course {
+  @Deprecated('Use uid instead')
   final String id;
+  final String uid;
   final String name;
   final Timestamp startDate;
   final Timestamp endDate;
   final int capacity;
   final int subscribed;
-  final List<String> subscribers;
+  final String? trainerId; // ID del trainer assegnato al corso
 
-  const Course({ required this.name, required this.startDate, required this.endDate, required this.id, required this.capacity, required this.subscribed, this.subscribers = const [] });
+  const Course({ 
+    @Deprecated('Use uid instead')
+    required this.id, 
+    required this.uid,
+    required this.name, 
+    required this.startDate, 
+    required this.endDate, 
+    required this.capacity, 
+    required this.subscribed, 
+    this.trainerId,
+  });
 
   factory Course.fromJson(Map<String, dynamic> json) {
+    var localUid = '';
+    if (json['uid'] != null) {
+      localUid = json['uid'] as String;
+    } else {
+      localUid = json['id'] as String;
+    }
     return Course(
-      id: json['id'] as String,
+      id: localUid,
+      uid: localUid,
       name: json['name'] as String,
       startDate: json['startDate'] as Timestamp,
       endDate: json['endDate'] as Timestamp,
       capacity: json['capacity'] as int,
       subscribed: json['subscribed'] as int,
-      subscribers: (json['subscribers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      trainerId: json['trainerId'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id': uid,
+      'uid': uid,
       'name': name,
       'startDate': startDate,
       'endDate': endDate,
       'capacity': capacity,
       'subscribed': subscribed,
-      'subscribers': subscribers,
+      'trainerId': trainerId,
     };
   }
 }
