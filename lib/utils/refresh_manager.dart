@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 /// Manager per gestire il refresh dei certificati in scadenza
 /// Permette di notificare tutte le pagine quando un certificato viene aggiornato
-class CertificateRefreshManager {
-  static final CertificateRefreshManager _instance = CertificateRefreshManager._internal();
-  factory CertificateRefreshManager() => _instance;
-  CertificateRefreshManager._internal();
+class RefreshManager {
+  static final RefreshManager _instance = RefreshManager._internal();
+  factory RefreshManager() => _instance;
+  RefreshManager._internal();
 
   final List<VoidCallback> _listeners = [];
 
@@ -19,7 +19,7 @@ class CertificateRefreshManager {
     _listeners.remove(listener);
   }
 
-  /// Notifica tutti i listener che i certificati sono stati aggiornati
+  /// Notifica tutti i listener che sono stati aggiornati
   void notifyRefresh() {
     for (final listener in _listeners) {
       try {

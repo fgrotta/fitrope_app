@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
-import 'package:fitrope_app/utils/certificate_refresh_manager.dart';
+import 'package:fitrope_app/utils/refresh_manager.dart';
 
 List<FitropeUser>? _cachedUsersWithExpiringSubscriptions;
 DateTime? _lastCacheTimeWithExpiringSubscriptions;
@@ -79,5 +79,5 @@ Future<int> getCountUsersWithExpiringSubscriptions() async {
 void invalidateUsersWithExpiringSubscriptionsCache() {
   _cachedUsersWithExpiringSubscriptions = null;
   _lastCacheTimeWithExpiringSubscriptions = null;
-  CertificateRefreshManager().notifyRefresh();
+  RefreshManager().notifyRefresh();
 }

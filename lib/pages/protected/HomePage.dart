@@ -16,7 +16,7 @@ import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
-import 'package:fitrope_app/utils/certificate_refresh_manager.dart';
+import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
@@ -60,11 +60,11 @@ class _HomePageState extends State<HomePage> {
       _loadUtentiConAbbonamentoInScadenza();
       
       // Registra il listener per il refresh automatico
-      CertificateRefreshManager().addListener(_loadUtentiConCertificatoInScadenza);
-      CertificateRefreshManager().addListener(_loadUtentiConAbbonamentoInScadenza);
+      RefreshManager().addListener(_loadUtentiConCertificatoInScadenza);
+      RefreshManager().addListener(_loadUtentiConAbbonamentoInScadenza);
     }
     if (user.role == 'User') {
-      CertificateRefreshManager().addListener(refreshCourses);
+      RefreshManager().addListener(refreshCourses);
     }
     super.initState();
   }
@@ -73,11 +73,11 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     // Rimuove il listener per evitare memory leak
     if (user.role == 'Admin') {
-      CertificateRefreshManager().removeListener(_loadUtentiConCertificatoInScadenza);
-      CertificateRefreshManager().removeListener(_loadUtentiConAbbonamentoInScadenza);
+      RefreshManager().removeListener(_loadUtentiConCertificatoInScadenza);
+      RefreshManager().removeListener(_loadUtentiConAbbonamentoInScadenza);
     }
      if (user.role == 'User') {
-      CertificateRefreshManager().removeListener(refreshCourses);
+      RefreshManager().removeListener(refreshCourses);
     }
     super.dispose();
   }

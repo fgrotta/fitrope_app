@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
-import 'package:fitrope_app/utils/certificate_refresh_manager.dart';
+import 'package:fitrope_app/utils/refresh_manager.dart';
 
 List<FitropeUser>? _cachedUsersWithExpiringCertificates;
 DateTime? _lastCacheTimeWithExpiringCertificates;
@@ -78,5 +78,5 @@ Future<int> getCountUsersWithExpiringCertificates() async {
 void invalidateUsersWithExpiringCertificatesCache() {
   _cachedUsersWithExpiringCertificates = null;
   _lastCacheTimeWithExpiringCertificates = null;
-  CertificateRefreshManager().notifyRefresh();
+  RefreshManager().notifyRefresh();
 }
