@@ -1,5 +1,6 @@
 import 'package:fitrope_app/style.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomTextField extends StatelessWidget {
   final String hintText;
@@ -7,7 +8,16 @@ class CustomTextField extends StatelessWidget {
   final bool obscureText;
   final void Function(PointerDownEvent _)? onTapOutside;
   final bool disabled;
-  const CustomTextField({super.key, required this.controller, this.hintText="", this.obscureText=false, this.onTapOutside, this.disabled=false});
+  final List<TextInputFormatter>? inputFormatters;
+  const CustomTextField({
+    super.key, 
+    required this.controller, 
+    this.hintText="", 
+    this.obscureText=false, 
+    this.onTapOutside, 
+    this.disabled=false,
+    this.inputFormatters,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +27,7 @@ class CustomTextField extends StatelessWidget {
       controller: controller,
       style: const TextStyle(color: Colors.white),
       cursorColor: onHintColor,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         filled: true,
         isDense: true,

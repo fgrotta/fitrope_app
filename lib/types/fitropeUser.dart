@@ -15,6 +15,7 @@ class FitropeUser {
   final bool isAnonymous;
   final DateTime createdAt;
   final Timestamp? certificatoScadenza;
+  final String? numeroTelefono;
 
   const FitropeUser({
     required this.name, 
@@ -31,6 +32,7 @@ class FitropeUser {
     this.isAnonymous = false,
     required this.createdAt,
     this.certificatoScadenza,
+    this.numeroTelefono,
   });
 
   Map<String, dynamic> toJson() {
@@ -49,6 +51,7 @@ class FitropeUser {
       'isAnonymous': isAnonymous,
       'createdAt': Timestamp.fromDate(createdAt),
       'certificatoScadenza': certificatoScadenza,
+      'numeroTelefono': numeroTelefono,
     };
   }
 
@@ -74,6 +77,7 @@ class FitropeUser {
           ? (json['createdAt'] as Timestamp).toDate() 
           : DateTime.now(),
       certificatoScadenza: json['certificatoScadenza'] as Timestamp?,
+      numeroTelefono: json['numeroTelefono'] as String?,
     );
   }
 }

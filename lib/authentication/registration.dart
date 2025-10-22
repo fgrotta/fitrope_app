@@ -14,7 +14,7 @@ class SignUpResponse {
   });
 }
 
-Future<SignUpResponse> registerWithEmailPassword(String email, String password, String name, String lastName) async {
+Future<SignUpResponse> registerWithEmailPassword(String email, String password, String name, String lastName, {String? numeroTelefono}) async {
   try {
     UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
       email: email,
@@ -38,6 +38,7 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
       'entrateSettimanali': 0,
       'fineIscrizione': Timestamp.fromDate(fineIscrizione), // 45 giorni da oggi
       'role': 'User',
+      'numeroTelefono': numeroTelefono,
     });
 
     await userCredential.user!.sendEmailVerification();

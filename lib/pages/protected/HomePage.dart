@@ -63,7 +63,9 @@ class _HomePageState extends State<HomePage> {
       CertificateRefreshManager().addListener(_loadUtentiConCertificatoInScadenza);
       CertificateRefreshManager().addListener(_loadUtentiConAbbonamentoInScadenza);
     }
-    
+    if (user.role == 'User') {
+      CertificateRefreshManager().addListener(refreshCourses);
+    }
     super.initState();
   }
 
@@ -73,6 +75,9 @@ class _HomePageState extends State<HomePage> {
     if (user.role == 'Admin') {
       CertificateRefreshManager().removeListener(_loadUtentiConCertificatoInScadenza);
       CertificateRefreshManager().removeListener(_loadUtentiConAbbonamentoInScadenza);
+    }
+     if (user.role == 'User') {
+      CertificateRefreshManager().removeListener(refreshCourses);
     }
     super.dispose();
   }
@@ -698,7 +703,7 @@ class _HomePageState extends State<HomePage> {
               Container(
                 padding: const EdgeInsets.only(bottom: 10),
                 width: double.infinity,
-                child: const Text('I miei corsi', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+                child: const Text('I miei corsi', textAlign: TextAlign.left, style: TextStyle(color:onPrimaryColor, fontSize: 20),),
               ),
               ...renderCourses()
             ],

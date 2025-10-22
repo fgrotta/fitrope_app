@@ -8,6 +8,7 @@ import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class RegistrationPage extends StatefulWidget {
@@ -23,12 +24,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _numeroTelefonoController = TextEditingController();
 
   String? emailError;
   String? passwordError;
   String? confirmPasswordError;
   String? nameError;
   String? lastNameError;
+  String? numeroTelefonoError;
   String? registrationError;
   String? privacyError;
 
@@ -81,6 +84,22 @@ class _RegistrationPageState extends State<RegistrationPage> {
     }
     else {
       lastNameError = null;
+    }
+  }
+
+  void validateNumeroTelefono() {
+    final phoneNumber = _numeroTelefonoController.text.trim();
+    if (phoneNumber.isNotEmpty) {
+      // Verifica che contenga solo numeri
+      if (!RegExp(r'^[0-9]+$').hasMatch(phoneNumber)) {
+        numeroTelefonoError = "Il numero di telefono deve contenere solo numeri";
+      } else if (phoneNumber.length != 10) {
+        numeroTelefonoError = "Il numero di telefono deve contenere esattamente 10 cifre";
+      } else {
+        numeroTelefonoError = null;
+      }
+    } else {
+      numeroTelefonoError = null;
     }
   }
 
@@ -166,6 +185,21 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   Text(lastNameError ?? '', style: const TextStyle(color: dangerColor),),
         
                   const SizedBox(height: 20,),
+                  const Text('Numero di Telefono (opzionale)',),
+                  const SizedBox(height: 10,),
+                  CustomTextField(
+                    controller: _numeroTelefonoController, 
+                    hintText: 'Inserisci il tuo numero di telefono',
+                    onTapOutside: (_) => setState(() { validateNumeroTelefono(); }),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ],
+                  ),
+                  const SizedBox(height: 5,),
+                  Text(numeroTelefonoError ?? '', style: const TextStyle(color: dangerColor),),
+        
+                  const SizedBox(height: 20,),
                   Row(
                     children: [
                       Checkbox(
@@ -215,6 +249,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       validateLastName();
                       validateEmail();
                       validatePassword();
+                      validateNumeroTelefono();
                       if (!privacyAccepted) {
                         privacyError = 'Devi accettare la privacy policy';
                       } else {
@@ -228,6 +263,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       emailError != null ||
                       passwordError != null ||
                       confirmPasswordError != null ||
+                      numeroTelefonoError != null ||
                       !privacyAccepted
                     ) {
                       return;
@@ -237,7 +273,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       _emailController.text.trim(),
                       _passwordController.text.trim(),
                       _nameController.text.trim(),
-                      _lastNameController.text.trim()
+                      _lastNameController.text.trim(),
+                      numeroTelefono: _numeroTelefonoController.text.trim().isNotEmpty ? _numeroTelefonoController.text.trim() : null,
                     ).then((SignUpResponse? response) {
                       if (response != null && response.user != null) {
                         store.dispatch(SetUserAction(response.user!));

@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
+import 'package:fitrope_app/state/store.dart';
+import 'package:fitrope_app/state/actions.dart';
 
 Future<void> updateUser({
   required String uid,
@@ -15,6 +17,7 @@ Future<void> updateUser({
   bool? isActive,
   bool? isAnonymous,
   DateTime? certificatoScadenza,
+  String? numeroTelefono,
 }) async {
   try {
     final updateData = <String, dynamic>{
@@ -28,18 +31,19 @@ Future<void> updateUser({
       'isActive': isActive,
       'isAnonymous': isAnonymous,
       'certificatoScadenza': certificatoScadenza != null ? Timestamp.fromDate(DateTime(certificatoScadenza.year, certificatoScadenza.month, certificatoScadenza.day, 23, 59)) : null,
+      'numeroTelefono': numeroTelefono,
     };
 
     // Rimuovi i campi null per non sovrascriverli con null
     updateData.removeWhere((key, value) => value == null);
 
-    await FirebaseFirestore.instance
+     await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .update(updateData);
 
     invalidateUsersCache(); // Invalida la cache dopo l'aggiornamento
-    invalidateUsersWithExpiringCertificatesCache();
+    invalidateUsersWithExpiringCertificatesCache(); 
     print('User updated successfully: $uid ');
   } catch (e) {
     print('Error updating user: $e');

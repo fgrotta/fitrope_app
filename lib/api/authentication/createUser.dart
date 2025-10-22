@@ -26,6 +26,7 @@ Future<CreateUserResponse> createUser({
   int? entrateSettimanali,
   DateTime? fineIscrizione,
   bool isAnonymous = false,
+  String? numeroTelefono,
 }) async {
   try {
     // Verifica che l'utente corrente abbia i permessi necessari
@@ -47,6 +48,7 @@ Future<CreateUserResponse> createUser({
       'isActive': true, // L'utente viene creato come attivo
       'isAnonymous': isAnonymous,
       'createdAt': FieldValue.serverTimestamp(),
+      'numeroTelefono': numeroTelefono,
     };
 
     await postsRef.doc(newID).set(userData);
@@ -69,6 +71,7 @@ Future<CreateUserResponse> createUser({
       isActive: true,
       isAnonymous: isAnonymous,
       createdAt: DateTime.now(),
+      numeroTelefono: numeroTelefono,
     );
 
     print('User created successfully: ${email ?? 'no-email'} with role $role');

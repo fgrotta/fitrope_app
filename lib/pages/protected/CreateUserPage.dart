@@ -3,6 +3,7 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CreateUserPage extends StatefulWidget {
   final String currentUserRole;
@@ -22,6 +23,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _numeroTelefonoController = TextEditingController();
   final _entrateDisponibiliController = TextEditingController(text: '1');
   final _entrateSettimanaliController = TextEditingController(text: '0');
   
@@ -44,6 +46,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
     _passwordController.dispose();
     _nameController.dispose();
     _lastNameController.dispose();
+    _numeroTelefonoController.dispose();
     _entrateDisponibiliController.dispose();
     _entrateSettimanaliController.dispose();
     super.dispose();
@@ -67,6 +70,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
         entrateDisponibili: _entrateDisponibili,
         entrateSettimanali: _entrateSettimanali,
         isAnonymous: _isAnonymous,
+        numeroTelefono: _numeroTelefonoController.text.trim().isNotEmpty ? _numeroTelefonoController.text.trim() : null,
       );
 
       if (response.user != null) {
@@ -167,6 +171,34 @@ class _CreateUserPageState extends State<CreateUserPage> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+
+              // Numero di Telefono (opzionale)
+              TextFormField(
+                controller: _numeroTelefonoController,
+                decoration: const InputDecoration(
+                  labelText: 'Numero di Telefono (opzionale)',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                validator: (value) {
+                  if (value != null && value.trim().isNotEmpty) {
+                    // Verifica che contenga solo numeri
+                    if (!RegExp(r'^[0-9]+$').hasMatch(value.trim())) {
+                      return 'Il numero di telefono deve contenere solo numeri';
+                    } else if (value.trim().length != 10) {
+                      return 'Il numero di telefono deve contenere esattamente 10 cifre';
+                    }
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 

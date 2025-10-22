@@ -12,6 +12,7 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
@@ -26,6 +27,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   bool isEditing = false;
   late TextEditingController nameController;
   late TextEditingController lastNameController;
+  late TextEditingController numeroTelefonoController;
   late TextEditingController entrateDisponibiliController;
   late TextEditingController entrateSettimanaliController;
   late String selectedRole;
@@ -42,6 +44,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     super.initState();
     nameController = TextEditingController(text: widget.user.name);
     lastNameController = TextEditingController(text: widget.user.lastName);
+    numeroTelefonoController = TextEditingController(text: widget.user.numeroTelefono ?? '');
     entrateDisponibiliController = TextEditingController(text: widget.user.entrateDisponibili?.toString() ?? '');
     entrateSettimanaliController = TextEditingController(text: widget.user.entrateSettimanali?.toString() ?? '');
     selectedRole = widget.user.role;
@@ -69,6 +72,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void dispose() {
     nameController.dispose();
     lastNameController.dispose();
+    numeroTelefonoController.dispose();
     entrateDisponibiliController.dispose();
     entrateSettimanaliController.dispose();
     super.dispose();
@@ -81,6 +85,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         // Reset to original values if canceling edit
         nameController.text = widget.user.name;
         lastNameController.text = widget.user.lastName;
+        numeroTelefonoController.text = widget.user.numeroTelefono ?? '';
         entrateDisponibiliController.text = widget.user.entrateDisponibili?.toString() ?? '';
         entrateSettimanaliController.text = widget.user.entrateSettimanali?.toString() ?? '';
         selectedRole = widget.user.role;
@@ -118,6 +123,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   Future<void> saveChanges() async {
     final name = nameController.text.trim();
     final lastName = lastNameController.text.trim();
+    final numeroTelefono = numeroTelefonoController.text.trim();
     final entrateDisponibili = int.tryParse(entrateDisponibiliController.text.trim());
     final entrateSettimanali = int.tryParse(entrateSettimanaliController.text.trim());
     
@@ -129,6 +135,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
     if (entrateSettimanali != null && entrateSettimanali < 0) {
       setState(() { errorMsg = 'Le entrate settimanali non possono essere negative'; });
       return;
+    }
+
+    // Validazione numero di telefono
+    if (numeroTelefono.isNotEmpty) {
+      // Verifica che contenga solo numeri
+      if (!RegExp(r'^[0-9]+$').hasMatch(numeroTelefono)) {
+        setState(() { errorMsg = 'Il numero di telefono deve contenere solo numeri'; });
+        return;
+      } else if (numeroTelefono.length != 10) {
+        setState(() { errorMsg = 'Il numero di telefono deve contenere esattamente 10 cifre'; });
+        return;
+      }
     }
 
     try {
@@ -144,6 +162,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         isActive: selectedIsActive,
         isAnonymous: selectedIsAnonymous,
         certificatoScadenza: selectedCertificatoScadenza,
+        numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
       );
 
       // Crea un nuovo oggetto utente con i dati aggiornati
@@ -166,6 +185,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         certificatoScadenza: selectedCertificatoScadenza != null 
             ? Timestamp.fromDate(DateTime(selectedCertificatoScadenza!.year, selectedCertificatoScadenza!.month, selectedCertificatoScadenza!.day, 23, 59))
             : null,
+        numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
       );
 
       setState(() {
@@ -363,9 +383,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
     if (currentUser.role == 'Admin') {
       return true;
     }
-    // Trainer può modificare solo Nome e Cognome di utenti con ruolo User
+    // Trainer può modificare solo Nome, Cognome e Numero di Telefono di utenti con ruolo User
     if (currentUser.role == 'Trainer' && widget.user.role == 'User') {
-      return fieldName == 'Nome' || fieldName == 'Cognome' || fieldName == 'Anonimo';
+      return fieldName == 'Nome' || fieldName == 'Cognome' || fieldName == 'Numero di Telefono' || fieldName == 'Anonimo';
     }
 
     // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo, Fine Iscrizione e Certificato sono gestiti solo dagli Admin
@@ -519,6 +539,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
               [
                 _buildInfoRow('Nome', widget.user.name, nameController, _canEditSpecificField('Nome') && isEditing),
                 _buildInfoRow('Cognome', widget.user.lastName, lastNameController, _canEditSpecificField('Cognome') && isEditing),
+                _buildInfoRow('Numero di Telefono', widget.user.numeroTelefono ?? 'Non impostato', numeroTelefonoController, _canEditSpecificField('Numero di Telefono') && isEditing),
                 _buildInfoRow('Email', widget.user.email, null, false),
                 if (isAdmin)
                 _buildInfoRow('Ruolo', widget.user.role, null, _canEditSpecificField('Ruolo') && isEditing, isDropdown: true),
@@ -696,11 +717,23 @@ class _UserDetailPageState extends State<UserDetailPage> {
             child: isEditable && controller != null
                 ? TextField(
                     controller: controller,
-                    keyboardType: TextInputType.number,
+                    keyboardType: label == 'Numero di Telefono (opzionale)' ? TextInputType.phone : TextInputType.number,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
+                    inputFormatters: label == 'Numero di Telefono' ? [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ] : null,
+                    onChanged: label == 'Numero di Telefono' ? (value) {
+                      // Validazione in tempo reale per il numero di telefono
+                      if (value.isNotEmpty) {
+                        if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                          // Non mostriamo errore in tempo reale, solo durante il salvataggio
+                        }
+                      }
+                    } : null,
                   )
                 : isEditable && isDropdown
                     ? DropdownButtonFormField<String>(
