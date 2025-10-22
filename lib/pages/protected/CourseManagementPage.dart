@@ -7,6 +7,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -38,6 +39,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   String? selectedTrainerId;
   String? errorMsg;
   bool isLoading = false;
+  List<String> selectedTags = [];
   
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
 
@@ -141,6 +143,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     if (user.role == 'Trainer' && widget.mode == 'create' && selectedTrainerId == null) {
       selectedTrainerId = user.uid;
     }
+
+    // Inizializza i tag
+    selectedTags = widget.courseToEdit?.tags ?? 
+                   widget.courseToDuplicate?.tags ?? 
+                   [];
   }
 
   String _getPageTitle() {
@@ -288,6 +295,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           capacity: capacity,
           subscribed: widget.courseToEdit!.subscribed,
           trainerId: trainerId,
+          tags: selectedTags,
         );
         
         await updateCourse(updatedCourse);
@@ -306,6 +314,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           capacity: capacity,
           subscribed: 0,
           trainerId: trainerId,
+          tags: selectedTags,
         );
         
         await createCourse(newCourse);
@@ -509,6 +518,58 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                   ),
                   const SizedBox(height: 20),
                 ],
+
+                // Selezione Tag
+                Card(
+                  color: surfaceVariantColor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Tag del Corso',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Seleziona i tag che limitano l\'accesso a questo corso',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: CourseTags.all.map((tag) {
+                            final isSelected = selectedTags.contains(tag);
+                            return FilterChip(
+                              label: Text(tag),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    selectedTags.add(tag);
+                                  } else {
+                                    selectedTags.remove(tag);
+                                  }
+                                });
+                              },
+                              selectedColor: primaryColor.withOpacity(0.3),
+                              checkmarkColor: primaryColor,
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
 
                 // Messaggio di errore
                 if (errorMsg != null)

@@ -2,8 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
-import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/state/actions.dart';
 
 Future<void> updateUser({
   required String uid,
@@ -18,6 +16,7 @@ Future<void> updateUser({
   bool? isAnonymous,
   DateTime? certificatoScadenza,
   String? numeroTelefono,
+  List<String>? tipologiaCorsoTags,
 }) async {
   try {
     final updateData = <String, dynamic>{
@@ -32,6 +31,7 @@ Future<void> updateUser({
       'isAnonymous': isAnonymous,
       'certificatoScadenza': certificatoScadenza != null ? Timestamp.fromDate(DateTime(certificatoScadenza.year, certificatoScadenza.month, certificatoScadenza.day, 23, 59)) : null,
       'numeroTelefono': numeroTelefono,
+      'tipologiaCorsoTags': tipologiaCorsoTags,
     };
 
     // Rimuovi i campi null per non sovrascriverli con null

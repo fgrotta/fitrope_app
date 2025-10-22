@@ -16,6 +16,7 @@ class FitropeUser {
   final DateTime createdAt;
   final Timestamp? certificatoScadenza;
   final String? numeroTelefono;
+  final List<String> tipologiaCorsoTags; // Tag per limitare l'accesso ai corsi
 
   const FitropeUser({
     required this.name, 
@@ -33,6 +34,7 @@ class FitropeUser {
     required this.createdAt,
     this.certificatoScadenza,
     this.numeroTelefono,
+    this.tipologiaCorsoTags = const ['Tutti i corsi'],
   });
 
   Map<String, dynamic> toJson() {
@@ -52,6 +54,7 @@ class FitropeUser {
       'createdAt': Timestamp.fromDate(createdAt),
       'certificatoScadenza': certificatoScadenza,
       'numeroTelefono': numeroTelefono,
+      'tipologiaCorsoTags': tipologiaCorsoTags,
     };
   }
 
@@ -78,6 +81,9 @@ class FitropeUser {
           : DateTime.now(),
       certificatoScadenza: json['certificatoScadenza'] as Timestamp?,
       numeroTelefono: json['numeroTelefono'] as String?,
+      tipologiaCorsoTags: (json['tipologiaCorsoTags'] as List<dynamic>?)
+          ?.map((tag) => tag.toString())
+          .toList() ?? ['Open'],
     );
   }
 }

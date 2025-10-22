@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 
 class CreateUserResponse {
   final FitropeUser? user;
@@ -27,6 +28,7 @@ Future<CreateUserResponse> createUser({
   DateTime? fineIscrizione,
   bool isAnonymous = false,
   String? numeroTelefono,
+  List<String>? tipologiaCorsoTags,
 }) async {
   try {
     // Verifica che l'utente corrente abbia i permessi necessari
@@ -49,6 +51,7 @@ Future<CreateUserResponse> createUser({
       'isAnonymous': isAnonymous,
       'createdAt': FieldValue.serverTimestamp(),
       'numeroTelefono': numeroTelefono,
+      'tipologiaCorsoTags': tipologiaCorsoTags ?? CourseTags.defaultUserTags,
     };
 
     await postsRef.doc(newID).set(userData);
@@ -72,6 +75,7 @@ Future<CreateUserResponse> createUser({
       isAnonymous: isAnonymous,
       createdAt: DateTime.now(),
       numeroTelefono: numeroTelefono,
+      tipologiaCorsoTags: tipologiaCorsoTags ?? CourseTags.defaultUserTags,
     );
 
     print('User created successfully: ${email ?? 'no-email'} with role $role');

@@ -10,6 +10,7 @@ class Course {
   final int capacity;
   final int subscribed;
   final String? trainerId; // ID del trainer assegnato al corso
+  final List<String> tags; // Tag per limitare l'accesso al corso
 
   const Course({ 
     @Deprecated('Use uid instead')
@@ -21,6 +22,7 @@ class Course {
     required this.capacity, 
     required this.subscribed, 
     this.trainerId,
+    this.tags = const [],
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -39,6 +41,7 @@ class Course {
       capacity: json['capacity'] as int,
       subscribed: json['subscribed'] as int,
       trainerId: json['trainerId'] as String?,
+      tags: (json['tags'] as List<dynamic>?)?.map((tag) => tag.toString()).toList() ?? [],
     );
   }
 
@@ -52,6 +55,7 @@ class Course {
       'capacity': capacity,
       'subscribed': subscribed,
       'trainerId': trainerId,
+      'tags': tags,
     };
   }
 }
