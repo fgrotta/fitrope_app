@@ -383,6 +383,11 @@ String getDisplayName(FitropeUser user) {
       buttonColor = ghostColor;
       buttonTextColor = Colors.white;
     }
+    else if(widget.courseState == CourseState.NULL) {
+      buttonText = 'Limite entrate settimanali raggiunto';
+      buttonColor = primaryLightColor;
+      buttonTextColor = const Color.fromARGB(86, 255, 255, 255);
+    }
     else if(
       widget.courseState == CourseState.FULL ||
       widget.courseState == CourseState.EXPIRED
@@ -449,7 +454,7 @@ String getDisplayName(FitropeUser user) {
             // Riga 2: Descrizione
             if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),),
             // Riga 3: Bottoni iscrizione
-            if(widget.courseState != CourseState.NULL && !widget.isAdmin)
+            if(!widget.isAdmin)
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
