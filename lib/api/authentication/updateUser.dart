@@ -2,8 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
-import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/state/actions.dart';
 
 Future<void> updateUser({
   required String uid,
