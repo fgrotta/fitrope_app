@@ -18,17 +18,21 @@ class CourseTags {
   /// - Altrimenti, verificare se almeno uno dei tag utente corrisponde ai tag del corso
   /// - Se il corso non ha tag → accessibile a tutti
   static bool canUserAccessCourse(List<String> userTags, List<String> courseTags) {
-    // Se l'utente ha "Tutti i corsi", può accedere a qualsiasi corso
-    if (userTags.contains(OPEN)) {
+    // Caso 1: Utente senza TAG e corso senza TAG -> può iscriversi
+    if (userTags.isEmpty && courseTags.isEmpty || userTags.isEmpty && courseTags.contains(OPEN) || userTags.contains(OPEN) && courseTags.isEmpty) {
       return true;
     }
     
-    // Se il corso non ha tag, è accessibile a tutti
-    if (courseTags.isEmpty) {
+    // Caso 2: Se l'utente ha almeno un TAG del corso -> può iscriversi
+    if (userTags.any((userTag) => courseTags.contains(userTag))) {
       return true;
     }
     
-    // Verifica se almeno uno dei tag utente corrisponde ai tag del corso
-    return userTags.any((userTag) => courseTags.contains(userTag));
+    // Caso 3: Utente senza TAG ma corso ha TAG (diverso da OPEN) -> NON può iscriversi
+    // Questo caso è già gestito implicitamente: se userTags.isEmpty e courseTags non è vuoto
+    // e non c'è corrispondenza, la funzione tornerà false alla fine
+    
+    // Tutti gli altri casi -> NON può iscriversi
+    return false;
   }
 }
