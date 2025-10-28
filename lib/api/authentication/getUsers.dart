@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 
 // Cache per gli utenti
 List<FitropeUser>? _cachedUsers;
@@ -56,6 +57,10 @@ Future<List<FitropeUser>> getUsers({bool force = false}) async {
         isActive: data['isActive'] ?? true,
         isAnonymous: data['isAnonymous'] ?? false,
         certificatoScadenza: data['certificatoScadenza'] as Timestamp?,
+        numeroTelefono: data['numeroTelefono'] as String?,
+        tipologiaCorsoTags: (data['tipologiaCorsoTags'] as List<dynamic>?)
+          ?.map((tag) => tag.toString())
+          .toList() ?? CourseTags.defaultUserTags,
       );
     }).toList();
 
@@ -78,9 +83,6 @@ void invalidateUsersCache() {
   _lastTrainersCacheTime = null;
 }
 
-void addCustomerOnCache(FitropeUser user) {
-  _cachedUsers!.add(user);
-}
 // Funzione per ottenere solo i trainer
 Future<List<FitropeUser>> getTrainers() async {
   // Controlla se la cache è ancora valida

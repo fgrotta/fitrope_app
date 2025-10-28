@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/authentication/createUser.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -33,6 +34,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
   int? _entrateSettimanali = 0;
   bool _isAnonymous = false;
   bool _isLoading = false;
+  List<String> _selectedTipologiaCorsoTags = CourseTags.defaultUserTags;
 
   @override
   void initState() {
@@ -71,6 +73,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
         entrateSettimanali: _entrateSettimanali,
         isAnonymous: _isAnonymous,
         numeroTelefono: _numeroTelefonoController.text.trim().isNotEmpty ? _numeroTelefonoController.text.trim() : null,
+        tipologiaCorsoTags: _selectedTipologiaCorsoTags,
       );
 
       if (response.user != null) {
@@ -377,6 +380,58 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 },
                 controlAffinity: ListTileControlAffinity.leading,
                 activeColor: primaryColor,
+              ),
+              const SizedBox(height: 16),
+
+              // Selezione Tag Tipologia Corso
+              Card(
+                color: surfaceVariantColor,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Tipologia Corso',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Seleziona i tag che limitano l\'accesso ai corsi per questo utente',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: CourseTags.all.map((tag) {
+                          final isSelected = _selectedTipologiaCorsoTags.contains(tag);
+                          return FilterChip(
+                            label: Text(tag),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _selectedTipologiaCorsoTags.add(tag);
+                                } else {
+                                  _selectedTipologiaCorsoTags.remove(tag);
+                                }
+                              });
+                            },
+                            selectedColor: primaryColor.withOpacity(0.3),
+                            checkmarkColor: primaryColor,
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 32),
 

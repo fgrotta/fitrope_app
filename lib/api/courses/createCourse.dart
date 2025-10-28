@@ -18,6 +18,7 @@ Future<Course?> createCourse(Course course) async {
         capacity: course.capacity, 
         subscribed: course.subscribed,
         trainerId: course.trainerId,
+        tags: course.tags,
       );
       await postsRef.doc(newCourse.id).set(newCourse.toJson());
       invalidateCoursesCache(); // Invalida la cache dopo la creazione

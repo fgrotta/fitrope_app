@@ -139,6 +139,7 @@ String _getDayName(DateTime date) {
       initialDate: startDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 150)), // 5 mesi
+      locale: const Locale('it', 'IT'),
     );
     
     if (picked != null) {
@@ -161,6 +162,7 @@ String _getDayName(DateTime date) {
       initialDate: endDate ?? DateTime.now().add(const Duration(days: 30)),
       firstDate: startDate ?? DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 150)), // 5 mesi
+      locale: const Locale('it', 'IT'),
     );
     
     if (picked != null) {

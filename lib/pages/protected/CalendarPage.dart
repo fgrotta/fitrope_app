@@ -295,7 +295,8 @@ class _CalendarPageState extends State<CalendarPage> {
                               return primaryLightColor;
                             }
                             return null;
-                          }),),
+                          }),
+                        ),
                           
                       ), 
                       child: Calendar(
@@ -305,7 +306,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         initialDate: DateTime.now(), 
                         firstDate: firstDate, 
                         lastDate: lastDate,
-                        filledDays: courses.map((Course course) => course.startDate.toDate()).toList()
+                        filledDays: courses.map((Course course) => course.startDate.toDate()).toList(),
                       ),
                     ),
                     

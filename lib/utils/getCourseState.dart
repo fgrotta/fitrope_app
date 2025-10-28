@@ -2,6 +2,7 @@ import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 
 CourseState getCourseState(Course course, FitropeUser user) {
   int courseDay = course.startDate.millisecondsSinceEpoch;
@@ -16,7 +17,11 @@ CourseState getCourseState(Course course, FitropeUser user) {
   if((user.fineIscrizione != null && courseDate.isAfter(user.fineIscrizione!.toDate()))) {
       return CourseState.EXPIRED;
   }
-  
+  // Verifica se l'utente può accedere al corso basandosi sui tag
+  if (!CourseTags.canUserAccessCourse(user.tipologiaCorsoTags, course.tags)) {
+    return CourseState.NULL;
+  }
+  // Usa course.uid per la verifica dell'iscrizione (più affidabile)
   if(user.courses.contains(course.uid)) {
     return CourseState.SUBSCRIBED;// Utente iscritto al corso
   }

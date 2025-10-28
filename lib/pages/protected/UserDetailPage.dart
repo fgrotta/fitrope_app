@@ -9,6 +9,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,6 +37,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late bool selectedIsActive;
   late bool selectedIsAnonymous;
   late DateTime? selectedCertificatoScadenza;
+  late List<String> selectedTipologiaCorsoTags;
   String? errorMsg;
   List<Course> allCourses = [];
 
@@ -53,6 +55,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     selectedIsActive = widget.user.isActive;
     selectedIsAnonymous = widget.user.isAnonymous;
     selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
+    selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
     // print(widget.user.isAnonymous);
     loadCourses();
   }
@@ -94,6 +97,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         selectedIsActive = widget.user.isActive;
         selectedIsAnonymous = widget.user.isAnonymous;
         selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
+        selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
         errorMsg = null;
       }
     });
@@ -163,6 +167,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         isAnonymous: selectedIsAnonymous,
         certificatoScadenza: selectedCertificatoScadenza,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
+        tipologiaCorsoTags: selectedTipologiaCorsoTags,
       );
 
       // Crea un nuovo oggetto utente con i dati aggiornati
@@ -186,6 +191,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ? Timestamp.fromDate(DateTime(selectedCertificatoScadenza!.year, selectedCertificatoScadenza!.month, selectedCertificatoScadenza!.day, 23, 59))
             : null,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
+        tipologiaCorsoTags: selectedTipologiaCorsoTags,
       );
 
       setState(() {
@@ -388,9 +394,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
       return fieldName == 'Nome' || fieldName == 'Cognome' || fieldName == 'Numero di Telefono' || fieldName == 'Anonimo';
     }
 
-    // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo, Fine Iscrizione e Certificato sono gestiti solo dagli Admin
+    // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo, Fine Iscrizione, Certificato e Tipologia Corso sono gestiti solo dagli Admin
     if (fieldName == 'Stato' || fieldName == 'Tipologia' || fieldName == 'Entrate Disponibili' || 
-        fieldName == 'Entrate Settimanali' || fieldName == 'Fine Iscrizione' || fieldName == 'Ruolo' || fieldName == 'Certificato') {
+        fieldName == 'Entrate Settimanali' || fieldName == 'Fine Iscrizione' || fieldName == 'Ruolo' || fieldName == 'Certificato' || fieldName == 'Tipologia Corso') {
       return currentUser.role == 'Admin';
     }
     return true;
@@ -584,6 +590,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
               'Piano di Iscrizione',
               [
                 _buildInfoRow('Tipologia', _getTipologiaLabel(widget.user.tipologiaIscrizione), null, _canEditSpecificField('Tipologia') && isEditing, isTipologiaDropdown: true),
+                _buildInfoRow('Tipologia Corso', widget.user.tipologiaCorsoTags.join(', '), null, _canEditSpecificField('Tipologia Corso') && isEditing, isTagsMultiSelect: true),
                 if (widget.user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE || isAdmin) ...[
                   _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, _canEditSpecificField('Entrate Disponibili') && isEditing),                  
                 ],
@@ -697,7 +704,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false, bool isCertificatoDatePicker = false}) {
+  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false, bool isCertificatoDatePicker = false, bool isTagsMultiSelect = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -726,14 +733,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(10),
                     ] : null,
-                    onChanged: label == 'Numero di Telefono' ? (value) {
-                      // Validazione in tempo reale per il numero di telefono
-                      if (value.isNotEmpty) {
-                        if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-                          // Non mostriamo errore in tempo reale, solo durante il salvataggio
-                        }
-                      }
-                    } : null,
                   )
                 : isEditable && isDropdown
                     ? DropdownButtonFormField<String>(
@@ -801,6 +800,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                     initialDate: initialDate,
                                     firstDate: now,
                                     lastDate: now.add(const Duration(days: 365 * 2)),
+                                    locale: const Locale('it', 'IT'),
                                   );
                                   if (picked != null) {
                                     setState(() {
@@ -910,7 +910,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                     context: context,
                                     initialDate: initialDate,
                                     firstDate: now.subtract(const Duration(days: 180)),
-                                    lastDate: now.add(const Duration(days: 400)), 
+                                    lastDate: now.add(const Duration(days: 400)),
+                                    locale: const Locale('it', 'IT'),
                                   );
                                   if (picked != null) {
                                     setState(() {
@@ -937,6 +938,29 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                     ],
                                   ),
                                 ),
+                              )
+                            : isEditable && isTagsMultiSelect
+                            ? Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: CourseTags.all.map((tag) {
+                                  final isSelected = selectedTipologiaCorsoTags.contains(tag);
+                                  return FilterChip(
+                                    label: Text(tag),
+                                    selected: isSelected,
+                                    onSelected: (selected) {
+                                      setState(() {
+                                        if (selected) {
+                                          selectedTipologiaCorsoTags.add(tag);
+                                        } else {
+                                          selectedTipologiaCorsoTags.remove(tag);
+                                        }
+                                      });
+                                    },
+                                    selectedColor: primaryColor.withOpacity(0.3),
+                                    checkmarkColor: primaryColor,
+                                  );
+                                }).toList(),
                               )
                             : Text(
                                 value,
