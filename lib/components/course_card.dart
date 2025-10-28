@@ -144,7 +144,7 @@ class _CourseCardState extends State<CourseCard> {
     
     // Se è stato aggiunto un utente, aggiorna la lista
     if (result == true) {
-      widget.onRefresh!();
+      widget.onRefresh();
     }
   }
 
