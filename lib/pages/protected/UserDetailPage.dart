@@ -800,6 +800,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                     initialDate: initialDate,
                                     firstDate: now,
                                     lastDate: now.add(const Duration(days: 365 * 2)),
+                                    locale: const Locale('it', 'IT'),
                                   );
                                   if (picked != null) {
                                     setState(() {
@@ -909,7 +910,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                     context: context,
                                     initialDate: initialDate,
                                     firstDate: now.subtract(const Duration(days: 180)),
-                                    lastDate: now.add(const Duration(days: 400)), 
+                                    lastDate: now.add(const Duration(days: 400)),
+                                    locale: const Locale('it', 'IT'),
                                   );
                                   if (picked != null) {
                                     setState(() {

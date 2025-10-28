@@ -190,6 +190,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       initialDate: startDate ?? DateTime.now(),
       firstDate: firstDate,
       lastDate: DateTime(DateTime.now().year + 1),
+      locale: const Locale('it', 'IT'),
     );
     
     if (picked != null) {
