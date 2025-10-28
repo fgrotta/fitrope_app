@@ -794,7 +794,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                   final DateTime now = DateTime.now();
                                   final DateTime initialDate = selectedFineIscrizione != null && selectedFineIscrizione!.isAfter(now)
                                       ? selectedFineIscrizione!
-                                      : now;
+                                      : now.subtract(const Duration(days: 180));
                                   
                                   final DateTime? picked = await showDatePicker(
                                     context: context,

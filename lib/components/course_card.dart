@@ -14,7 +14,10 @@ enum CourseState {
   EXPIRED,
   CAN_SUBSCRIBE,
   FULL,
-  SUBSCRIBED
+  SUBSCRIBED, 
+  LIMIT,
+  SUBSCRIBE_LIMIT,
+  CLOSED
 }
 
 class CourseCard extends StatefulWidget {
@@ -383,18 +386,34 @@ String getDisplayName(FitropeUser user) {
       buttonColor = ghostColor;
       buttonTextColor = Colors.white;
     }
-    else if(widget.courseState == CourseState.NULL) {
-      buttonText = 'Limite entrate settimanali raggiunto';
-      buttonColor = primaryLightColor;
-      buttonTextColor = const Color.fromARGB(86, 255, 255, 255);
+    else if(widget.courseState == CourseState.CLOSED) {
+    // Non mostrare il pulsante se il corso è chiuso
+    return const SizedBox.shrink();
     }
-    else if(
-      widget.courseState == CourseState.FULL ||
-      widget.courseState == CourseState.EXPIRED
-    ) {
+    else if(widget.courseState == CourseState.NULL) {
       buttonText = 'Non disponibile';
       buttonColor = primaryLightColor;
-      buttonTextColor = const Color.fromARGB(86, 255, 255, 255);
+      buttonTextColor = onPrimaryColor;
+    }
+    else if(widget.courseState == CourseState.LIMIT) {
+      buttonText = 'Limite entrate settimanali raggiunto';
+      buttonColor = primaryLightColor;
+      buttonTextColor = onPrimaryColor;
+    }
+    else if(widget.courseState == CourseState.FULL ) {
+      buttonText = 'Corso pieno';
+      buttonColor = primaryLightColor;
+      buttonTextColor = onPrimaryColor;
+    }
+    else if(widget.courseState == CourseState.SUBSCRIBE_LIMIT) {
+      buttonText = 'Entrate disponibili esaurite';
+      buttonColor = primaryLightColor;
+      buttonTextColor = onPrimaryColor;
+    }
+    else if(widget.courseState == CourseState.EXPIRED) {
+      buttonText = 'Abbonamento scaduto';
+      buttonColor = primaryLightColor;
+      buttonTextColor = onPrimaryColor;
     }
     else if(widget.courseState == CourseState.SUBSCRIBED) {
       buttonText = 'Rimuovi iscrizione';

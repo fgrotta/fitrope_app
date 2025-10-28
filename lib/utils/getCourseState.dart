@@ -4,32 +4,35 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 
 CourseState getCourseState(Course course, FitropeUser user) {
-  int today = DateTime.now().millisecondsSinceEpoch;
   int courseDay = course.startDate.millisecondsSinceEpoch;
 
-  if(today > courseDay) {
-    return CourseState.EXPIRED;
-  }
-
-  // Usa course.uid per la verifica dell'iscrizione (più affidabile)
-  if(user.courses.contains(course.uid)) {
-    return CourseState.SUBSCRIBED;
-  }
-
-  if(course.capacity <= course.subscribed) {
-    return CourseState.FULL;
+  if(DateTime.now().millisecondsSinceEpoch > courseDay) {
+    return CourseState.CLOSED;// Corso passato
   }
 
   // Definisce courseDate per i controlli di scadenza
   DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
-    // Controlla prima se l'abbonamento è scaduto
-  if((user.fineIscrizione != null && courseDate.isAfter(user.fineIscrizione!.toDate()))|| user.entrateSettimanali == null) {
-      return CourseState.NULL;
+  // Controlla prima se l'abbonamento è scaduto
+  if((user.fineIscrizione != null && courseDate.isAfter(user.fineIscrizione!.toDate()))) {
+      return CourseState.EXPIRED;
   }
-  if((user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA || user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE) 
-      && (user.entrateDisponibili ?? 0) > 0) {
+  
+  if(user.courses.contains(course.uid)) {
+    return CourseState.SUBSCRIBED;// Utente iscritto al corso
+  }
+
+  if(course.capacity <= course.subscribed) {
+    return CourseState.FULL;// Corso pieno
+  }
+  
+  if((user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA || user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE)){
+   if ((user.entrateDisponibili != null && user.entrateDisponibili! > 0)) {
       return CourseState.CAN_SUBSCRIBE;
-  }
+    }  
+   if(user.entrateDisponibili == 0 || user.entrateDisponibili == null) {
+    return CourseState.SUBSCRIBE_LIMIT;// Prenotazioni esaurite
+    }
+  } 
   
   if(
     user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
@@ -65,7 +68,7 @@ CourseState getCourseState(Course course, FitropeUser user) {
     }
 
     if(subscriptionCounter >= user.entrateSettimanali!) {
-      return CourseState.NULL;
+      return CourseState.LIMIT;
     }
 
     return CourseState.CAN_SUBSCRIBE;
