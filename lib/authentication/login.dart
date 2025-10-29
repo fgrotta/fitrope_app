@@ -1,6 +1,8 @@
 // ignore_for_file: avoid_print
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
@@ -50,6 +52,15 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
           await FirebaseAuth.instance.signOut();
           return SignInResponse(error: "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
         }
+        
+        // Popola la cache degli utenti in background
+        unawaited(
+          getUsers().catchError((error) {
+            // Gestione silenziosa degli errori - non blocca il processo di login
+            print('Background cache population failed: $error');
+            return <FitropeUser>[];
+          })
+        );
         
         return SignInResponse(user: fitropeUser, error: "");
       }

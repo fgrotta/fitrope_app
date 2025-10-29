@@ -5,12 +5,12 @@ import 'package:fitrope_app/utils/course_tags.dart';
 // Cache per gli utenti
 List<FitropeUser>? _cachedUsers;
 DateTime? _lastCacheTime;
-const Duration _cacheDuration = Duration(minutes: 1);
+const Duration _cacheDuration = Duration(minutes: 5);
 
 // Cache per i trainer
 List<FitropeUser>? _cachedTrainers;
 DateTime? _lastTrainersCacheTime;
-const Duration _trainersCacheDuration = Duration(minutes: 1);
+const Duration _trainersCacheDuration = Duration(minutes: 5);
 
 
 
@@ -24,9 +24,9 @@ Future<FitropeUser?> getUser(String uid) async {
   return FitropeUser.fromJson(data);
 }
 
-Future<List<FitropeUser>> getUsers({bool force = false}) async {
+Future<List<FitropeUser>> getUsers() async {
   // Controlla se la cache è ancora valida
-  if (_cachedUsers != null && _lastCacheTime != null && !force) {
+  if (_cachedUsers != null && _lastCacheTime != null) {
     final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
     if (timeSinceLastCache < _cacheDuration) {
       // Ritorna i dati dalla cache
