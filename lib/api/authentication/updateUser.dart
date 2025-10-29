@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
+import 'package:fitrope_app/api/authentication/getUsersWithExpiringSubscriptions.dart';
 
 Future<void> updateUser({
   required String uid,
@@ -44,6 +45,7 @@ Future<void> updateUser({
 
     invalidateUsersCache(); // Invalida la cache dopo l'aggiornamento
     invalidateUsersWithExpiringCertificatesCache(); 
+    invalidateUsersWithExpiringSubscriptionsCache();
     print('User updated successfully: $uid ');
   } catch (e) {
     print('Error updating user: $e');
