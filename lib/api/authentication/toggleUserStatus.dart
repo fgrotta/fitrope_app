@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/utils/user_cache_manager.dart';
 
 Future<void> toggleUserStatus(String uid, bool isActive) async {
   try {
@@ -10,7 +10,7 @@ Future<void> toggleUserStatus(String uid, bool isActive) async {
       'isActive': isActive,
     });
 
-    invalidateUsersCache(); // Invalida la cache dopo l'aggiornamento
+    invalidateAllUserCaches(); // Invalida tutte le cache degli utenti dopo l'aggiornamento
     print('User status updated successfully: $uid - isActive: $isActive');
   } catch (e) {
     print('Error updating user status: $e');

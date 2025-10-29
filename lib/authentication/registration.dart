@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/user_cache_manager.dart';
 
 class SignUpResponse {
   final FitropeUser? user;
@@ -40,6 +41,9 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
       'role': 'User',
       'numeroTelefono': numeroTelefono,
     });
+
+    // Invalida tutte le cache degli utenti dopo la registrazione
+    invalidateAllUserCaches();
 
     await userCredential.user!.sendEmailVerification();
     print("Email di verifica inviata a $email");

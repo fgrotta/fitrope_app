@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/utils/user_cache_manager.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 
 class CreateUserResponse {
@@ -56,8 +56,8 @@ Future<CreateUserResponse> createUser({
 
     await postsRef.doc(newID).set(userData);
 
-    // Invalida la cache degli utenti
-    invalidateUsersCache();
+    // Invalida tutte le cache degli utenti
+    invalidateAllUserCaches();
 
     // Crea l'oggetto FitropeUser per la risposta
     final fitropeUser = FitropeUser(

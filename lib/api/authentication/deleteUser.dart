@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/utils/user_cache_manager.dart';
 
 Future<void> deleteUser(String uid) async {
   try {
@@ -11,8 +11,8 @@ Future<void> deleteUser(String uid) async {
     // Nota: Questa operazione richiede privilegi di amministratore
     // await FirebaseAuth.instance.deleteUser(uid);
     
-    // Invalida le cache dopo l'eliminazione di un utente
-    invalidateUsersCache();
+    // Invalida tutte le cache degli utenti dopo l'eliminazione
+    invalidateAllUserCaches();
     
     print('User deleted successfully: $uid');
   } catch (e) {
