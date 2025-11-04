@@ -7,6 +7,10 @@ DateTime? _lastCacheTime;
 const Duration _cacheDuration = Duration(minutes: 1);
 
 Future<List<Course>> getAllCourses({bool force = false}) async {
+  // Calcola la data di 45 giorni fa
+  final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+  final cutoffTimestamp = Timestamp.fromDate(cutoffDate);
+
   // Controlla se la cache è ancora valida
   if (_cachedCourses != null && _lastCacheTime != null && !force) {
     final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
@@ -17,7 +21,10 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
   }
 
   CollectionReference collectionRef = FirebaseFirestore.instance.collection('courses');
-  QuerySnapshot querySnapshot = await collectionRef.get();
+  // Filtra i corsi con startDate successiva a 45 giorni fa
+  QuerySnapshot querySnapshot = await collectionRef
+      .where('startDate', isGreaterThan: cutoffTimestamp)
+      .get();
 
   List<Course> courses = [];
 

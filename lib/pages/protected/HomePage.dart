@@ -634,8 +634,7 @@ class _HomePageState extends State<HomePage> {
     for(int n=0; n<user.courses.length; n++) {
       // Usa course.uid invece di course.id per la sincronizzazione
       Course? course = allCourses.where((Course course) => course.uid == user.courses[n]).firstOrNull;
-
-      if(course != null && getCourseState(course, user) != CourseState.EXPIRED) {
+      if(course != null &&  DateTime.now().isBefore(course.endDate.toDate())) {
         render.add(
           CoursePreviewCard(
             course: course,
