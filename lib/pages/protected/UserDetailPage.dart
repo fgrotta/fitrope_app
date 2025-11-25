@@ -108,7 +108,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     
     var userCoursesIds = widget.user.courses.length > 10 ? widget.user.courses.sublist(widget.user.courses.length - 10) : widget.user.courses;
     for (String courseId in userCoursesIds) {
-      Course? course = allCourses.where((c) => c.id == courseId).firstOrNull;
+      Course? course = allCourses.where((c) => c.uid == courseId).firstOrNull;
       if (course != null) {
         String courseName = course.name;
         String courseDate = DateFormat('dd/MM/yyyy').format(course.startDate.toDate());

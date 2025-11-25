@@ -108,7 +108,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void onSubscribe(Course course) {
-    subscribeToCourse(course.id, user.uid).then((_) {
+    subscribeToCourse(course.uid, user.uid).then((_) {
       setState(() { 
         updateCourses();
       });

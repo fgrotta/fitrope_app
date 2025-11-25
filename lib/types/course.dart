@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Course {
-  @Deprecated('Use uid instead')
-  final String id;
   final String uid;
   final String name;
   final Timestamp startDate;
@@ -13,8 +11,6 @@ class Course {
   final List<String> tags; // Tag per limitare l'accesso al corso
 
   const Course({ 
-    @Deprecated('Use uid instead')
-    required this.id, 
     required this.uid,
     required this.name, 
     required this.startDate, 
@@ -26,14 +22,14 @@ class Course {
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
-    var localUid = '';
-    if (json['uid'] != null) {
-      localUid = json['uid'] as String;
-    } else {
-      localUid = json['id'] as String;
+    // Usa solo uid, non più id
+    var localUid = json['uid'] as String? ?? '';
+    
+    if (localUid.isEmpty) {
+      throw Exception('Course must have a uid field');
     }
+    
     return Course(
-      id: localUid,
       uid: localUid,
       name: json['name'] as String,
       startDate: json['startDate'] as Timestamp,
@@ -47,7 +43,6 @@ class Course {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': uid,
       'uid': uid,
       'name': name,
       'startDate': startDate,

@@ -289,7 +289,6 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         
         final updatedCourse = Course(
           uid: widget.courseToEdit!.uid,
-          id: widget.courseToEdit!.uid,
           name: name,
           startDate: Timestamp.fromDate(startDate!),
           endDate: Timestamp.fromDate(endDate),
@@ -308,7 +307,6 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         
         final newCourse = Course(
           uid: '',
-          id: '',
           name: name,
           startDate: Timestamp.fromDate(startDate!),
           endDate: Timestamp.fromDate(endDate),
