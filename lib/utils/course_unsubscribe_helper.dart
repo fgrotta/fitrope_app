@@ -28,16 +28,20 @@ class CourseUnsubscribeHelper {
     print('📊 Info disiscrizione: $unsubscribeInfo');
     
     if (unsubscribeInfo['requiresConfirmation']) {
-      // Mostra dialog di conferma per perdita credito
-      bool confirmed = await _showConfirmationDialog(context, course);   
+      // Mostra dialog di conferma per perdita credito/ingresso settimanale
+      bool confirmed = await _showConfirmationDialog(
+        context, 
+        course,
+        isTemporalSubscription: unsubscribeInfo['isTemporalSubscription'] ?? false,
+      );   
       
       if (!confirmed) {
         print('❌ Disiscrizione annullata dall\'utente');
         return false; // L'utente ha annullato
       }
       
-      // L'utente conferma di voler perdere il credito
-      print('🔥 Esecuzione disiscrizione forzata (credito perso)');
+      // L'utente conferma di voler perdere il credito/ingresso settimanale
+      print('🔥 Esecuzione disiscrizione forzata (credito/ingresso perso)');
       try {
         await forceUnsubscribeWithNoRefund(course.uid, user.uid);
         print('✅ Disiscrizione forzata completata');
@@ -62,11 +66,25 @@ class CourseUnsubscribeHelper {
     }
   }
   
-  /// Mostra il dialog di conferma per la perdita del credito
-  static Future<bool> _showConfirmationDialog(BuildContext context, Course course) async {
+  /// Mostra il dialog di conferma per la perdita del credito o ingresso settimanale
+  static Future<bool> _showConfirmationDialog(
+    BuildContext context, 
+    Course course,
+    {required bool isTemporalSubscription}
+  ) async {
     DateTime courseStart = course.startDate.toDate();
     String courseTime = '${courseStart.hour.toString().padLeft(2, '0')}:${courseStart.minute.toString().padLeft(2, '0')}';
     String courseDate = '${courseStart.day}/${courseStart.month}/${courseStart.year}';
+    
+    // Determina il messaggio in base al tipo di abbonamento
+    String warningMessage;
+    int hoursThreshold = isTemporalSubscription ? 4 : 8;
+    
+    if (isTemporalSubscription) {
+      warningMessage = 'ATTENZIONE: Mancano meno di $hoursThreshold ore all\'inizio del corso, confermando la disiscrizione perderai definitivamente l\'ingresso settimanale per questa settimana.';
+    } else {
+      warningMessage = 'ATTENZIONE: Mancano meno di $hoursThreshold ore all\'inizio del corso, confermando la disiscrizione perderai definitivamente l\'ingresso.';
+    }
     
     return await showDialog<bool>(
       context: context,
@@ -80,9 +98,9 @@ class CourseUnsubscribeHelper {
             children: [
               Text('Stai per disiscriverti dal corso "${course.name}" del ${courseDate} alle ${courseTime}'),
               const SizedBox(height: 8),
-              const Text(
-                'ATTENZIONE: Mancano meno di 8 ore all\'inizio del corso, confermando la disiscrizione perderai definitivamente l\'ingresso.',
-                style: TextStyle(
+              Text(
+                warningMessage,
+                style: const TextStyle(
                   color: Colors.red,
                   fontWeight: FontWeight.bold,
                 ),
@@ -156,7 +174,8 @@ class CourseUnsubscribeHelper {
     DateTime courseStart = course.startDate.toDate();
     DateTime now = DateTime.now();
     Duration difference = courseStart.difference(now);
-    int hoursDifference = difference.inHours;
+    int hoursDifference = 2;
+    //int hoursDifference = difference.inHours;
     
     print('📅 Inizio corso: $courseStart');
     print('🕐 Ora attuale: $now');
@@ -164,15 +183,32 @@ class CourseUnsubscribeHelper {
     
     bool isPacchettoEntrate = user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE;
     bool isAbbonamentoProva = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA;
-    bool requiresConfirmation = (isPacchettoEntrate || isAbbonamentoProva) && hoursDifference <= 8;
+    bool isTemporalSubscription = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
+        user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
+        user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
+        user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE;
+    
+    // Per pacchetti entrate: conferma se <= 8 ore
+    // Per abbonamenti temporali: conferma se <= 4 ore
+    bool requiresConfirmation = false;
+    if (isPacchettoEntrate || isAbbonamentoProva) {
+      requiresConfirmation = hoursDifference <= 8;
+    } else if (isTemporalSubscription) {
+      requiresConfirmation = hoursDifference <= 4;
+    }
     
     print('💳 È pacchetto entrate: $isPacchettoEntrate');
+    print('📅 È abbonamento temporale: $isTemporalSubscription');
     print('⚠️ Richiede conferma: $requiresConfirmation');
     
     String message = '';
     if (requiresConfirmation) {
-      message = 'Disiscrizione a meno di 8 ore: perderai il credito';
-    } else if (isPacchettoEntrate) {
+      if (isTemporalSubscription) {
+        message = 'Disiscrizione a meno di 4 ore: perderai l\'ingresso settimanale';
+      } else {
+        message = 'Disiscrizione a meno di 8 ore: perderai il credito';
+      }
+    } else if (isPacchettoEntrate || isAbbonamentoProva) {
       message = 'Disiscrizione: il credito ti sarà rimborsato';
     } else {
       message = 'Disiscrizione: liberi il posto nel corso';
@@ -184,7 +220,8 @@ class CourseUnsubscribeHelper {
       'canUnsubscribe': true,
       'requiresConfirmation': requiresConfirmation,
       'message': message,
-      'isPacchettoEntrate': isPacchettoEntrate || isAbbonamentoProva, // Includi anche ABBONAMENTO_PROVA
+      'isPacchettoEntrate': isPacchettoEntrate || isAbbonamentoProva,
+      'isTemporalSubscription': isTemporalSubscription,
       'hoursRemaining': hoursDifference,
     };
   }
