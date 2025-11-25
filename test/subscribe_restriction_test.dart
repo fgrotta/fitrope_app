@@ -15,7 +15,6 @@ void main() {
     setUp(() {
       // Crea un corso di test
       testCourse = Course(
-        id: 'test-course-1',
         uid: 'test-course-1',
         name: 'Corso di Test',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 24))),
