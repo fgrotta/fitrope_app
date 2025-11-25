@@ -174,8 +174,7 @@ class CourseUnsubscribeHelper {
     DateTime courseStart = course.startDate.toDate();
     DateTime now = DateTime.now();
     Duration difference = courseStart.difference(now);
-    int hoursDifference = 2;
-    //int hoursDifference = difference.inHours;
+    int hoursDifference = difference.inHours;
     
     print('📅 Inizio corso: $courseStart');
     print('🕐 Ora attuale: $now');
