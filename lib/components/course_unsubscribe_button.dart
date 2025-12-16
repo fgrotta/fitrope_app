@@ -3,7 +3,8 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 
-/// Pulsante di disiscrizione intelligente che gestisce automaticamente i controlli delle 8 ore
+/// Pulsante di disiscrizione intelligente che gestisce automaticamente i controlli temporali
+/// (4 ore per abbonamenti temporali, 8 ore per pacchetti entrate)
 class CourseUnsubscribeButton extends StatefulWidget {
   final Course course;
   final FitropeUser user;
