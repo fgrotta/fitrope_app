@@ -28,8 +28,8 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
-  DateTime firstDate = DateTime(DateTime.now().year);
-  DateTime lastDate = DateTime(DateTime.now().year + 1);
+  DateTime firstDate = DateTime(DateTime.now().year, 1, 1);
+  DateTime lastDate = DateTime(DateTime.now().year + 1, 12, 31);
   List<Course> courses = [];
   List<FitropeUser> trainers = [];
   Map<String, List<Course>> coursesByDate = {};
