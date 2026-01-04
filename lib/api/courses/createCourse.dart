@@ -6,11 +6,12 @@ Future<Course?> createCourse(Course course) async {
   try {
     CollectionReference postsRef = FirebaseFirestore.instance.collection('courses');
     
-    // Se l'uid non è presente, genera un uid univoco
+    // Se l'id non è presente, genera un id univoco
     if (course.uid.isEmpty) {
       var newID = postsRef.doc().id;
-      Course newCourse = Course(
+      Course newCourse = new Course(
         uid: newID,
+        id: newID, //Deprecated
         name: course.name, 
         startDate: course.startDate, 
         endDate: course.endDate, 
@@ -19,10 +20,10 @@ Future<Course?> createCourse(Course course) async {
         trainerId: course.trainerId,
         tags: course.tags,
       );
-      await postsRef.doc(newCourse.uid).set(newCourse.toJson());
+      await postsRef.doc(newCourse.id).set(newCourse.toJson());
       invalidateCoursesCache(); // Invalida la cache dopo la creazione
       
-      print('Course created successfully with UID: ${newCourse.uid}');
+      print('Course created successfully with ID: ${newCourse.id}');
       return newCourse;
     } else { 
       print('Course already exists');

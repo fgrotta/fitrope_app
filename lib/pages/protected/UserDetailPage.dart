@@ -106,8 +106,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
   List<Map<String, String>> getUserCourses() {
     List<Map<String, String>> userCourses = [];
     
-    for (String courseId in widget.user.courses) {
-      Course? course = allCourses.where((c) => c.uid == courseId).firstOrNull;
+    var userCoursesIds = widget.user.courses.length > 10 ? widget.user.courses.sublist(widget.user.courses.length - 10) : widget.user.courses;
+    for (String courseId in userCoursesIds) {
+      Course? course = allCourses.where((c) => c.id == courseId).firstOrNull;
       if (course != null) {
         String courseName = course.name;
         String courseDate = DateFormat('dd/MM/yyyy').format(course.startDate.toDate());

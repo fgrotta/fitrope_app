@@ -314,6 +314,7 @@ String _getDayName(DateTime date) {
         
         final newCourse = Course(
           uid: '',
+          id: '',
           name: name,
           startDate: Timestamp.fromDate(courseDate),
           endDate: Timestamp.fromDate(endDate),

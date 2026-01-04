@@ -2,7 +2,7 @@ name: fitrope_app
 description: "Fitrope App"
 publish_to: 'none'
 
-version: 1.0.1+12
+version: 1.0.0+13
 
 environment:
   sdk: '>=3.5.0-180.3.beta <4.0.0'
