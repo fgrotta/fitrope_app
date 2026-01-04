@@ -1,5 +1,37 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class CancelledEnrollment {
+  final String courseId;
+  final Timestamp cancelledAt;
+  final bool entryLost; // true se l'ingresso settimanale è stato perso
+  final Timestamp courseStartDate; // per calcolare la settimana
+
+  const CancelledEnrollment({
+    required this.courseId,
+    required this.cancelledAt,
+    required this.entryLost,
+    required this.courseStartDate,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'courseId': courseId,
+      'cancelledAt': cancelledAt,
+      'entryLost': entryLost,
+      'courseStartDate': courseStartDate,
+    };
+  }
+
+  factory CancelledEnrollment.fromJson(Map<String, dynamic> json) {
+    return CancelledEnrollment(
+      courseId: json['courseId'] as String,
+      cancelledAt: json['cancelledAt'] as Timestamp,
+      entryLost: json['entryLost'] as bool,
+      courseStartDate: json['courseStartDate'] as Timestamp,
+    );
+  }
+}
+
 class FitropeUser {
   final String uid;
   final String email;
@@ -17,6 +49,7 @@ class FitropeUser {
   final Timestamp? certificatoScadenza;
   final String? numeroTelefono;
   final List<String> tipologiaCorsoTags; // Tag per limitare l'accesso ai corsi
+  final List<CancelledEnrollment> cancelledEnrollments; // Tracciamento disiscrizioni
 
   const FitropeUser({
     required this.name, 
@@ -35,6 +68,7 @@ class FitropeUser {
     this.certificatoScadenza,
     this.numeroTelefono,
     this.tipologiaCorsoTags = const ['Tutti i corsi'],
+    this.cancelledEnrollments = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -55,6 +89,7 @@ class FitropeUser {
       'certificatoScadenza': certificatoScadenza,
       'numeroTelefono': numeroTelefono,
       'tipologiaCorsoTags': tipologiaCorsoTags,
+      'cancelledEnrollments': cancelledEnrollments.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -84,6 +119,9 @@ class FitropeUser {
       tipologiaCorsoTags: (json['tipologiaCorsoTags'] as List<dynamic>?)
           ?.map((tag) => tag.toString())
           .toList() ?? ['Open'],
+      cancelledEnrollments: (json['cancelledEnrollments'] as List<dynamic>?)
+          ?.map((item) => CancelledEnrollment.fromJson(item as Map<String, dynamic>))
+          .toList() ?? [],
     );
   }
 }

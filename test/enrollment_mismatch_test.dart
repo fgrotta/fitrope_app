@@ -12,7 +12,6 @@ void main() {
     setUp(() {
       // Crea un corso di test
       testCourse = Course(
-        id: 'test-course-1',
         uid: 'test-course-1',
         name: 'Corso di Test',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
@@ -72,7 +71,6 @@ void main() {
     test('should not detect mismatch when counts match', () {
       // Crea un corso con subscribed = 4 per matchare i 4 utenti
       Course matchingCourse = Course(
-        id: 'test-course-2',
         uid: 'test-course-2',
         name: 'Corso Matching',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),

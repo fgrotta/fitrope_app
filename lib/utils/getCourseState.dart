@@ -45,34 +45,9 @@ CourseState getCourseState(Course course, FitropeUser user) {
     user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
     user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE
   ) {
-    List<Course> allCourses = store.state.allCourses;
-    List<Course> allSubscribedCourse = [];
-
-    for(int n=0;n<user.courses.length;n++) {
-      Course? course = allCourses.where((Course course) => course.uid == user.courses[n]).firstOrNull;
-      if(course != null) {
-        allSubscribedCourse.add(course);
-      }
-    }
-
-    int subscriptionCounter = 0;
-
-    DateTime startOfWeek = courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
-    startOfWeek = DateTime.utc(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-    DateTime endOfWeek = startOfWeek.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
-    int startOfWeekMillis = startOfWeek.millisecondsSinceEpoch;
-    int endOfWeekMillis = endOfWeek.millisecondsSinceEpoch;
-
-    for(int n=0;n<allSubscribedCourse.length;n++) {
-      int courseStart = allSubscribedCourse[n].startDate.millisecondsSinceEpoch;
-      bool isWithinCourseWeek = courseStart >= startOfWeekMillis && courseStart <= endOfWeekMillis;
-
-      if(isWithinCourseWeek) {
-        subscriptionCounter += 1;
-      }
-    }
-
-    if(subscriptionCounter >= user.entrateSettimanali!) {
+    int weeklyEntriesUsed = _countWeeklyEntries(courseDate, user);
+    
+    if(weeklyEntriesUsed >= user.entrateSettimanali!) {
       return CourseState.LIMIT;
     }
 
@@ -80,4 +55,64 @@ CourseState getCourseState(Course course, FitropeUser user) {
   }
 
   return CourseState.NULL;
+}
+
+/// Conta gli ingressi settimanali usati considerando corsi attivi e disiscrizioni perse
+/// 
+/// [courseDate] - La data del corso per calcolare la settimana
+/// [user] - L'utente di cui contare gli ingressi
+/// 
+/// Restituisce il numero di ingressi settimanali usati (corsi attivi + disiscrizioni perse)
+/// Le disiscrizioni perse (entryLost: true) contano come ingressi usati perché l'ingresso è stato perso
+int _countWeeklyEntries(DateTime courseDate, FitropeUser user) {
+  List<Course> allCourses = store.state.allCourses;
+  List<Course> allSubscribedCourse = [];
+
+  // Trova tutti i corsi a cui l'utente è iscritto
+  for(int n=0;n<user.courses.length;n++) {
+    Course? course = allCourses.where((Course course) => course.uid == user.courses[n]).firstOrNull;
+    if(course != null) {
+      allSubscribedCourse.add(course);
+    }
+  }
+
+  // Calcola l'inizio e la fine della settimana del corso
+  DateTime startOfWeek = courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
+  startOfWeek = DateTime.utc(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+  DateTime endOfWeek = startOfWeek.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
+  int startOfWeekMillis = startOfWeek.millisecondsSinceEpoch;
+  int endOfWeekMillis = endOfWeek.millisecondsSinceEpoch;
+
+  // Conta i corsi attivi nella settimana
+  int activeCoursesCount = 0;
+  for(int n=0;n<allSubscribedCourse.length;n++) {
+    int courseStart = allSubscribedCourse[n].startDate.millisecondsSinceEpoch;
+    bool isWithinCourseWeek = courseStart >= startOfWeekMillis && courseStart <= endOfWeekMillis;
+
+    if(isWithinCourseWeek) {
+      activeCoursesCount += 1;
+    }
+  }
+
+  // Conta le disiscrizioni perse nella stessa settimana
+  // Le disiscrizioni perse (entryLost: true) contano come ingressi usati
+  int lostEntriesCount = 0;
+  for(var cancelled in user.cancelledEnrollments) {
+    if (cancelled.entryLost) {
+      DateTime cancelledCourseDate = cancelled.courseStartDate.toDate();
+      int cancelledCourseStart = cancelledCourseDate.millisecondsSinceEpoch;
+      bool isWithinCourseWeek = cancelledCourseStart >= startOfWeekMillis && cancelledCourseStart <= endOfWeekMillis;
+      
+      if(isWithinCourseWeek) {
+        lostEntriesCount += 1;
+      }
+    }
+  }
+  
+  // Gli ingressi usati = corsi attivi + disiscrizioni perse
+  // Esempio: se un utente ha 2 ingressi settimanali, è iscritto a 1 corso e ha 1 disiscrizione persa,
+  // allora ha usato 2 ingressi (1 attivo + 1 perso), quindi non può iscriversi ad altri corsi
+  int weeklyEntriesUsed = activeCoursesCount + lostEntriesCount;
+  
+  return weeklyEntriesUsed;
 }

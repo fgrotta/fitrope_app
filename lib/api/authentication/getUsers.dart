@@ -47,6 +47,9 @@ Future<List<FitropeUser>> getUsers() async {
         lastName: data['lastName'] ?? '',
         role: data['role'] ?? 'User',
         courses: List<String>.from(data['courses'] ?? []),
+        cancelledEnrollments: (data['cancelledEnrollments'] as List<dynamic>?)
+          ?.map((item) => CancelledEnrollment.fromJson(item as Map<String, dynamic>))
+          .toList() ?? [],
         tipologiaIscrizione: data['tipologiaIscrizione'] != null 
             ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == data['tipologiaIscrizione']).firstOrNull
             : null,

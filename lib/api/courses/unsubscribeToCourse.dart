@@ -59,6 +59,10 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
             String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
             bool isPacchettoEntrate = tipologiaIscrizione == 'PACCHETTO_ENTRATE';
             bool isAbbonamentoProva = tipologiaIscrizione == 'ABBONAMENTO_PROVA';
+            bool isTemporalSubscription = tipologiaIscrizione == 'ABBONAMENTO_MENSILE' ||
+                tipologiaIscrizione == 'ABBONAMENTO_TRIMESTRALE' ||
+                tipologiaIscrizione == 'ABBONAMENTO_SEMESTRALE' ||
+                tipologiaIscrizione == 'ABBONAMENTO_ANNUALE';
             int? entrateDisponibili = userSnapshot['entrateDisponibili'];
             
             if (isPacchettoEntrate || isAbbonamentoProva) {
@@ -66,11 +70,30 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
               print('💳 Nuove entrate disponibili: $nuoveEntrate');
             }
             
-            // Aggiorna l'utente
-            transaction.update(userRef, {
+            // Prepara l'aggiornamento per cancelledEnrollments (solo per abbonamenti temporali)
+            Map<String, dynamic>? userData = userSnapshot.data() as Map<String, dynamic>?;
+            List<dynamic> cancelledEnrollments = (userData?['cancelledEnrollments'] as List<dynamic>?) ?? [];
+            Map<String, dynamic> updateData = {
               'courses': userCourses,
               'entrateDisponibili': userSnapshot['entrateDisponibili'] + ((isPacchettoEntrate || isAbbonamentoProva) ? 1 : 0)
-            });
+            };
+            
+            // Per abbonamenti temporali: traccia la disiscrizione con entryLost: false
+            if (isTemporalSubscription) {
+              Timestamp courseStartDate = courseSnapshot['startDate'] as Timestamp;
+              Map<String, dynamic> cancelledEnrollment = {
+                'courseId': courseId,
+                'cancelledAt': Timestamp.now(),
+                'entryLost': false, // Disiscrizione > 4 ore, ingresso non perso
+                'courseStartDate': courseStartDate,
+              };
+              cancelledEnrollments.add(cancelledEnrollment);
+              updateData['cancelledEnrollments'] = cancelledEnrollments;
+              print('📝 Tracciata disiscrizione per abbonamento temporale (entryLost: false)');
+            }
+            
+            // Aggiorna l'utente
+            transaction.update(userRef, updateData);
             
               
           } else {
@@ -167,12 +190,37 @@ Future<void> forceUnsubscribeWithNoRefund(String courseId, String userId) async 
             // Rimuovi il corso dalla lista utente
             userCourses.remove(courseId);
 
-            // Per la disiscrizione forzata, non viene mai rimborsato il credito
-            // indipendentemente dal tipo di abbonamento
-            transaction.update(userRef, {
+            // Prepara i dati per l'aggiornamento utente
+            String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
+            bool isTemporalSubscription = tipologiaIscrizione == 'ABBONAMENTO_MENSILE' ||
+                tipologiaIscrizione == 'ABBONAMENTO_TRIMESTRALE' ||
+                tipologiaIscrizione == 'ABBONAMENTO_SEMESTRALE' ||
+                tipologiaIscrizione == 'ABBONAMENTO_ANNUALE';
+            
+            Map<String, dynamic> updateData = {
               'courses': userCourses,
               // Non incrementa entrateDisponibili - il credito viene perso
-            });
+            };
+            
+            // Per abbonamenti temporali: traccia la disiscrizione con entryLost: true
+            if (isTemporalSubscription) {
+              Map<String, dynamic>? userData = userSnapshot.data() as Map<String, dynamic>?;
+              List<dynamic> cancelledEnrollments = (userData?['cancelledEnrollments'] as List<dynamic>?) ?? [];
+              Timestamp courseStartDate = courseSnapshot['startDate'] as Timestamp;
+              Map<String, dynamic> cancelledEnrollment = {
+                'courseId': courseId,
+                'cancelledAt': Timestamp.now(),
+                'entryLost': true, // Disiscrizione < 4 ore, ingresso perso
+                'courseStartDate': courseStartDate,
+              };
+              cancelledEnrollments.add(cancelledEnrollment);
+              updateData['cancelledEnrollments'] = cancelledEnrollments;
+              print('📝 Tracciata disiscrizione persa per abbonamento temporale (entryLost: true)');
+            }
+            
+            // Per la disiscrizione forzata, non viene mai rimborsato il credito
+            // indipendentemente dal tipo di abbonamento
+            transaction.update(userRef, updateData);
             
             
           } else {
