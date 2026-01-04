@@ -8,7 +8,7 @@ const Duration _cacheDuration = Duration(minutes: 1);
 
 Future<List<Course>> getAllCourses({bool force = false}) async {
   // Calcola la data di 45 giorni fa
-  final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+  final cutoffDate = DateTime.now().subtract(const Duration(days: 150));
   final cutoffTimestamp = Timestamp.fromDate(cutoffDate);
 
   // Controlla se la cache è ancora valida

@@ -106,22 +106,47 @@ class _UserDetailPageState extends State<UserDetailPage> {
   List<Map<String, String>> getUserCourses() {
     List<Map<String, String>> userCourses = [];
     
-    var userCoursesIds = widget.user.courses.length > 10 ? widget.user.courses.sublist(widget.user.courses.length - 10) : widget.user.courses;
-    for (String courseId in userCoursesIds) {
+    for (String courseId in widget.user.courses) {
       Course? course = allCourses.where((c) => c.uid == courseId).firstOrNull;
       if (course != null) {
         String courseName = course.name;
         String courseDate = DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
+        // Determina la tipologia del corso (usa il primo tag o 'Open' come default)
+        String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
         userCourses.add({
           'name': courseName,
           'date': courseDate,
+          'tipologia': tipologia,
         });
       }
     }
     
-    // Ordina per data (più recenti prima) e prendi solo gli ultimi 10
-    userCourses.sort((a, b) => DateFormat('dd/MM/yyyy').parse(b['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!)));
+    // Ordina per titolo del corso e poi per data (più recenti prima)
+    userCourses.sort((a, b) {
+      int nameComparison = a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase());
+      if (nameComparison != 0) {
+        return nameComparison;
+      }
+      // Se i titoli sono uguali, ordina per data (più recenti prima)
+      return DateFormat('dd/MM/yyyy').parse(b['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!));
+    });
     return userCourses;
+  }
+
+  Map<String, List<Map<String, String>>> getUserCoursesByTipologia() {
+    List<Map<String, String>> allUserCourses = getUserCourses();
+    Map<String, List<Map<String, String>>> coursesByTipologia = {};
+    
+    // Raggruppa i corsi per tipologia e applica il limite per ogni tipologia
+    for (var courseInfo in allUserCourses) {
+      String tipologia = courseInfo['tipologia'] ?? 'Open';
+      if (!coursesByTipologia.containsKey(tipologia)) {
+        coursesByTipologia[tipologia] = [];
+      }
+        coursesByTipologia[tipologia]!.add(courseInfo);
+    }
+    
+    return coursesByTipologia;
   }
 
   Future<void> saveChanges() async {
@@ -167,7 +192,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         isAnonymous: selectedIsAnonymous,
         certificatoScadenza: selectedCertificatoScadenza,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
-        tipologiaCorsoTags: selectedTipologiaCorsoTags,
+        tipologiaCorsoTags: selectedTipologiaCorsoTags, 
+        cancelledEnrollments: widget.user.cancelledEnrollments,
       );
 
       // Crea un nuovo oggetto utente con i dati aggiornati
@@ -191,7 +217,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ? Timestamp.fromDate(DateTime(selectedCertificatoScadenza!.year, selectedCertificatoScadenza!.month, selectedCertificatoScadenza!.day, 23, 59))
             : null,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
-        tipologiaCorsoTags: selectedTipologiaCorsoTags,
+        tipologiaCorsoTags: selectedTipologiaCorsoTags, 
+        cancelledEnrollments: widget.user.cancelledEnrollments,
       );
 
       setState(() {
@@ -612,12 +639,22 @@ class _UserDetailPageState extends State<UserDetailPage> {
             
             if (widget.user.courses.isNotEmpty) ...[
               const SizedBox(height: 24),
-              _buildSection(
-                'Ultime 10 iscrizioni',
-                getUserCourses().map((courseInfo) => 
-                  _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false)
-                ).toList(),
-              ),
+              ...getUserCoursesByTipologia().entries.map((entry) {
+                String tipologia = entry.key;
+                List<Map<String, String>> courses = entry.value;
+                int maxCourses = isAdmin ? 20 : 10;
+                return Column(
+                  children: [
+                    _buildSection(
+                      'Ultime $maxCourses iscrizioni - $tipologia',
+                      courses.map((courseInfo) => 
+                        _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false)
+                      ).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              }).toList(),
             ],
             //TODO aggiungere corsi fatti nel caso sia Trainer
             if (errorMsg != null)
