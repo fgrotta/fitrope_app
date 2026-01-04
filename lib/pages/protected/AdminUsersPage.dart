@@ -21,21 +21,44 @@ class AdminUsersPage extends StatefulWidget {
 class _AdminUsersPageState extends State<AdminUsersPage> {
   List<FitropeUser> users = [];
   List<FitropeUser> filteredUsers = [];
+  List<FitropeUser> displayedUsers = []; // Utenti visualizzati nella lista
   TextEditingController searchController = TextEditingController();
+  ScrollController scrollController = ScrollController();
   bool isLoading = true;
+  bool isLoadingMore = false;
+  bool hasMore = true;
   late FitropeUser user;
+  static const int _itemsPerPage = 20; // Numero di utenti da caricare per volta
 
   @override
   void initState() {
     super.initState();
     user = store.state.user!;
     loadUsers();
+    scrollController.addListener(_onScroll);
+  }
 
+  @override
+  void dispose() {
+    scrollController.removeListener(_onScroll);
+    scrollController.dispose();
+    searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (scrollController.position.pixels >= 
+        scrollController.position.maxScrollExtent - 200) {
+      // Carica più elementi quando si è a 200px dalla fine
+      _loadMoreUsers();
+    }
   }
 
   Future<void> loadUsers() async {
     setState(() {
       isLoading = true;
+      displayedUsers = [];
+      hasMore = true;
     });
 
     try {
@@ -46,12 +69,37 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         filteredUsers = usersList;
         isLoading = false;
       });
+      
+      // Carica i primi elementi
+      _loadMoreUsers();
     } catch (e) {
       print('Error loading users: $e');
       setState(() {
         isLoading = false;
       }); 
     }
+  }
+
+  void _loadMoreUsers() {
+    if (isLoadingMore || !hasMore) return;
+
+    setState(() {
+      isLoadingMore = true;
+    });
+
+    // Simula un piccolo delay per evitare troppe chiamate
+    Future.delayed(Duration(milliseconds: 100), () {
+      if (!mounted) return;
+      
+      final currentLength = displayedUsers.length;
+      final nextLength = currentLength + _itemsPerPage;
+      
+      setState(() {
+        displayedUsers = filteredUsers.take(nextLength).toList();
+        hasMore = nextLength < filteredUsers.length;
+        isLoadingMore = false;
+      });
+    });
   }
 
   void filterUsers(String query) {
@@ -66,7 +114,13 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           return fullName.contains(searchQuery) || email.contains(searchQuery);
         }).toList();
       }
+      // Reset della lista visualizzata quando cambia il filtro
+      displayedUsers = [];
+      hasMore = true;
     });
+    
+    // Ricarica i primi elementi dopo il filtro
+    _loadMoreUsers();
   }
 
   void showUserDetails(FitropeUser user) async {
@@ -159,187 +213,219 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     return StoreConnector<AppState, AppState>(
       converter: (store) => store.state,
       builder: (context, state) {
-        return Stack(
-          children: [
-            SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        final screenHeight = MediaQuery.of(context).size.height;
+        final availableHeight = screenHeight * 1; // Usa l'80% dell'altezza dello schermo
+        
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: availableHeight,
+            minHeight: 500,
+          ),
+          child: Stack(
+            children: [
+              Column(
                 children: [
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: pagePadding,
-                      right: pagePadding,
-                      bottom: pagePadding,
-                      top: pagePadding + MediaQuery.of(context).viewPadding.top,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
-                        const Text('Gestione Utenti', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
-                        GestureDetector(
-                          child: CircleAvatar(
-                          backgroundColor: const Color.fromARGB(255, 96, 119, 246),
-                          child: Text(user.name[0] + user.lastName[0]),
-                            ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
-                            );
-                          },
+                      // Header
+                      Padding(
+                        padding: EdgeInsets.only(
+                          left: pagePadding,
+                          right: pagePadding,
+                          bottom: pagePadding,
+                          top: pagePadding + MediaQuery.of(context).viewPadding.top,
                         ),
-                        ],
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: pagePadding),
-                    child: TextField(
-                      controller: searchController,
-                      onChanged: filterUsers,
-                      decoration: const InputDecoration(
-                        hintText: 'Cerca utenti...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                        filled: true,
-                        fillColor: Colors.white,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
+                            const Text('Gestione Utenti', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
+                            GestureDetector(
+                              child: CircleAvatar(
+                              backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                              child: Text(user.name[0] + user.lastName[0]),
+                                ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                                );
+                              },
+                            ),
+                            ],
+                        ),
                       ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: pagePadding),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Utenti (${filteredUsers.length})',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                      // Campo di ricerca
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: pagePadding),
+                        child: TextField(
+                          controller: searchController,
+                          onChanged: filterUsers,
+                          decoration: const InputDecoration(
+                            hintText: 'Cerca utenti...',
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Colors.white,
                           ),
                         ),
-                        ElevatedButton.icon(
-                          onPressed: () => _navigateToCreateUser(),
-                          icon: const Icon(Icons.person_add, color: Colors.white),
-                          label: const Text('Crea Utente', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  ...filteredUsers.map((user) => Container(
-                    margin: EdgeInsets.symmetric(horizontal: pagePadding, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ListTile(
-                      leading: Stack(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: primaryLightColor,
-                            child: Text(
-                              '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          if (!user.isActive)
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                padding: EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.block,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
+                      ),
+                      SizedBox(height: 16),
+                      // Contatore e pulsante
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: pagePadding),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Utenti (${filteredUsers.length})',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                        ],
-                      ),
-                      title: Text('${user.name} ${user.lastName}'),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(user.email),
-                          Text('Ruolo: ${user.role}'),
-                        ],
-                      ),
-                      trailing: PopupMenuButton(
-                        shadowColor: onHintColor,
-                        surfaceTintColor: primaryColor,
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'details',
-                            child: Row(
-                              children: [
-                                Icon(Icons.info),
-                                SizedBox(width: 8),
-                                Text('Dettagli'),
-                              ],
+                            ElevatedButton.icon(
+                              onPressed: () => _navigateToCreateUser(),
+                              icon: const Icon(Icons.person_add, color: Colors.white),
+                              label: const Text('Crea Utente', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              ),
                             ),
-                          ),
-                          PopupMenuItem(
-                            value: 'toggle',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  user.isActive ? Icons.block : Icons.check_circle,
-                                  color: user.isActive ? Colors.orange : Colors.green
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  user.isActive ? 'Disattiva' : 'Attiva',
-                                  style: TextStyle(
-                                    color: user.isActive ? Colors.orange : Colors.green
-                                  )
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onSelected: (value) {
-                          switch (value) {
-                            case 'details':
-                              showUserDetails(user);
-                              break;
-                            case 'toggle':
-                              showToggleUserStatusDialog(user);
-                              break;
-                          }
-                        },
-                      ),
-                      onTap: () => showUserDetails(user),
-                    ),
-                  )).toList(),
-                  if (filteredUsers.isEmpty && !isLoading)
-                    Padding(
-                      padding: EdgeInsets.all(pagePadding),
-                      child: Center(
-                        child: Text(
-                          'Nessun utente trovato',
-                          style: TextStyle(color: ghostColor),
+                          ],
                         ),
                       ),
-                    ),
+                      SizedBox(height: 8),
+                      // Lista con lazy loading
+                      Expanded(
+                        child: filteredUsers.isEmpty && !isLoading
+                            ? Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(pagePadding),
+                                  child: Text(
+                                    'Nessun utente trovato',
+                                    style: TextStyle(color: ghostColor),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                padding: EdgeInsets.symmetric(horizontal: pagePadding),
+                                itemCount: displayedUsers.length + (hasMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index >= displayedUsers.length) {
+                                    // Mostra indicatore di caricamento alla fine
+                                    return Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: primaryColor,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  
+                                  final user = displayedUsers[index];
+                                  return Container(
+                                    margin: EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ListTile(
+                                      leading: Stack(
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor: primaryLightColor,
+                                            child: Text(
+                                              '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
+                                              style: TextStyle(color: Colors.white),
+                                            ),
+                                          ),
+                                          if (!user.isActive)
+                                            Positioned(
+                                              right: 0,
+                                              bottom: 0,
+                                              child: Container(
+                                                padding: EdgeInsets.all(2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.block,
+                                                  color: Colors.white,
+                                                  size: 12,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      title: Text('${user.name} ${user.lastName}'),
+                                      subtitle: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(user.email),
+                                          Text('Ruolo: ${user.role}'),
+                                        ],
+                                      ),
+                                      trailing: PopupMenuButton(
+                                        shadowColor: onHintColor,
+                                        surfaceTintColor: primaryColor,
+                                        itemBuilder: (context) => [
+                                          const PopupMenuItem(
+                                            value: 'details',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.info),
+                                                SizedBox(width: 8),
+                                                Text('Dettagli'),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'toggle',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  user.isActive ? Icons.block : Icons.check_circle,
+                                                  color: user.isActive ? Colors.orange : Colors.green
+                                                ),
+                                                SizedBox(width: 8),
+                                                Text(
+                                                  user.isActive ? 'Disattiva' : 'Attiva',
+                                                  style: TextStyle(
+                                                    color: user.isActive ? Colors.orange : Colors.green
+                                                  )
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        onSelected: (value) {
+                                          switch (value) {
+                                            case 'details':
+                                              showUserDetails(user);
+                                              break;
+                                            case 'toggle':
+                                              showToggleUserStatusDialog(user);
+                                              break;
+                                          }
+                                        },
+                                      ),
+                                      onTap: () => showUserDetails(user),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                  if (isLoading) const Loader(),
                 ],
               ),
-            ),
-            if (isLoading) const Loader(),
-          ],
-        );
+            );
       },
     );
   }
