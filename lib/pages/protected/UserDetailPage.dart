@@ -150,6 +150,57 @@ class _UserDetailPageState extends State<UserDetailPage> {
     return coursesByTipologia;
   }
 
+  List<Map<String, String>> getUserCancelledEnrollments() {
+    List<Map<String, String>> cancelledEnrollments = [];
+    
+    // Prendi le ultime 20 disiscrizioni (o tutte se sono meno di 20)
+    var cancelledList = widget.user.cancelledEnrollments.length > 20 
+        ? widget.user.cancelledEnrollments.sublist(widget.user.cancelledEnrollments.length - 20) 
+        : widget.user.cancelledEnrollments;
+    
+    for (var cancelled in cancelledList) {
+      Course? course = allCourses.where((c) => c.id == cancelled.courseId).firstOrNull;
+      if (course != null) {
+        String courseName = course.name;
+        String cancelledDate = DateFormat('dd/MM/yyyy HH:mm').format(cancelled.cancelledAt.toDate());
+        String courseDate = DateFormat('dd/MM/yyyy').format(cancelled.courseStartDate.toDate());
+        // Determina la tipologia del corso (usa il primo tag o 'Open' come default)
+        String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
+        String status = cancelled.entryLost ? 'Ingresso perso' : 'Ingresso non perso';
+        cancelledEnrollments.add({
+          'name': courseName,
+          'cancelledDate': cancelledDate,
+          'courseDate': courseDate,
+          'tipologia': tipologia,
+          'status': status,
+        });
+      }
+    }
+    
+    // Ordina per data di disiscrizione (più recenti prima)
+    cancelledEnrollments.sort((a, b) {
+      return DateFormat('dd/MM/yyyy HH:mm').parse(b['cancelledDate']!).compareTo(DateFormat('dd/MM/yyyy HH:mm').parse(a['cancelledDate']!));
+    });
+    
+    return cancelledEnrollments;
+  }
+
+  Map<String, List<Map<String, String>>> getUserCancelledEnrollmentsByTipologia() {
+    List<Map<String, String>> allCancelledEnrollments = getUserCancelledEnrollments();
+    Map<String, List<Map<String, String>>> cancelledByTipologia = {};
+    
+    // Raggruppa le disiscrizioni per tipologia
+    for (var cancelledInfo in allCancelledEnrollments) {
+      String tipologia = cancelledInfo['tipologia'] ?? 'Open';
+      if (!cancelledByTipologia.containsKey(tipologia)) {
+        cancelledByTipologia[tipologia] = [];
+      }
+      cancelledByTipologia[tipologia]!.add(cancelledInfo);
+    }
+    
+    return cancelledByTipologia;
+  }
+
   Future<void> saveChanges() async {
     final name = nameController.text.trim();
     final lastName = lastNameController.text.trim();
@@ -321,6 +372,35 @@ class _UserDetailPageState extends State<UserDetailPage> {
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Cancella Account', style: TextStyle(color: errorColor, fontWeight: FontWeight.bold),),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void showCancelledEnrollmentInfo(String courseName, String courseDate, String cancelledDate, String status) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: Text(courseName),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Data corso: $courseDate'),
+              const SizedBox(height: 8),
+              Text('Disiscritto il: $cancelledDate'),
+              const SizedBox(height: 8),
+              Text('Stato: $status'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Chiudi', style: TextStyle(color: onPrimaryColor)),
             ),
           ],
         );
@@ -657,6 +737,41 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 );
               }).toList(),
             ],
+            
+            // Sezione disiscrizioni (solo per Admin)
+            if (isAdmin && widget.user.cancelledEnrollments.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              ...getUserCancelledEnrollmentsByTipologia().entries.map((entry) {
+                String tipologia = entry.key;
+                List<Map<String, String>> cancelledEnrollments = entry.value;
+                return Column(
+                  children: [
+                    _buildSection(
+                      'Ultime 20 disiscrizioni - $tipologia',
+                      cancelledEnrollments.map((cancelledInfo) => 
+                        _buildInfoRow(
+                          cancelledInfo['name']!, 
+                          cancelledInfo['courseDate']!,
+                          null, 
+                          false,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.info_outline, size: 20, color: primaryLightColor),
+                            onPressed: () => showCancelledEnrollmentInfo(
+                              cancelledInfo['name']!,
+                              cancelledInfo['courseDate']!,
+                              cancelledInfo['cancelledDate']!,
+                              cancelledInfo['status']!,
+                            ),
+                            tooltip: 'Informazioni disiscrizione',
+                          ),
+                        )
+                      ).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              }).toList(),
+            ],
             //TODO aggiungere corsi fatti nel caso sia Trainer
             if (errorMsg != null)
               Padding(
@@ -742,7 +857,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false, bool isCertificatoDatePicker = false, bool isTagsMultiSelect = false}) {
+  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false, bool isCertificatoDatePicker = false, bool isTagsMultiSelect = false, Widget? trailing}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -759,7 +874,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ),
           ),
           Expanded(
-            child: isEditable && controller != null
+            child: Row(
+              children: [
+                Expanded(
+                  child: isEditable && controller != null
                 ? TextField(
                     controller: controller,
                     keyboardType: label == 'Numero di Telefono (opzionale)' ? TextInputType.phone : TextInputType.number,
@@ -1009,6 +1127,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                       : null,
                                 ),
                               ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 8),
+                  trailing,
+                ],
+              ],
+            ),
           ),
         ],
       ),

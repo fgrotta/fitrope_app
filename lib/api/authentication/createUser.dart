@@ -52,6 +52,7 @@ Future<CreateUserResponse> createUser({
       'createdAt': FieldValue.serverTimestamp(),
       'numeroTelefono': numeroTelefono,
       'tipologiaCorsoTags': tipologiaCorsoTags ?? CourseTags.defaultUserTags,
+      'cancelledEnrollments': [],
     };
 
     await postsRef.doc(newID).set(userData);
