@@ -1,6 +1,7 @@
 import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -29,7 +30,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   String? selectedTrainerId;
   String? errorMsg;
   bool isLoading = false;
-  
+  List<String> selectedTags = [];
+
   // Variabili per corsi ricorrenti
   Map<int, bool> selectedDays = {
     1: false, // Lunedì
@@ -125,7 +127,10 @@ String _getDayName(DateTime date) {
     
     // Inizializza il trainer
     selectedTrainerId = null;
-    
+
+    // Inizializza i tag (tipo di corso)
+    selectedTags = [];
+
     // Se è un Trainer, assegna automaticamente se stesso
     if (user.role == 'Trainer') {
       selectedTrainerId = user.uid;
@@ -321,6 +326,7 @@ String _getDayName(DateTime date) {
           capacity: capacity,
           subscribed: 0,
           trainerId: trainerId,
+          tags: List.from(selectedTags),
         );
         
         await createCourse(newCourse);
@@ -549,6 +555,58 @@ String _getDayName(DateTime date) {
                     fillColor: Colors.white,
                   ),
                   keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 20),
+
+                // Selezione Tipo di corso
+                Card(
+                  color: surfaceVariantColor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Tipo di corso',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Seleziona i tag che limitano l\'accesso a questo corso (opzionale)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: CourseTags.all.map((tag) {
+                            final isSelected = selectedTags.contains(tag);
+                            return FilterChip(
+                              label: Text(tag),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    selectedTags.add(tag);
+                                  } else {
+                                    selectedTags.remove(tag);
+                                  }
+                                });
+                              },
+                              selectedColor: primaryColor.withOpacity(0.3),
+                              checkmarkColor: primaryColor,
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 20),
 
