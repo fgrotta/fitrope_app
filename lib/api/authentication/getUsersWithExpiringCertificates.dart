@@ -31,6 +31,7 @@ Future<List<FitropeUser>> getUsersWithExpiringCertificates() async {
 
     _cachedUsersWithExpiringCertificates = querySnapshot.docs
         .map((doc) => FitropeUser.fromJson(doc.data()))
+        .where((u) => u.isActive)
         .toList();
     _lastCacheTimeWithExpiringCertificates = DateTime.now();
 
@@ -63,6 +64,7 @@ Future<int> getCountUsersWithExpiringCertificates() async {
 
     _cachedUsersWithExpiringCertificates = querySnapshot.docs
         .map((doc) => FitropeUser.fromJson(doc.data()))
+        .where((u) => u.isActive)
         .toList();
     _lastCacheTimeWithExpiringCertificates = DateTime.now();
 
