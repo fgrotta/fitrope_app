@@ -1,6 +1,8 @@
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/pages/protected/CreateUserPage.dart';
@@ -30,6 +32,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   bool hasMore = true;
   late FitropeUser user;
   static const int _itemsPerPage = 20; // Numero di utenti da caricare per volta
+
+  /// Filtro tag: null = tutti i tag
+  String? selectedTagFilter;
+  /// Filtro tipologia abbonamento: null = tutte le tipologie
+  TipologiaIscrizione? selectedTipologiaFilter;
+  /// Filtro stato: null = tutti, true = solo attivi, false = solo disattivati
+  bool? activeFilter;
+  /// Su mobile: filtri nascosti o mostrati (dropdown espanso/collassato)
+  bool _filtersExpanded = false;
 
   @override
   void initState() {
@@ -67,12 +78,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
       setState(() {
         users = usersList;
-        filteredUsers = usersList;
         isLoading = false;
       });
       
-      // Carica i primi elementi
-      _loadMoreUsers();
+      _applyFilters();
     } catch (e) {
       print('Error loading users: $e');
       setState(() {
@@ -103,25 +112,45 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     });
   }
 
-  void filterUsers(String query) {
+  void _applyFilters() {
     setState(() {
-      if (query.isEmpty) {
-        filteredUsers = users;
-      } else {
-        filteredUsers = users.where((user) {
-          final fullName = '${user.name} ${user.lastName}'.toLowerCase();
-          final email = user.email.toLowerCase();
-          final searchQuery = query.toLowerCase();
+      var result = users;
+
+      // Filtro testo (nome/email)
+      final query = searchController.text.trim();
+      if (query.isNotEmpty) {
+        final searchQuery = query.toLowerCase();
+        result = result.where((u) {
+          final fullName = '${u.name} ${u.lastName}'.toLowerCase();
+          final email = u.email.toLowerCase();
           return fullName.contains(searchQuery) || email.contains(searchQuery);
         }).toList();
       }
-      // Reset della lista visualizzata quando cambia il filtro
+
+      // Filtro tag
+      if (selectedTagFilter != null) {
+        result = result.where((u) => u.tipologiaCorsoTags.contains(selectedTagFilter!)).toList();
+      }
+
+      // Filtro tipologia abbonamento
+      if (selectedTipologiaFilter != null) {
+        result = result.where((u) => u.tipologiaIscrizione == selectedTipologiaFilter).toList();
+      }
+
+      // Filtro stato (attivi / disattivati)
+      if (activeFilter != null) {
+        result = result.where((u) => u.isActive == activeFilter).toList();
+      }
+
+      filteredUsers = result;
       displayedUsers = [];
       hasMore = true;
     });
-    
-    // Ricarica i primi elementi dopo il filtro
     _loadMoreUsers();
+  }
+
+  void filterUsers(String query) {
+    _applyFilters();
   }
 
   void showUserDetails(FitropeUser user) async {
@@ -138,8 +167,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         final index = users.indexWhere((u) => u.uid == updatedUser.uid);
         if (index != -1) {
           users[index] = updatedUser;
-          // Ricarica anche la lista filtrata
-          filterUsers(searchController.text);
+          _applyFilters();
         }
       });
     }
@@ -190,6 +218,119 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildFiltersRow(BuildContext context) {
+    final screenType = breakpointOf(context);
+    final bool desktopLayout =
+        screenType == ScreenType.desktop || screenType == ScreenType.largeDesktop;
+
+    final tagDropdown = DropdownButtonFormField<String?>(
+      value: selectedTagFilter,
+      decoration: const InputDecoration(
+        labelText: 'Tag',
+        border: OutlineInputBorder(),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('Tutti i tag')),
+        ...CourseTags.all.map((tag) => DropdownMenuItem(value: tag, child: Text(tag))),
+      ],
+      onChanged: (value) {
+        selectedTagFilter = value;
+        _applyFilters();
+      },
+    );
+
+    final tipologiaDropdown = DropdownButtonFormField<TipologiaIscrizione?>(
+      value: selectedTipologiaFilter,
+      decoration: const InputDecoration(
+        labelText: 'Tipologia abbonamento',
+        border: OutlineInputBorder(),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('Tutte le tipologie')),
+        ...TipologiaIscrizione.values.map((t) => DropdownMenuItem(
+          value: t,
+          child: Text(getTipologiaIscrizioneLabel(t)),
+        )),
+      ],
+      onChanged: (value) {
+        selectedTipologiaFilter = value;
+        _applyFilters();
+      },
+    );
+
+    final statoDropdown = DropdownButtonFormField<bool?>(
+      value: activeFilter,
+      decoration: const InputDecoration(
+        labelText: 'Stato',
+        border: OutlineInputBorder(),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      items: const [
+        DropdownMenuItem(value: null, child: Text('Tutti')),
+        DropdownMenuItem(value: true, child: Text('Solo attivi')),
+        DropdownMenuItem(value: false, child: Text('Solo disattivati')),
+      ],
+      onChanged: (value) {
+        activeFilter = value;
+        _applyFilters();
+      },
+    );
+
+    if (desktopLayout) {
+      return Row(
+        children: [
+          Expanded(child: tagDropdown),
+          const SizedBox(width: 12),
+          Expanded(child: tipologiaDropdown),
+          const SizedBox(width: 12),
+          Expanded(child: statoDropdown),
+        ],
+      );
+    }
+
+    // Mobile: filtri in un dropdown espandibile (mostra/nascondi)
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: _filtersExpanded,
+        onExpansionChanged: (expanded) {
+          setState(() => _filtersExpanded = expanded);
+        },
+        title: Text(
+          _filtersExpanded ? 'Nascondi filtri' : 'Mostra filtri',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        trailing: Icon(
+          _filtersExpanded ? Icons.expand_less : Icons.expand_more,
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                tagDropdown,
+                const SizedBox(height: 12),
+                tipologiaDropdown,
+                const SizedBox(height: 12),
+                statoDropdown,
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -336,19 +477,21 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  if (desktopLayout) ...[
-                    TextField(
-                      controller: searchController,
-                      onChanged: filterUsers,
-                      decoration: const InputDecoration(
-                        hintText: 'Cerca utenti...',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
+                  TextField(
+                    controller: searchController,
+                    onChanged: filterUsers,
+                    decoration: const InputDecoration(
+                      hintText: 'Cerca utenti...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildFiltersRow(context),
+                  const SizedBox(height: 12),
+                  if (desktopLayout)
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ElevatedButton.icon(
@@ -360,20 +503,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
                       ),
-                    ),
-                  ] else ...[
-                    TextField(
-                      controller: searchController,
-                      onChanged: filterUsers,
-                      decoration: const InputDecoration(
-                        hintText: 'Cerca utenti...',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    )
+                  else
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -386,7 +517,6 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                         ),
                       ),
                     ),
-                  ],
                   const SizedBox(height: 16),
                   Align(
                     alignment: Alignment.centerLeft,
