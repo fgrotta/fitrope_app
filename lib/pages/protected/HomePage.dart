@@ -699,7 +699,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final screenType = breakpointOf(context);
 
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
       child: Column(
         children: [
@@ -725,12 +725,6 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
 
-          // CERTIFICATI IN SCADENZA (solo per Admin)
-          _buildCertificatiInScadenzaCard(),
-
-          // ABBONAMENTI IN SCADENZA (solo per Admin)
-          _buildAbbonamentiInScadenzaCard(),
-
           // ABBONAMENTO
           renderSubscriptionCard(),
 
@@ -745,6 +739,21 @@ class _HomePageState extends State<HomePage> {
               _buildCoursesSection(screenType),
             ],
           ),
+
+          // CERTIFICATI E ABBONAMENTI IN SCADENZA (solo Admin)
+          if (isDesktop(context)) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildCertificatiInScadenzaCard()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildAbbonamentiInScadenzaCard()),
+              ],
+            ),
+          ] else ...[
+            _buildCertificatiInScadenzaCard(),
+            _buildAbbonamentiInScadenzaCard(),
+          ],
         ],
       ),
     );

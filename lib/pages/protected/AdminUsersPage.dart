@@ -336,36 +336,32 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  if (desktopLayout)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: searchController,
-                            onChanged: filterUsers,
-                            decoration: const InputDecoration(
-                              hintText: 'Cerca utenti...',
-                              prefixIcon: Icon(Icons.search),
-                              border: OutlineInputBorder(),
-                              filled: true,
-                              fillColor: Colors.white,
-                            ),
-                          ),
+                  if (desktopLayout) ...[
+                    TextField(
+                      controller: searchController,
+                      onChanged: filterUsers,
+                      decoration: const InputDecoration(
+                        hintText: 'Cerca utenti...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ElevatedButton.icon(
+                        onPressed: _navigateToCreateUser,
+                        icon: const Icon(Icons.person_add, color: Colors.white),
+                        label: const Text('Crea Utente', style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: _navigateToCreateUser,
-                          icon: const Icon(Icons.person_add, color: Colors.white),
-                          label: const Text('Crea Utente', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          ),
-                        ),
-                      ],
-                    )
-                  else ...[
+                      ),
+                    ),
+                  ] else ...[
                     TextField(
                       controller: searchController,
                       onChanged: filterUsers,

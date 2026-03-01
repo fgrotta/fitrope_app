@@ -419,7 +419,17 @@ class _CalendarPageState extends State<CalendarPage> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(flex: 5, child: _buildCalendar()),
+                        Expanded(
+                          flex: 5,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildCalendar(),
+                              const SizedBox(height: 16),
+                              _buildActionButtons(compact: false),
+                            ],
+                          ),
+                        ),
                         const SizedBox(width: 16),
                         Expanded(
                           flex: 7,
@@ -436,12 +446,12 @@ class _CalendarPageState extends State<CalendarPage> {
                       padding: const EdgeInsets.all(10),
                       child: _buildSelectedCoursesList(),
                     ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
+                      child: _buildActionButtons(compact: true),
+                    ),
                   ],
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
-                    child: _buildActionButtons(compact: !isDesktopLayout),
-                  ),
                 ],
               )),
             if (state.isLoading) const Loader(),
