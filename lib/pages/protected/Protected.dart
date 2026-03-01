@@ -4,6 +4,7 @@ import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/components/loader.dart';
+import 'package:fitrope_app/layout/app_shell.dart';
 import 'package:fitrope_app/pages/protected/CalendarPage.dart';
 import 'package:fitrope_app/pages/protected/Homepage.dart';
 import 'package:fitrope_app/pages/protected/AdminUsersPage.dart';
@@ -11,11 +12,9 @@ import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_design_system/components/custom_bottom_navigation_bar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 
 class Protected extends StatefulWidget {
@@ -93,34 +92,15 @@ class _ProtectedState extends State<Protected> {
       builder: (context, isLoading) {
         return Stack(
           children: [
-            Scaffold(
-              backgroundColor: backgroundColor,
-              bottomNavigationBar: CustomBottomNavigationBar(
-                items: [
-                  const CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
-                  const CustomBottomNavigationBarItem(icon: Icons.calendar_month, label: 'Calendario'),
-                  if (user?.role == 'Admin')
-                    const CustomBottomNavigationBarItem(icon: Icons.people, label: 'Utenti'),
-                ], 
-                colors: const CustomBottomNavigationBarColors(
-                  backgroundColor: primaryLightColor, 
-                  selectedItemColor: onPrimaryColor, 
-                  unselectedItemColor: surfaceColor,
-                ), 
-                onChangePage: (int index) {
-                  setState(() {
-                    currentIndex = index;
-                  });
-                }, 
-                currentIndex: currentIndex, 
-              ),
-              body: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    if(user != null) getPage(),
-                  ],
-                ),
-              ),
+            AppShell(
+              currentIndex: currentIndex,
+              isAdmin: user?.role == 'Admin',
+              onChangePage: (index) {
+                setState(() {
+                  currentIndex = index;
+                });
+              },
+              child: user != null ? getPage() : const SizedBox.shrink(),
             ),
             if (isLoading) const Loader(),
           ]

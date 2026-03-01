@@ -5,6 +5,7 @@ import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 import 'package:fitrope_app/components/loader.dart';
@@ -245,129 +246,206 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
+  Widget _buildHeader() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Image(image: AssetImage('assets/new_logo_only.png'), width: 30),
+        const Text(
+          'Calendario corsi',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 30,
+            color: onPrimaryColor,
+          ),
+        ),
+        GestureDetector(
+          child: CircleAvatar(
+            backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+            child: Text(user.name[0] + user.lastName[0]),
+          ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCalendar() {
+    return Theme(
+      data: ThemeData(
+        colorScheme: const ColorScheme.highContrastDark(onSurface: onPrimaryColor),
+        datePickerTheme: DatePickerThemeData(
+          dayForegroundColor: WidgetStateProperty.all(onSurfaceColor),
+          weekdayStyle: const TextStyle(color: onPrimaryColor),
+          headerHeadlineStyle: const TextStyle(color: onPrimaryColor),
+          todayForegroundColor: WidgetStateProperty.all(onPrimaryColor),
+          todayBackgroundColor: WidgetStateProperty.all(onSurfaceVariantColorTrasparent),
+          yearOverlayColor: WidgetStateProperty.all(surfaceVariantColor),
+          yearBackgroundColor: WidgetStateProperty.all(primaryLightColor),
+          yearForegroundColor: WidgetStateProperty.all(onPrimaryColor),
+          dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return primaryLightColor;
+            }
+            return null;
+          }),
+        ),
+      ),
+      child: Calendar(
+        onDateChanged: (DateTime value) {
+          onSelectDate(value);
+        },
+        initialDate: DateTime.now(),
+        firstDate: firstDate,
+        lastDate: lastDate,
+        filledDays: courses.map((Course course) => course.startDate.toDate()).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSelectedCoursesList() {
+    if (selectedCourses.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: Text(
+          'Nessun corso disponibile in questa giornata',
+          style: TextStyle(color: onPrimaryColor),
+        ),
+      );
+    }
+
+    return Column(
+      children: selectedCourses
+          .map(
+            (Course course) => CoursePreviewCard(
+              course: course,
+              currentUser: user,
+              trainers: trainers,
+              showDate: false,
+              onSubscribe: () => onSubscribe(course),
+              onUnsubscribe: () => onUnsubscribe(course),
+              onDuplicate: () => showDuplicateCoursePage(course),
+              onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
+              onEdit: (user.role == 'Admin' ||
+                      (user.role == 'Trainer' &&
+                          (course.trainerId == null || course.trainerId == user.uid)))
+                  ? (_isCourseInFuture(course) ? () => showEditCoursPage(course) : null)
+                  : null,
+              onRefresh: () => updateCourses(),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildActionButtons({required bool compact}) {
+    if (user.role != 'Admin' && user.role != 'Trainer') {
+      return const SizedBox.shrink();
+    }
+
+    if (compact) {
+      return Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: showCreateCoursePage,
+              icon: const Icon(Icons.add, color: onPrimaryColor),
+              label: const Text('Crea nuovo corso', style: TextStyle(color: onPrimaryColor)),
+              style: ElevatedButton.styleFrom(backgroundColor: surfaceVariantColor),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: showRecurringCoursePage,
+              icon: const Icon(Icons.repeat, color: onPrimaryColor),
+              label: const Text('Corsi ricorrenti', style: TextStyle(color: onPrimaryColor)),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: showCreateCoursePage,
+            icon: const Icon(Icons.add, color: onPrimaryColor),
+            label: const Text('Crea nuovo corso', style: TextStyle(color: onPrimaryColor)),
+            style: ElevatedButton.styleFrom(backgroundColor: surfaceVariantColor),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: showRecurringCoursePage,
+            icon: const Icon(Icons.repeat, color: onPrimaryColor),
+            label: const Text('Corsi ricorrenti', style: TextStyle(color: onPrimaryColor)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenType = breakpointOf(context);
+    final bool isDesktopLayout = screenType == ScreenType.desktop || screenType == ScreenType.largeDesktop;
+
     return StoreConnector<AppState, AppState>(
       converter: (store) => store.state,
       builder: (context, state) {
         return Stack(
-            children: [
+          children: [
             SingleChildScrollView(
               padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 16),
+                  if (isDesktopLayout)
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
-                          const Text('Calendario corsi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
-                          GestureDetector(
-                          child: CircleAvatar(
-                          backgroundColor: const Color.fromARGB(255, 96, 119, 246),
-                          child: Text(user.name[0] + user.lastName[0]),
-                            ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
-                            );
-                          }),
-                        ],
-                      ),
-                    Theme(
-                      data: ThemeData(
-                        colorScheme: const ColorScheme.highContrastDark(
-                          onSurface: onPrimaryColor
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 5, child: _buildCalendar()),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 7,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: _buildSelectedCoursesList(),
+                          ),
                         ),
-                        datePickerTheme: DatePickerThemeData(
-                          dayForegroundColor: WidgetStateProperty.all(onSurfaceColor),
-                          weekdayStyle: const TextStyle(color: onPrimaryColor),
-                          headerHeadlineStyle: const TextStyle(color: onPrimaryColor),
-                          todayForegroundColor: WidgetStateProperty.all(onPrimaryColor),
-                          todayBackgroundColor: WidgetStateProperty.all(onSurfaceVariantColorTrasparent),
-                          yearOverlayColor: WidgetStateProperty.all(surfaceVariantColor),
-                          yearBackgroundColor: WidgetStateProperty.all(primaryLightColor),
-                          yearForegroundColor: WidgetStateProperty.all(onPrimaryColor),
-                          dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return primaryLightColor;
-                            }
-                            return null;
-                          }),
-                        ),
-                          
-                      ), 
-                      child: Calendar(
-                        onDateChanged: (DateTime value) { 
-                          onSelectDate(value);
-                        }, 
-                        initialDate: DateTime.now(), 
-                        firstDate: firstDate, 
-                        lastDate: lastDate,
-                        filledDays: courses.map((Course course) => course.startDate.toDate()).toList(),
-                      ),
-                    ),
-                    
+                      ],
+                    )
+                  else ...[
+                    _buildCalendar(),
                     Padding(
                       padding: const EdgeInsets.all(10),
-                      child: Column(
-                          children: selectedCourses.isNotEmpty ? selectedCourses.map(
-                            (Course course) => CoursePreviewCard(
-                              course: course,
-                              currentUser: user,
-                              trainers: trainers,
-                              showDate: false,
-                              onSubscribe: () => onSubscribe(course),
-                              onUnsubscribe: () => onUnsubscribe(course),
-                              onDuplicate: () => showDuplicateCoursePage(course),
-                              onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
-                              onEdit: (user.role == 'Admin' || (user.role == 'Trainer' && (course.trainerId == null || course.trainerId == user.uid))) 
-                                ? (_isCourseInFuture(course) ? () => showEditCoursPage(course) : null)
-                                : null,
-                              onRefresh: () => updateCourses(),
-                            ),
-                          ).toList() : [
-                            const Text('Nessun corso disponibile in questa giornata', style: TextStyle(color: onPrimaryColor),)
-                        ],
-                      ),
+                      child: _buildSelectedCoursesList(),
                     ),
-                    if (user.role == 'Admin' || user.role == 'Trainer') ...[
-                      Padding(
-                        padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: showCreateCoursePage,
-                                icon: const Icon(Icons.add, color: onPrimaryColor,),
-                                label: const Text('Crea nuovo corso', style: TextStyle(color: onPrimaryColor),),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: surfaceVariantColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: showRecurringCoursePage,
-                                icon: const Icon(Icons.repeat, color: onPrimaryColor,),
-                                label: const Text('Corsi ricorrenti', style: TextStyle(color: onPrimaryColor),),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
-                ),
-              ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
+                    child: _buildActionButtons(compact: !isDesktopLayout),
+                  ),
+                ],
+              )),
             if (state.isLoading) const Loader(),
-          ]
+          ],
         );
       }
     );
