@@ -7,6 +7,8 @@ import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/layout/app_shell.dart';
 import 'package:fitrope_app/pages/protected/CalendarPage.dart';
 import 'package:fitrope_app/pages/protected/Homepage.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
+import 'package:fitrope_app/pages/protected/AdminDashboardPage.dart';
 import 'package:fitrope_app/pages/protected/AdminUsersPage.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -76,36 +78,55 @@ class _ProtectedState extends State<Protected> {
     }
   }
 
-  Widget getPage() {
-    switch(currentIndex) {
-      case 0: return const HomePage();
-      case 1: return const CalendarPage();
-      case 2: return const AdminUsersPage();
-      default: return const HomePage();
-    }
+  int _getMaxIndex(BuildContext context) {
+    final admin = user?.role == 'Admin';
+    if (isDesktop(context) && admin) return 3;
+    if (admin) return 2;
+    return 1;
   }
 
   @override
-  Widget build(BuildContext context) {    
+  Widget build(BuildContext context) {
+    final desktop = isDesktop(context);
+    final maxIndex = _getMaxIndex(context);
+
+    if (!desktop && currentIndex == 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => currentIndex = 2);
+      });
+    }
+
+    final effectiveIndex = currentIndex.clamp(0, maxIndex);
+
     return StoreConnector<AppState, bool>(
       converter: (store) => store.state.isLoading,
       builder: (context, isLoading) {
         return Stack(
           children: [
             AppShell(
-              currentIndex: currentIndex,
+              currentIndex: effectiveIndex,
               isAdmin: user?.role == 'Admin',
               onChangePage: (index) {
                 setState(() {
                   currentIndex = index;
                 });
               },
-              child: user != null ? getPage() : const SizedBox.shrink(),
+              child: user != null ? _getPageFor(effectiveIndex) : const SizedBox.shrink(),
             ),
             if (isLoading) const Loader(),
           ]
         );
       }
     );
+  }
+
+  Widget _getPageFor(int index) {
+    switch(index) {
+      case 0: return const HomePage();
+      case 1: return const CalendarPage();
+      case 2: return const AdminUsersPage();
+      case 3: return const AdminDashboardPage();
+      default: return const HomePage();
+    }
   }
 }
