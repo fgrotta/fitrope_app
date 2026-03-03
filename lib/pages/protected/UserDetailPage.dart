@@ -129,14 +129,19 @@ class _UserDetailPageState extends State<UserDetailPage> {
       }
     }
 
-    // Ordina per titolo del corso e poi per data (più recenti prima)
-    userCourses.sort((a, b) {
-      int nameComparison = a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase());
-      if (nameComparison != 0) {
-        return nameComparison;
-      }
-      return DateFormat('dd/MM/yyyy').parse(b['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!));
-    });
+    // Ordina: se last12MonthsOnly, ordine cronologico (data crescente); altrimenti per titolo e data (più recenti prima)
+    if (last12MonthsOnly) {
+      userCourses.sort((a, b) =>
+          DateFormat('dd/MM/yyyy').parse(a['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(b['date']!)));
+    } else {
+      userCourses.sort((a, b) {
+        int nameComparison = a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase());
+        if (nameComparison != 0) {
+          return nameComparison;
+        }
+        return DateFormat('dd/MM/yyyy').parse(b['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!));
+      });
+    }
 
     if (maxCount != null && userCourses.length > maxCount) {
       userCourses = userCourses.sublist(0, maxCount);
@@ -751,27 +756,34 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     ),
                   ),
                 ),
-              ...getUserCoursesByTipologia(
-                maxCount: _showAllEnrollments12Months ? null : (isAdmin ? 20 : 10),
-                last12MonthsOnly: _showAllEnrollments12Months,
-              ).entries.map((entry) {
-                String tipologia = entry.key;
-                List<Map<String, String>> courses = entry.value;
-                final sectionTitle = _showAllEnrollments12Months
-                    ? 'Tutte le iscrizioni (ultimi 12 mesi) - $tipologia'
-                    : 'Ultime ${isAdmin ? 20 : 10} iscrizioni - $tipologia';
-                return Column(
-                  children: [
-                    _buildSection(
-                      sectionTitle,
-                      courses.map((courseInfo) =>
-                        _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false)
-                      ).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                );
-              }).toList(),
+              if (_showAllEnrollments12Months) ...[
+                _buildSection(
+                  'Tutte le iscrizioni (ultimi 12 mesi)',
+                  getUserCourses(maxCount: null, last12MonthsOnly: true)
+                      .map((courseInfo) =>
+                          _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false))
+                      .toList(),
+                ),
+                const SizedBox(height: 24),
+              ],
+              if (!_showAllEnrollments12Months)
+                ...getUserCoursesByTipologia(
+                  maxCount: isAdmin ? 20 : 10,
+                  last12MonthsOnly: false,
+                ).entries.map((entry) {
+                  String tipologia = entry.key;
+                  List<Map<String, String>> courses = entry.value;
+                  return Column(
+                    children: [
+                      _buildSection(
+                        'Ultime ${isAdmin ? 20 : 10} iscrizioni - $tipologia',
+                        courses.map((courseInfo) =>
+                            _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false)).toList(),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                }).toList(),
             ],
             
             // Sezione disiscrizioni (solo per Admin)
