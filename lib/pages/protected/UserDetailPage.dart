@@ -40,6 +40,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late List<String> selectedTipologiaCorsoTags;
   String? errorMsg;
   List<Course> allCourses = [];
+  bool _showAllEnrollments12Months = false;
 
   @override
   void initState() {
@@ -103,16 +104,22 @@ class _UserDetailPageState extends State<UserDetailPage> {
     });
   }
 
-  List<Map<String, String>> getUserCourses() {
+  List<Map<String, String>> getUserCourses({
+    int? maxCount,
+    bool last12MonthsOnly = false,
+  }) {
     List<Map<String, String>> userCourses = [];
-    
-    var userCoursesIds = widget.user.courses.length > 10 ? widget.user.courses.sublist(widget.user.courses.length - 10) : widget.user.courses;
-    for (String courseId in userCoursesIds) {
+    final twelveMonthsAgo = DateTime.now().subtract(const Duration(days: 365));
+
+    for (String courseId in widget.user.courses) {
       Course? course = allCourses.where((c) => c.id == courseId).firstOrNull;
       if (course != null) {
+        if (last12MonthsOnly) {
+          final startDate = course.startDate.toDate();
+          if (startDate.isBefore(twelveMonthsAgo)) continue;
+        }
         String courseName = course.name;
         String courseDate = DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
-        // Determina la tipologia del corso (usa il primo tag o 'Open' come default)
         String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
         userCourses.add({
           'name': courseName,
@@ -121,32 +128,40 @@ class _UserDetailPageState extends State<UserDetailPage> {
         });
       }
     }
-    
+
     // Ordina per titolo del corso e poi per data (più recenti prima)
     userCourses.sort((a, b) {
       int nameComparison = a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase());
       if (nameComparison != 0) {
         return nameComparison;
       }
-      // Se i titoli sono uguali, ordina per data (più recenti prima)
       return DateFormat('dd/MM/yyyy').parse(b['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!));
     });
+
+    if (maxCount != null && userCourses.length > maxCount) {
+      userCourses = userCourses.sublist(0, maxCount);
+    }
     return userCourses;
   }
 
-  Map<String, List<Map<String, String>>> getUserCoursesByTipologia() {
-    List<Map<String, String>> allUserCourses = getUserCourses();
+  Map<String, List<Map<String, String>>> getUserCoursesByTipologia({
+    int? maxCount,
+    bool last12MonthsOnly = false,
+  }) {
+    List<Map<String, String>> allUserCourses = getUserCourses(
+      maxCount: maxCount,
+      last12MonthsOnly: last12MonthsOnly,
+    );
     Map<String, List<Map<String, String>>> coursesByTipologia = {};
-    
-    // Raggruppa i corsi per tipologia e applica il limite per ogni tipologia
+
     for (var courseInfo in allUserCourses) {
       String tipologia = courseInfo['tipologia'] ?? 'Open';
       if (!coursesByTipologia.containsKey(tipologia)) {
         coursesByTipologia[tipologia] = [];
       }
-        coursesByTipologia[tipologia]!.add(courseInfo);
+      coursesByTipologia[tipologia]!.add(courseInfo);
     }
-    
+
     return coursesByTipologia;
   }
 
@@ -720,15 +735,36 @@ class _UserDetailPageState extends State<UserDetailPage> {
             
             if (widget.user.courses.isNotEmpty) ...[
               const SizedBox(height: 24),
-              ...getUserCoursesByTipologia().entries.map((entry) {
+              if (isAdmin)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(() => _showAllEnrollments12Months = !_showAllEnrollments12Months),
+                    icon: Icon(
+                      _showAllEnrollments12Months ? Icons.list : Icons.calendar_month,
+                      size: 18,
+                      color: primaryLightColor,
+                    ),
+                    label: Text(
+                      _showAllEnrollments12Months ? 'Vedi ultime 20' : 'Vedi tutte (ultimi 12 mesi)',
+                      style: const TextStyle(color: primaryLightColor),
+                    ),
+                  ),
+                ),
+              ...getUserCoursesByTipologia(
+                maxCount: _showAllEnrollments12Months ? null : (isAdmin ? 20 : 10),
+                last12MonthsOnly: _showAllEnrollments12Months,
+              ).entries.map((entry) {
                 String tipologia = entry.key;
                 List<Map<String, String>> courses = entry.value;
-                int maxCourses = isAdmin ? 20 : 10;
+                final sectionTitle = _showAllEnrollments12Months
+                    ? 'Tutte le iscrizioni (ultimi 12 mesi) - $tipologia'
+                    : 'Ultime ${isAdmin ? 20 : 10} iscrizioni - $tipologia';
                 return Column(
                   children: [
                     _buildSection(
-                      'Ultime $maxCourses iscrizioni - $tipologia',
-                      courses.map((courseInfo) => 
+                      sectionTitle,
+                      courses.map((courseInfo) =>
                         _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false)
                       ).toList(),
                     ),
