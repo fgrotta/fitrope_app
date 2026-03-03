@@ -7,6 +7,7 @@ class AppShell extends StatelessWidget {
   final int currentIndex;
   final bool isAdmin;
   final ValueChanged<int> onChangePage;
+  final VoidCallback? onLogout;
   final Widget child;
 
   const AppShell({
@@ -14,6 +15,7 @@ class AppShell extends StatelessWidget {
     required this.currentIndex,
     required this.isAdmin,
     required this.onChangePage,
+    this.onLogout,
     required this.child,
   });
 
@@ -58,6 +60,19 @@ class AppShell extends StatelessWidget {
             unselectedIconTheme: const IconThemeData(color: onSurfaceVariantColor),
             selectedLabelTextStyle: const TextStyle(color: onPrimaryColor),
             unselectedLabelTextStyle: const TextStyle(color: onSurfaceVariantColor),
+            trailing: Expanded(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: IconButton(
+                    icon: const Icon(Icons.logout, color: onSurfaceVariantColor),
+                    tooltip: 'Logout',
+                    onPressed: onLogout,
+                  ),
+                ),
+              ),
+            ),
             destinations: [
               const NavigationRailDestination(
                 icon: Icon(Icons.home_outlined),

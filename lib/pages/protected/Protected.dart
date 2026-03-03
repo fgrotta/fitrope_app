@@ -144,6 +144,11 @@ class _ProtectedState extends State<Protected> {
                       currentIndex = index;
                     });
                   },
+                  onLogout: () {
+                    signOut().then((_) {
+                      logoutRedirect(context);
+                    });
+                  },
                   child: user != null ? _getPageFor(effectiveIndex) : const SizedBox.shrink(),
                 ),
                 if (isLoading) const Loader(),

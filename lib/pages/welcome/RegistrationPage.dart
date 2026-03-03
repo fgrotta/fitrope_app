@@ -3,6 +3,7 @@
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/registration.dart';
 import 'package:fitrope_app/components/custom_text_field.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -143,7 +144,12 @@ class _RegistrationPageState extends State<RegistrationPage> {
       backgroundColor: backgroundColor,
       body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
+          padding: EdgeInsets.only(
+            left: isDesktop(context) ? MediaQuery.of(context).size.width * 0.40 : pagePadding,
+            right: isDesktop(context) ? MediaQuery.of(context).size.width * 0.40 : pagePadding,
+            bottom: pagePadding,
+            top: pagePadding + MediaQuery.of(context).viewPadding.top,
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -241,7 +247,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 ),
               const SizedBox(height: 10,),
               SizedBox(
-                width: MediaQuery.of(context).size.width - pagePadding * 2,
+                width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
                     setState(() {

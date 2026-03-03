@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/authentication/isLogged.dart';
 
@@ -31,24 +32,27 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white, // O il colore che preferisci
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // La tua immagine di caricamento
-            const Image(
-              image: AssetImage('assets/new_logo.png'),
-              width: 200,
-              height: 200,
-            ),
-            const SizedBox(height: 30),
-            // Indicatore di caricamento opzionale
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-            ),
-          ],
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? MediaQuery.of(context).size.width * 0.25 : 0,
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image(
+                image: AssetImage('assets/new_logo.png'),
+                width: 200,
+                height: 200,
+              ),
+              SizedBox(height: 30),
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+            ],
+          ),
         ),
       ),
     );

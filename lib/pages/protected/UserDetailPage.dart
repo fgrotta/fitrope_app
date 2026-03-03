@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/authentication/updateUser.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/authentication/resetPassword.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
@@ -583,7 +584,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(pagePadding),
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? MediaQuery.of(context).size.width * 0.15 : pagePadding,
+          vertical: pagePadding,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
