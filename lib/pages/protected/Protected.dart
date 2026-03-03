@@ -30,6 +30,20 @@ class _ProtectedState extends State<Protected> {
   late FitropeUser? user = store.state.user;
   int currentIndex = 0;
 
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  String? _drawerTitle;
+  List<FitropeUser>? _drawerUsers;
+
+  void _openUserList(String title, List<FitropeUser> users) {
+    setState(() {
+      _drawerTitle = title;
+      _drawerUsers = users;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scaffoldKey.currentState?.openEndDrawer();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -101,20 +115,41 @@ class _ProtectedState extends State<Protected> {
     return StoreConnector<AppState, bool>(
       converter: (store) => store.state.isLoading,
       builder: (context, isLoading) {
-        return Stack(
-          children: [
-            AppShell(
-              currentIndex: effectiveIndex,
-              isAdmin: user?.role == 'Admin',
-              onChangePage: (index) {
-                setState(() {
-                  currentIndex = index;
-                });
-              },
-              child: user != null ? _getPageFor(effectiveIndex) : const SizedBox.shrink(),
+        return Theme(
+          data: Theme.of(context).copyWith(
+            drawerTheme: DrawerThemeData(
+              width: 400,
+              elevation: 16,
             ),
-            if (isLoading) const Loader(),
-          ]
+          ),
+          child: Scaffold(
+            key: _scaffoldKey,
+            endDrawer: _drawerTitle != null && _drawerUsers != null
+                ? UserListDrawer(
+                    title: _drawerTitle!,
+                    users: _drawerUsers!,
+                    onClose: () => setState(() {
+                      _drawerTitle = null;
+                      _drawerUsers = null;
+                    }),
+                  )
+                : null,
+            body: Stack(
+              children: [
+                AppShell(
+                  currentIndex: effectiveIndex,
+                  isAdmin: user?.role == 'Admin',
+                  onChangePage: (index) {
+                    setState(() {
+                      currentIndex = index;
+                    });
+                  },
+                  child: user != null ? _getPageFor(effectiveIndex) : const SizedBox.shrink(),
+                ),
+                if (isLoading) const Loader(),
+              ],
+            ),
+          ),
         );
       }
     );
@@ -125,7 +160,7 @@ class _ProtectedState extends State<Protected> {
       case 0: return const HomePage();
       case 1: return const CalendarPage();
       case 2: return const AdminUsersPage();
-      case 3: return const AdminDashboardPage();
+      case 3: return AdminDashboardPage(onOpenUserList: _openUserList);
       default: return const HomePage();
     }
   }

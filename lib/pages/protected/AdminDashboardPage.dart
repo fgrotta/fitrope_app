@@ -1,13 +1,16 @@
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
+import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 
 class AdminDashboardPage extends StatefulWidget {
-  const AdminDashboardPage({super.key});
+  final void Function(String title, List<FitropeUser> users) onOpenUserList;
+
+  const AdminDashboardPage({super.key, required this.onOpenUserList});
 
   @override
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
@@ -99,28 +102,143 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         .toList();
 
     return RefreshIndicator(
-      onRefresh: _loadData,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(pagePadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Dashboard analisi',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: onSurfaceColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 24),
-            _SectionUtenti(users: users),
-            const SizedBox(height: 24),
-            _SectionCorsi(courses: coursesLast6Months),
-            const SizedBox(height: 24),
-            _SectionAbbonamenti(users: users),
-          ],
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(pagePadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Dashboard analisi',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: onSurfaceColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 24),
+              _SectionUtenti(users: users, onOpenUserList: widget.onOpenUserList),
+              const SizedBox(height: 24),
+              _SectionCorsi(
+                courses: coursesLast6Months,
+                users: users,
+                onOpenUserList: widget.onOpenUserList,
+              ),
+              const SizedBox(height: 24),
+              _SectionAbbonamenti(users: users, onOpenUserList: widget.onOpenUserList),
+            ],
+          ),
         ),
+    );
+  }
+}
+
+/// Drawer laterale con lista utenti ricercabile. Usato da [Protected] per coprire l'intera pagina con la scrim.
+class UserListDrawer extends StatefulWidget {
+  final String title;
+  final List<FitropeUser> users;
+  final VoidCallback onClose;
+
+  const UserListDrawer({
+    super.key,
+    required this.title,
+    required this.users,
+    required this.onClose,
+  });
+
+  @override
+  State<UserListDrawer> createState() => _UserListDrawerState();
+}
+
+class _UserListDrawerState extends State<UserListDrawer> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() => _query = _searchController.text.trim().toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<FitropeUser> get _filteredUsers {
+    if (_query.isEmpty) return widget.users;
+    return widget.users.where((u) {
+      final name = '${u.name} ${u.lastName}'.toLowerCase();
+      final email = u.email.toLowerCase();
+      return name.contains(_query) || email.contains(_query);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filteredUsers;
+    return Drawer(
+      child: Column(
+        children: [
+          AppBar(
+            title: Text(widget.title),
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                Scaffold.of(context).closeEndDrawer();
+                widget.onClose();
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Cerca per nome o email...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                isDense: true,
+              ),
+              autofocus: false,
+            ),
+          ),
+          Text(
+            '${filtered.length} utenti',
+            style: TextStyle(
+              fontSize: 12,
+              color: onSurfaceVariantColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final u = filtered[index];
+                return ListTile(
+                  title: Text('${u.name} ${u.lastName}'),
+                  subtitle: Text(u.email),
+                  dense: true,
+                  onTap: () {
+                    Scaffold.of(context).closeEndDrawer();
+                    widget.onClose();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => UserDetailPage(user: u),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -128,8 +246,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
 class _SectionUtenti extends StatelessWidget {
   final List<FitropeUser> users;
+  final void Function(String title, List<FitropeUser> users) onOpenUserList;
 
-  const _SectionUtenti({required this.users});
+  const _SectionUtenti({required this.users, required this.onOpenUserList});
 
   @override
   Widget build(BuildContext context) {
@@ -151,20 +270,26 @@ class _SectionUtenti extends StatelessWidget {
     final tipologiaEntries = byTipologia.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    final activeList = users.where((u) => u.isActive).toList();
+    final new7List = users.where((u) => u.createdAt.isAfter(sevenDaysAgo)).toList();
+    final new30List = users.where((u) => u.createdAt.isAfter(thirtyDaysAgo)).toList();
+
     return _DashboardCard(
       title: 'Utenti',
       icon: Icons.people,
       children: [
-        _MetricRow('Totale', '${users.length}'),
-        _MetricRow('Utenti attivi', '$active'),
-        _MetricRow('Nuovi (ultimi 7 giorni)', '$new7'),
-        _MetricRow('Nuovi (ultimi 30 giorni)', '$new30'),
+        _MetricRow('Totale', '${users.length}', onTap: () => onOpenUserList('Totale', users)),
+        _MetricRow('Utenti attivi', '$active', onTap: () => onOpenUserList('Utenti attivi', activeList)),
+        _MetricRow('Nuovi (ultimi 7 giorni)', '$new7', onTap: () => onOpenUserList('Nuovi (ultimi 7 giorni)', new7List)),
+        _MetricRow('Nuovi (ultimi 30 giorni)', '$new30', onTap: () => onOpenUserList('Nuovi (ultimi 30 giorni)', new30List)),
         if (tipologiaEntries.isNotEmpty) ...[
           const Divider(height: 24),
           Text('Per tipologia iscrizione', style: _sectionLabelStyle(context)),
           const SizedBox(height: 12),
           _TipologieCorsiChart(
             entries: tipologiaEntries.map((e) => MapEntry(_labelTipologia(e.key), e.value)).toList(),
+            userListsPerEntry: tipologiaEntries.map((e) => users.where((u) => u.tipologiaIscrizione == e.key).toList()).toList(),
+            onEntryTap: (i) => onOpenUserList(_labelTipologia(tipologiaEntries[i].key), users.where((u) => u.tipologiaIscrizione == tipologiaEntries[i].key).toList()),
           ),
         ],
       ],
@@ -179,12 +304,19 @@ class _SectionUtenti extends StatelessWidget {
 
 class _SectionCorsi extends StatelessWidget {
   final List<Course> courses;
+  final List<FitropeUser> users;
+  final void Function(String title, List<FitropeUser> users) onOpenUserList;
 
-  const _SectionCorsi({required this.courses});
+  const _SectionCorsi({
+    required this.courses,
+    required this.users,
+    required this.onOpenUserList,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final full = courses.where((c) => c.subscribed >= c.capacity).length;
+    final fullCourses = courses.where((c) => c.subscribed >= c.capacity).toList();
+    final full = fullCourses.length;
     double avgFill = 0;
     if (courses.isNotEmpty) {
       var sum = 0.0;
@@ -203,18 +335,36 @@ class _SectionCorsi extends StatelessWidget {
     final tagEntries = byTag.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    final courseIdsLast6Months = courses.map((c) => c.uid).toSet();
+    final usersWithCourseLast6Months = users.where((u) => u.courses.any((id) => courseIdsLast6Months.contains(id))).toList();
+    final usersInFullCourse = users.where((u) => u.courses.any((id) => fullCourses.any((c) => c.uid == id))).toList();
+
+    final userListsByTag = tagEntries.map((e) {
+      final tag = e.key;
+      return users.where((u) => u.courses.any((courseId) {
+        final c = courses.where((c) => c.uid == courseId).firstOrNull;
+        if (c == null) return false;
+        final courseTag = c.tags.isNotEmpty ? c.tags.first : 'Nessun tag';
+        return courseTag == tag;
+      })).toList();
+    }).toList();
+
     return _DashboardCard(
       title: 'Corsi',
       icon: Icons.school,
       children: [
-        _MetricRow('Corsi (ultimi 6 mesi)', '${courses.length}'),
-        _MetricRow('Corsi al completo', '$full'),
+        _MetricRow('Corsi (ultimi 6 mesi)', '${courses.length}', onTap: () => onOpenUserList('Corsi (ultimi 6 mesi) – utenti iscritti', usersWithCourseLast6Months)),
+        _MetricRow('Corsi al completo', '$full', onTap: () => onOpenUserList('Corsi al completo – utenti iscritti', usersInFullCourse)),
         _MetricRow('Tasso di riempimento medio', '$avgFillPercent%'),
         if (tagEntries.isNotEmpty) ...[
           const Divider(height: 24),
           Text('Tipologie corsi', style: _sectionLabelStyle(context)),
           const SizedBox(height: 12),
-          _TipologieCorsiChart(entries: tagEntries),
+          _TipologieCorsiChart(
+            entries: tagEntries,
+            userListsPerEntry: userListsByTag,
+            onEntryTap: (i) => onOpenUserList('Tipologia corso: ${tagEntries[i].key}', userListsByTag[i]),
+          ),
         ],
       ],
     );
@@ -223,18 +373,27 @@ class _SectionCorsi extends StatelessWidget {
 
 class _TipologieCorsiChart extends StatelessWidget {
   final List<MapEntry<String, int>> entries;
+  final List<List<FitropeUser>>? userListsPerEntry;
+  final void Function(int index)? onEntryTap;
 
-  const _TipologieCorsiChart({required this.entries});
+  const _TipologieCorsiChart({
+    required this.entries,
+    this.userListsPerEntry,
+    this.onEntryTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final maxCount = entries.isEmpty ? 1 : entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    final canTap = onEntryTap != null && userListsPerEntry != null && userListsPerEntry!.length == entries.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: entries.map((e) {
+      children: entries.asMap().entries.map((entry) {
+        final i = entry.key;
+        final e = entry.value;
         final pct = maxCount > 0 ? e.value / maxCount : 0.0;
-        return Padding(
+        final row = Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,6 +418,14 @@ class _TipologieCorsiChart extends StatelessWidget {
             ],
           ),
         );
+        if (canTap) {
+          return InkWell(
+            onTap: () => onEntryTap!(i),
+            borderRadius: BorderRadius.circular(4),
+            child: row,
+          );
+        }
+        return row;
       }).toList(),
     );
   }
@@ -266,8 +433,9 @@ class _TipologieCorsiChart extends StatelessWidget {
 
 class _SectionAbbonamenti extends StatelessWidget {
   final List<FitropeUser> users;
+  final void Function(String title, List<FitropeUser> users) onOpenUserList;
 
-  const _SectionAbbonamenti({required this.users});
+  const _SectionAbbonamenti({required this.users, required this.onOpenUserList});
 
   @override
   Widget build(BuildContext context) {
@@ -275,11 +443,12 @@ class _SectionAbbonamenti extends StatelessWidget {
     final now = DateTime.now();
     final in30Days = now.add(const Duration(days: 30));
 
-    final expiringSoon = activeUsers.where((u) {
+    final expiringSoonList = activeUsers.where((u) {
       if (u.fineIscrizione == null) return false;
       final end = u.fineIscrizione!.toDate();
       return end.isAfter(now) && end.isBefore(in30Days);
-    }).length;
+    }).toList();
+    final expiringSoon = expiringSoonList.length;
 
     final pacchettoUsers = activeUsers.where((u) {
       return u.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE ||
@@ -324,12 +493,21 @@ class _SectionAbbonamenti extends StatelessWidget {
         Text('Distribuzione per tipologia', style: _sectionLabelStyle(context)),
         const SizedBox(height: 8),
         ...tipologiaEntries.map(
-          (e) => _MetricRow(_labelTipologia(e.key), '${e.value}'),
+          (e) => _MetricRow(
+            _labelTipologia(e.key),
+            '${e.value}',
+            onTap: () => onOpenUserList(_labelTipologia(e.key), activeUsers.where((u) => u.tipologiaIscrizione == e.key).toList()),
+          ),
         ),
         ...tipologiaEntries.expand((e) {
           final tagCounts = byTipologiaAndTag[e.key];
           if (tagCounts == null || tagCounts.isEmpty) return <Widget>[];
           final sorted = tagCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+          final usersForTipologia = activeUsers.where((u) => u.tipologiaIscrizione == e.key).toList();
+          final userListsPerTag = sorted.map((tagEntry) => usersForTipologia.where((u) {
+            final tags = u.tipologiaCorsoTags.isEmpty ? ['Nessun tag'] : u.tipologiaCorsoTags;
+            return tags.contains(tagEntry.key);
+          }).toList()).toList();
           return [
             const SizedBox(height: 16),
             const Divider(height: 1),
@@ -339,14 +517,19 @@ class _SectionAbbonamenti extends StatelessWidget {
               style: _sectionLabelStyle(context),
             ),
             const SizedBox(height: 8),
-            _TipologieCorsiChart(entries: sorted),
+            _TipologieCorsiChart(
+              entries: sorted,
+              userListsPerEntry: userListsPerTag,
+              onEntryTap: (i) => onOpenUserList('${_labelTipologia(e.key)} – ${sorted[i].key}', userListsPerTag[i]),
+            ),
           ];
         }),
         const Divider(height: 24),
-        _MetricRow('In scadenza (prossimi 30 gg)', '$expiringSoon'),
+        _MetricRow('In scadenza (prossimi 30 gg)', '$expiringSoon', onTap: () => onOpenUserList('In scadenza (prossimi 30 gg)', expiringSoonList)),
         _MetricRow(
           'Pacchetti entrate: crediti medi residui',
           avgCredits.toStringAsFixed(1),
+          onTap: () => onOpenUserList('Pacchetti entrate / Abbonamento prova', pacchettoUsers),
         ),
       ],
     );
@@ -416,12 +599,13 @@ class _DashboardCard extends StatelessWidget {
 class _MetricRow extends StatelessWidget {
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
-  const _MetricRow(this.label, this.value);
+  const _MetricRow(this.label, this.value, {this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -437,5 +621,13 @@ class _MetricRow extends StatelessWidget {
         ],
       ),
     );
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: row,
+      );
+    }
+    return row;
   }
 }
