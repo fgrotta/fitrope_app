@@ -1,5 +1,7 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
+import 'package:fitrope_app/api/courses/joinWaitlist.dart';
+import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
@@ -207,6 +209,72 @@ class _HomePageState extends State<HomePage> {
           SnackBar(
             content: Text('Errore durante la disiscrizione: $e'),
             backgroundColor: errorColor,
+          ),
+        );
+      }
+    });
+  }
+
+  void onJoinWaitlist(Course course) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: backgroundColor,
+        title: const Text('Lista d\'attesa'),
+        content: Text('Vuoi iscriverti alla lista d\'attesa per "${course.name}"?\n\nRiceverai una notifica se si libera un posto.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              joinWaitlist(course.uid, user.uid).then((_) {
+                refreshCourses();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Iscritto alla lista d\'attesa'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              }).catchError((e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Errore: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              });
+            },
+            child: const Text('Conferma', style: TextStyle(color: Colors.orange)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void onLeaveWaitlist(Course course) {
+    leaveWaitlist(course.uid, user.uid).then((_) {
+      refreshCourses();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Rimosso dalla lista d\'attesa'),
+            backgroundColor: successColor,
+          ),
+        );
+      }
+    }).catchError((e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Errore: $e'),
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -620,6 +688,36 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  List<Widget> renderWaitlistCourses() {
+    if (user.waitlistCourses.isEmpty) {
+      return [];
+    }
+
+    DateTime now = DateTime.now();
+
+    List<Course> futureWaitlistCourses = [];
+    for (String courseId in user.waitlistCourses) {
+      Course? course = allCourses.where((c) => c.uid == courseId).firstOrNull;
+      if (course != null && course.startDate.toDate().isAfter(now)) {
+        futureWaitlistCourses.add(course);
+      }
+    }
+
+    futureWaitlistCourses.sort((a, b) => a.startDate.compareTo(b.startDate));
+
+    return futureWaitlistCourses.map((course) => CoursePreviewCard(
+      course: course,
+      currentUser: user,
+      trainers: trainers,
+      showDate: true,
+      onSubscribe: () => onSubscribe(course),
+      onUnsubscribe: () => onUnsubscribe(course),
+      onJoinWaitlist: () => onJoinWaitlist(course),
+      onLeaveWaitlist: () => onLeaveWaitlist(course),
+      onRefresh: () => refreshCourses(),
+    )).toList();
+  }
+
   List<Widget> renderCourses() {
     if (user.courses.isEmpty) {
       return [];
@@ -639,6 +737,8 @@ class _HomePageState extends State<HomePage> {
             showDate: true,
             onSubscribe: () => onSubscribe(course),
             onUnsubscribe: () => onUnsubscribe(course),
+            onJoinWaitlist: () => onJoinWaitlist(course),
+            onLeaveWaitlist: () => onLeaveWaitlist(course),
             onRefresh: () => refreshCourses(),
           ),
         );
@@ -747,6 +847,21 @@ class _HomePageState extends State<HomePage> {
               _buildCoursesSection(screenType),
             ],
           ),
+
+          // LISTA D'ATTESA
+          if (renderWaitlistCourses().isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  width: double.infinity,
+                  child: const Text('Lista d\'attesa', textAlign: TextAlign.left, style: TextStyle(color: Colors.orange, fontSize: 20)),
+                ),
+                ...renderWaitlistCourses()
+              ],
+            ),
+          ],
 
           // CERTIFICATI E ABBONAMENTI IN SCADENZA (solo Admin)
           if (isDesktop(context)) ...[

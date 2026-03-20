@@ -14,10 +14,12 @@ class CoursePreviewCard extends StatelessWidget {
   final List<FitropeUser> trainers;
   final VoidCallback? onSubscribe;
   final VoidCallback? onUnsubscribe;
+  final VoidCallback? onJoinWaitlist;
+  final VoidCallback? onLeaveWaitlist;
   final VoidCallback? onDuplicate;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
-  final VoidCallback onRefresh; // Callback per aggiornare la lista
+  final VoidCallback onRefresh;
   final bool showDate;
 
   const CoursePreviewCard({
@@ -27,6 +29,8 @@ class CoursePreviewCard extends StatelessWidget {
     required this.trainers,
     this.onSubscribe,
     this.onUnsubscribe,
+    this.onJoinWaitlist,
+    this.onLeaveWaitlist,
     this.onDuplicate,
     this.onDelete,
     this.onEdit,
@@ -34,17 +38,31 @@ class CoursePreviewCard extends StatelessWidget {
     this.showDate = true,
   });
 
-  Future<List<Map<String, dynamic>>> getSubscriberNames(Course course, bool isAdmin) async {
+  Future<Map<String, List<Map<String, dynamic>>>> getCourseUsers(Course course, bool isAdmin) async {
     var usersCollection = FirebaseFirestore.instance.collection('users');
-    var snapshots = await usersCollection.where('courses', arrayContains: course.uid).get();
-    return snapshots.docs.map((doc) {
+
+    var subscriberSnapshots = await usersCollection.where('courses', arrayContains: course.uid).get();
+    final subscribers = subscriberSnapshots.docs.map((doc) {
       final user = FitropeUser.fromJson(doc.data());
-      // Gli admin vedono sempre i nomi completi, con icona fantasma per gli anonimi
       return {
         'displayName': UserDisplayUtils.getDisplayName(user, isAdmin),
         'user': user,
       };
     }).toList();
+
+    List<Map<String, dynamic>> waitlistUsers = [];
+    if (course.waitlist.isNotEmpty && isAdmin) {
+      var waitlistSnapshots = await usersCollection.where('waitlistCourses', arrayContains: course.uid).get();
+      waitlistUsers = waitlistSnapshots.docs.map((doc) {
+        final user = FitropeUser.fromJson(doc.data());
+        return {
+          'displayName': UserDisplayUtils.getDisplayName(user, isAdmin),
+          'user': user,
+        };
+      }).toList();
+    }
+
+    return {'subscribers': subscribers, 'waitlistUsers': waitlistUsers};
   }
 
   String _buildDescription() {
@@ -63,18 +81,20 @@ class CoursePreviewCard extends StatelessWidget {
   }
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: getSubscriberNames(course, _canViewUserDetails()),
+    return FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
+      future: getCourseUsers(course, _canViewUserDetails()),
       builder: (context, snapshot) {
         String iscritti = "";
         List<String> names = [];
         List<FitropeUser> users = [];
+        List<FitropeUser> waitlistUsers = [];
         
         if (snapshot.connectionState == ConnectionState.waiting) {
           iscritti = "Iscritti: Caricamento iscritti...";
         } else if (snapshot.hasData) {
-          names = snapshot.data!.map((s) => s['displayName'] as String).toList();
-          users = snapshot.data!.map((s) => s['user'] as FitropeUser).toList();
+          names = snapshot.data!['subscribers']!.map((s) => s['displayName'] as String).toList();
+          users = snapshot.data!['subscribers']!.map((s) => s['user'] as FitropeUser).toList();
+          waitlistUsers = snapshot.data!['waitlistUsers']?.map((s) => s['user'] as FitropeUser).toList() ?? [];
         } else {
           iscritti = "Iscritti: Nessun iscritto";
         }
@@ -93,17 +113,21 @@ class CoursePreviewCard extends StatelessWidget {
             onClickAction: () {
               if (courseState == CourseState.SUBSCRIBED) {
                 onUnsubscribe?.call();
+              } else if (courseState == CourseState.CAN_WAITLIST) {
+                onJoinWaitlist?.call();
+              } else if (courseState == CourseState.IN_WAITLIST) {
+                onLeaveWaitlist?.call();
+              } else if (courseState == CourseState.WAITLIST_SPOT_AVAILABLE) {
+                onSubscribe?.call();
               } else {
                 onSubscribe?.call();
               }
             },
             capacity: course.capacity,
             subscribed: course.subscribed,
-            // Passa una lista vuota per Admin e Trainer per evitare la duplicazione
             subscribersNames: _canViewUserDetails() ? [] : names,
-            // Passa la lista degli utenti per la versione cliccabile
             subscribersUsers: _canViewUserDetails() ? users : null,
-            // Abilita la lista cliccabile per Admin e Trainer
+            waitlistUsers: _canViewUserDetails() ? waitlistUsers : null,
             showClickableSubscribers: _canViewUserDetails(),
             isAdmin: currentUser.role == 'Admin' || currentUser.role == 'Trainer',
             userRole: currentUser.role,

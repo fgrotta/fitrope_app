@@ -1,6 +1,8 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
+import 'package:fitrope_app/api/courses/joinWaitlist.dart';
+import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
@@ -165,6 +167,57 @@ class _CalendarPageState extends State<CalendarPage> {
         'Errore durante la disiscrizione: ${e.toString()}',
       );
     }
+  }
+
+  void onJoinWaitlist(Course course) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: backgroundColor,
+        title: const Text('Lista d\'attesa'),
+        content: Text('Vuoi iscriverti alla lista d\'attesa per "${course.name}"?\n\nRiceverai una notifica se si libera un posto.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              joinWaitlist(course.id, user.uid).then((_) {
+                updateCourses();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Iscritto alla lista d\'attesa'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              }).catchError((e) {
+                if (mounted) {
+                  SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
+                }
+              });
+            },
+            child: const Text('Conferma', style: TextStyle(color: Colors.orange)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void onLeaveWaitlist(Course course) {
+    leaveWaitlist(course.id, user.uid).then((_) {
+      updateCourses();
+      if (mounted) {
+        SnackBarUtils.showSuccessSnackBar(context, 'Rimosso dalla lista d\'attesa');
+      }
+    }).catchError((e) {
+      if (mounted) {
+        SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
+      }
+    });
   }
 
   // Funzioni per navigare alla pagina di gestione corsi
@@ -335,6 +388,8 @@ class _CalendarPageState extends State<CalendarPage> {
               showDate: false,
               onSubscribe: () => onSubscribe(course),
               onUnsubscribe: () => onUnsubscribe(course),
+              onJoinWaitlist: () => onJoinWaitlist(course),
+              onLeaveWaitlist: () => onLeaveWaitlist(course),
               onDuplicate: () => showDuplicateCoursePage(course),
               onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
               onEdit: (user.role == 'Admin' ||

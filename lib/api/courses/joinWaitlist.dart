@@ -5,7 +5,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 
-Future<void> subscribeToCourse(String courseId, String userId, {bool force = false}) async {
+Future<void> joinWaitlist(String courseId, String userId) async {
   final firestore = FirebaseFirestore.instance;
   store.dispatch(StartLoadingAction());
 
@@ -36,6 +36,15 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
       int subscribed = courseData['subscribed'] as int? ?? 0;
       int capacity = courseData['capacity'] as int? ?? 0;
 
+      if (subscribed < capacity) {
+        throw Exception('Course is not full, subscribe directly instead');
+      }
+
+      List<dynamic> waitlist = List.from(courseData['waitlist'] ?? []);
+      if (waitlist.contains(userId)) {
+        throw Exception('User is already in the waitlist');
+      }
+
       DocumentReference userRef = firestore.collection('users').doc(userId);
       DocumentSnapshot userSnapshot = await transaction.get(userRef);
       if (!userSnapshot.exists) {
@@ -48,60 +57,28 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
       }
 
       List<dynamic> userCourses = userData['courses'] ?? [];
-
       if (userCourses.contains(courseId)) {
         throw Exception('User is already subscribed to this course');
       }
 
-      if (userData['fineIscrizione'] != null) {
-        DateTime subscriptionEnd = (userData['fineIscrizione'] as Timestamp).toDate();
-        DateTime courseDate = (courseData['startDate'] as Timestamp).toDate();
-        if (courseDate.isAfter(subscriptionEnd)) {
-          throw Exception('Subscription has expired. Cannot subscribe to this course.');
-        }
-      }
+      waitlist.add(userId);
+      transaction.update(courseRef, {'waitlist': waitlist});
 
-      if (subscribed < capacity || force) {
-        Map<String, dynamic> courseUpdate = {'subscribed': subscribed + 1};
-
-        List<dynamic> waitlist = List.from(courseData['waitlist'] ?? []);
-        if (waitlist.contains(userId)) {
-          waitlist.remove(userId);
-          courseUpdate['waitlist'] = waitlist;
-        }
-
-        transaction.update(courseRef, courseUpdate);
-
-        userCourses = List.from(userCourses);
-        userCourses.add(courseId);
-        int currentEntrate = (userData['entrateDisponibili'] as int?) ?? 0;
-        Map<String, dynamic> userUpdate = {
-          'courses': userCourses,
-          'entrateDisponibili': currentEntrate - 1,
-        };
-
-        List<dynamic> waitlistCourses = List.from(userData['waitlistCourses'] ?? []);
-        if (waitlistCourses.contains(courseId)) {
-          waitlistCourses.remove(courseId);
-          userUpdate['waitlistCourses'] = waitlistCourses;
-        }
-
-        transaction.update(userRef, userUpdate);
-      } else {
-        throw Exception('Course is full');
-      }
+      List<dynamic> waitlistCourses = List.from(userData['waitlistCourses'] ?? []);
+      waitlistCourses.add(courseId);
+      transaction.update(userRef, {'waitlistCourses': waitlistCourses});
     });
 
     invalidateUsersCache();
-    final user = store.state.user;
-    if (user != null && user.role != 'Admin' && user.role != 'Trainer') {
+    final currentUser = store.state.user;
+    if (currentUser != null && currentUser.role != 'Admin' && currentUser.role != 'Trainer') {
       Map<String, dynamic>? userData = await getUserData(userId);
       if (userData != null) {
         store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
       }
     }
   } catch (error, stackTrace) {
-    print("Failed to subscribe to course: $error");
+    print("Failed to join waitlist: $error");
     print("Stack trace: $stackTrace");
     rethrow;
   } finally {

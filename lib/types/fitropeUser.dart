@@ -50,6 +50,7 @@ class FitropeUser {
   final String? numeroTelefono;
   final List<String> tipologiaCorsoTags; // Tag per limitare l'accesso ai corsi
   final List<CancelledEnrollment> cancelledEnrollments; // Tracciamento disiscrizioni
+  final List<String> waitlistCourses; // Corsi in lista d'attesa (course IDs)
 
   const FitropeUser({
     required this.name, 
@@ -69,6 +70,7 @@ class FitropeUser {
     this.numeroTelefono,
     this.tipologiaCorsoTags = const ['Tutti i corsi'],
     this.cancelledEnrollments = const [],
+    this.waitlistCourses = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -90,6 +92,7 @@ class FitropeUser {
       'numeroTelefono': numeroTelefono,
       'tipologiaCorsoTags': tipologiaCorsoTags,
       'cancelledEnrollments': cancelledEnrollments.map((e) => e.toJson()).toList(),
+      'waitlistCourses': waitlistCourses,
     };
   }
 
@@ -121,6 +124,9 @@ class FitropeUser {
           .toList() ?? ['Open'],
       cancelledEnrollments: (json['cancelledEnrollments'] as List<dynamic>?)
           ?.map((item) => CancelledEnrollment.fromJson(item as Map<String, dynamic>))
+          .toList() ?? [],
+      waitlistCourses: (json['waitlistCourses'] as List<dynamic>?)
+          ?.map((id) => id.toString())
           .toList() ?? [],
     );
   }

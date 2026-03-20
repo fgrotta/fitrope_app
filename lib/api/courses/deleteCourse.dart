@@ -145,22 +145,44 @@ Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
   });
 }
 
+Future<List<String>> getWaitlistUsers(String courseId) async {
+  var usersCollection = FirebaseFirestore.instance.collection('users');
+  var snapshots = await usersCollection.where('waitlistCourses', arrayContains: courseId).get();
+  return snapshots.docs.map((doc) => "${doc['uid']}").toList();
+}
+
+Future<void> _removeUserFromWaitlist(String courseId, String userId) async {
+  DocumentReference userRef = firestore.collection('users').doc(userId);
+  DocumentSnapshot userSnapshot = await userRef.get();
+  List<dynamic> waitlistCourses = userSnapshot['waitlistCourses'] ?? [];
+  if (waitlistCourses.contains(courseId)) {
+    waitlistCourses.remove(courseId);
+    await userRef.update({'waitlistCourses': waitlistCourses});
+  }
+}
+
 Future<void> deleteCourse(String courseId) async {
   try {
     print('Deleting course $courseId');
-    // Prima rimuovi il corso da tutti gli utenti iscritti
+    // Rimuovi il corso da tutti gli utenti iscritti
     List<String> subscribers = await getSubscribers(courseId);
-    // Rimuovi il corso dalla lista corsi di ogni utente iscritto
     for (String userId in subscribers) {
       await forceUnsubscribeFromCourse(courseId, userId);
-    }    
+    }
+
+    // Rimuovi il corso dalla waitlistCourses di tutti gli utenti in attesa
+    List<String> waitlistUserIds = await getWaitlistUsers(courseId);
+    for (String userId in waitlistUserIds) {
+      await _removeUserFromWaitlist(courseId, userId);
+    }
+
     // Poi elimina il corso
     await FirebaseFirestore.instance.collection('courses').doc(courseId).delete();
-    invalidateCoursesCache(); // Invalida la cache dopo l'eliminazione
+    invalidateCoursesCache();
+    invalidateUsersCache();
     
-    print('Course ${courseId} and all subscriptions deleted successfully!');
+    print('Course ${courseId} and all subscriptions/waitlists deleted successfully!');
   } catch (e) {
     print('Error deleting course: $e');
   }
-  
 } 
