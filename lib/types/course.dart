@@ -11,6 +11,7 @@ class Course {
   final int subscribed;
   final String? trainerId; // ID del trainer assegnato al corso
   final List<String> tags; // Tag per limitare l'accesso al corso
+  final List<String> waitlist; // Utenti in lista d'attesa (user IDs)
 
   const Course({ 
     @Deprecated('Use uid instead')
@@ -23,6 +24,7 @@ class Course {
     required this.subscribed, 
     this.trainerId,
     this.tags = const [],
+    this.waitlist = const [],
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -42,6 +44,7 @@ class Course {
       subscribed: json['subscribed'] as int,
       trainerId: json['trainerId'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.map((tag) => tag.toString()).toList() ?? [],
+      waitlist: (json['waitlist'] as List<dynamic>?)?.map((id) => id.toString()).toList() ?? [],
     );
   }
 
@@ -56,6 +59,7 @@ class Course {
       'subscribed': subscribed,
       'trainerId': trainerId,
       'tags': tags,
+      'waitlist': waitlist,
     };
   }
 }

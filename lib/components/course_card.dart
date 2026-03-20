@@ -5,6 +5,7 @@ import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
 import 'package:fitrope_app/api/courses/updateCourseSubscribedCount.dart';
+import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -17,7 +18,10 @@ enum CourseState {
   SUBSCRIBED, 
   LIMIT,
   SUBSCRIBE_LIMIT,
-  CLOSED
+  CLOSED,
+  CAN_WAITLIST,
+  IN_WAITLIST,
+  WAITLIST_SPOT_AVAILABLE,
 }
 
 class CourseCard extends StatefulWidget {
@@ -33,7 +37,8 @@ class CourseCard extends StatefulWidget {
   final int? capacity;
   final int? subscribed;
   final List<String>? subscribersNames;
-  final List<FitropeUser>? subscribersUsers; // Lista degli utenti iscritti per la versione cliccabile
+  final List<FitropeUser>? subscribersUsers;
+  final List<FitropeUser>? waitlistUsers;
   final VoidCallback? onDuplicate;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
@@ -57,6 +62,7 @@ class CourseCard extends StatefulWidget {
     this.subscribed,
     this.subscribersNames,
     this.subscribersUsers,
+    this.waitlistUsers,
     this.onDuplicate,
     this.onDelete,
     this.onEdit,
@@ -352,6 +358,96 @@ class _CourseCardState extends State<CourseCard> {
     );
   }
 
+  Widget _buildWaitlistUsersList(BuildContext context) {
+    if (widget.waitlistUsers == null || widget.waitlistUsers!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Text(
+          'Lista d\'attesa (${widget.waitlistUsers!.length}):',
+          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        ...widget.waitlistUsers!.map((user) {
+          String displayName = getDisplayName(user);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _showUserDetails(context, user),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Text(
+                        '• $displayName',
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (widget.isAdmin || widget.userRole == 'Trainer')
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 16),
+                    onPressed: () => _removeFromWaitlist(context, user),
+                    tooltip: 'Rimuovi dalla lista d\'attesa',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  void _removeFromWaitlist(BuildContext context, FitropeUser user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: backgroundColor,
+        title: const Text('Rimuovi dalla lista d\'attesa'),
+        content: Text(
+          'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dalla lista d\'attesa di "${widget.title}"?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Rimuovi', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await leaveWaitlist(widget.courseId, user.uid);
+        SnackBarUtils.showSuccessSnackBar(
+          context,
+          'Utente rimosso dalla lista d\'attesa',
+        );
+        widget.onRefresh();
+      } catch (e) {
+        SnackBarUtils.showErrorSnackBar(
+          context,
+          'Errore durante la rimozione: ${e.toString()}',
+        );
+      }
+    }
+  }
+
 String getDisplayName(FitropeUser user) {
     // Usa la stessa logica di UserDisplayUtils per coerenza
     // Questa funzione è chiamata solo per admin/trainer (showClickableSubscribers = true)
@@ -387,8 +483,7 @@ String getDisplayName(FitropeUser user) {
       buttonTextColor = Colors.white;
     }
     else if(widget.courseState == CourseState.CLOSED) {
-    // Non mostrare il pulsante se il corso è chiuso
-    return const SizedBox.shrink();
+      return const SizedBox.shrink();
     }
     else if(widget.courseState == CourseState.NULL) {
       buttonText = 'Non disponibile';
@@ -400,7 +495,7 @@ String getDisplayName(FitropeUser user) {
       buttonColor = primaryLightColor;
       buttonTextColor = onPrimaryColor;
     }
-    else if(widget.courseState == CourseState.FULL ) {
+    else if(widget.courseState == CourseState.FULL) {
       buttonText = 'Corso pieno';
       buttonColor = primaryLightColor;
       buttonTextColor = onPrimaryColor;
@@ -420,6 +515,24 @@ String getDisplayName(FitropeUser user) {
       buttonColor = dangerColor;
       buttonTextColor = Colors.white;
       canBeClicked = true;
+    }
+    else if(widget.courseState == CourseState.CAN_WAITLIST) {
+      canBeClicked = true;
+      buttonText = 'Lista d\'attesa';
+      buttonColor = Colors.orange;
+      buttonTextColor = Colors.white;
+    }
+    else if(widget.courseState == CourseState.IN_WAITLIST) {
+      canBeClicked = true;
+      buttonText = 'Esci dalla lista d\'attesa';
+      buttonColor = dangerColor;
+      buttonTextColor = Colors.white;
+    }
+    else if(widget.courseState == CourseState.WAITLIST_SPOT_AVAILABLE) {
+      canBeClicked = true;
+      buttonText = 'Posto disponibile! Iscriviti ora';
+      buttonColor = ghostColor;
+      buttonTextColor = Colors.white;
     }
 
     return ElevatedButton(
@@ -489,7 +602,13 @@ String getDisplayName(FitropeUser user) {
                   color: _hasEnrollmentMismatch() ? Colors.orange : primaryDarkColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: _buildClickableSubscribersList(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildClickableSubscribersList(context),
+                    _buildWaitlistUsersList(context),
+                  ],
+                ),
               ),
           ],
         ),
@@ -497,21 +616,22 @@ String getDisplayName(FitropeUser user) {
     );
   }
 Row renderUserButtons() {
-return 
-Row(
-                      children: [
-                        Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: onPrimaryColor),),
-                        const SizedBox(width: 7.5,),
-                        IconButton(
-                            icon: const Icon(Icons.people),
-                            tooltip: 'Vedi iscritti',
-                            onPressed: showSubscribersDialog,
-                            color: onPrimaryColor, 
-                            iconSize: 20,
-                          ),
-                        
-                      ],
-                    );
+  int waitlistCount = widget.course.waitlist.length;
+  return Row(
+    children: [
+      Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: onPrimaryColor)),
+      if (waitlistCount > 0)
+        Text(" +$waitlistCount", style: const TextStyle(color: Colors.orange, fontSize: 12)),
+      const SizedBox(width: 7.5),
+      IconButton(
+        icon: const Icon(Icons.people),
+        tooltip: 'Vedi iscritti',
+        onPressed: showSubscribersDialog,
+        color: onPrimaryColor,
+        iconSize: 20,
+      ),
+    ],
+  );
 }
      
 

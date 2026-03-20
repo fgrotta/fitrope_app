@@ -23,35 +23,47 @@ CourseState getCourseState(Course course, FitropeUser user) {
   }
   // Usa course.uid per la verifica dell'iscrizione (più affidabile)
   if(user.courses.contains(course.uid)) {
-    return CourseState.SUBSCRIBED;// Utente iscritto al corso
+    return CourseState.SUBSCRIBED;
   }
 
-  if(course.capacity <= course.subscribed) {
-    return CourseState.FULL;// Corso pieno
+  bool isInWaitlist = course.waitlist.contains(user.uid);
+  bool courseFull = course.capacity <= course.subscribed;
+
+  // Determina se l'utente è idoneo a iscriversi (crediti, limiti settimanali)
+  CourseState? limitState = _getSubscriptionLimitState(user, courseDate);
+
+  if (courseFull) {
+    if (isInWaitlist) return CourseState.IN_WAITLIST;
+    if (limitState != null) return limitState;
+    return CourseState.CAN_WAITLIST;
   }
-  
-  if((user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA || user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE)){
-   if ((user.entrateDisponibili != null && user.entrateDisponibili! > 0)) {
-      return CourseState.CAN_SUBSCRIBE;
-    }  
-   if(user.entrateDisponibili == 0 || user.entrateDisponibili == null) {
-    return CourseState.SUBSCRIBE_LIMIT;// Prenotazioni esaurite
+
+  // Corso con posti disponibili
+  if (limitState != null) return limitState;
+  if (isInWaitlist) return CourseState.WAITLIST_SPOT_AVAILABLE;
+  return CourseState.CAN_SUBSCRIBE;
+}
+
+/// Restituisce lo stato limite se l'utente non può iscriversi per crediti/limiti,
+/// oppure null se l'utente è idoneo.
+CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
+  if (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA ||
+      user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE) {
+    if (user.entrateDisponibili != null && user.entrateDisponibili! > 0) {
+      return null;
     }
-  } 
-  
-  if(
-    user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
-    user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
-    user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
-    user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE
-  ) {
+    return CourseState.SUBSCRIBE_LIMIT;
+  }
+
+  if (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
+      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
+      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
+      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE) {
     int weeklyEntriesUsed = _countWeeklyEntries(courseDate, user);
-    
-    if(weeklyEntriesUsed >= user.entrateSettimanali!) {
+    if (weeklyEntriesUsed >= user.entrateSettimanali!) {
       return CourseState.LIMIT;
     }
-
-    return CourseState.CAN_SUBSCRIBE;
+    return null;
   }
 
   return CourseState.NULL;
