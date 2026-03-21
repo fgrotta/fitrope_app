@@ -23,41 +23,47 @@ void main() {
       store.dispatch(SetAllCoursesAction([]));
       
       final now = DateTime.now();
+      // Usa la prossima settimana per garantire che i corsi siano sempre nel futuro
       final mondayThisWeek = now.subtract(Duration(days: now.weekday - 1));
       final mondayNextWeek = mondayThisWeek.add(const Duration(days: 7));
-      
-      // Corso lunedì questa settimana
+      final mondayTwoWeeksOut = mondayThisWeek.add(const Duration(days: 14));
+
+      // Corso lunedì prossima settimana
       testCourse1 = Course(
+        id: 'course-1',
         uid: 'course-1',
         name: 'Corso Lunedì',
-        startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(hours: 10))),
-        endDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(hours: 11))),
+        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
+        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
         capacity: 20,
         subscribed: 5,
       );
-      
-      // Corso martedì questa settimana
+
+      // Corso martedì prossima settimana
       testCourse2 = Course(
+        id: 'course-2',
         uid: 'course-2',
         name: 'Corso Martedì',
-        startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 1, hours: 10))),
-        endDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 1, hours: 11))),
+        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 10))),
+        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 11))),
         capacity: 20,
         subscribed: 5,
       );
-      
-      // Corso mercoledì questa settimana
+
+      // Corso mercoledì prossima settimana
       testCourse3 = Course(
+        id: 'course-3',
         uid: 'course-3',
         name: 'Corso Mercoledì',
-        startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 2, hours: 10))),
-        endDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 2, hours: 11))),
+        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 10))),
+        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 11))),
         capacity: 20,
         subscribed: 5,
       );
-      
+
       // Corso che inizia tra 2 ore (< 4 ore)
       testCourseSoon = Course(
+        id: 'course-soon',
         uid: 'course-soon',
         name: 'Corso Imminente',
         startDate: Timestamp.fromDate(now.add(const Duration(hours: 2))),
@@ -65,23 +71,25 @@ void main() {
         capacity: 20,
         subscribed: 5,
       );
-      
-      // Corso che inizia tra 5 ore (> 4 ore)
+
+      // Corso che inizia tra 6 ore (> 4 ore, con margine per evitare troncamenti)
       testCourseFar = Course(
+        id: 'course-far',
         uid: 'course-far',
         name: 'Corso Lontano',
-        startDate: Timestamp.fromDate(now.add(const Duration(hours: 5))),
-        endDate: Timestamp.fromDate(now.add(const Duration(hours: 6))),
+        startDate: Timestamp.fromDate(now.add(const Duration(hours: 6))),
+        endDate: Timestamp.fromDate(now.add(const Duration(hours: 7))),
         capacity: 20,
         subscribed: 5,
       );
-      
-      // Corso prossima settimana
+
+      // Corso due settimane avanti (settimana diversa da course-1/2/3)
       testCourseNextWeek = Course(
+        id: 'course-next-week',
         uid: 'course-next-week',
-        name: 'Corso Prossima Settimana',
-        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
-        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
+        name: 'Corso Due Settimane',
+        startDate: Timestamp.fromDate(mondayTwoWeeksOut.add(const Duration(hours: 10))),
+        endDate: Timestamp.fromDate(mondayTwoWeeksOut.add(const Duration(hours: 11))),
         capacity: 20,
         subscribed: 5,
       );
@@ -113,6 +121,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [],
         );
         
@@ -151,6 +160,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [cancelledEnrollment],
         );
         
@@ -179,6 +189,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [],
         );
         
@@ -214,6 +225,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [cancelledEnrollment],
         );
         
@@ -251,6 +263,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [cancelledEnrollment],
         );
         
@@ -278,6 +291,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [],
         );
         
@@ -312,6 +326,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [cancelledEnrollment],
         );
         
@@ -347,6 +362,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [cancelledEnrollmentLastWeek],
         );
         
@@ -380,6 +396,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [cancelledEnrollmentThisWeek],
         );
         
@@ -433,6 +450,7 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
+          tipologiaCorsoTags: ['Open'],
           cancelledEnrollments: [cancelledEnrollment],
         );
         
