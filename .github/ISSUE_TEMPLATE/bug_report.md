@@ -24,7 +24,7 @@ Una descrizione chiara e concisa di cosa ti aspettavi che accadesse.
 Se applicabile, aggiungi screenshot per aiutare a spiegare il problema.
 
 **Ambiente (completa le seguenti informazioni):**
- - OS: [es. iOS, Android, Web]
+ - OS: [es. Web, Windows, macOS]
  - Versione: [es. 22]
  - Versione Flutter: [es. 3.24.0]
  - Versione Dart: [es. 3.3.0]
