@@ -8,6 +8,9 @@ class AppShell extends StatelessWidget {
   final bool isAdmin;
   final ValueChanged<int> onChangePage;
   final VoidCallback? onLogout;
+  /// Desktop [NavigationRail]: iniziali utente sopra il logout (es. "MR").
+  final String? profileInitials;
+  final VoidCallback? onProfileTap;
   final Widget child;
 
   const AppShell({
@@ -16,6 +19,8 @@ class AppShell extends StatelessWidget {
     required this.isAdmin,
     required this.onChangePage,
     this.onLogout,
+    this.profileInitials,
+    this.onProfileTap,
     required this.child,
   });
 
@@ -65,10 +70,39 @@ class AppShell extends StatelessWidget {
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 20),
-                  child: IconButton(
-                    icon: const Icon(Icons.logout, color: onSurfaceVariantColor),
-                    tooltip: 'Logout',
-                    onPressed: onLogout,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onProfileTap != null &&
+                          profileInitials != null &&
+                          profileInitials!.isNotEmpty) ...[
+                        IconButton(
+                          tooltip: 'Profilo',
+                          onPressed: onProfileTap,
+                          padding: EdgeInsets.zero,
+                          icon: CircleAvatar(
+                            radius: 20,
+                            backgroundColor:
+                                const Color.fromARGB(255, 96, 119, 246),
+                            child: Text(
+                              profileInitials!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      IconButton(
+                        icon: const Icon(Icons.logout,
+                            color: onSurfaceVariantColor),
+                        tooltip: 'Logout',
+                        onPressed: onLogout,
+                      ),
+                    ],
                   ),
                 ),
               ),

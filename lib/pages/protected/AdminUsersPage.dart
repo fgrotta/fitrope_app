@@ -1,5 +1,7 @@
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
+import 'package:fitrope_app/authentication/resetPassword.dart';
+import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
@@ -12,7 +14,15 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show FixedColumnWidth;
 import 'package:flutter_redux/flutter_redux.dart';
+import 'package:intl/intl.dart';
+
+enum AbbonamentoScadenzaListFilter {
+  tutti,
+  inScadenzaProssimi30Giorni,
+  senzaScadenza,
+}
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -32,6 +42,29 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   bool hasMore = true;
   late FitropeUser user;
   static const int _itemsPerPage = 20; // Numero di utenti da caricare per volta
+  static const double _userTableNarrowColumnWidth = 100;
+  static const EdgeInsets _userTableNarrowCellPadding =
+      EdgeInsets.symmetric(horizontal: 6, vertical: 8);
+  static final DateFormat _userTableDateFormat = DateFormat('dd/MM/yyyy');
+
+  Widget _userTableEllipsisText(String text, {TextStyle? style}) {
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+  }
+
+  String _desktopTableTelefonoCell(FitropeUser u) {
+    final t = u.numeroTelefono?.trim();
+    return (t == null || t.isEmpty) ? '—' : t;
+  }
+
+  String _desktopTableScadenzaAbbonamentoCell(FitropeUser u) {
+    final ts = u.fineIscrizione;
+    return ts == null ? 'Non impostata' : _userTableDateFormat.format(ts.toDate());
+  }
 
   /// Filtro tag: null = tutti i tag
   String? selectedTagFilter;
@@ -39,6 +72,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   TipologiaIscrizione? selectedTipologiaFilter;
   /// Filtro stato: null = tutti, true = solo attivi, false = solo disattivati
   bool? activeFilter;
+  /// Solo Admin: filtro su fine iscrizione (allineato al KPI dashboard per i 30 gg)
+  AbbonamentoScadenzaListFilter _abbonamentoScadenzaFilter =
+      AbbonamentoScadenzaListFilter.tutti;
   /// Su mobile: filtri nascosti o mostrati (dropdown espanso/collassato)
   bool _filtersExpanded = false;
 
@@ -142,6 +178,25 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         result = result.where((u) => u.isActive == activeFilter).toList();
       }
 
+      // Filtro scadenza abbonamento (solo Admin)
+      if (user.role == 'Admin') {
+        switch (_abbonamentoScadenzaFilter) {
+          case AbbonamentoScadenzaListFilter.tutti:
+            break;
+          case AbbonamentoScadenzaListFilter.inScadenzaProssimi30Giorni:
+            result = result
+                .where((u) =>
+                    AbbonamentoHelper.isFineIscrizioneNeiProssimi30Giorni(
+                      u.fineIscrizione,
+                    ))
+                .toList();
+            break;
+          case AbbonamentoScadenzaListFilter.senzaScadenza:
+            result = result.where((u) => u.fineIscrizione == null).toList();
+            break;
+        }
+      }
+
       filteredUsers = result;
       displayedUsers = [];
       hasMore = true;
@@ -153,11 +208,23 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     _applyFilters();
   }
 
-  void showUserDetails(FitropeUser user) async {
+  bool _canEditListedUser(FitropeUser target) {
+    if (user.uid == target.uid) return true;
+    if (user.role == 'Admin') return true;
+    if (user.role == 'Trainer' && target.role == 'User') return true;
+    return false;
+  }
+
+  bool _canSendResetPasswordFromList() => user.role == 'Admin';
+
+  void showUserDetails(FitropeUser targetUser, {bool openInEditMode = false}) async {
     final updatedUser = await Navigator.push<FitropeUser>(
       context,
       MaterialPageRoute(
-        builder: (context) => UserDetailPage(user: user),
+        builder: (context) => UserDetailPage(
+          user: targetUser,
+          openInEditMode: openInEditMode,
+        ),
       ),
     );
     
@@ -173,7 +240,59 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     }
   }
 
-
+  void _showResetPasswordDialog(FitropeUser targetUser) {
+    if (targetUser.email.trim().isEmpty) {
+      SnackBarUtils.showErrorSnackBar(
+        context,
+        'Nessun indirizzo email per questo utente',
+      );
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Invia Email Reset Password'),
+          content: Text(
+            'Sei sicuro di voler inviare un\'email di reset password a ${targetUser.email}?\n\n'
+            'L\'utente riceverà un\'email con le istruzioni per reimpostare la propria password.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await resetPassword(targetUser.email);
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  SnackBarUtils.showSuccessSnackBar(
+                    context,
+                    'Email di reset password inviata con successo a ${targetUser.email}',
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  SnackBarUtils.showErrorSnackBar(
+                    context,
+                    'Errore durante l\'invio dell\'email di reset password',
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: primaryColor),
+              child: const Text(
+                'Invia Email',
+                style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void showToggleUserStatusDialog(FitropeUser user) {
     final isCurrentlyActive = user.isActive;
@@ -225,6 +344,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     final screenType = breakpointOf(context);
     final bool desktopLayout =
         screenType == ScreenType.desktop || screenType == ScreenType.largeDesktop;
+    final bool isAdmin = user.role == 'Admin';
 
     final tagDropdown = DropdownButtonFormField<String?>(
       value: selectedTagFilter,
@@ -284,6 +404,37 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       },
     );
 
+    final Widget? scadenzaAbbonamentoFilterDropdown = isAdmin
+        ? DropdownButtonFormField<AbbonamentoScadenzaListFilter>(
+            value: _abbonamentoScadenzaFilter,
+            decoration: const InputDecoration(
+              labelText: 'Scadenza abbonamento',
+              border: OutlineInputBorder(),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: AbbonamentoScadenzaListFilter.tutti,
+                child: Text('Tutti'),
+              ),
+              DropdownMenuItem(
+                value: AbbonamentoScadenzaListFilter.inScadenzaProssimi30Giorni,
+                child: Text('In scadenza (prossimi 30 gg)'),
+              ),
+              DropdownMenuItem(
+                value: AbbonamentoScadenzaListFilter.senzaScadenza,
+                child: Text('Senza scadenza'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              _abbonamentoScadenzaFilter = value;
+              _applyFilters();
+            },
+          )
+        : null;
+
     if (desktopLayout) {
       return Row(
         children: [
@@ -292,6 +443,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           Expanded(child: tipologiaDropdown),
           const SizedBox(width: 12),
           Expanded(child: statoDropdown),
+          if (scadenzaAbbonamentoFilterDropdown != null) ...[
+            const SizedBox(width: 12),
+            Expanded(child: scadenzaAbbonamentoFilterDropdown),
+          ],
         ],
       );
     }
@@ -326,6 +481,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 tipologiaDropdown,
                 const SizedBox(height: 12),
                 statoDropdown,
+                if (scadenzaAbbonamentoFilterDropdown != null) ...[
+                  const SizedBox(height: 12),
+                  scadenzaAbbonamentoFilterDropdown,
+                ],
               ],
             ),
           ),
@@ -350,7 +509,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     }
   }
 
-  Widget _buildUsersTable() {
+  Widget _buildUsersTable({required bool showDesktopExtraColumns}) {
     if (displayedUsers.isEmpty && !isLoading) {
       return const Center(
         child: Text(
@@ -360,72 +519,129 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       );
     }
 
-    return ListView.builder(
+    return ListView(
       controller: scrollController,
-      itemCount: displayedUsers.length + (hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text('Nome')),
-                DataColumn(label: Text('Email')),
-                DataColumn(label: Text('Ruolo')),
-                DataColumn(label: Text('Stato')),
-                DataColumn(label: Text('Azioni')),
-              ],
-              rows: displayedUsers.map((fitropeUser) {
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Text('${fitropeUser.name} ${fitropeUser.lastName}'),
-                      onTap: () => showUserDetails(fitropeUser),
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final tableMinWidth = constraints.maxWidth;
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: tableMinWidth),
+                child: DataTable(
+                  columnSpacing: 20,
+                  horizontalMargin: 0,
+                  showCheckboxColumn: false,
+                  columns: [
+                    const DataColumn(label: Text('Nome')),
+                    const DataColumn(label: Text('Email')),
+                    if (showDesktopExtraColumns) ...[
+                      const DataColumn(label: Text('Telefono')),
+                      const DataColumn(label: Text('Scadenza abbonamento')),
+                    ],
+                    DataColumn(
+                      columnWidth:
+                          FixedColumnWidth(_userTableNarrowColumnWidth),
+                      label: _userTableEllipsisText('Ruolo'),
                     ),
-                    DataCell(Text(fitropeUser.email)),
-                    DataCell(Text(fitropeUser.role)),
-                    DataCell(
-                      Text(
-                        fitropeUser.isActive ? 'Attivo' : 'Disattivo',
-                        style: TextStyle(
-                          color: fitropeUser.isActive ? successColor : warningColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    DataColumn(
+                      columnWidth:
+                          FixedColumnWidth(_userTableNarrowColumnWidth),
+                      label: _userTableEllipsisText('Stato'),
                     ),
-                    DataCell(
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.info_outline),
-                            tooltip: 'Dettagli',
-                            onPressed: () => showUserDetails(fitropeUser),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              fitropeUser.isActive ? Icons.block : Icons.check_circle,
-                              color: fitropeUser.isActive ? warningColor : successColor,
+                    const DataColumn(label: Text('Azioni')),
+                  ],
+                  rows: displayedUsers.map((fitropeUser) {
+                    return DataRow(
+                      onSelectChanged: (_) => showUserDetails(fitropeUser),
+                      cells: [
+                        DataCell(Text('${fitropeUser.name} ${fitropeUser.lastName}')),
+                        DataCell(Text(fitropeUser.email)),
+                        if (showDesktopExtraColumns) ...[
+                          DataCell(
+                            _userTableEllipsisText(
+                              _desktopTableTelefonoCell(fitropeUser),
                             ),
-                            tooltip: fitropeUser.isActive ? 'Disattiva' : 'Attiva',
-                            onPressed: () => showToggleUserStatusDialog(fitropeUser),
+                          ),
+                          DataCell(
+                            _userTableEllipsisText(
+                              _desktopTableScadenzaAbbonamentoCell(fitropeUser),
+                            ),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                        DataCell(
+                          Padding(
+                            padding: _userTableNarrowCellPadding,
+                            child: _userTableEllipsisText(fitropeUser.role),
+                          ),
+                        ),
+                        DataCell(
+                          Padding(
+                            padding: _userTableNarrowCellPadding,
+                            child: _userTableEllipsisText(
+                              fitropeUser.isActive ? 'Attivo' : 'Disattivo',
+                              style: TextStyle(
+                                color: fitropeUser.isActive ? successColor : warningColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.info_outline),
+                                tooltip: 'Dettagli',
+                                onPressed: () => showUserDetails(fitropeUser),
+                              ),
+                              if (_canEditListedUser(fitropeUser))
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(Icons.edit_outlined),
+                                  tooltip: 'Modifica',
+                                  onPressed: () =>
+                                      showUserDetails(fitropeUser, openInEditMode: true),
+                                ),
+                              if (_canSendResetPasswordFromList() &&
+                                  fitropeUser.email.trim().isNotEmpty)
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(Icons.mark_email_unread_outlined),
+                                  tooltip: 'Invia email reset password',
+                                  onPressed: () => _showResetPasswordDialog(fitropeUser),
+                                ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                icon: Icon(
+                                  fitropeUser.isActive ? Icons.block : Icons.check_circle,
+                                  color: fitropeUser.isActive ? warningColor : successColor,
+                                ),
+                                tooltip: fitropeUser.isActive ? 'Disattiva' : 'Attiva',
+                                onPressed: () => showToggleUserStatusDialog(fitropeUser),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+          },
+        ),
+        if (hasMore)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: CircularProgressIndicator(color: primaryColor),
             ),
-          );
-        }
-
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Center(
-            child: CircularProgressIndicator(color: primaryColor),
           ),
-        );
-      },
+      ],
     );
   }
   
@@ -435,8 +651,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       converter: (store) => store.state,
       builder: (context, state) {
         final screenType = breakpointOf(context);
-        final bool desktopLayout =
-            screenType == ScreenType.desktop || screenType == ScreenType.largeDesktop;
+        final bool useUserTable = screenType != ScreenType.mobile;
+        final bool desktopTableExtraColumns = isDesktop(context);
 
         return Stack(
           children: [
@@ -451,29 +667,34 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 children: [
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Image(image: AssetImage('assets/new_logo_only.png'), width: 30),
-                      const Text(
-                        'Gestione Utenti',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 30,
-                          color: onPrimaryColor,
+                      Expanded(
+                        child: Text(
+                          'Gestione Utenti',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 30,
+                            color: onPrimaryColor,
+                          ),
                         ),
                       ),
-                      GestureDetector(
-                        child: CircleAvatar(
-                          backgroundColor: const Color.fromARGB(255, 96, 119, 246),
-                          child: Text(user.name[0] + user.lastName[0]),
+                      if (isDesktop(context))
+                        const SizedBox(width: 30)
+                      else
+                        GestureDetector(
+                          child: CircleAvatar(
+                            backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                            child: Text(user.name[0] + user.lastName[0]),
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                            );
+                          },
                         ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
-                          );
-                        },
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -491,7 +712,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   const SizedBox(height: 12),
                   _buildFiltersRow(context),
                   const SizedBox(height: 12),
-                  if (desktopLayout)
+                  if (useUserTable)
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ElevatedButton.icon(
@@ -531,8 +752,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   ),
                   const SizedBox(height: 8),
                   Expanded(
-                    child: desktopLayout
-                        ? _buildUsersTable()
+                    child: useUserTable
+                        ? _buildUsersTable(
+                            showDesktopExtraColumns: desktopTableExtraColumns,
+                          )
                         : (filteredUsers.isEmpty && !isLoading
                             ? const Center(
                                 child: Text(

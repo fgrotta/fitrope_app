@@ -10,6 +10,7 @@ import 'package:fitrope_app/pages/protected/Homepage.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/pages/protected/AdminDashboardPage.dart';
 import 'package:fitrope_app/pages/protected/AdminUsersPage.dart';
+import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -92,6 +93,14 @@ class _ProtectedState extends State<Protected> {
     }
   }
 
+  String? _userProfileInitials(FitropeUser? u) {
+    if (u == null) return null;
+    final a = u.name.isNotEmpty ? u.name[0] : '';
+    final b = u.lastName.isNotEmpty ? u.lastName[0] : '';
+    final s = '$a$b';
+    return s.isEmpty ? '?' : s;
+  }
+
   int _getMaxIndex(BuildContext context) {
     final admin = user?.role == 'Admin';
     if (isDesktop(context) && admin) return 3;
@@ -144,6 +153,17 @@ class _ProtectedState extends State<Protected> {
                       currentIndex = index;
                     });
                   },
+                  profileInitials: desktop ? _userProfileInitials(user) : null,
+                  onProfileTap: desktop && user != null
+                      ? () {
+                          final u = user!;
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => UserDetailPage(user: u),
+                            ),
+                          );
+                        }
+                      : null,
                   onLogout: () {
                     signOut().then((_) {
                       logoutRedirect(context);

@@ -1,11 +1,15 @@
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
+import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+final DateFormat _dashboardUserListDateFormat = DateFormat('dd/MM/yyyy');
 
 class AdminDashboardPage extends StatefulWidget {
   final void Function(String title, List<FitropeUser> users) onOpenUserList;
@@ -173,7 +177,10 @@ class _UserListDrawerState extends State<UserListDrawer> {
     return widget.users.where((u) {
       final name = '${u.name} ${u.lastName}'.toLowerCase();
       final email = u.email.toLowerCase();
-      return name.contains(_query) || email.contains(_query);
+      final phone = (u.numeroTelefono ?? '').toLowerCase();
+      return name.contains(_query) ||
+          email.contains(_query) ||
+          phone.contains(_query);
     }).toList();
   }
 
@@ -198,7 +205,7 @@ class _UserListDrawerState extends State<UserListDrawer> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Cerca per nome o email...',
+                hintText: 'Cerca per nome, email o telefono...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -221,9 +228,79 @@ class _UserListDrawerState extends State<UserListDrawer> {
               itemCount: filtered.length,
               itemBuilder: (context, index) {
                 final u = filtered[index];
+                final phone = u.numeroTelefono?.trim();
+                final hasPhone = phone != null && phone.isNotEmpty;
+                final hasScadenza = u.fineIscrizione != null;
+                final scadenzaText = hasScadenza
+                    ? _dashboardUserListDateFormat.format(u.fineIscrizione!.toDate())
+                    : '—';
                 return ListTile(
-                  title: Text('${u.name} ${u.lastName}'),
-                  subtitle: Text(u.email),
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              '${u.name} ${u.lastName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              u.email,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: onSurfaceVariantColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              hasPhone ? phone : '—',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: onSurfaceVariantColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Scadenza abb.: $scadenzaText',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: onSurfaceVariantColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   dense: true,
                   onTap: () {
                     Scaffold.of(context).closeEndDrawer();
@@ -440,14 +517,11 @@ class _SectionAbbonamenti extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeUsers = users.where((u) => u.isActive).toList();
-    final now = DateTime.now();
-    final in30Days = now.add(const Duration(days: 30));
 
-    final expiringSoonList = activeUsers.where((u) {
-      if (u.fineIscrizione == null) return false;
-      final end = u.fineIscrizione!.toDate();
-      return end.isAfter(now) && end.isBefore(in30Days);
-    }).toList();
+    final expiringSoonList = activeUsers
+        .where((u) =>
+            AbbonamentoHelper.isFineIscrizioneNeiProssimi30Giorni(u.fineIscrizione))
+        .toList();
     final expiringSoon = expiringSoonList.length;
 
     final pacchettoUsers = activeUsers.where((u) {
