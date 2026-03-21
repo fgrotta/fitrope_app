@@ -9,6 +9,7 @@ import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -116,7 +117,12 @@ class _LoginPageState extends State<LoginPage> {
               ),
               backgroundColor: backgroundColor,
               body: Padding(
-                padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
+                padding: EdgeInsets.only(
+                  left: isDesktop(context) ? MediaQuery.of(context).size.width * 0.40 : pagePadding,
+                  right: isDesktop(context) ? MediaQuery.of(context).size.width * 0.40 : pagePadding,
+                  bottom: pagePadding,
+                  top: pagePadding + MediaQuery.of(context).viewPadding.top,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -150,7 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                     SizedBox(
-                      width: MediaQuery.of(context).size.width - pagePadding * 2,
+                      width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
                           onLogin();

@@ -1,0 +1,151 @@
+import 'package:fitrope_app/layout/breakpoints.dart';
+import 'package:fitrope_app/style.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_design_system/components/custom_bottom_navigation_bar.dart';
+
+class AppShell extends StatelessWidget {
+  final int currentIndex;
+  final bool isAdmin;
+  final ValueChanged<int> onChangePage;
+  final VoidCallback? onLogout;
+  /// Desktop [NavigationRail]: iniziali utente sopra il logout (es. "MR").
+  final String? profileInitials;
+  final VoidCallback? onProfileTap;
+  final Widget child;
+
+  const AppShell({
+    super.key,
+    required this.currentIndex,
+    required this.isAdmin,
+    required this.onChangePage,
+    this.onLogout,
+    this.profileInitials,
+    this.onProfileTap,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final screenType = breakpointOf(context);
+    final desktopLayout = isDesktop(context);
+
+    if (!desktopLayout) {
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        bottomNavigationBar: CustomBottomNavigationBar(
+          items: [
+            const CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
+            const CustomBottomNavigationBarItem(icon: Icons.calendar_month, label: 'Calendario'),
+            if (isAdmin) const CustomBottomNavigationBarItem(icon: Icons.people, label: 'Utenti'),
+          ],
+          colors: const CustomBottomNavigationBarColors(
+            backgroundColor: primaryLightColor,
+            selectedItemColor: onPrimaryColor,
+            unselectedItemColor: surfaceColor,
+          ),
+          onChangePage: onChangePage,
+          currentIndex: currentIndex,
+        ),
+        body: child,
+      );
+    }
+
+    final double? maxContentWidth = maxContentWidthFor(screenType);
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: Row(
+        children: [
+          NavigationRail(
+            backgroundColor: surfaceColor,
+            selectedIndex: currentIndex,
+            onDestinationSelected: onChangePage,
+            labelType: NavigationRailLabelType.all,
+            selectedIconTheme: const IconThemeData(color: onPrimaryColor),
+            unselectedIconTheme: const IconThemeData(color: onSurfaceVariantColor),
+            selectedLabelTextStyle: const TextStyle(color: onPrimaryColor),
+            unselectedLabelTextStyle: const TextStyle(color: onSurfaceVariantColor),
+            trailing: Expanded(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onProfileTap != null &&
+                          profileInitials != null &&
+                          profileInitials!.isNotEmpty) ...[
+                        IconButton(
+                          tooltip: 'Profilo',
+                          onPressed: onProfileTap,
+                          padding: EdgeInsets.zero,
+                          icon: CircleAvatar(
+                            radius: 20,
+                            backgroundColor:
+                                const Color.fromARGB(255, 96, 119, 246),
+                            child: Text(
+                              profileInitials!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      IconButton(
+                        icon: const Icon(Icons.logout,
+                            color: onSurfaceVariantColor),
+                        tooltip: 'Logout',
+                        onPressed: onLogout,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            destinations: [
+              const NavigationRailDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: Text('Home'),
+              ),
+              const NavigationRailDestination(
+                icon: Icon(Icons.calendar_month_outlined),
+                selectedIcon: Icon(Icons.calendar_month),
+                label: Text('Calendario'),
+              ),
+              if (isAdmin)
+                const NavigationRailDestination(
+                  icon: Icon(Icons.people_outline),
+                  selectedIcon: Icon(Icons.people),
+                  label: Text('Utenti'),
+                ),
+              if (isAdmin)
+                const NavigationRailDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: Text('Dashboard'),
+                ),
+            ],
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: maxContentWidth ?? double.infinity,
+                ),
+                child: child,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

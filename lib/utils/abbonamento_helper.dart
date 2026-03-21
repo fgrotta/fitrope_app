@@ -4,8 +4,24 @@ import 'package:intl/intl.dart';
 
 /// Helper per la gestione degli abbonamenti
 class AbbonamentoHelper {
+  /// Finestra giorni per KPI dashboard / filtro lista utenti «in scadenza»
+  static const int giorniFinestraScadenzaKpi = 30;
+
   /// Soglia di giorni per considerare un abbonamento in scadenza
   static const int GIORNI_SOGLIA_SCADENZA_ABBONAMENTO = 15;
+
+  /// `fineIscrizione` futura e entro [giorniFinestraScadenzaKpi] da [reference] (default: ora).
+  /// Allineato al KPI «In scadenza (prossimi 30 gg)» della dashboard.
+  static bool isFineIscrizioneNeiProssimi30Giorni(
+    Timestamp? fineIscrizione, {
+    DateTime? reference,
+  }) {
+    if (fineIscrizione == null) return false;
+    final now = reference ?? DateTime.now();
+    final end = fineIscrizione.toDate();
+    final limit = now.add(const Duration(days: giorniFinestraScadenzaKpi));
+    return end.isAfter(now) && end.isBefore(limit);
+  }
 
   /// Verifica se un abbonamento è in scadenza (≤ 15 giorni)
   static bool isAbbonamentoInScadenza(Timestamp? scadenza) {

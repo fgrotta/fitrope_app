@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -11,13 +12,11 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringSubscriptions.dart';
-import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/refresh_manager.dart';
-import 'package:fitrope_app/components/course_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
 
@@ -622,14 +621,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<Widget> renderCourses() {
-    if(user.courses.isEmpty) {
-      return [
-        const SizedBox(height: 10,),
-        const Text('Nessun corso disponibile',)
-      ];
+    if (user.courses.isEmpty) {
+      return [];
     }
 
-    List<Widget> render = [];
+    final List<Widget> render = [];
 
     for(int n=0; n<user.courses.length; n++) {
       // Usa course.uid invece di course.id per la sincronizzazione
@@ -649,49 +645,93 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    if(render.isEmpty) {
-      return [
-        const SizedBox(height: 10,),
-        const Text('Nessun corso disponibile', style: TextStyle(color: onPrimaryColor),)
-      ];
+    return render;
+  }
+
+  Widget _buildCoursesSection(ScreenType screenType) {
+    final coursesWidgets = renderCourses();
+
+    if (coursesWidgets.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 10),
+        child: Text(
+          'Nessun corso disponibile',
+          style: TextStyle(color: onPrimaryColor),
+        ),
+      );
     }
 
-    return render;
+    if (screenType == ScreenType.mobile) {
+      return Column(children: coursesWidgets);
+    }
+
+    final double cardWidth;
+    switch (screenType) {
+      case ScreenType.tablet:
+        cardWidth = 360;
+        break;
+      case ScreenType.desktop:
+        cardWidth = 380;
+        break;
+      case ScreenType.largeDesktop:
+        cardWidth = 420;
+        break;
+      case ScreenType.mobile:
+        cardWidth = double.infinity;
+        break;
+    }
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: coursesWidgets
+          .map(
+            (widget) => SizedBox(
+              width: cardWidth,
+              child: widget,
+            ),
+          )
+          .toList(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final screenType = breakpointOf(context);
+
+    return SingleChildScrollView(
       padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
       child: Column(
         children: [
           // HEADER
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
-              const Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),),
-              GestureDetector(
-                child: CircleAvatar(
-                  backgroundColor: const Color.fromARGB(255, 96, 119, 246),
-                  child: Text(user.name[0] + user.lastName[0]),
+              Expanded(
+                child: Text(
+                  'Home',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),
                 ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
-                  );
-                },
-              )
+              ),
+              if (isDesktop(context))
+                const SizedBox(width: 30)
+              else
+                GestureDetector(
+                  child: CircleAvatar(
+                    backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                    child: Text(user.name[0] + user.lastName[0]),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                    );
+                  },
+                ),
             ],
           ),
-
-          // CERTIFICATI IN SCADENZA (solo per Admin)
-          _buildCertificatiInScadenzaCard(),
-
-          // ABBONAMENTI IN SCADENZA (solo per Admin)
-          _buildAbbonamentiInScadenzaCard(),
 
           // ABBONAMENTO
           renderSubscriptionCard(),
@@ -704,9 +744,24 @@ class _HomePageState extends State<HomePage> {
                 width: double.infinity,
                 child: const Text('I miei corsi', textAlign: TextAlign.left, style: TextStyle(color:onPrimaryColor, fontSize: 20),),
               ),
-              ...renderCourses()
+              _buildCoursesSection(screenType),
             ],
           ),
+
+          // CERTIFICATI E ABBONAMENTI IN SCADENZA (solo Admin)
+          if (isDesktop(context)) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildCertificatiInScadenzaCard()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildAbbonamentiInScadenzaCard()),
+              ],
+            ),
+          ] else ...[
+            _buildCertificatiInScadenzaCard(),
+            _buildAbbonamentiInScadenzaCard(),
+          ],
         ],
       ),
     );

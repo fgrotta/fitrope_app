@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/authentication/updateUser.dart';
 import 'package:fitrope_app/api/authentication/toggleUserStatus.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/authentication/resetPassword.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
@@ -17,8 +18,14 @@ import 'package:flutter/services.dart';
 
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
+  /// Se true e i permessi lo consentono, apre direttamente la modalità modifica.
+  final bool openInEditMode;
 
-  const UserDetailPage({super.key, required this.user});
+  const UserDetailPage({
+    super.key,
+    required this.user,
+    this.openInEditMode = false,
+  });
 
   @override
   State<UserDetailPage> createState() => _UserDetailPageState();
@@ -57,6 +64,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
     selectedIsAnonymous = widget.user.isAnonymous;
     selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
     selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
+    if (widget.openInEditMode && _canEditUser()) {
+      isEditing = true;
+    }
     // print(widget.user.isAnonymous);
     loadCourses();
   }
@@ -571,39 +581,62 @@ class _UserDetailPageState extends State<UserDetailPage> {
       );
     }
 
+    final horizontalInset =
+        isDesktop(context) ? MediaQuery.sizeOf(context).width * 0.15 : 0.0;
+
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
         backgroundColor: backgroundColor,
+        // leadingWidth: lo slot default (56) tagliava il BackButton spostato dal padding desktop.
+        leadingWidth: horizontalInset > 0 ? horizontalInset + 56 : null,
+        leading: horizontalInset > 0
+            ? Padding(
+                padding: EdgeInsetsDirectional.only(start: horizontalInset),
+                child: BackButton(
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+              )
+            : null,
         title: Text(store.state.user?.uid == widget.user.uid ? 'Il Mio Profilo' : 'Dettagli Utente'),
         actions: [
-          if (!isEditing && _canEditUser()) ...[            
-            // Pulsante Cancella Account solo per il proprio profilo
-            if (store.state.user?.uid == widget.user.uid)
-              IconButton(
-                icon: const Icon(Icons.delete_forever, color: Colors.red),
-                onPressed: showDeleteAccountConfirmation,
-                tooltip: 'Cancella Account',
-              ),
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: toggleEdit,
+          Padding(
+            padding: EdgeInsetsDirectional.only(end: horizontalInset),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isEditing && _canEditUser()) ...[
+                  if (store.state.user?.uid == widget.user.uid)
+                    IconButton(
+                      icon: const Icon(Icons.delete_forever, color: Colors.red),
+                      onPressed: showDeleteAccountConfirmation,
+                      tooltip: 'Cancella Account',
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: toggleEdit,
+                  ),
+                ],
+                if (isEditing) ...[
+                  IconButton(
+                    icon: const Icon(Icons.save),
+                    onPressed: saveChanges,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: toggleEdit,
+                  ),
+                ],
+              ],
             ),
-          ],
-          if (isEditing) ...[
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: saveChanges,
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: toggleEdit,
-            ),
-          ],
+          ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(pagePadding),
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? MediaQuery.of(context).size.width * 0.15 : pagePadding,
+          vertical: pagePadding,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
