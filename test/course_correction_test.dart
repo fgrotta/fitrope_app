@@ -12,6 +12,7 @@ void main() {
     setUp(() {
       // Crea un corso di test con discrepanza
       testCourse = Course(
+        id: 'test-course-1',
         uid: 'test-course-1',
         name: 'Corso di Test',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
@@ -83,17 +84,20 @@ void main() {
 
     test('should not show correction button for regular User', () {
       // Simula le condizioni per User normale
+      // Il pulsante è visibile solo per Admin e Trainer, non per User
       String userRole = 'User';
       bool hasMismatch = testUsers.length != testCourse.subscribed;
-      
+      bool canShowButton = hasMismatch && (userRole == 'Admin' || userRole == 'Trainer');
+
       expect(hasMismatch, true);
       expect(userRole == 'User', true);
-      expect(hasMismatch && userRole == 'User', false); // Il pulsante NON dovrebbe essere visibile
+      expect(canShowButton, false); // Il pulsante NON dovrebbe essere visibile
     });
 
     test('should not show correction button when there is no mismatch', () {
       // Crea un corso che matcha il numero di utenti
       Course matchingCourse = Course(
+        id: 'test-course-2',
         uid: 'test-course-2',
         name: 'Corso Matching',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
