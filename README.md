@@ -1,16 +1,52 @@
 # FitRope
 
-A new Flutter project.
+FitRope e una applicazione Flutter per la gestione di utenti, autenticazione e iscrizioni ai corsi fitness. Nel codice UI il brand esposto e `Fit House`, mentre il package del progetto resta `fitrope_app`.
 
-## Getting Started
+## Stack
 
-This project is a starting point for a Flutter application.
+- Flutter
+- Firebase Auth
+- Cloud Firestore
+- Redux + `flutter_redux`
+- `flutter_design_system` come dipendenza Git esterna
 
-A few resources to get you started if this is your first Flutter project:
+## Funzionalita principali
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- login, registrazione, reset password e verifica email
+- area protetta con navigazione tra home, calendario e strumenti admin
+- gestione corsi e corsi ricorrenti
+- regole di iscrizione/disiscrizione basate su ruolo e tipologia di abbonamento
+- deploy web tramite GitHub Actions
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Struttura del progetto
+
+- `lib/main.dart`: bootstrap Firebase e MaterialApp
+- `lib/router.dart`: definizione route
+- `lib/state/`: store Redux, reducer e azioni
+- `lib/pages/welcome/`: splash, welcome, login, registrazione
+- `lib/pages/protected/`: area autenticata, corsi e amministrazione
+- `lib/api/`: accesso a Firestore per utenti e corsi
+- `lib/utils/`: regole di business e helper
+- `test/`: test sulle regole di iscrizione e disiscrizione
+
+## Avvio locale
+
+```bash
+flutter pub get
+flutter run -d chrome
+```
+
+## Verifiche utili
+
+```bash
+flutter test
+flutter analyze
+flutter format --set-exit-if-changed .
+flutter build web --debug
+```
+
+## Note operative
+
+- La localizzazione principale e italiana (`it_IT`).
+- La logica piu sensibile e in `lib/api/courses/` e `lib/utils/course_unsubscribe_helper.dart`.
+- La CI valida test, analisi, formattazione e build web.

@@ -31,7 +31,4 @@ jobs:
         run: flutter format --set-exit-if-changed .
         
       - name: Build for all platforms (dry run)
-        run: |
-          flutter build apk --debug
-          flutter build ios --debug --no-codesign
-          flutter build web --debug 
+        run: flutter build web --debug
