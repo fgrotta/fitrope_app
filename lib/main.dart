@@ -5,7 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'firebase_options.dart';
+
+// TODO: Sostituire con il tuo OneSignal App ID dalla dashboard
+const String oneSignalAppId = 'YOUR_ONESIGNAL_APP_ID';
 
 void main() async {  
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +17,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // Initialize Italian locale for date formatting
+  OneSignal.initialize(oneSignalAppId);
+  OneSignal.Notifications.requestPermission(true);
+  
   await initializeDateFormatting('it_IT', null);
   
   runApp(

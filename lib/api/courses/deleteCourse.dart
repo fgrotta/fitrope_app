@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/services/notification_service.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
@@ -74,6 +75,8 @@ Future<void> removeUserFromCourse(String courseId, String userId) async {
       }
     }   
     store.dispatch(FinishLoadingAction());
+
+    notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
     print("Failed to remove user from course: $error");
@@ -138,6 +141,8 @@ Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
       }
     }   
     store.dispatch(FinishLoadingAction());
+
+    notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
     print("Failed to force unsubscribe: $error");

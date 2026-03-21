@@ -19,6 +19,7 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 class Protected extends StatefulWidget {
   const Protected({super.key});
@@ -65,6 +66,10 @@ class _ProtectedState extends State<Protected> {
     else {
       if(user != null) {
         print("${user!.name} ${user!.lastName} logged");
+        OneSignal.login(user!.uid);
+        if (user!.email.isNotEmpty) {
+          OneSignal.User.addEmail(user!.email);
+        }
       }
       else {
         resetUser();
@@ -82,6 +87,10 @@ class _ProtectedState extends State<Protected> {
         store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
         user = store.state.user;
         print("${user!.name} ${user!.lastName} logged");
+        OneSignal.login(user!.uid);
+        if (user!.email.isNotEmpty) {
+          OneSignal.User.addEmail(user!.email);
+        }
       });
     }
     else {
