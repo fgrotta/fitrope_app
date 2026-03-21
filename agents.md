@@ -16,30 +16,40 @@ L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit H
 - CI configurata con Flutter `3.24.0`
 - Design system esterno: `flutter_design_system` da GitHub
 - Stato globale: `redux`, `redux_thunk`, `flutter_redux`
-- Firebase bootstrap in [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/main.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/main.dart)
+- Firebase bootstrap in `lib/main.dart`
 
 Prima di modificare dipendenze o CI, verifica la compatibilita tra SDK dichiarato e versione usata nei workflow.
 
 ## Entry points
 
-- App bootstrap: [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/main.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/main.dart)
-- Routing statico: [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/router.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/router.dart)
-- Store Redux: [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/state/store.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/state/store.dart)
-- Workflow protetto post-login: [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/pages/protected/Protected.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/pages/protected/Protected.dart)
+- App bootstrap: `lib/main.dart`
+- Routing statico: `lib/router.dart`
+- Store Redux: `lib/state/store.dart`
+- Workflow protetto post-login: `lib/pages/protected/Protected.dart`
 
 Route iniziale: splash screen (`SPLASH_ROUTE`), poi transizione verso welcome/login o area protetta.
 
 ## Mappa delle cartelle
 
 - `lib/pages/welcome`: splash, welcome, login, registration
-- `lib/pages/protected`: home, calendario, gestione corsi, utenti admin
+- `lib/pages/protected`: home, calendario, gestione corsi, utenti admin, dashboard admin
 - `lib/api/authentication`: CRUD e query utenti su Firestore
 - `lib/api/courses`: CRUD corsi e logica di iscrizione/disiscrizione
 - `lib/authentication`: flussi auth lato client
 - `lib/components`: widget riusabili
+- `lib/layout`: `app_shell.dart`, `breakpoints.dart`, `breakpoint_builder.dart`
 - `lib/types`: modelli `FitropeUser` e `Course`
 - `lib/utils`: regole dominio, cache, snackbar, helper abbonamenti
 - `test`: test focalizzati soprattutto sulle regole di iscrizione/disiscrizione
+
+## Layout responsive
+
+L'app usa un sistema di breakpoint definito in `lib/layout/breakpoints.dart`. Il widget `AppShell` (`lib/layout/app_shell.dart`) switcha automaticamente tra:
+
+- **Mobile**: `BottomNavigationBar`
+- **Desktop**: `NavigationRail` laterale con avatar/iniziali utente e pulsante logout
+
+Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layout. La `AdminDashboardPage` e disponibile solo su desktop.
 
 ## Stato globale e modello dati
 
@@ -51,8 +61,8 @@ Lo `AppState` contiene solo:
 
 I modelli principali sono:
 
-- [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/types/fitropeUser.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/types/fitropeUser.dart)
-- [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/types/course.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/types/course.dart)
+- `lib/types/fitropeUser.dart`
+- `lib/types/course.dart`
 
 Dettagli dominio importanti:
 
@@ -60,6 +70,15 @@ Dettagli dominio importanti:
 - iscrizioni supportate: pacchetto entrate, abbonamenti temporali, abbonamento prova
 - l'utente traccia `cancelledEnrollments` per gestire disiscrizioni con perdita credito/ingresso
 - i corsi hanno `capacity`, `subscribed`, `trainerId` e `tags`
+
+## Dashboard Admin
+
+`lib/pages/protected/AdminDashboardPage.dart` contiene:
+
+- `AdminDashboardPage`: sezioni analisi utenti, corsi (ultimi 6 mesi) e abbonamenti con grafici a barre
+- `UserListDrawer`: drawer laterale con lista utenti ricercabile (nome, email, telefono), aperto dalla dashboard o dall'area admin
+
+La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in `Protected.dart` gestisce l'`endDrawer` con la chiave globale `_scaffoldKey`.
 
 ## Regole di business gia presenti
 
@@ -72,8 +91,8 @@ La parte piu delicata del progetto e la logica di iscrizione ai corsi.
 
 Riferimenti:
 
-- [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/utils/course_unsubscribe_helper.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/utils/course_unsubscribe_helper.dart)
-- [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/api/courses/README_ISCRIZIONI.md`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/api/courses/README_ISCRIZIONI.md)
+- `lib/utils/course_unsubscribe_helper.dart`
+- `lib/api/courses/README_ISCRIZIONI.md`
 
 Se tocchi queste aree, aggiorna o aggiungi test in `test/`.
 
@@ -87,7 +106,7 @@ flutter format --set-exit-if-changed .
 flutter build web --debug
 ```
 
-CI corrente in [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/.github/workflows/ci.yml`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/.github/workflows/ci.yml):
+CI corrente in `.github/workflows/ci.yml`:
 
 - `flutter pub get`
 - `flutter test`
@@ -99,8 +118,9 @@ CI corrente in [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/.github/work
 
 - `README.md` descrive ora il progetto reale; in caso di conflitto, il codice resta comunque la fonte primaria.
 - Nel workspace sono presenti `web/` e `windows/`; la documentazione e la CI sono state riallineate al perimetro web.
-- E gia stato corretto un import con casing incoerente in [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/pages/protected/Protected.dart`](/Users/Frank/conductor/workspaces/fitrope_app/kyiv/lib/pages/protected/Protected.dart); se rinomini file o classi, ricontrolla sempre la compatibilita con filesystem case-sensitive.
+- Se rinomini file o classi, ricontrolla sempre la compatibilita con filesystem case-sensitive (es. `HomePage.dart` non `Homepage.dart`).
 - Il codice usa ancora molti `print` e side effect diretti nei widget; prima di grandi refactor, separa i cambiamenti di dominio da quelli UI.
+- Non usare path assoluti nei file di documentazione: usa sempre path relativi alla root del progetto.
 
 ## Dove intervenire in base al task
 
@@ -109,6 +129,8 @@ CI corrente in [`/Users/Frank/conductor/workspaces/fitrope_app/kyiv/.github/work
 - Gestione utenti admin: `lib/pages/protected/AdminUsersPage.dart`, `CreateUserPage.dart`, `UserDetailPage.dart`, `lib/api/authentication/`
 - Gestione corsi: `lib/pages/protected/CourseManagementPage.dart`, `RecurringCoursePage.dart`, `lib/api/courses/`
 - Regole iscrizione/disiscrizione: `lib/api/courses/`, `lib/utils/course_unsubscribe_helper.dart`, test in `test/`
+- Dashboard e analisi: `lib/pages/protected/AdminDashboardPage.dart`
+- Layout e breakpoints: `lib/layout/`
 - Stili globali: `lib/style.dart` e componenti in `lib/components/`
 
 ## Regole per gli agenti
