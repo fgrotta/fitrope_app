@@ -303,20 +303,21 @@ class _UserDetailPageState extends State<UserDetailPage> {
         cancelledEnrollments: widget.user.cancelledEnrollments,
       );
 
+      if (!mounted) return;
       setState(() {
         isEditing = false;
         errorMsg = null;
       });
 
-      // Notifica la pagina precedente del cambiamento
-      Navigator.pop(context, updatedUser);
-
       SnackBarUtils.showSuccessSnackBar(
         context,
         'Utente aggiornato con successo',
       );
+
+      // Notifica la pagina precedente del cambiamento
+      Navigator.pop(context, updatedUser);
     } catch (e) {
-      setState(() { errorMsg = 'Errore durante l\'aggiornamento'; });
+      if (mounted) setState(() { errorMsg = 'Errore durante l\'aggiornamento'; });
     }
   }
 
@@ -1030,8 +1031,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                   final DateTime now = DateTime.now();
                                   final DateTime initialDate = selectedFineIscrizione != null && selectedFineIscrizione!.isAfter(now)
                                       ? selectedFineIscrizione!
-                                      : now.subtract(const Duration(days: 180));
-                                  
+                                      : now;
+
                                   final DateTime? picked = await showDatePicker(
                                     context: context,
                                     initialDate: initialDate,

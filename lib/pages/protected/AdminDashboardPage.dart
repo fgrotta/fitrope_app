@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
+import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -30,6 +31,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   void initState() {
     super.initState();
     _loadData();
+    RefreshManager().addListener(_loadData);
+  }
+
+  @override
+  void dispose() {
+    RefreshManager().removeListener(_loadData);
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -48,6 +56,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         });
       }
     } catch (e) {
+      print('Error loading users: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -106,33 +115,34 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         .toList();
 
     return RefreshIndicator(
-        onRefresh: _loadData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(pagePadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Dashboard analisi',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: onSurfaceColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 24),
-              _SectionUtenti(users: users, onOpenUserList: widget.onOpenUserList),
-              const SizedBox(height: 24),
-              _SectionCorsi(
-                courses: coursesLast6Months,
-                users: users,
-                onOpenUserList: widget.onOpenUserList,
-              ),
-              const SizedBox(height: 24),
-              _SectionAbbonamenti(users: users, onOpenUserList: widget.onOpenUserList),
-            ],
-          ),
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(pagePadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Dashboard analisi',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: onSurfaceColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            _SectionUtenti(users: users, onOpenUserList: widget.onOpenUserList),
+            const SizedBox(height: 24),
+            _SectionCorsi(
+              courses: coursesLast6Months,
+              users: users,
+              onOpenUserList: widget.onOpenUserList,
+            ),
+            const SizedBox(height: 24),
+            _SectionAbbonamenti(
+                users: users, onOpenUserList: widget.onOpenUserList),
+          ],
         ),
+      ),
     );
   }
 }
@@ -232,7 +242,8 @@ class _UserListDrawerState extends State<UserListDrawer> {
                 final hasPhone = phone != null && phone.isNotEmpty;
                 final hasScadenza = u.fineIscrizione != null;
                 final scadenzaText = hasScadenza
-                    ? _dashboardUserListDateFormat.format(u.fineIscrizione!.toDate())
+                    ? _dashboardUserListDateFormat
+                        .format(u.fineIscrizione!.toDate())
                     : '—';
                 return ListTile(
                   title: Column(
@@ -348,25 +359,41 @@ class _SectionUtenti extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     final activeList = users.where((u) => u.isActive).toList();
-    final new7List = users.where((u) => u.createdAt.isAfter(sevenDaysAgo)).toList();
-    final new30List = users.where((u) => u.createdAt.isAfter(thirtyDaysAgo)).toList();
+    final new7List =
+        users.where((u) => u.createdAt.isAfter(sevenDaysAgo)).toList();
+    final new30List =
+        users.where((u) => u.createdAt.isAfter(thirtyDaysAgo)).toList();
 
     return _DashboardCard(
       title: 'Utenti',
       icon: Icons.people,
       children: [
-        _MetricRow('Totale', '${users.length}', onTap: () => onOpenUserList('Totale', users)),
-        _MetricRow('Utenti attivi', '$active', onTap: () => onOpenUserList('Utenti attivi', activeList)),
-        _MetricRow('Nuovi (ultimi 7 giorni)', '$new7', onTap: () => onOpenUserList('Nuovi (ultimi 7 giorni)', new7List)),
-        _MetricRow('Nuovi (ultimi 30 giorni)', '$new30', onTap: () => onOpenUserList('Nuovi (ultimi 30 giorni)', new30List)),
+        _MetricRow('Totale', '${users.length}',
+            onTap: () => onOpenUserList('Totale', users)),
+        _MetricRow('Utenti attivi', '$active',
+            onTap: () => onOpenUserList('Utenti attivi', activeList)),
+        _MetricRow('Nuovi (ultimi 7 giorni)', '$new7',
+            onTap: () => onOpenUserList('Nuovi (ultimi 7 giorni)', new7List)),
+        _MetricRow('Nuovi (ultimi 30 giorni)', '$new30',
+            onTap: () => onOpenUserList('Nuovi (ultimi 30 giorni)', new30List)),
         if (tipologiaEntries.isNotEmpty) ...[
           const Divider(height: 24),
           Text('Per tipologia iscrizione', style: _sectionLabelStyle(context)),
           const SizedBox(height: 12),
           _TipologieCorsiChart(
-            entries: tipologiaEntries.map((e) => MapEntry(_labelTipologia(e.key), e.value)).toList(),
-            userListsPerEntry: tipologiaEntries.map((e) => users.where((u) => u.tipologiaIscrizione == e.key).toList()).toList(),
-            onEntryTap: (i) => onOpenUserList(_labelTipologia(tipologiaEntries[i].key), users.where((u) => u.tipologiaIscrizione == tipologiaEntries[i].key).toList()),
+            entries: tipologiaEntries
+                .map((e) => MapEntry(_labelTipologia(e.key), e.value))
+                .toList(),
+            userListsPerEntry: tipologiaEntries
+                .map((e) =>
+                    users.where((u) => u.tipologiaIscrizione == e.key).toList())
+                .toList(),
+            onEntryTap: (i) => onOpenUserList(
+                _labelTipologia(tipologiaEntries[i].key),
+                users
+                    .where(
+                        (u) => u.tipologiaIscrizione == tipologiaEntries[i].key)
+                    .toList()),
           ),
         ],
       ],
@@ -392,7 +419,8 @@ class _SectionCorsi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fullCourses = courses.where((c) => c.subscribed >= c.capacity).toList();
+    final fullCourses =
+        courses.where((c) => c.subscribed >= c.capacity).toList();
     final full = fullCourses.length;
     double avgFill = 0;
     if (courses.isNotEmpty) {
@@ -413,25 +441,38 @@ class _SectionCorsi extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     final courseIdsLast6Months = courses.map((c) => c.uid).toSet();
-    final usersWithCourseLast6Months = users.where((u) => u.courses.any((id) => courseIdsLast6Months.contains(id))).toList();
-    final usersInFullCourse = users.where((u) => u.courses.any((id) => fullCourses.any((c) => c.uid == id))).toList();
+    final usersWithCourseLast6Months = users
+        .where((u) => u.courses.any((id) => courseIdsLast6Months.contains(id)))
+        .toList();
+    final usersInFullCourse = users
+        .where(
+            (u) => u.courses.any((id) => fullCourses.any((c) => c.uid == id)))
+        .toList();
 
     final userListsByTag = tagEntries.map((e) {
       final tag = e.key;
-      return users.where((u) => u.courses.any((courseId) {
-        final c = courses.where((c) => c.uid == courseId).firstOrNull;
-        if (c == null) return false;
-        final courseTag = c.tags.isNotEmpty ? c.tags.first : 'Nessun tag';
-        return courseTag == tag;
-      })).toList();
+      return users
+          .where((u) => u.courses.any((courseId) {
+                final c = courses.where((c) => c.uid == courseId).firstOrNull;
+                if (c == null) return false;
+                final courseTag =
+                    c.tags.isNotEmpty ? c.tags.first : 'Nessun tag';
+                return courseTag == tag;
+              }))
+          .toList();
     }).toList();
 
     return _DashboardCard(
       title: 'Corsi',
       icon: Icons.school,
       children: [
-        _MetricRow('Corsi (ultimi 6 mesi)', '${courses.length}', onTap: () => onOpenUserList('Corsi (ultimi 6 mesi) – utenti iscritti', usersWithCourseLast6Months)),
-        _MetricRow('Corsi al completo', '$full', onTap: () => onOpenUserList('Corsi al completo – utenti iscritti', usersInFullCourse)),
+        _MetricRow('Corsi (ultimi 6 mesi)', '${courses.length}',
+            onTap: () => onOpenUserList(
+                'Corsi (ultimi 6 mesi) – utenti iscritti',
+                usersWithCourseLast6Months)),
+        _MetricRow('Corsi al completo', '$full',
+            onTap: () => onOpenUserList(
+                'Corsi al completo – utenti iscritti', usersInFullCourse)),
         _MetricRow('Tasso di riempimento medio', '$avgFillPercent%'),
         if (tagEntries.isNotEmpty) ...[
           const Divider(height: 24),
@@ -440,7 +481,8 @@ class _SectionCorsi extends StatelessWidget {
           _TipologieCorsiChart(
             entries: tagEntries,
             userListsPerEntry: userListsByTag,
-            onEntryTap: (i) => onOpenUserList('Tipologia corso: ${tagEntries[i].key}', userListsByTag[i]),
+            onEntryTap: (i) => onOpenUserList(
+                'Tipologia corso: ${tagEntries[i].key}', userListsByTag[i]),
           ),
         ],
       ],
@@ -461,8 +503,12 @@ class _TipologieCorsiChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxCount = entries.isEmpty ? 1 : entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    final canTap = onEntryTap != null && userListsPerEntry != null && userListsPerEntry!.length == entries.length;
+    final maxCount = entries.isEmpty
+        ? 1
+        : entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    final canTap = onEntryTap != null &&
+        userListsPerEntry != null &&
+        userListsPerEntry!.length == entries.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,8 +524,13 @@ class _TipologieCorsiChart extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(e.key, style: TextStyle(color: onSurfaceColor, fontSize: 14)),
-                  Text('${e.value}', style: TextStyle(color: onSurfaceColor, fontWeight: FontWeight.w600, fontSize: 14)),
+                  Text(e.key,
+                      style: TextStyle(color: onSurfaceColor, fontSize: 14)),
+                  Text('${e.value}',
+                      style: TextStyle(
+                          color: onSurfaceColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -512,15 +563,16 @@ class _SectionAbbonamenti extends StatelessWidget {
   final List<FitropeUser> users;
   final void Function(String title, List<FitropeUser> users) onOpenUserList;
 
-  const _SectionAbbonamenti({required this.users, required this.onOpenUserList});
+  const _SectionAbbonamenti(
+      {required this.users, required this.onOpenUserList});
 
   @override
   Widget build(BuildContext context) {
     final activeUsers = users.where((u) => u.isActive).toList();
 
     final expiringSoonList = activeUsers
-        .where((u) =>
-            AbbonamentoHelper.isFineIscrizioneNeiProssimi30Giorni(u.fineIscrizione))
+        .where((u) => AbbonamentoHelper.isFineIscrizioneNeiProssimi30Giorni(
+            u.fineIscrizione))
         .toList();
     final expiringSoon = expiringSoonList.length;
 
@@ -551,7 +603,8 @@ class _SectionAbbonamenti extends StatelessWidget {
       if (u.tipologiaIscrizione == null) continue;
       final tip = u.tipologiaIscrizione!;
       byTipologiaAndTag.putIfAbsent(tip, () => {});
-      final tags = u.tipologiaCorsoTags.isEmpty ? ['Nessun tag'] : u.tipologiaCorsoTags;
+      final tags =
+          u.tipologiaCorsoTags.isEmpty ? ['Nessun tag'] : u.tipologiaCorsoTags;
       for (final tag in tags) {
         byTipologiaAndTag[tip]![tag] = (byTipologiaAndTag[tip]![tag] ?? 0) + 1;
       }
@@ -570,18 +623,28 @@ class _SectionAbbonamenti extends StatelessWidget {
           (e) => _MetricRow(
             _labelTipologia(e.key),
             '${e.value}',
-            onTap: () => onOpenUserList(_labelTipologia(e.key), activeUsers.where((u) => u.tipologiaIscrizione == e.key).toList()),
+            onTap: () => onOpenUserList(
+                _labelTipologia(e.key),
+                activeUsers
+                    .where((u) => u.tipologiaIscrizione == e.key)
+                    .toList()),
           ),
         ),
         ...tipologiaEntries.expand((e) {
           final tagCounts = byTipologiaAndTag[e.key];
           if (tagCounts == null || tagCounts.isEmpty) return <Widget>[];
-          final sorted = tagCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-          final usersForTipologia = activeUsers.where((u) => u.tipologiaIscrizione == e.key).toList();
-          final userListsPerTag = sorted.map((tagEntry) => usersForTipologia.where((u) {
-            final tags = u.tipologiaCorsoTags.isEmpty ? ['Nessun tag'] : u.tipologiaCorsoTags;
-            return tags.contains(tagEntry.key);
-          }).toList()).toList();
+          final sorted = tagCounts.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+          final usersForTipologia =
+              activeUsers.where((u) => u.tipologiaIscrizione == e.key).toList();
+          final userListsPerTag = sorted
+              .map((tagEntry) => usersForTipologia.where((u) {
+                    final tags = u.tipologiaCorsoTags.isEmpty
+                        ? ['Nessun tag']
+                        : u.tipologiaCorsoTags;
+                    return tags.contains(tagEntry.key);
+                  }).toList())
+              .toList();
           return [
             const SizedBox(height: 16),
             const Divider(height: 1),
@@ -594,16 +657,21 @@ class _SectionAbbonamenti extends StatelessWidget {
             _TipologieCorsiChart(
               entries: sorted,
               userListsPerEntry: userListsPerTag,
-              onEntryTap: (i) => onOpenUserList('${_labelTipologia(e.key)} – ${sorted[i].key}', userListsPerTag[i]),
+              onEntryTap: (i) => onOpenUserList(
+                  '${_labelTipologia(e.key)} – ${sorted[i].key}',
+                  userListsPerTag[i]),
             ),
           ];
         }),
         const Divider(height: 24),
-        _MetricRow('In scadenza (prossimi 30 gg)', '$expiringSoon', onTap: () => onOpenUserList('In scadenza (prossimi 30 gg)', expiringSoonList)),
+        _MetricRow('In scadenza (prossimi 30 gg)', '$expiringSoon',
+            onTap: () => onOpenUserList(
+                'In scadenza (prossimi 30 gg)', expiringSoonList)),
         _MetricRow(
           'Pacchetti entrate: crediti medi residui',
           avgCredits.toStringAsFixed(1),
-          onTap: () => onOpenUserList('Pacchetti entrate / Abbonamento prova', pacchettoUsers),
+          onTap: () => onOpenUserList(
+              'Pacchetti entrate / Abbonamento prova', pacchettoUsers),
         ),
       ],
     );
