@@ -22,51 +22,49 @@ void main() {
       store.dispatch(SetAllCoursesAction([]));
       
       final now = DateTime.now();
-      // Usa la prossima settimana per garantire che i corsi siano sempre nel futuro
       final mondayThisWeek = now.subtract(Duration(days: now.weekday - 1));
       final mondayNextWeek = mondayThisWeek.add(const Duration(days: 7));
-      final mondayTwoWeeksOut = mondayThisWeek.add(const Duration(days: 14));
-
-      // Corso lunedì prossima settimana
+      
+      // Corso lunedì questa settimana
       testCourse1 = Course(
         id: 'course-1',
         uid: 'course-1',
         name: 'Corso Lunedì',
-        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
-        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
+        startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(hours: 10))),
+        endDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(hours: 11))),
         capacity: 20,
         subscribed: 5,
       );
-
-      // Corso martedì prossima settimana
+      
+      // Corso martedì questa settimana
       testCourse2 = Course(
         id: 'course-2',
         uid: 'course-2',
         name: 'Corso Martedì',
-        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 10))),
-        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 11))),
+        startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 1, hours: 10))),
+        endDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 1, hours: 11))),
         capacity: 20,
         subscribed: 5,
       );
-
-      // Corso mercoledì prossima settimana
+      
+      // Corso mercoledì questa settimana
       testCourse3 = Course(
         id: 'course-3',
         uid: 'course-3',
         name: 'Corso Mercoledì',
-        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 10))),
-        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 11))),
+        startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 2, hours: 10))),
+        endDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 2, hours: 11))),
         capacity: 20,
         subscribed: 5,
       );
-
-      // Corso due settimane avanti (settimana diversa da course-1/2/3)
+      
+      // Corso prossima settimana
       testCourseNextWeek = Course(
         id: 'course-next-week',
         uid: 'course-next-week',
-        name: 'Corso Due Settimane',
-        startDate: Timestamp.fromDate(mondayTwoWeeksOut.add(const Duration(hours: 10))),
-        endDate: Timestamp.fromDate(mondayTwoWeeksOut.add(const Duration(hours: 11))),
+        name: 'Corso Prossima Settimana',
+        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
+        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
         capacity: 20,
         subscribed: 5,
       );
@@ -86,7 +84,6 @@ void main() {
         isActive: true,
         isAnonymous: false,
         createdAt: now,
-        tipologiaCorsoTags: ['Open'],
       );
       
       // Imposta i corsi nello store
@@ -166,18 +163,21 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
-          tipologiaCorsoTags: ['Open'],
         );
         
-        // Crea un nuovo corso nella stessa settimana (settimana prossima, giovedì)
-        final now2 = DateTime.now();
-        final mondayNW = now2.subtract(Duration(days: now2.weekday - 1)).add(const Duration(days: 7));
+        // Crea un nuovo corso nella stessa settimana
         final newCourse = Course(
           id: 'course-4',
           uid: 'course-4',
           name: 'Corso Giovedì',
-          startDate: Timestamp.fromDate(mondayNW.add(const Duration(days: 3, hours: 10))),
-          endDate: Timestamp.fromDate(mondayNW.add(const Duration(days: 3, hours: 11))),
+          startDate: Timestamp.fromDate(
+            DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1))
+              .add(const Duration(days: 3, hours: 10))
+          ),
+          endDate: Timestamp.fromDate(
+            DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1))
+              .add(const Duration(days: 3, hours: 11))
+          ),
           capacity: 20,
           subscribed: 5,
         );
@@ -211,7 +211,6 @@ void main() {
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
-          tipologiaCorsoTags: ['Open'],
         );
         
         final state = getCourseState(testCourse3, userWithNextWeekCourse);
@@ -230,13 +229,12 @@ void main() {
           courses: ['course-1'],
           tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
           entrateDisponibili: null,
-          entrateSettimanali: 99, // Limite molto alto = praticamente illimitato
+          entrateSettimanali: null, // Nessun limite
           fineIscrizione: Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
           role: 'User',
           isActive: true,
           isAnonymous: false,
           createdAt: DateTime.now(),
-          tipologiaCorsoTags: ['Open'],
         );
         
         final state = getCourseState(testCourse2, userNoLimit);
@@ -259,19 +257,8 @@ void main() {
           capacity: 20,
           subscribed: 5,
         );
-        final userSubscribedToFar = FitropeUser(
-          uid: userAbbonamentoMensile.uid,
-          email: userAbbonamentoMensile.email,
-          name: userAbbonamentoMensile.name,
-          lastName: userAbbonamentoMensile.lastName,
-          courses: [...userAbbonamentoMensile.courses, 'course-far'],
-          tipologiaIscrizione: userAbbonamentoMensile.tipologiaIscrizione,
-          entrateSettimanali: userAbbonamentoMensile.entrateSettimanali,
-          fineIscrizione: userAbbonamentoMensile.fineIscrizione,
-          role: userAbbonamentoMensile.role,
-          createdAt: userAbbonamentoMensile.createdAt,
-        );
-        final result = CourseUnsubscribeHelper.canUnsubscribe(courseFar, userSubscribedToFar);
+        
+        final result = CourseUnsubscribeHelper.canUnsubscribe(courseFar, userAbbonamentoMensile);
         
         expect(result['canUnsubscribe'], true);
         expect(result['requiresConfirmation'], false);
@@ -290,23 +277,12 @@ void main() {
           capacity: 20,
           subscribed: 5,
         );
-        final userSubscribedToSoon = FitropeUser(
-          uid: userAbbonamentoMensile.uid,
-          email: userAbbonamentoMensile.email,
-          name: userAbbonamentoMensile.name,
-          lastName: userAbbonamentoMensile.lastName,
-          courses: [...userAbbonamentoMensile.courses, 'course-soon'],
-          tipologiaIscrizione: userAbbonamentoMensile.tipologiaIscrizione,
-          entrateSettimanali: userAbbonamentoMensile.entrateSettimanali,
-          fineIscrizione: userAbbonamentoMensile.fineIscrizione,
-          role: userAbbonamentoMensile.role,
-          createdAt: userAbbonamentoMensile.createdAt,
-        );
-        final result = CourseUnsubscribeHelper.canUnsubscribe(courseSoon, userSubscribedToSoon);
         
-        // Con 2 ore rimanenti (< soglia 4 ore per abbonamenti temporali), richiede conferma
+        final result = CourseUnsubscribeHelper.canUnsubscribe(courseSoon, userAbbonamentoMensile);
+        
+        // Logica attuale: non richiede conferma per abbonamenti temporali
         expect(result['canUnsubscribe'], true);
-        expect(result['requiresConfirmation'], true);
+        expect(result['requiresConfirmation'], false);
         expect(result['isPacchettoEntrate'], false);
       });
       

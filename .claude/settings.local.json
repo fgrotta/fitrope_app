@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(/Users/Frank/Documents/Development/Project/flutter/bin/flutter test:*)"
-    ]
-  }
-}

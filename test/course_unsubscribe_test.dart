@@ -17,7 +17,6 @@ void main() {
     setUp(() {
       // Crea un corso di test che inizia tra 10 ore (> 8 ore)
       testCourse = Course(
-        id: 'test-course-1',
         uid: 'test-course-1',
         name: 'Corso di Test',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
@@ -28,7 +27,6 @@ void main() {
       
       // Corso che inizia tra 6 ore (< 8 ore)
       courseSoon = Course(
-        id: 'test-course-soon',
         uid: 'test-course-soon',
         name: 'Corso Imminente',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 6))),
@@ -39,7 +37,6 @@ void main() {
       
       // Corso che inizia esattamente tra 8 ore (= 8 ore)
       courseExact = Course(
-        id: 'test-course-exact',
         uid: 'test-course-exact',
         name: 'Corso Esatto',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 8))),
@@ -50,7 +47,6 @@ void main() {
       
       // Corso che è già iniziato
       coursePast = Course(
-        id: 'test-course-past',
         uid: 'test-course-past',
         name: 'Corso Passato',
         startDate: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))),
@@ -145,10 +141,9 @@ void main() {
         expect(result['requiresConfirmation'], true);
         expect(result['isPacchettoEntrate'], true);
         expect(result['message'], 'Disiscrizione a meno di 8 ore: perderai il credito');
-        // inHours truncates: (8h - ε).inHours = 7
-        expect(result['hoursRemaining'], lessThanOrEqualTo(8));
+        expect(result['hoursRemaining'], 8);
       });
-
+      
       test('should return true for Pacchetto Entrate with course already started', () {
         final result = CourseUnsubscribeHelper.canUnsubscribe(coursePast, testUserPacchetto);
         
@@ -172,10 +167,9 @@ void main() {
     group('Edge Cases', () {
       test('should handle course starting in exactly 8 hours', () {
         final result = CourseUnsubscribeHelper.canUnsubscribe(courseExact, testUserPacchetto);
-
+        
         expect(result['requiresConfirmation'], true);
-        // inHours truncates: (8h - ε).inHours = 7
-        expect(result['hoursRemaining'], lessThanOrEqualTo(8));
+        expect(result['hoursRemaining'], 8);
       });
       
       test('should handle course starting in the past', () {
@@ -188,7 +182,6 @@ void main() {
       
       test('should handle course starting in exactly 7 hours and 59 minutes', () {
         final courseAlmost8 = Course(
-          id: 'test-course-almost-8',
           uid: 'test-course-almost-8',
           name: 'Corso Quasi 8 Ore',
           startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 7, minutes: 59))),
@@ -196,50 +189,27 @@ void main() {
           capacity: 20,
           subscribed: 5,
         );
-        // User must be subscribed to test unsubscribe logic
-        final userWithAlmost8 = FitropeUser(
-          uid: testUserPacchetto.uid,
-          email: testUserPacchetto.email,
-          name: testUserPacchetto.name,
-          lastName: testUserPacchetto.lastName,
-          courses: [...testUserPacchetto.courses, 'test-course-almost-8'],
-          tipologiaIscrizione: testUserPacchetto.tipologiaIscrizione,
-          entrateDisponibili: testUserPacchetto.entrateDisponibili,
-          role: testUserPacchetto.role,
-          createdAt: testUserPacchetto.createdAt,
-        );
-        final result = CourseUnsubscribeHelper.canUnsubscribe(courseAlmost8, userWithAlmost8);
-
+        
+        final result = CourseUnsubscribeHelper.canUnsubscribe(courseAlmost8, testUserPacchetto);
+        
         expect(result['requiresConfirmation'], true);
         expect(result['hoursRemaining'], 7);
       });
-
-      test('should handle course starting in more than 8 hours (no confirmation)', () {
-        // Use 10 hours to guarantee inHours = 9 after truncation → 9 > 8 → no confirmation
-        final courseOver8 = Course(
-          id: 'test-course-over-8',
-          uid: 'test-course-over-8',
-          name: 'Corso Oltre 8 Ore',
-          startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
-          endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 11))),
+      
+      test('should handle course starting in exactly 8 hours and 1 minute', () {
+        final courseJustOver8 = Course(
+          uid: 'test-course-just-over-8',
+          name: 'Corso Appena Oltre 8 Ore',
+          startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 8, minutes: 1))),
+          endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 9, minutes: 1))),
           capacity: 20,
           subscribed: 5,
         );
-        final userWithOver8 = FitropeUser(
-          uid: testUserPacchetto.uid,
-          email: testUserPacchetto.email,
-          name: testUserPacchetto.name,
-          lastName: testUserPacchetto.lastName,
-          courses: [...testUserPacchetto.courses, 'test-course-over-8'],
-          tipologiaIscrizione: testUserPacchetto.tipologiaIscrizione,
-          entrateDisponibili: testUserPacchetto.entrateDisponibili,
-          role: testUserPacchetto.role,
-          createdAt: testUserPacchetto.createdAt,
-        );
-        final result = CourseUnsubscribeHelper.canUnsubscribe(courseOver8, userWithOver8);
-
+        
+        final result = CourseUnsubscribeHelper.canUnsubscribe(courseJustOver8, testUserPacchetto);
+        
         expect(result['requiresConfirmation'], false);
-        expect(result['hoursRemaining'], greaterThan(8));
+        expect(result['hoursRemaining'], 8);
       });
     });
   });
