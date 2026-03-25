@@ -15,6 +15,7 @@ void main() {
     setUp(() {
       // Crea un corso di test
       testCourse = Course(
+        id: 'test-course-1',
         uid: 'test-course-1',
         name: 'Corso di Test',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 24))),
@@ -77,8 +78,8 @@ void main() {
     
     group('Role-based subscription restrictions', () {
       test('should throw exception when Admin tries to subscribe', () async {
-        expect(
-          () => subscribeToCourse(testCourse.uid, adminUser.uid),
+        await expectLater(
+          () => subscribeToCourse(testCourse.uid, adminUser.uid, userRole: adminUser.role),
           throwsA(isA<Exception>().having(
             (e) => e.toString(),
             'message',
@@ -86,10 +87,10 @@ void main() {
           )),
         );
       });
-      
+
       test('should throw exception when Trainer tries to subscribe', () async {
-        expect(
-          () => subscribeToCourse(testCourse.uid, trainerUser.uid),
+        await expectLater(
+          () => subscribeToCourse(testCourse.uid, trainerUser.uid, userRole: trainerUser.role),
           throwsA(isA<Exception>().having(
             (e) => e.toString(),
             'message',

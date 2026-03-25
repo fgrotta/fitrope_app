@@ -174,26 +174,27 @@ class CourseUnsubscribeHelper {
     DateTime courseStart = course.startDate.toDate();
     DateTime now = DateTime.now();
     Duration difference = courseStart.difference(now);
+    int minutesDifference = difference.inMinutes;
     int hoursDifference = difference.inHours;
-    
+
     print('📅 Inizio corso: $courseStart');
     print('🕐 Ora attuale: $now');
     print('⏰ Differenza ore: $hoursDifference');
-    
+
     bool isPacchettoEntrate = user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE;
     bool isAbbonamentoProva = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA;
     bool isTemporalSubscription = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
         user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
         user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
         user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE;
-    
-    // Per pacchetti entrate: conferma se <= 8 ore
+
+    // Per pacchetti entrate: conferma se <= 8 ore (usa minuti per evitare troncamento)
     // Per abbonamenti temporali: conferma se <= 4 ore
     bool requiresConfirmation = false;
     if (isPacchettoEntrate || isAbbonamentoProva) {
-      requiresConfirmation = hoursDifference <= 8;
+      requiresConfirmation = minutesDifference <= 8 * 60;
     } else if (isTemporalSubscription) {
-      requiresConfirmation = hoursDifference <= 4;
+      requiresConfirmation = minutesDifference <= 4 * 60;
     }
     
     print('💳 È pacchetto entrate: $isPacchettoEntrate');

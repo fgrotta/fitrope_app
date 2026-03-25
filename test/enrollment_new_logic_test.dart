@@ -28,6 +28,7 @@ void main() {
       
       // Corso lunedì questa settimana
       testCourse1 = Course(
+        id: 'course-1',
         uid: 'course-1',
         name: 'Corso Lunedì',
         startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(hours: 10))),
@@ -38,6 +39,7 @@ void main() {
       
       // Corso martedì questa settimana
       testCourse2 = Course(
+        id: 'course-2',
         uid: 'course-2',
         name: 'Corso Martedì',
         startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 1, hours: 10))),
@@ -48,6 +50,7 @@ void main() {
       
       // Corso mercoledì questa settimana
       testCourse3 = Course(
+        id: 'course-3',
         uid: 'course-3',
         name: 'Corso Mercoledì',
         startDate: Timestamp.fromDate(mondayThisWeek.add(const Duration(days: 2, hours: 10))),
@@ -58,6 +61,7 @@ void main() {
       
       // Corso che inizia tra 2 ore (< 4 ore)
       testCourseSoon = Course(
+        id: 'course-soon',
         uid: 'course-soon',
         name: 'Corso Imminente',
         startDate: Timestamp.fromDate(now.add(const Duration(hours: 2))),
@@ -68,16 +72,18 @@ void main() {
       
       // Corso che inizia tra 5 ore (> 4 ore)
       testCourseFar = Course(
+        id: 'course-far',
         uid: 'course-far',
         name: 'Corso Lontano',
-        startDate: Timestamp.fromDate(now.add(const Duration(hours: 5))),
-        endDate: Timestamp.fromDate(now.add(const Duration(hours: 6))),
+        startDate: Timestamp.fromDate(now.add(const Duration(hours: 6))),
+        endDate: Timestamp.fromDate(now.add(const Duration(hours: 7))),
         capacity: 20,
         subscribed: 5,
       );
       
       // Corso prossima settimana
       testCourseNextWeek = Course(
+        id: 'course-next-week',
         uid: 'course-next-week',
         name: 'Corso Prossima Settimana',
         startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),

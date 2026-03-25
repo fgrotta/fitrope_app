@@ -5,7 +5,10 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 
-Future<void> subscribeToCourse(String courseId, String userId, {bool force = false}) async {
+Future<void> subscribeToCourse(String courseId, String userId, {bool force = false, String? userRole}) async {
+  if (userRole == 'Admin' || userRole == 'Trainer') {
+    throw Exception('Admin e Trainer non possono iscriversi ai corsi');
+  }
   final firestore = FirebaseFirestore.instance;
   store.dispatch(StartLoadingAction());
 

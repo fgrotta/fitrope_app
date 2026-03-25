@@ -257,8 +257,23 @@ void main() {
           capacity: 20,
           subscribed: 5,
         );
-        
-        final result = CourseUnsubscribeHelper.canUnsubscribe(courseFar, userAbbonamentoMensile);
+
+        final userWithCourse = FitropeUser(
+          uid: userAbbonamentoMensile.uid,
+          email: userAbbonamentoMensile.email,
+          name: userAbbonamentoMensile.name,
+          lastName: userAbbonamentoMensile.lastName,
+          courses: [...userAbbonamentoMensile.courses, 'course-far'],
+          tipologiaIscrizione: userAbbonamentoMensile.tipologiaIscrizione,
+          entrateSettimanali: userAbbonamentoMensile.entrateSettimanali,
+          fineIscrizione: userAbbonamentoMensile.fineIscrizione,
+          role: userAbbonamentoMensile.role,
+          isActive: userAbbonamentoMensile.isActive,
+          isAnonymous: userAbbonamentoMensile.isAnonymous,
+          createdAt: userAbbonamentoMensile.createdAt,
+        );
+
+        final result = CourseUnsubscribeHelper.canUnsubscribe(courseFar, userWithCourse);
         
         expect(result['canUnsubscribe'], true);
         expect(result['requiresConfirmation'], false);
@@ -277,12 +292,27 @@ void main() {
           capacity: 20,
           subscribed: 5,
         );
+
+        final userWithCourse = FitropeUser(
+          uid: userAbbonamentoMensile.uid,
+          email: userAbbonamentoMensile.email,
+          name: userAbbonamentoMensile.name,
+          lastName: userAbbonamentoMensile.lastName,
+          courses: [...userAbbonamentoMensile.courses, 'course-soon'],
+          tipologiaIscrizione: userAbbonamentoMensile.tipologiaIscrizione,
+          entrateSettimanali: userAbbonamentoMensile.entrateSettimanali,
+          fineIscrizione: userAbbonamentoMensile.fineIscrizione,
+          role: userAbbonamentoMensile.role,
+          isActive: userAbbonamentoMensile.isActive,
+          isAnonymous: userAbbonamentoMensile.isAnonymous,
+          createdAt: userAbbonamentoMensile.createdAt,
+        );
+
+        final result = CourseUnsubscribeHelper.canUnsubscribe(courseSoon, userWithCourse);
         
-        final result = CourseUnsubscribeHelper.canUnsubscribe(courseSoon, userAbbonamentoMensile);
-        
-        // Logica attuale: non richiede conferma per abbonamenti temporali
+        // Il corso inizia tra 2 ore (< 4 ore): richiede conferma per abbonamenti temporali
         expect(result['canUnsubscribe'], true);
-        expect(result['requiresConfirmation'], false);
+        expect(result['requiresConfirmation'], true);
         expect(result['isPacchettoEntrate'], false);
       });
       
