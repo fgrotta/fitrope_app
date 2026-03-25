@@ -19,6 +19,7 @@ import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -35,6 +36,10 @@ class _HomePageState extends State<HomePage> {
   bool isLoadingCertificati = false;
   List<FitropeUser> utentiConAbbonamentoInScadenza = [];
   bool isLoadingAbbonamenti = false;
+  List<FitropeUser> _utentiProva = [];
+  bool _isLoadingLezioniProva = false;
+  bool _scadenzeExpanded = true;
+  bool _lezioniProvaExpanded = true;
 
   @override
   void initState() {
@@ -46,21 +51,23 @@ class _HomePageState extends State<HomePage> {
     });
     getAllCourses().then((List<Course> response) {
       setState(() {
-        if(mounted) {
+        if (mounted) {
           allCourses = response;
           store.dispatch(SetAllCoursesAction(response));
         }
       });
     });
-    
+
     // Carica utenti con certificati in scadenza se l'utente è Admin
     if (user.role == 'Admin') {
       _loadUtentiConCertificatoInScadenza();
       _loadUtentiConAbbonamentoInScadenza();
-      
+      _loadUtentiLezioneProva();
+
       // Registra il listener per il refresh automatico
       RefreshManager().addListener(_loadUtentiConCertificatoInScadenza);
       RefreshManager().addListener(_loadUtentiConAbbonamentoInScadenza);
+      RefreshManager().addListener(_loadUtentiLezioneProva);
     }
     if (user.role == 'User') {
       RefreshManager().addListener(refreshCourses);
@@ -74,13 +81,13 @@ class _HomePageState extends State<HomePage> {
     if (user.role == 'Admin') {
       RefreshManager().removeListener(_loadUtentiConCertificatoInScadenza);
       RefreshManager().removeListener(_loadUtentiConAbbonamentoInScadenza);
+      RefreshManager().removeListener(_loadUtentiLezioneProva);
     }
-     if (user.role == 'User') {
+    if (user.role == 'User') {
       RefreshManager().removeListener(refreshCourses);
     }
     super.dispose();
   }
-
 
   // Funzione ottimizzata per caricare solo gli utenti con certificati in scadenza
   Future<void> _loadUtentiConCertificatoInScadenza() async {
@@ -92,7 +99,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final utenti = await getUsersWithExpiringCertificates();
-      
+
       setState(() {
         utentiConCertificatoInScadenza = utenti;
         isLoadingCertificati = false;
@@ -115,7 +122,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final utenti = await getUsersWithExpiringSubscriptions();
-      
+
       setState(() {
         utentiConAbbonamentoInScadenza = utenti;
         isLoadingAbbonamenti = false;
@@ -128,17 +135,44 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _loadUtentiLezioneProva() async {
+    if (user.role != 'Admin') return;
+    setState(() {
+      _isLoadingLezioniProva = true;
+    });
+    try {
+      final utenti = await getUsers();
+      if (mounted) {
+        setState(() {
+          _utentiProva = utenti
+              .where((u) =>
+                  u.tipologiaIscrizione ==
+                      TipologiaIscrizione.ABBONAMENTO_PROVA &&
+                  u.isActive)
+              .toList();
+          _isLoadingLezioniProva = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingLezioniProva = false;
+        });
+      }
+    }
+  }
+
   // Funzione per aggiornare i corsi e lo stato utente
   void refreshCourses() {
     getAllCourses().then((List<Course> response) {
-      if(mounted) {
+      if (mounted) {
         setState(() {
           allCourses = response;
           store.dispatch(SetAllCoursesAction(response));
         });
       }
     });
-    
+
     // Aggiorna anche lo stato utente per riflettere le modifiche
     if (store.state.user != null) {
       getUserData(user.uid).then((userData) {
@@ -182,11 +216,12 @@ class _HomePageState extends State<HomePage> {
   void onUnsubscribe(Course course) {
     print('🔄 Disiscrizione dal corso: ${course.name}');
     // Usa il nuovo sistema di disiscrizione intelligente
-    CourseUnsubscribeHelper.handleUnsubscribe(course, user, context).then((success) {
+    CourseUnsubscribeHelper.handleUnsubscribe(course, user, context)
+        .then((success) {
       if (success) {
         print('✅ Disiscrizione completata');
         refreshCourses();
-        
+
         // Mostra messaggio di successo
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -214,24 +249,35 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget renderSubscriptionCard() {
-    if(
-      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_MENSILE &&
-      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
-      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_SEMESTRALE &&
-      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_ANNUALE &&
-      user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE &&
-      user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_PROVA
-    ) {
+    if (user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_MENSILE &&
+        user.tipologiaIscrizione !=
+            TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
+        user.tipologiaIscrizione !=
+            TipologiaIscrizione.ABBONAMENTO_SEMESTRALE &&
+        user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_ANNUALE &&
+        user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE &&
+        user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_PROVA) {
       return Column(
         children: [
           Container(
             padding: const EdgeInsets.only(top: 20, bottom: 10),
             width: double.infinity,
-            child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: Colors.white, fontSize: 20),),
+            child: const Text(
+              'Il mio abbonamento',
+              textAlign: TextAlign.left,
+              style: TextStyle(color: Colors.white, fontSize: 20),
+            ),
           ),
-          const SizedBox(height: 20,),
-          const Text('Nessun abbonamento disponibile', style: TextStyle(color: onPrimaryColor),),
-          const SizedBox(height: 30,),
+          const SizedBox(
+            height: 20,
+          ),
+          const Text(
+            'Nessun abbonamento disponibile',
+            style: TextStyle(color: onPrimaryColor),
+          ),
+          const SizedBox(
+            height: 30,
+          ),
         ],
       );
     }
@@ -239,62 +285,77 @@ class _HomePageState extends State<HomePage> {
     bool isExpired = false;
     int today = DateTime.now().millisecondsSinceEpoch;
 
-    if(
-      (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
-      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
-      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
-      user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE) &&
-      user.fineIscrizione != null && 
-      today > user.fineIscrizione!.toDate().millisecondsSinceEpoch
-    ) {
+    if ((user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
+            user.tipologiaIscrizione ==
+                TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
+            user.tipologiaIscrizione ==
+                TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
+            user.tipologiaIscrizione ==
+                TipologiaIscrizione.ABBONAMENTO_ANNUALE) &&
+        user.fineIscrizione != null &&
+        today > user.fineIscrizione!.toDate().millisecondsSinceEpoch) {
       isExpired = true;
     }
 
     // Controlla se il certificato è in scadenza
-    final certificatoInScadenza = user.certificatoScadenza != null && 
+    final certificatoInScadenza = user.certificatoScadenza != null &&
         CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
-    
+
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.only(top: 20, bottom: 10),
           width: double.infinity,
-          child: const Text('Il mio abbonamento', textAlign: TextAlign.left, style: TextStyle(color: onPrimaryColor, fontSize: 20),),
+          child: const Text(
+            'Il mio abbonamento',
+            textAlign: TextAlign.left,
+            style: TextStyle(color: onPrimaryColor, fontSize: 20),
+          ),
         ),
         Column(
           children: [
             CustomCard(
               backgroundColor: onSurfaceColor,
-              title: getTipologiaIscrizioneTitle(user.tipologiaIscrizione!, isExpired), 
+              title: getTipologiaIscrizioneTitle(
+                  user.tipologiaIscrizione!, isExpired),
               description: getTipologiaIscrizioneDescription(user),
             ),
             if (certificatoInScadenza) _buildCertificatoInfo(),
           ],
         ),
-        const SizedBox(height: 30,),
+        const SizedBox(
+          height: 30,
+        ),
       ],
     );
   }
 
   Widget _buildCertificatoInfo() {
-    final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(user.certificatoScadenza);
-    final dataScadenza = CertificatoHelper.formatDataScadenza(user.certificatoScadenza);
-    
+    final giorniRimanenti =
+        CertificatoHelper.getGiorniRimanenti(user.certificatoScadenza);
+    final dataScadenza =
+        CertificatoHelper.formatDataScadenza(user.certificatoScadenza);
+
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: giorniRimanenti <= 3 ? Colors.red.shade100 : Colors.orange.shade100,
+        color:
+            giorniRimanenti <= 3 ? Colors.red.shade100 : Colors.orange.shade100,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: giorniRimanenti <= 3 ? Colors.red.shade300 : Colors.orange.shade300,
+          color: giorniRimanenti <= 3
+              ? Colors.red.shade300
+              : Colors.orange.shade300,
         ),
       ),
       child: Row(
         children: [
           Icon(
             Icons.medical_services,
-            color: giorniRimanenti <= 3 ? Colors.red.shade700 : Colors.orange.shade700,
+            color: giorniRimanenti <= 3
+                ? Colors.red.shade700
+                : Colors.orange.shade700,
             size: 20,
           ),
           const SizedBox(width: 8),
@@ -302,7 +363,9 @@ class _HomePageState extends State<HomePage> {
             child: Text(
               'Certificato in scadenza: $dataScadenza (${giorniRimanenti} giorni)',
               style: TextStyle(
-                color: giorniRimanenti <= 3 ? Colors.red.shade700 : Colors.orange.shade700,
+                color: giorniRimanenti <= 3
+                    ? Colors.red.shade700
+                    : Colors.orange.shade700,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -340,7 +403,7 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
-    
+
     if (utentiConCertificatoInScadenza.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -379,9 +442,11 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 12),
           ...utentiConCertificatoInScadenza.map((utente) {
-            final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(utente.certificatoScadenza);
-            final dataScadenza = CertificatoHelper.formatDataScadenza(utente.certificatoScadenza);
-            
+            final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(
+                utente.certificatoScadenza);
+            final dataScadenza = CertificatoHelper.formatDataScadenza(
+                utente.certificatoScadenza);
+
             return InkWell(
               onTap: () async {
                 final updatedUser = await Navigator.push<FitropeUser>(
@@ -390,7 +455,7 @@ class _HomePageState extends State<HomePage> {
                     builder: (context) => UserDetailPage(user: utente),
                   ),
                 );
-                
+
                 // Se l'utente è stato aggiornato, ricarica i certificati
                 if (updatedUser != null) {
                   _loadUtentiConCertificatoInScadenza();
@@ -429,19 +494,29 @@ class _HomePageState extends State<HomePage> {
                               fontSize: 16,
                             ),
                           ),
-                          if (giorniRimanenti >= 0) Text(
-                            'Scadenza: $dataScadenza',
-                            style: TextStyle(
-                              color: Colors.red.shade600,
-                              fontSize: 14,
+                          if (giorniRimanenti >= 0)
+                            Text(
+                              'Scadenza: $dataScadenza',
+                              style: TextStyle(
+                                color: Colors.red.shade600,
+                                fontSize: 14,
+                              ),
+                            )
+                          else
+                            Text(
+                              'Scaduto il $dataScadenza',
+                              style: TextStyle(
+                                color: Colors.red.shade600,
+                                fontSize: 14,
+                              ),
                             ),
-                          ) else Text('Scaduto il $dataScadenza', style: TextStyle(color: Colors.red.shade600, fontSize: 14,),),
-                          
                           if (giorniRimanenti >= 0)
                             Text(
                               'Giorni rimanenti: $giorniRimanenti',
                               style: TextStyle(
-                                color: giorniRimanenti <= 3 ? Colors.red : Colors.orange,
+                                color: giorniRimanenti <= 3
+                                    ? Colors.red
+                                    : Colors.orange,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -491,13 +566,14 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
-    
+
     if (utentiConAbbonamentoInScadenza.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Container(
-      margin: const EdgeInsets.all(8),
+      margin: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
@@ -516,7 +592,8 @@ class _HomePageState extends State<HomePage> {
         children: [
           Row(
             children: [
-              Icon(Icons.calendar_today, color: Colors.orange.shade700, size: 24),
+              Icon(Icons.calendar_today,
+                  color: Colors.orange.shade700, size: 24),
               const SizedBox(width: 8),
               Text(
                 'Abbonamenti in Scadenza (${utentiConAbbonamentoInScadenza.length})',
@@ -530,9 +607,11 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 12),
           ...utentiConAbbonamentoInScadenza.map((utente) {
-            final giorniRimanenti = AbbonamentoHelper.getGiorniRimanenti(utente.fineIscrizione);
-            final dataScadenza = AbbonamentoHelper.formatDataScadenza(utente.fineIscrizione);
-            
+            final giorniRimanenti =
+                AbbonamentoHelper.getGiorniRimanenti(utente.fineIscrizione);
+            final dataScadenza =
+                AbbonamentoHelper.formatDataScadenza(utente.fineIscrizione);
+
             return InkWell(
               onTap: () async {
                 final updatedUser = await Navigator.push<FitropeUser>(
@@ -541,7 +620,7 @@ class _HomePageState extends State<HomePage> {
                     builder: (context) => UserDetailPage(user: utente),
                   ),
                 );
-                
+
                 // Se l'utente è stato aggiornato, ricarica gli abbonamenti
                 if (updatedUser != null) {
                   _loadUtentiConAbbonamentoInScadenza();
@@ -597,7 +676,9 @@ class _HomePageState extends State<HomePage> {
                           Text(
                             'Giorni rimanenti: $giorniRimanenti',
                             style: TextStyle(
-                              color: giorniRimanenti <= 3 ? Colors.red : Colors.orange,
+                              color: giorniRimanenti <= 3
+                                  ? Colors.red
+                                  : Colors.orange,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -620,6 +701,303 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildLezioniProvaSection({
+    required String title,
+    required IconData icon,
+    required Color bgColor,
+    required Color borderColor,
+    required Color headerColor,
+    required Color avatarBgColor,
+    required List<(FitropeUser, List<Course>)> entries,
+  }) {
+    final dateFmt = DateFormat('EEE dd/MM', 'it_IT');
+    final timeFmt = DateFormat('HH:mm');
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: borderColor.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: headerColor, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: headerColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...entries.map((entry) {
+            final (utente, courses) = entry;
+            return InkWell(
+              onTap: () async {
+                await Navigator.push<FitropeUser>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: utente),
+                  ),
+                );
+                _loadUtentiLezioneProva();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor.withOpacity(0.5)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: avatarBgColor,
+                      radius: 20,
+                      child: Text(
+                        '${utente.name.isNotEmpty ? utente.name[0] : ''}${utente.lastName.isNotEmpty ? utente.lastName[0] : ''}',
+                        style: TextStyle(
+                          color: headerColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${utente.name} ${utente.lastName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            utente.email,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: onSurfaceVariantColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...courses.map((c) {
+                            final start = c.startDate.toDate();
+                            final end = c.endDate.toDate();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.event,
+                                      size: 14, color: headerColor),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.name,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: onSurfaceColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${dateFmt.format(start)}  ${timeFmt.format(start)} – ${timeFmt.format(end)}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: onSurfaceVariantColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Posti: ${c.subscribed}/${c.capacity}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: onSurfaceVariantColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, color: borderColor, size: 16),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLezioniProvaProssimi7Giorni() {
+    if (user.role != 'Admin') return const SizedBox.shrink();
+
+    if (_isLoadingLezioniProva) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 12),
+            Text('Caricamento lezioni di prova...'),
+          ],
+        ),
+      );
+    }
+
+    final now = DateTime.now();
+    final limit = now.add(const Duration(days: 7));
+
+    final entries = _utentiProva
+        .map((u) {
+          final courses = allCourses
+              .where((c) =>
+                  u.courses.contains(c.uid) &&
+                  c.startDate.toDate().isAfter(now) &&
+                  c.startDate.toDate().isBefore(limit))
+              .toList()
+            ..sort(
+                (a, b) => a.startDate.toDate().compareTo(b.startDate.toDate()));
+          return (u, courses);
+        })
+        .where((e) => e.$2.isNotEmpty)
+        .toList();
+
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return _buildLezioniProvaSection(
+      title: 'Lezioni di prova – Prossimi 7 giorni (${entries.length})',
+      icon: Icons.calendar_month,
+      bgColor: Colors.blue.shade50,
+      borderColor: Colors.blue.shade300,
+      headerColor: Colors.blue.shade700,
+      avatarBgColor: Colors.blue.shade100,
+      entries: entries,
+    );
+  }
+
+  Widget _buildLezioniProvaUltimi15Giorni() {
+    if (user.role != 'Admin') return const SizedBox.shrink();
+
+    if (_isLoadingLezioniProva) return const SizedBox.shrink();
+
+    final now = DateTime.now();
+    final limit = now.subtract(const Duration(days: 15));
+
+    final entries = _utentiProva
+        .map((u) {
+          final courses = allCourses
+              .where((c) =>
+                  u.courses.contains(c.uid) &&
+                  c.startDate.toDate().isAfter(limit) &&
+                  c.startDate.toDate().isBefore(now))
+              .toList()
+            ..sort(
+                (a, b) => b.startDate.toDate().compareTo(a.startDate.toDate()));
+          return (u, courses);
+        })
+        .where((e) => e.$2.isNotEmpty)
+        .toList();
+
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return _buildLezioniProvaSection(
+      title: 'Ultime lezioni di prova (${entries.length})',
+      icon: Icons.history,
+      bgColor: Colors.teal.shade50,
+      borderColor: Colors.teal.shade300,
+      headerColor: Colors.teal.shade700,
+      avatarBgColor: Colors.teal.shade100,
+      entries: entries,
+    );
+  }
+
+  Widget _buildCollapsibleRow({
+    required String title,
+    required bool expanded,
+    required VoidCallback onToggle,
+    required List<Widget> children,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: onToggle,
+          borderRadius: BorderRadius.circular(6),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            child: Row(
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: onSurfaceVariantColor,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: onSurfaceVariantColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (expanded)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+      ],
+    );
+  }
+
   List<Widget> renderCourses() {
     if (user.courses.isEmpty) {
       return [];
@@ -627,10 +1005,12 @@ class _HomePageState extends State<HomePage> {
 
     final List<Widget> render = [];
 
-    for(int n=0; n<user.courses.length; n++) {
+    for (int n = 0; n < user.courses.length; n++) {
       // Usa course.uid invece di course.id per la sincronizzazione
-      Course? course = allCourses.where((Course course) => course.uid == user.courses[n]).firstOrNull;
-      if(course != null &&  DateTime.now().isBefore(course.endDate.toDate())) {
+      Course? course = allCourses
+          .where((Course course) => course.uid == user.courses[n])
+          .firstOrNull;
+      if (course != null && DateTime.now().isBefore(course.endDate.toDate())) {
         render.add(
           CoursePreviewCard(
             course: course,
@@ -700,19 +1080,29 @@ class _HomePageState extends State<HomePage> {
     final screenType = breakpointOf(context);
 
     return SingleChildScrollView(
-      padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
+      padding: EdgeInsets.only(
+          left: pagePadding,
+          right: pagePadding,
+          bottom: pagePadding,
+          top: pagePadding + MediaQuery.of(context).viewPadding.top),
       child: Column(
         children: [
           // HEADER
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Image(image: AssetImage('assets/new_logo_only.png'), width: 30,),
+              const Image(
+                image: AssetImage('assets/new_logo_only.png'),
+                width: 30,
+              ),
               Expanded(
                 child: Text(
                   'Home',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: onPrimaryColor),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 30,
+                      color: onPrimaryColor),
                 ),
               ),
               if (isDesktop(context))
@@ -726,7 +1116,8 @@ class _HomePageState extends State<HomePage> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                      MaterialPageRoute(
+                          builder: (context) => UserDetailPage(user: user)),
                     );
                   },
                 ),
@@ -742,25 +1133,44 @@ class _HomePageState extends State<HomePage> {
               Container(
                 padding: const EdgeInsets.only(bottom: 10),
                 width: double.infinity,
-                child: const Text('I miei corsi', textAlign: TextAlign.left, style: TextStyle(color:onPrimaryColor, fontSize: 20),),
+                child: const Text(
+                  'I miei corsi',
+                  textAlign: TextAlign.left,
+                  style: TextStyle(color: onPrimaryColor, fontSize: 20),
+                ),
               ),
               _buildCoursesSection(screenType),
             ],
           ),
 
-          // CERTIFICATI E ABBONAMENTI IN SCADENZA (solo Admin)
+          // SEZIONI ADMIN: certificati, abbonamenti e lezioni di prova
           if (isDesktop(context)) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            _buildCollapsibleRow(
+              title: 'Scadenze',
+              expanded: _scadenzeExpanded,
+              onToggle: () => setState(() => _scadenzeExpanded = !_scadenzeExpanded),
               children: [
                 Expanded(child: _buildCertificatiInScadenzaCard()),
                 const SizedBox(width: 16),
                 Expanded(child: _buildAbbonamentiInScadenzaCard()),
               ],
             ),
+            const SizedBox(height: 4),
+            _buildCollapsibleRow(
+              title: 'Lezioni di prova',
+              expanded: _lezioniProvaExpanded,
+              onToggle: () => setState(() => _lezioniProvaExpanded = !_lezioniProvaExpanded),
+              children: [
+                Expanded(child: _buildLezioniProvaProssimi7Giorni()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildLezioniProvaUltimi15Giorni()),
+              ],
+            ),
           ] else ...[
             _buildCertificatiInScadenzaCard(),
             _buildAbbonamentiInScadenzaCard(),
+            _buildLezioniProvaProssimi7Giorni(),
+            _buildLezioniProvaUltimi15Giorni(),
           ],
         ],
       ),

@@ -344,12 +344,19 @@ class _SectionUtenti extends StatelessWidget {
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
 
-    final active = users.where((u) => u.isActive).length;
-    final new7 = users.where((u) => u.createdAt.isAfter(sevenDaysAgo)).length;
-    final new30 = users.where((u) => u.createdAt.isAfter(thirtyDaysAgo)).length;
+    final activeList = users.where((u) => u.isActive).toList();
+    final active = activeList.length;
+    final new7List = activeList
+        .where((u) => u.createdAt.isAfter(sevenDaysAgo))
+        .toList();
+    final new30List = activeList
+        .where((u) => u.createdAt.isAfter(thirtyDaysAgo))
+        .toList();
+    final new7 = new7List.length;
+    final new30 = new30List.length;
 
     final byTipologia = <TipologiaIscrizione, int>{};
-    for (final u in users) {
+    for (final u in activeList) {
       if (u.tipologiaIscrizione != null) {
         byTipologia[u.tipologiaIscrizione!] =
             (byTipologia[u.tipologiaIscrizione!] ?? 0) + 1;
@@ -358,19 +365,11 @@ class _SectionUtenti extends StatelessWidget {
     final tipologiaEntries = byTipologia.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final activeList = users.where((u) => u.isActive).toList();
-    final new7List =
-        users.where((u) => u.createdAt.isAfter(sevenDaysAgo)).toList();
-    final new30List =
-        users.where((u) => u.createdAt.isAfter(thirtyDaysAgo)).toList();
-
     return _DashboardCard(
       title: 'Utenti',
       icon: Icons.people,
       children: [
-        _MetricRow('Totale', '${users.length}',
-            onTap: () => onOpenUserList('Totale', users)),
-        _MetricRow('Utenti attivi', '$active',
+        _MetricRow('Totale attivi', '$active',
             onTap: () => onOpenUserList('Utenti attivi', activeList)),
         _MetricRow('Nuovi (ultimi 7 giorni)', '$new7',
             onTap: () => onOpenUserList('Nuovi (ultimi 7 giorni)', new7List)),
@@ -385,12 +384,13 @@ class _SectionUtenti extends StatelessWidget {
                 .map((e) => MapEntry(_labelTipologia(e.key), e.value))
                 .toList(),
             userListsPerEntry: tipologiaEntries
-                .map((e) =>
-                    users.where((u) => u.tipologiaIscrizione == e.key).toList())
+                .map((e) => activeList
+                    .where((u) => u.tipologiaIscrizione == e.key)
+                    .toList())
                 .toList(),
             onEntryTap: (i) => onOpenUserList(
                 _labelTipologia(tipologiaEntries[i].key),
-                users
+                activeList
                     .where(
                         (u) => u.tipologiaIscrizione == tipologiaEntries[i].key)
                     .toList()),
@@ -440,18 +440,19 @@ class _SectionCorsi extends StatelessWidget {
     final tagEntries = byTag.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    final activeUsers = users.where((u) => u.isActive).toList();
     final courseIdsLast6Months = courses.map((c) => c.uid).toSet();
-    final usersWithCourseLast6Months = users
+    final usersWithCourseLast6Months = activeUsers
         .where((u) => u.courses.any((id) => courseIdsLast6Months.contains(id)))
         .toList();
-    final usersInFullCourse = users
+    final usersInFullCourse = activeUsers
         .where(
             (u) => u.courses.any((id) => fullCourses.any((c) => c.uid == id)))
         .toList();
 
     final userListsByTag = tagEntries.map((e) {
       final tag = e.key;
-      return users
+      return activeUsers
           .where((u) => u.courses.any((courseId) {
                 final c = courses.where((c) => c.uid == courseId).firstOrNull;
                 if (c == null) return false;
