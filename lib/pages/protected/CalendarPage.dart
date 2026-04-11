@@ -8,6 +8,7 @@ import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
+import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -108,9 +109,12 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() { });
   }
 
-  void onSubscribe(Course course) {
+  void onSubscribe(Course course) async {
+    bool accepted = await RegolamentoHelper.showRegolamentoDialog(context);
+    if (!accepted) return;
+
     subscribeToCourse(course.id, user.uid).then((_) {
-      setState(() { 
+      setState(() {
         updateCourses();
       });
     });

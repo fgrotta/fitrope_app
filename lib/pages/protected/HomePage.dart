@@ -14,6 +14,7 @@ import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringSubscriptions.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
+import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/refresh_manager.dart';
@@ -193,7 +194,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   // Callback per l'iscrizione
-  void onSubscribe(Course course) {
+  void onSubscribe(Course course) async {
+    bool accepted = await RegolamentoHelper.showRegolamentoDialog(context);
+    if (!accepted) return;
+
     print('🔄 Iscrizione al corso: ${course.name}');
     subscribeToCourse(course.uid, user.uid).then((_) {
       print('✅ Iscrizione completata');
