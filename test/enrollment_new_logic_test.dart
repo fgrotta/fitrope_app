@@ -23,7 +23,8 @@ void main() {
       store.dispatch(SetAllCoursesAction([]));
       
       final now = DateTime.now();
-      final mondayThisWeek = now.subtract(Duration(days: now.weekday - 1));
+      // Lunedì prossima settimana (sempre nel futuro) per evitare CourseState.CLOSED
+      final mondayThisWeek = now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
       final mondayNextWeek = mondayThisWeek.add(const Duration(days: 7));
       
       // Corso lunedì questa settimana

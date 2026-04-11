@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/services/notification_service.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
@@ -100,7 +101,21 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
     if (user != null && user.role != 'Admin' && user.role != 'Trainer') {
       Map<String, dynamic>? userData = await getUserData(userId);
       if (userData != null) {
-        store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
+        final updatedUser = FitropeUser.fromJson(userData);
+        store.dispatch(SetUserAction(updatedUser));
+
+        if (updatedUser.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+          scheduleTrialReminder(userId, courseId);
+        }
+      }
+    } else {
+      // Admin/Trainer iscrive un altro utente: controlla se è una lezione di prova
+      Map<String, dynamic>? subscribedUserData = await getUserData(userId);
+      if (subscribedUserData != null) {
+        final subscribedUser = FitropeUser.fromJson(subscribedUserData);
+        if (subscribedUser.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+          scheduleTrialReminder(userId, courseId);
+        }
       }
     }
   } catch (error, stackTrace) {

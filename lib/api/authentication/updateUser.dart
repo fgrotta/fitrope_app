@@ -17,6 +17,8 @@ Future<void> updateUser({
   String? numeroTelefono,
   List<String>? tipologiaCorsoTags,
   List<CancelledEnrollment>? cancelledEnrollments,
+  bool? emailNotificationsEnabled,
+  bool? pushNotificationsEnabled,
 }) async {
   try {
     final updateData = <String, dynamic>{
@@ -33,6 +35,8 @@ Future<void> updateUser({
       'numeroTelefono': numeroTelefono,
       'tipologiaCorsoTags': tipologiaCorsoTags,
       'cancelledEnrollments': cancelledEnrollments?.map((e) => e.toJson()).toList(),
+      'emailNotificationsEnabled': emailNotificationsEnabled,
+      'pushNotificationsEnabled': pushNotificationsEnabled,
     };
 
     // Rimuovi i campi null per non sovrascriverli con null

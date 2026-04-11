@@ -22,7 +22,8 @@ void main() {
       store.dispatch(SetAllCoursesAction([]));
       
       final now = DateTime.now();
-      final mondayThisWeek = now.subtract(Duration(days: now.weekday - 1));
+      // Lunedì prossima settimana (sempre nel futuro) per evitare CourseState.CLOSED
+      final mondayThisWeek = now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
       final mondayNextWeek = mondayThisWeek.add(const Duration(days: 7));
       
       // Corso lunedì questa settimana
@@ -172,11 +173,11 @@ void main() {
           name: 'Corso Giovedì',
           startDate: Timestamp.fromDate(
             DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1))
-              .add(const Duration(days: 3, hours: 10))
+              .add(const Duration(days: 10, hours: 10))
           ),
           endDate: Timestamp.fromDate(
             DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1))
-              .add(const Duration(days: 3, hours: 11))
+              .add(const Duration(days: 10, hours: 11))
           ),
           capacity: 20,
           subscribed: 5,

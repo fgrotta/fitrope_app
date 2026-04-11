@@ -52,6 +52,8 @@ class FitropeUser {
   final List<CancelledEnrollment> cancelledEnrollments; // Tracciamento disiscrizioni
   final Timestamp? regolamentoAccettatoIl;
   final List<String> waitlistCourses; // Corsi in lista d'attesa (course IDs)
+  final bool emailNotificationsEnabled; // Preferenza notifiche email
+  final bool pushNotificationsEnabled; // Preferenza notifiche push
 
   const FitropeUser({
     required this.name,
@@ -73,6 +75,8 @@ class FitropeUser {
     this.cancelledEnrollments = const [],
     this.regolamentoAccettatoIl,
     this.waitlistCourses = const [],
+    this.emailNotificationsEnabled = true,
+    this.pushNotificationsEnabled = true,
   });
 
   Map<String, dynamic> toJson() {
@@ -96,6 +100,8 @@ class FitropeUser {
       'cancelledEnrollments': cancelledEnrollments.map((e) => e.toJson()).toList(),
       'regolamentoAccettatoIl': regolamentoAccettatoIl,
       'waitlistCourses': waitlistCourses,
+      'emailNotificationsEnabled': emailNotificationsEnabled,
+      'pushNotificationsEnabled': pushNotificationsEnabled,
     };
   }
 
@@ -132,6 +138,8 @@ class FitropeUser {
       waitlistCourses: (json['waitlistCourses'] as List<dynamic>?)
           ?.map((id) => id.toString())
           .toList() ?? [],
+      emailNotificationsEnabled: json['emailNotificationsEnabled'] as bool? ?? true,
+      pushNotificationsEnabled: json['pushNotificationsEnabled'] as bool? ?? true,
     );
   }
 }

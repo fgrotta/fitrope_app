@@ -46,6 +46,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late bool selectedIsAnonymous;
   late DateTime? selectedCertificatoScadenza;
   late List<String> selectedTipologiaCorsoTags;
+  late bool selectedEmailNotifications;
+  late bool selectedPushNotifications;
   String? errorMsg;
   List<Course> allCourses = [];
   bool _showAllEnrollments12Months = false;
@@ -65,6 +67,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
     selectedIsAnonymous = widget.user.isAnonymous;
     selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
     selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
+    selectedEmailNotifications = widget.user.emailNotificationsEnabled;
+    selectedPushNotifications = widget.user.pushNotificationsEnabled;
     if (widget.openInEditMode && _canEditUser()) {
       isEditing = true;
     }
@@ -110,6 +114,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         selectedIsAnonymous = widget.user.isAnonymous;
         selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
         selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
+        selectedEmailNotifications = widget.user.emailNotificationsEnabled;
+        selectedPushNotifications = widget.user.pushNotificationsEnabled;
         errorMsg = null;
       }
     });
@@ -275,8 +281,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         isAnonymous: selectedIsAnonymous,
         certificatoScadenza: selectedCertificatoScadenza,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
-        tipologiaCorsoTags: selectedTipologiaCorsoTags, 
+        tipologiaCorsoTags: selectedTipologiaCorsoTags,
         cancelledEnrollments: widget.user.cancelledEnrollments,
+        emailNotificationsEnabled: selectedEmailNotifications,
+        pushNotificationsEnabled: selectedPushNotifications,
       );
 
       // Crea un nuovo oggetto utente con i dati aggiornati
@@ -300,8 +308,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ? Timestamp.fromDate(DateTime(selectedCertificatoScadenza!.year, selectedCertificatoScadenza!.month, selectedCertificatoScadenza!.day, 23, 59))
             : null,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
-        tipologiaCorsoTags: selectedTipologiaCorsoTags, 
+        tipologiaCorsoTags: selectedTipologiaCorsoTags,
         cancelledEnrollments: widget.user.cancelledEnrollments,
+        emailNotificationsEnabled: selectedEmailNotifications,
+        pushNotificationsEnabled: selectedPushNotifications,
       );
 
       if (!mounted) return;
@@ -762,8 +772,30 @@ class _UserDetailPageState extends State<UserDetailPage> {
               ],
             ),
             
+            // Sezione preferenze notifiche (solo per il proprio profilo)
+            if (store.state.user?.uid == widget.user.uid) ...[
+              const SizedBox(height: 24),
+              _buildSection(
+                'Preferenze Notifiche',
+                [
+                  _buildNotificationToggle(
+                    'Notifiche Push',
+                    Icons.notifications_active,
+                    selectedPushNotifications,
+                    (value) => setState(() => selectedPushNotifications = value),
+                  ),
+                  _buildNotificationToggle(
+                    'Notifiche Email',
+                    Icons.email,
+                    selectedEmailNotifications,
+                    (value) => setState(() => selectedEmailNotifications = value),
+                  ),
+                ],
+              ),
+            ],
+
             const SizedBox(height: 24),
-            
+
             // Sezione informazioni account
             _buildSection(
               'Informazioni Account',
@@ -1029,6 +1061,32 @@ class _UserDetailPageState extends State<UserDetailPage> {
           ),
           const SizedBox(height: 16),
           ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationToggle(String label, IconData icon, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: primaryLightColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: primaryLightColor,
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: primaryLightColor,
+          ),
         ],
       ),
     );

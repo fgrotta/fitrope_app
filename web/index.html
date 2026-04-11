@@ -171,6 +171,33 @@
     });
   </script>
   
+  <!-- OneSignal Web Push SDK -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+    window.oneSignalInit = function(appId) {
+      OneSignalDeferred.push(function(OneSignal) {
+        OneSignal.init({ appId: appId });
+      });
+    };
+    window.oneSignalLogin = function(userId) {
+      OneSignalDeferred.push(function(OneSignal) {
+        OneSignal.login(userId);
+      });
+    };
+    window.oneSignalLogout = function() {
+      OneSignalDeferred.push(function(OneSignal) {
+        OneSignal.logout();
+      });
+    };
+    window.oneSignalAddEmail = function(email) {
+      OneSignalDeferred.push(function(OneSignal) {
+        OneSignal.User.addEmail(email);
+      });
+    };
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:fitrope_app/services/onesignal_service.dart';
 
 Future<void> signOut() async {
-  OneSignal.logout();
+  OneSignalService.logout();
   await FirebaseAuth.instance.signOut();
   print("User signed out");
 }

@@ -6,7 +6,7 @@ import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:fitrope_app/services/onesignal_service.dart';
 
 class SignInResponse {
   final FitropeUser? user;
@@ -63,9 +63,9 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
           })
         );
         
-        OneSignal.login(fitropeUser.uid);
+        OneSignalService.login(fitropeUser.uid);
         if (fitropeUser.email.isNotEmpty) {
-          OneSignal.User.addEmail(fitropeUser.email);
+          OneSignalService.addEmail(fitropeUser.email);
         }
 
         return SignInResponse(user: fitropeUser, error: "");
