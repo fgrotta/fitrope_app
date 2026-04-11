@@ -5,6 +5,7 @@ import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/courses/getCourses.dart';
 
 Future<void> subscribeToCourse(String courseId, String userId, {bool force = false, String? userRole}) async {
   if (userRole == 'Admin' || userRole == 'Trainer') {
@@ -97,6 +98,7 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
     });
 
     invalidateUsersCache();
+    invalidateCoursesCache();
     final user = store.state.user;
     if (user != null && user.role != 'Admin' && user.role != 'Trainer') {
       Map<String, dynamic>? userData = await getUserData(userId);

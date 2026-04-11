@@ -1,9 +1,8 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
-import 'package:fitrope_app/api/courses/joinWaitlist.dart';
-import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/utils/waitlist_ui_helper.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
@@ -174,54 +173,23 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void onJoinWaitlist(Course course) {
-    showDialog(
+    WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: backgroundColor,
-        title: const Text('Lista d\'attesa'),
-        content: Text('Vuoi iscriverti alla lista d\'attesa per "${course.name}"?\n\nRiceverai una notifica se si libera un posto.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              joinWaitlist(course.id, user.uid).then((_) {
-                updateCourses();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Iscritto alla lista d\'attesa'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                }
-              }).catchError((e) {
-                if (mounted) {
-                  SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
-                }
-              });
-            },
-            child: const Text('Conferma', style: TextStyle(color: Colors.orange)),
-          ),
-        ],
-      ),
+      course: course,
+      userId: user.uid,
+      onRefresh: updateCourses,
+      isMounted: () => mounted,
     );
   }
 
   void onLeaveWaitlist(Course course) {
-    leaveWaitlist(course.id, user.uid).then((_) {
-      updateCourses();
-      if (mounted) {
-        SnackBarUtils.showSuccessSnackBar(context, 'Rimosso dalla lista d\'attesa');
-      }
-    }).catchError((e) {
-      if (mounted) {
-        SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
-      }
-    });
+    WaitlistUiHelper.handleLeaveWaitlist(
+      context: context,
+      course: course,
+      userId: user.uid,
+      onRefresh: updateCourses,
+      isMounted: () => mounted,
+    );
   }
 
   // Funzioni per navigare alla pagina di gestione corsi

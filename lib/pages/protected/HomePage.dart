@@ -1,8 +1,7 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
-import 'package:fitrope_app/api/courses/joinWaitlist.dart';
-import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
 import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/utils/waitlist_ui_helper.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
@@ -288,69 +287,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   void onJoinWaitlist(Course course) {
-    showDialog(
+    WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: backgroundColor,
-        title: const Text('Lista d\'attesa'),
-        content: Text('Vuoi iscriverti alla lista d\'attesa per "${course.name}"?\n\nRiceverai una notifica se si libera un posto.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              joinWaitlist(course.uid, user.uid).then((_) {
-                refreshCourses();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Iscritto alla lista d\'attesa'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                }
-              }).catchError((e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Errore: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              });
-            },
-            child: const Text('Conferma', style: TextStyle(color: Colors.orange)),
-          ),
-        ],
-      ),
+      course: course,
+      userId: user.uid,
+      onRefresh: refreshCourses,
+      isMounted: () => mounted,
     );
   }
 
   void onLeaveWaitlist(Course course) {
-    leaveWaitlist(course.uid, user.uid).then((_) {
-      refreshCourses();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Rimosso dalla lista d\'attesa'),
-            backgroundColor: successColor,
-          ),
-        );
-      }
-    }).catchError((e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Errore: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    });
+    WaitlistUiHelper.handleLeaveWaitlist(
+      context: context,
+      course: course,
+      userId: user.uid,
+      onRefresh: refreshCourses,
+      isMounted: () => mounted,
+    );
   }
 
   Widget renderSubscriptionCard() {
@@ -1474,19 +1427,23 @@ class _HomePageState extends State<HomePage> {
           ),
 
           // LISTA D'ATTESA
-          if (renderWaitlistCourses().isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  width: double.infinity,
-                  child: const Text('Lista d\'attesa', textAlign: TextAlign.left, style: TextStyle(color: Colors.orange, fontSize: 20)),
-                ),
-                ...renderWaitlistCourses()
-              ],
-            ),
-          ],
+          Builder(builder: (_) {
+            final waitlistWidgets = renderWaitlistCourses();
+            if (waitlistWidgets.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    width: double.infinity,
+                    child: const Text('Lista d\'attesa', textAlign: TextAlign.left, style: TextStyle(color: Colors.orange, fontSize: 20)),
+                  ),
+                  ...waitlistWidgets
+                ],
+              ),
+            );
+          }),
 
           // SEZIONI ADMIN: certificati, abbonamenti e lezioni di prova
           if (isDesktop(context)) ...[

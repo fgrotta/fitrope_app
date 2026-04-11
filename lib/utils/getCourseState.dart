@@ -60,8 +60,9 @@ CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
       user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
       user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
       user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE) {
-    if (user.entrateSettimanali == null)
+    if (user.entrateSettimanali == null) {
       return null; // nessun limite settimanale
+    }
     int weeklyEntriesUsed = _countWeeklyEntries(courseDate, user);
     if (weeklyEntriesUsed >= user.entrateSettimanali!) {
       return CourseState.LIMIT;

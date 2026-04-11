@@ -4,6 +4,7 @@ import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/courses/getCourses.dart';
 
 Future<void> leaveWaitlist(String courseId, String userId) async {
   final firestore = FirebaseFirestore.instance;
@@ -58,6 +59,7 @@ Future<void> leaveWaitlist(String courseId, String userId) async {
     });
 
     invalidateUsersCache();
+    invalidateCoursesCache();
     final currentUser = store.state.user;
     if (currentUser != null && currentUser.role != 'Admin' && currentUser.role != 'Trainer') {
       Map<String, dynamic>? userData = await getUserData(userId);

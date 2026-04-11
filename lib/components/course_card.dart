@@ -77,6 +77,8 @@ class CourseCard extends StatefulWidget {
 }
 
 class _CourseCardState extends State<CourseCard> {
+  bool _isProcessing = false;
+
   void showSubscribersDialog() {
     showDialog(
       context: context,
@@ -536,9 +538,14 @@ String getDisplayName(FitropeUser user) {
     }
 
     return ElevatedButton(
-      onPressed: canBeClicked ? () {
+      onPressed: canBeClicked && !_isProcessing ? () async {
         if(widget.onClickAction != null) {
-          widget.onClickAction!();
+          setState(() => _isProcessing = true);
+          try {
+            await widget.onClickAction!();
+          } finally {
+            if (mounted) setState(() => _isProcessing = false);
+          }
         }
       } : null,
       style: ButtonStyle(

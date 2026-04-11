@@ -156,16 +156,6 @@ Future<List<String>> getWaitlistUsers(String courseId) async {
   return snapshots.docs.map((doc) => "${doc['uid']}").toList();
 }
 
-Future<void> _removeUserFromWaitlist(String courseId, String userId) async {
-  DocumentReference userRef = firestore.collection('users').doc(userId);
-  DocumentSnapshot userSnapshot = await userRef.get();
-  List<dynamic> waitlistCourses = userSnapshot['waitlistCourses'] ?? [];
-  if (waitlistCourses.contains(courseId)) {
-    waitlistCourses.remove(courseId);
-    await userRef.update({'waitlistCourses': waitlistCourses});
-  }
-}
-
 Future<void> deleteCourse(String courseId) async {
   try {
     print('Deleting course $courseId');
@@ -175,19 +165,26 @@ Future<void> deleteCourse(String courseId) async {
       await forceUnsubscribeFromCourse(courseId, userId);
     }
 
-    // Rimuovi il corso dalla waitlistCourses di tutti gli utenti in attesa
+    // Rimuovi il corso dalla waitlistCourses di tutti gli utenti in attesa (batch atomico)
     List<String> waitlistUserIds = await getWaitlistUsers(courseId);
-    for (String userId in waitlistUserIds) {
-      await _removeUserFromWaitlist(courseId, userId);
+    if (waitlistUserIds.isNotEmpty) {
+      WriteBatch batch = firestore.batch();
+      for (String userId in waitlistUserIds) {
+        DocumentReference userRef = firestore.collection('users').doc(userId);
+        batch.update(userRef, {
+          'waitlistCourses': FieldValue.arrayRemove([courseId]),
+        });
+      }
+      await batch.commit();
     }
 
     // Poi elimina il corso
     await FirebaseFirestore.instance.collection('courses').doc(courseId).delete();
     invalidateCoursesCache();
     invalidateUsersCache();
-    
-    print('Course ${courseId} and all subscriptions/waitlists deleted successfully!');
+
+    print('Course $courseId and all subscriptions/waitlists deleted successfully!');
   } catch (e) {
     print('Error deleting course: $e');
   }
-} 
+}

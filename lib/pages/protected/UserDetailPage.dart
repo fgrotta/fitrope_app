@@ -7,6 +7,7 @@ import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
+import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -313,6 +314,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
         emailNotificationsEnabled: selectedEmailNotifications,
         pushNotificationsEnabled: selectedPushNotifications,
       );
+
+      // Aggiorna lo store Redux se l'utente ha modificato il proprio profilo
+      if (store.state.user?.uid == widget.user.uid) {
+        store.dispatch(SetUserAction(updatedUser));
+      }
 
       if (!mounted) return;
       setState(() {
@@ -783,12 +789,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     Icons.notifications_active,
                     selectedPushNotifications,
                     (value) => setState(() => selectedPushNotifications = value),
+                    enabled: isEditing,
                   ),
                   _buildNotificationToggle(
                     'Notifiche Email',
                     Icons.email,
                     selectedEmailNotifications,
                     (value) => setState(() => selectedEmailNotifications = value),
+                    enabled: isEditing,
                   ),
                 ],
               ),
@@ -1066,7 +1074,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildNotificationToggle(String label, IconData icon, bool value, ValueChanged<bool> onChanged) {
+  Widget _buildNotificationToggle(String label, IconData icon, bool value, ValueChanged<bool> onChanged, {bool enabled = true}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -1084,7 +1092,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
           ),
           Switch(
             value: value,
-            onChanged: onChanged,
+            onChanged: enabled ? onChanged : null,
             activeColor: primaryLightColor,
           ),
         ],

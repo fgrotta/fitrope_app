@@ -194,11 +194,27 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
         .where('uid', whereIn: waitlistUserIds)
         .get();
 
+    final Timestamp startTimestamp = courseData['startDate'] as Timestamp;
+    final Timestamp endTimestamp = courseData['endDate'] as Timestamp;
+    final DateTime startDate = startTimestamp.toDate();
+    final DateTime endDate = endTimestamp.toDate();
+
     final List<String> pushUserIds = [];
     final List<String> emailUserIds = [];
+    final List<String> expiredUserIds = [];
     for (final doc in usersSnapshot.docs) {
       final data = doc.data();
       final uid = data['uid'] as String;
+
+      // Controlla se l'abbonamento dell'utente è scaduto rispetto alla data del corso
+      if (data['fineIscrizione'] != null) {
+        final DateTime subscriptionEnd = (data['fineIscrizione'] as Timestamp).toDate();
+        if (startDate.isAfter(subscriptionEnd)) {
+          expiredUserIds.add(uid);
+          continue;
+        }
+      }
+
       if (data['pushNotificationsEnabled'] as bool? ?? true) {
         pushUserIds.add(uid);
       }
@@ -207,10 +223,21 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
       }
     }
 
-    final Timestamp startTimestamp = courseData['startDate'] as Timestamp;
-    final Timestamp endTimestamp = courseData['endDate'] as Timestamp;
-    final DateTime startDate = startTimestamp.toDate();
-    final DateTime endDate = endTimestamp.toDate();
+    // Rimuovi gli utenti con abbonamento scaduto dalla waitlist
+    if (expiredUserIds.isNotEmpty) {
+      final courseRef = courseQuery.docs.first.reference;
+      final WriteBatch batch = firestore.batch();
+      batch.update(courseRef, {
+        'waitlist': FieldValue.arrayRemove(expiredUserIds),
+      });
+      for (final uid in expiredUserIds) {
+        final userRef = firestore.collection('users').doc(uid);
+        batch.update(userRef, {
+          'waitlistCourses': FieldValue.arrayRemove([courseId]),
+        });
+      }
+      await batch.commit();
+    }
 
     final String courseDate =
         '${_dayNames[startDate.weekday - 1]} ${startDate.day} ${_monthNames[startDate.month - 1]} ${startDate.year}';
