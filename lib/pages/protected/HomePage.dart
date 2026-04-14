@@ -41,6 +41,9 @@ class _HomePageState extends State<HomePage> {
   bool _isLoadingLezioniProva = false;
   bool _scadenzeExpanded = true;
   bool _lezioniProvaExpanded = true;
+  bool _regolamentoExpanded = true;
+  List<FitropeUser> _utentiSenzaRegolamento = [];
+  bool _isLoadingRegolamento = false;
 
   @override
   void initState() {
@@ -64,11 +67,13 @@ class _HomePageState extends State<HomePage> {
       _loadUtentiConCertificatoInScadenza();
       _loadUtentiConAbbonamentoInScadenza();
       _loadUtentiLezioneProva();
+      _loadUtentiSenzaRegolamento();
 
       // Registra il listener per il refresh automatico
       RefreshManager().addListener(_loadUtentiConCertificatoInScadenza);
       RefreshManager().addListener(_loadUtentiConAbbonamentoInScadenza);
       RefreshManager().addListener(_loadUtentiLezioneProva);
+      RefreshManager().addListener(_loadUtentiSenzaRegolamento);
     }
     if (user.role == 'User') {
       RefreshManager().addListener(refreshCourses);
@@ -83,6 +88,7 @@ class _HomePageState extends State<HomePage> {
       RefreshManager().removeListener(_loadUtentiConCertificatoInScadenza);
       RefreshManager().removeListener(_loadUtentiConAbbonamentoInScadenza);
       RefreshManager().removeListener(_loadUtentiLezioneProva);
+      RefreshManager().removeListener(_loadUtentiSenzaRegolamento);
     }
     if (user.role == 'User') {
       RefreshManager().removeListener(refreshCourses);
@@ -163,6 +169,33 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _loadUtentiSenzaRegolamento() async {
+    if (user.role != 'Admin') return;
+    setState(() {
+      _isLoadingRegolamento = true;
+    });
+    try {
+      final utenti = await getUsers();
+      if (mounted) {
+        setState(() {
+          _utentiSenzaRegolamento = utenti
+              .where((u) =>
+                  u.regolamentoAccettatoIl == null &&
+                  u.isActive &&
+                  u.role == 'User')
+              .toList();
+          _isLoadingRegolamento = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRegolamento = false;
+        });
+      }
+    }
+  }
+
   // Funzione per aggiornare i corsi e lo stato utente
   void refreshCourses() {
     getAllCourses().then((List<Course> response) {
@@ -195,7 +228,7 @@ class _HomePageState extends State<HomePage> {
 
   // Callback per l'iscrizione
   void onSubscribe(Course course) async {
-    bool accepted = await RegolamentoHelper.showRegolamentoDialog(context);
+    bool accepted = await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted) return;
 
     print('🔄 Iscrizione al corso: ${course.name}');
@@ -959,6 +992,199 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildUtentiSenzaRegolamentoCard() {
+    if (user.role != 'Admin') return const SizedBox.shrink();
+
+    if (_isLoadingRegolamento) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 12),
+            Text('Caricamento regolamento...'),
+          ],
+        ),
+      );
+    }
+
+    // Filtra: utenti senza regolamento che hanno corsi nei prossimi 7 giorni
+    final now = DateTime.now();
+    final limit = now.add(const Duration(days: 7));
+
+    final entries = _utentiSenzaRegolamento
+        .map((u) {
+          final courses = allCourses
+              .where((c) =>
+                  u.courses.contains(c.uid) &&
+                  c.startDate.toDate().isAfter(now) &&
+                  c.startDate.toDate().isBefore(limit))
+              .toList()
+            ..sort(
+                (a, b) => a.startDate.toDate().compareTo(b.startDate.toDate()));
+          return (u, courses);
+        })
+        .where((e) => e.$2.isNotEmpty)
+        .toList();
+
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    final dateFmt = DateFormat('EEE dd/MM', 'it_IT');
+    final timeFmt = DateFormat('HH:mm');
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade300, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.shade300.withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.gavel, color: Colors.orange.shade700, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Regolamento non accettato (${entries.length})',
+                  style: TextStyle(
+                    color: Colors.orange.shade700,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...entries.map((entry) {
+            final (utente, courses) = entry;
+            return InkWell(
+              onTap: () async {
+                await Navigator.push<FitropeUser>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: utente),
+                  ),
+                );
+                _loadUtentiSenzaRegolamento();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.orange.shade100,
+                      radius: 20,
+                      child: Text(
+                        '${utente.name.isNotEmpty ? utente.name[0] : ''}${utente.lastName.isNotEmpty ? utente.lastName[0] : ''}',
+                        style: TextStyle(
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${utente.name} ${utente.lastName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            utente.email,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: onSurfaceVariantColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...courses.map((c) {
+                            final start = c.startDate.toDate();
+                            final end = c.endDate.toDate();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.event,
+                                      size: 14, color: Colors.orange.shade700),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.name,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: onSurfaceColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${dateFmt.format(start)}  ${timeFmt.format(start)} – ${timeFmt.format(end)}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: onSurfaceVariantColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios,
+                        color: Colors.orange.shade300, size: 16),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCollapsibleRow({
     required String title,
     required bool expanded,
@@ -1168,6 +1394,15 @@ class _HomePageState extends State<HomePage> {
                 Expanded(child: _buildLezioniProvaProssimi7Giorni()),
                 const SizedBox(width: 16),
                 Expanded(child: _buildLezioniProvaUltimi15Giorni()),
+              ],
+            ),
+            const SizedBox(height: 4),
+            _buildCollapsibleRow(
+              title: 'Regolamento',
+              expanded: _regolamentoExpanded,
+              onToggle: () => setState(() => _regolamentoExpanded = !_regolamentoExpanded),
+              children: [
+                Expanded(child: _buildUtentiSenzaRegolamentoCard()),
               ],
             ),
           ] else ...[

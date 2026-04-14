@@ -5,6 +5,7 @@ import 'package:fitrope_app/authentication/resetPassword.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
+import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -769,6 +770,100 @@ class _UserDetailPageState extends State<UserDetailPage> {
               [
                 _buildInfoRow('Data Registrazione', DateFormat('dd/MM/yyyy HH:mm').format(widget.user.createdAt), null, false),
                 _buildInfoRow('Corsi Iscritti', '${widget.user.courses.length}', null, false),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Sezione regolamento
+            _buildSection(
+              'Regolamento della Palestra',
+              [
+                _buildInfoRow(
+                  'Accettato il',
+                  widget.user.regolamentoAccettatoIl != null
+                      ? DateFormat('dd/MM/yyyy HH:mm').format(widget.user.regolamentoAccettatoIl!.toDate())
+                      : 'Non ancora accettato',
+                  null,
+                  false,
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => RegolamentoHelper.openRegolamento(),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.description, color: Colors.blueAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Visualizza regolamento completo',
+                        style: TextStyle(
+                          color: Colors.blueAccent,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Pulsante accettazione solo per il proprio profilo e se non ancora accettato
+                if (store.state.user?.uid == widget.user.uid &&
+                    widget.user.regolamentoAccettatoIl == null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final accepted = await RegolamentoHelper.checkAndAcceptRegolamento(
+                          context,
+                          widget.user,
+                        );
+                        if (accepted && mounted) {
+                          SnackBarUtils.showSuccessSnackBar(
+                            context,
+                            'Regolamento accettato con successo',
+                          );
+                          // Torna indietro con utente aggiornato
+                          final updatedUser = FitropeUser(
+                            uid: widget.user.uid,
+                            email: widget.user.email,
+                            name: widget.user.name,
+                            lastName: widget.user.lastName,
+                            role: widget.user.role,
+                            courses: widget.user.courses,
+                            tipologiaIscrizione: widget.user.tipologiaIscrizione,
+                            entrateDisponibili: widget.user.entrateDisponibili,
+                            entrateSettimanali: widget.user.entrateSettimanali,
+                            fineIscrizione: widget.user.fineIscrizione,
+                            isActive: widget.user.isActive,
+                            isAnonymous: widget.user.isAnonymous,
+                            createdAt: widget.user.createdAt,
+                            certificatoScadenza: widget.user.certificatoScadenza,
+                            numeroTelefono: widget.user.numeroTelefono,
+                            tipologiaCorsoTags: widget.user.tipologiaCorsoTags,
+                            cancelledEnrollments: widget.user.cancelledEnrollments,
+                            regolamentoAccettatoIl: Timestamp.now(),
+                          );
+                          Navigator.pop(context, updatedUser);
+                        }
+                      },
+                      icon: const Icon(Icons.check_circle, color: Colors.white),
+                      label: const Text(
+                        'Accetta il Regolamento',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             
