@@ -1,6 +1,3 @@
-// TODO: Sostituire con l'URL reale dell'app/sito
-const String appUrl = 'https://your-app-url.com';
-
 String trialReminderSubject(String courseName) {
   return 'Promemoria: la tua lezione di prova "$courseName" è domani!';
 }
@@ -56,17 +53,6 @@ String trialReminderBody({
                 Ricordati di portare abbigliamento comodo e una bottiglietta d'acqua.
               </p>
 
-              <!-- CTA Button -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-                <tr>
-                  <td align="center">
-                    <a href="$appUrl"
-                       style="display: inline-block; background-color: #6077F6; color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-size: 16px; font-weight: bold;">
-                      Apri l'app
-                    </a>
-                  </td>
-                </tr>
-              </table>
             </td>
           </tr>
 
@@ -150,17 +136,6 @@ String waitlistSpotAvailableBody({
                 Iscriviti subito prima che il posto venga occupato!
               </p>
               
-              <!-- CTA Button -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-                <tr>
-                  <td align="center">
-                    <a href="$appUrl" 
-                       style="display: inline-block; background-color: #6077F6; color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-size: 16px; font-weight: bold;">
-                      Apri l'app e iscriviti
-                    </a>
-                  </td>
-                </tr>
-              </table>
             </td>
           </tr>
           

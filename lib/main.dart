@@ -9,7 +9,7 @@ import 'package:fitrope_app/services/onesignal_service.dart';
 import 'firebase_options.dart';
 
 // TODO: Sostituire con il tuo OneSignal App ID dalla dashboard
-const String oneSignalAppId = 'YOUR_ONESIGNAL_APP_ID';
+const String oneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,17 +18,12 @@ void main() async {
   );
 
   OneSignalService.initialize(oneSignalAppId);
-  
+
   await initializeDateFormatting('it_IT', null);
-  
-  runApp(
-    SafeArea(
-      child: StoreProvider(
-        store: store,
-        child: const MyApp()
-      ),
-    )
-  );
+
+  runApp(SafeArea(
+    child: StoreProvider(store: store, child: const MyApp()),
+  ));
 
   // tests();
 }

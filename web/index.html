@@ -178,7 +178,12 @@
 
     window.oneSignalInit = function(appId) {
       OneSignalDeferred.push(function(OneSignal) {
-        OneSignal.init({ appId: appId });
+        OneSignal.init({ appId: appId }).then(function() {
+          console.log('🔔 [OneSignal Web] SDK inizializzato');
+          OneSignal.Notifications.requestPermission().then(function(accepted) {
+            console.log('🔔 [OneSignal Web] Permesso push: ' + (accepted ? 'accettato' : 'rifiutato'));
+          });
+        });
       });
     };
     window.oneSignalLogin = function(userId) {

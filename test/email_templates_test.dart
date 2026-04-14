@@ -58,16 +58,6 @@ void main() {
       expect(body, contains('3 posti disponibili'));
     });
 
-    test('deve contenere il link all app', () {
-      final body = waitlistSpotAvailableBody(
-        courseName: 'Corso',
-        courseDate: 'Data',
-        courseTime: 'Ora',
-        spotsAvailable: 1,
-      );
-      expect(body, contains(appUrl));
-    });
-
     test('deve essere HTML valido con struttura base', () {
       final body = waitlistSpotAvailableBody(
         courseName: 'Corso',
@@ -106,13 +96,5 @@ void main() {
       expect(body, contains('09:00 - 10:00'));
     });
 
-    test('deve contenere il CTA link', () {
-      final body = trialReminderBody(
-        courseName: 'Corso',
-        courseDate: 'Data',
-        courseTime: 'Ora',
-      );
-      expect(body, contains(appUrl));
-    });
   });
 }

@@ -63,6 +63,7 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
           })
         );
         
+        print('🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
         OneSignalService.login(fitropeUser.uid);
         if (fitropeUser.email.isNotEmpty) {
           OneSignalService.addEmail(fitropeUser.email);

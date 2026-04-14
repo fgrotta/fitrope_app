@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/services/notification_service.dart';
@@ -100,24 +101,39 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
     invalidateUsersCache();
     invalidateCoursesCache();
     final user = store.state.user;
+    print('🔔 [subscribeToCourse] Iscrizione completata — userId: $userId, courseId: $courseId');
+    print('🔔 [subscribeToCourse] Utente corrente nello store: uid=${user?.uid}, role=${user?.role}');
+
     if (user != null && user.role != 'Admin' && user.role != 'Trainer') {
       Map<String, dynamic>? userData = await getUserData(userId);
       if (userData != null) {
         final updatedUser = FitropeUser.fromJson(userData);
         store.dispatch(SetUserAction(updatedUser));
 
-        if (updatedUser.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+        print('🔔 [subscribeToCourse] tipologiaIscrizione: ${updatedUser.tipologiaIscrizione}');
+        if (kDebugMode || updatedUser.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+          print('🔔 [subscribeToCourse] ${kDebugMode ? "[DEBUG] Invio sempre" : "Utente PROVA"} → scheduleTrialReminder');
           scheduleTrialReminder(userId, courseId);
+        } else {
+          print('🔔 [subscribeToCourse] Non è ABBONAMENTO_PROVA, skip promemoria');
         }
+      } else {
+        print('🔔 [subscribeToCourse] userData null per userId: $userId');
       }
     } else {
-      // Admin/Trainer iscrive un altro utente: controlla se è una lezione di prova
+      print('🔔 [subscribeToCourse] Branch admin/trainer — controlla utente iscritto');
       Map<String, dynamic>? subscribedUserData = await getUserData(userId);
       if (subscribedUserData != null) {
         final subscribedUser = FitropeUser.fromJson(subscribedUserData);
-        if (subscribedUser.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+        print('🔔 [subscribeToCourse] tipologiaIscrizione utente iscritto: ${subscribedUser.tipologiaIscrizione}');
+        if (kDebugMode || subscribedUser.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+          print('🔔 [subscribeToCourse] ${kDebugMode ? "[DEBUG] Invio sempre" : "Utente PROVA"} → scheduleTrialReminder');
           scheduleTrialReminder(userId, courseId);
+        } else {
+          print('🔔 [subscribeToCourse] Non è ABBONAMENTO_PROVA, skip promemoria');
         }
+      } else {
+        print('🔔 [subscribeToCourse] subscribedUserData null per userId: $userId');
       }
     }
   } catch (error, stackTrace) {
