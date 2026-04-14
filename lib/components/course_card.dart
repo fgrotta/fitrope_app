@@ -1,5 +1,6 @@
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
@@ -571,15 +572,31 @@ String getDisplayName(FitropeUser user) {
         }
       },
       child: Container(
-        padding: const EdgeInsets.all(10),
         decoration: const BoxDecoration(
           color: primaryLightColor,
           borderRadius: BorderRadius.all(Radius.circular(10)),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Immagine del corso
+            if (widget.course.imageKey != null && widget.course.imageKey!.isNotEmpty)
+              SizedBox(
+                height: 120,
+                width: double.infinity,
+                child: Image.asset(
+                  CourseImages.getCourseImage(widget.course),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
             // Riga 1: Titolo + pulsanti User/Admin allineati a sinistra
             Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -617,6 +634,9 @@ String getDisplayName(FitropeUser user) {
                   ],
                 ),
               ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

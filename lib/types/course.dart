@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fitrope_app/types/course_type.dart';
 
 class Course {
   @Deprecated('Use uid instead')
@@ -12,19 +13,23 @@ class Course {
   final String? trainerId; // ID del trainer assegnato al corso
   final List<String> tags; // Tag per limitare l'accesso al corso
   final List<String> waitlist; // Utenti in lista d'attesa (user IDs)
+  final CourseType courseType; // Tipologia del corso
+  final String? imageKey; // Chiave immagine stock del corso
 
-  const Course({ 
+  const Course({
     @Deprecated('Use uid instead')
-    required this.id, 
+    required this.id,
     required this.uid,
-    required this.name, 
-    required this.startDate, 
-    required this.endDate, 
-    required this.capacity, 
-    required this.subscribed, 
+    required this.name,
+    required this.startDate,
+    required this.endDate,
+    required this.capacity,
+    required this.subscribed,
     this.trainerId,
     this.tags = const [],
     this.waitlist = const [],
+    this.courseType = CourseType.open,
+    this.imageKey,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -45,6 +50,8 @@ class Course {
       trainerId: json['trainerId'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.map((tag) => tag.toString()).toList() ?? [],
       waitlist: (json['waitlist'] as List<dynamic>?)?.map((id) => id.toString()).toList() ?? [],
+      courseType: CourseType.fromString(json['courseType'] as String?),
+      imageKey: json['imageKey'] as String?,
     );
   }
 
@@ -60,6 +67,8 @@ class Course {
       'trainerId': trainerId,
       'tags': tags,
       'waitlist': waitlist,
+      'courseType': courseType.firestoreValue,
+      'imageKey': imageKey,
     };
   }
 }

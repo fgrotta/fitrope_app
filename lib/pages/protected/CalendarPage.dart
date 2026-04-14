@@ -16,6 +16,7 @@ import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
@@ -339,6 +340,67 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  Widget _buildSectionHeader(CourseType type) {
+    IconData icon;
+    Color accentColor;
+    switch (type) {
+      case CourseType.personal_trainer:
+        icon = Icons.person;
+        accentColor = primaryColor;
+        break;
+      case CourseType.open:
+        icon = Icons.group;
+        accentColor = secondaryColor;
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: accentColor, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            type.label,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: accentColor,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: accentColor.withValues(alpha: 0.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCourseCard(Course course) {
+    return CoursePreviewCard(
+      course: course,
+      currentUser: user,
+      trainers: trainers,
+      showDate: false,
+      onSubscribe: () => onSubscribe(course),
+      onUnsubscribe: () => onUnsubscribe(course),
+      onJoinWaitlist: () => onJoinWaitlist(course),
+      onLeaveWaitlist: () => onLeaveWaitlist(course),
+      onDuplicate: () => showDuplicateCoursePage(course),
+      onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
+      onEdit: (user.role == 'Admin' ||
+              (user.role == 'Trainer' &&
+                  (course.trainerId == null || course.trainerId == user.uid)))
+          ? (_isCourseInFuture(course) ? () => showEditCoursPage(course) : null)
+          : null,
+      onRefresh: () => updateCourses(),
+    );
+  }
+
   Widget _buildSelectedCoursesList() {
     if (selectedCourses.isEmpty) {
       return const Padding(
@@ -350,29 +412,30 @@ class _CalendarPageState extends State<CalendarPage> {
       );
     }
 
+    // Raggruppa i corsi per tipologia
+    final groupedCourses = <CourseType, List<Course>>{};
+    for (final course in selectedCourses) {
+      groupedCourses.putIfAbsent(course.courseType, () => []);
+      groupedCourses[course.courseType]!.add(course);
+    }
+
+    // Ordine di visualizzazione delle sezioni
+    const typeOrder = [CourseType.personal_trainer, CourseType.open];
+
+    // Se c'è un solo tipo, mostra senza header di sezione
+    final presentTypes = typeOrder.where((type) => groupedCourses.containsKey(type)).toList();
+    if (presentTypes.length <= 1) {
+      return Column(
+        children: selectedCourses.map((course) => _buildCourseCard(course)).toList(),
+      );
+    }
+
     return Column(
-      children: selectedCourses
-          .map(
-            (Course course) => CoursePreviewCard(
-              course: course,
-              currentUser: user,
-              trainers: trainers,
-              showDate: false,
-              onSubscribe: () => onSubscribe(course),
-              onUnsubscribe: () => onUnsubscribe(course),
-              onJoinWaitlist: () => onJoinWaitlist(course),
-              onLeaveWaitlist: () => onLeaveWaitlist(course),
-              onDuplicate: () => showDuplicateCoursePage(course),
-              onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
-              onEdit: (user.role == 'Admin' ||
-                      (user.role == 'Trainer' &&
-                          (course.trainerId == null || course.trainerId == user.uid)))
-                  ? (_isCourseInFuture(course) ? () => showEditCoursPage(course) : null)
-                  : null,
-              onRefresh: () => updateCourses(),
-            ),
-          )
-          .toList(),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: presentTypes.expand((type) => [
+        _buildSectionHeader(type),
+        ...groupedCourses[type]!.map((course) => _buildCourseCard(course)),
+      ]).toList(),
     );
   }
 

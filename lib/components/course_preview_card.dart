@@ -96,11 +96,13 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
   String _buildDescription() {
     final trainer = "Trainer: ${UserDisplayUtils.getTrainerName(widget.course.trainerId, widget.trainers)}";
 
+    final tipologia = widget.course.courseType.label;
+
     if (widget.showDate) {
       final courseDate = DateTime.fromMillisecondsSinceEpoch(widget.course.startDate.millisecondsSinceEpoch);
-      return "Orario: ${formatDate(courseDate)}, ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: ${widget.course.tags.join(', ')}";
+      return "Orario: ${formatDate(courseDate)}, ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: $tipologia";
     } else {
-      return "Orario: ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: ${widget.course.tags.join(', ')}";
+      return "Orario: ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: $tipologia";
     }
   }
 

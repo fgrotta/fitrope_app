@@ -42,6 +42,7 @@ flutter:
 
   assets:
     - assets/
+    - assets/course_images/
 
 flutter_launcher_icons:
   android: "launcher_icon"
