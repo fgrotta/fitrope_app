@@ -64,6 +64,7 @@ Future<List<FitropeUser>> getUsers() async {
         tipologiaCorsoTags: (data['tipologiaCorsoTags'] as List<dynamic>?)
           ?.map((tag) => tag.toString())
           .toList() ?? CourseTags.defaultUserTags,
+        regolamentoAccettatoIl: data['regolamentoAccettatoIl'] as Timestamp?,
       );
     }).toList();
 

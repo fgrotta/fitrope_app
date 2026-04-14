@@ -110,7 +110,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void onSubscribe(Course course) async {
-    bool accepted = await RegolamentoHelper.showRegolamentoDialog(context);
+    bool accepted = await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted) return;
 
     subscribeToCourse(course.id, user.uid).then((_) {

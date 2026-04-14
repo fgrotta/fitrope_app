@@ -1,14 +1,58 @@
+import 'package:fitrope_app/api/authentication/acceptRegolamento.dart';
+import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Helper per mostrare il dialog di accettazione del regolamento della palestra
 class RegolamentoHelper {
-  static const String _regolamentoUrl =
+  static const String regolamentoUrl =
       'https://www.fithousemonza.it/regolamento-della-palestra/';
+
+  /// Controlla se l'utente ha già accettato il regolamento.
+  /// Se sì, ritorna true immediatamente.
+  /// Se no, mostra il dialog e salva l'accettazione su Firestore.
+  static Future<bool> checkAndAcceptRegolamento(
+    BuildContext context,
+    FitropeUser user,
+  ) async {
+    // Già accettato: nessun dialog
+    if (user.regolamentoAccettatoIl != null) {
+      return true;
+    }
+
+    // Mostra dialog di accettazione
+    final accepted = await _showRegolamentoDialog(context);
+    if (!accepted) return false;
+
+    // Salva su Firestore
+    try {
+      await acceptRegolamento(user.uid);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Errore durante il salvataggio dell\'accettazione del regolamento'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Apre il link del regolamento nel browser.
+  static Future<void> openRegolamento() async {
+    final url = Uri.parse(regolamentoUrl);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
 
   /// Mostra il dialog di accettazione del regolamento.
   /// Restituisce true se l'utente accetta, false se annulla.
-  static Future<bool> showRegolamentoDialog(BuildContext context) async {
+  static Future<bool> _showRegolamentoDialog(BuildContext context) async {
     return await showDialog<bool>(
           context: context,
           barrierDismissible: false,
@@ -29,15 +73,7 @@ class RegolamentoHelper {
                       ),
                       const SizedBox(height: 16),
                       GestureDetector(
-                        onTap: () async {
-                          final url = Uri.parse(_regolamentoUrl);
-                          if (await canLaunchUrl(url)) {
-                            await launchUrl(
-                              url,
-                              mode: LaunchMode.externalApplication,
-                            );
-                          }
-                        },
+                        onTap: () => openRegolamento(),
                         child: const Text(
                           'Regolamento completo',
                           style: TextStyle(
