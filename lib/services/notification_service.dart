@@ -1,12 +1,8 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:fitrope_app/main.dart' show oneSignalAppId;
 import 'package:fitrope_app/services/email_templates.dart';
-
-const String _oneSignalRestApiKey =
-    'os_v2_app_cvh4c6z67bccdipgizqxf6si3phpfyt5mwtuiufffgqqbdksf4jf6biiiniaipeh7yi5c5dqiy22mdeq7ml3kcxak22jvgknc7bvbei';
 
 const List<String> _dayNames = [
   'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'
@@ -19,23 +15,19 @@ const List<String> _monthNames = [
 
 String _testPrefix(String text) => kDebugMode ? 'TEST - $text' : text;
 
-/// Helper per inviare una richiesta a OneSignal e loggare tutto.
+/// Helper per inviare una richiesta a OneSignal tramite Cloud Function.
+/// La function tiene la REST API key server-side e gestisce CORS automaticamente.
 Future<void> _sendOneSignalRequest(String label, Map<String, dynamic> body) async {
   final logBody = Map<String, dynamic>.from(body);
   logBody.remove('email_body');
   debugPrint('🔔 [OneSignal API] $label — REQUEST body: ${jsonEncode(logBody)}');
 
   try {
-    final response = await http.post(
-      Uri.parse('https://api.onesignal.com/notifications'),
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': 'Basic $_oneSignalRestApiKey',
-      },
-      body: jsonEncode(body),
-    );
-
-    debugPrint('🔔 [OneSignal API] $label — RESPONSE ${response.statusCode}: ${response.body}');
+    final callable = FirebaseFunctions.instance.httpsCallable('sendOneSignalNotification');
+    final result = await callable.call(body);
+    debugPrint('🔔 [OneSignal API] $label — RESPONSE: ${result.data}');
+  } on FirebaseFunctionsException catch (e) {
+    debugPrint('🔔 [OneSignal API] $label — ERROR ${e.code}: ${e.message}');
   } catch (e) {
     debugPrint('🔔 [OneSignal API] $label — ERROR: $e');
   }
@@ -105,7 +97,6 @@ Future<void> scheduleTrialReminder(String userId, String courseId) async {
     await Future.wait([
       if (pushEnabled)
         _sendOneSignalRequest('Trial Push Reminder', {
-          'app_id': oneSignalAppId,
           'include_aliases': {'external_id': [userId]},
           'target_channel': 'push',
           'send_after': sendAfter,
@@ -117,7 +108,6 @@ Future<void> scheduleTrialReminder(String userId, String courseId) async {
         }),
       if (emailEnabled)
         _sendOneSignalRequest('Trial Email Reminder', {
-          'app_id': oneSignalAppId,
           'include_aliases': {'external_id': [userId]},
           'target_channel': 'email',
           'send_after': sendAfter,
@@ -235,7 +225,6 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
     await Future.wait([
       if (pushUserIds.isNotEmpty)
         _sendOneSignalRequest('Waitlist Push', {
-          'app_id': oneSignalAppId,
           'include_aliases': {'external_id': pushUserIds},
           'target_channel': 'push',
           'headings': {'it': _testPrefix('Posto disponibile!'), 'en': _testPrefix('Spot available!')},
@@ -246,7 +235,6 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
         }),
       if (emailUserIds.isNotEmpty)
         _sendOneSignalRequest('Waitlist Email', {
-          'app_id': oneSignalAppId,
           'include_aliases': {'external_id': emailUserIds},
           'target_channel': 'email',
           'email_subject': _testPrefix(waitlistSpotAvailableSubject(name)),

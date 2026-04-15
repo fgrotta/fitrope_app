@@ -4,6 +4,8 @@ Per architettura, modelli dati e regole di business dettagliate vedi `AGENTS.md`
 
 ## Comandi
 
+### Flutter
+
 ```bash
 flutter pub get          # installa dipendenze
 flutter test             # esegui tutti i test
@@ -13,7 +15,17 @@ flutter build web --debug               # build web
 flutter run -d chrome                   # avvio locale
 ```
 
-Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`.
+### Cloud Functions (functions/)
+
+```bash
+cd functions
+npm install              # installa dipendenze Node
+npm run build            # compila TypeScript
+npm test                 # Jest sull'handler OneSignal
+firebase deploy --only functions   # deploy
+```
+
+Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`. Se tocchi `functions/`, esegui anche `npm test` nella cartella `functions/`.
 
 ## Convenzioni
 
@@ -33,6 +45,13 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 2. Esegui i test: `flutter test`
 3. File chiave: `lib/api/courses/subscribeToCourse.dart`, `unsubscribeToCourse.dart`, `lib/utils/course_unsubscribe_helper.dart`
 
+### Notifiche OneSignal
+
+- REST API key **non** nel codice Flutter: sta in Google Secret Manager, usata solo dalla Cloud Function.
+- Se modifichi il payload inviato a OneSignal, non includere `app_id` — lo inietta la function server-side.
+- `notification_service.dart` chiama `FirebaseFunctions.instance.httpsCallable('sendOneSignalNotification')`.
+- Su web le chiamate dirette a OneSignal falliscono per CORS: passa sempre dalla Cloud Function.
+
 ## Struttura rapida
 
 - Entry point: `lib/main.dart`
@@ -42,3 +61,5 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 - API Firestore: `lib/api/` (authentication + courses)
 - Modelli: `lib/types/fitropeUser.dart`, `lib/types/course.dart`
 - Layout responsive: `lib/layout/` (breakpoints + AppShell)
+- Servizi esterni: `lib/services/` (OneSignal mobile + web, notifiche, email templates)
+- Cloud Functions: `functions/src/` (TypeScript, proxy OneSignal)

@@ -6,7 +6,9 @@ FitRope e una app Flutter per la gestione di utenti, autenticazione e iscrizioni
 
 - `firebase_auth` per login, registrazione e verifica email
 - `cloud_firestore` per utenti, corsi e stato iscrizioni
+- `cloud_functions` per proxy sicuro verso OneSignal (email + push)
 - Redux minimale per lo stato globale di sessione e lista corsi
+- OneSignal per notifiche push (mobile SDK nativo, web SDK via JS interop)
 
 L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit House`, mentre il package resta `fitrope_app`.
 
@@ -17,7 +19,9 @@ L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit H
 | Flutter SDK | `>=3.5.0-180.3.beta <4.0.0` |
 | Flutter CI | `3.24.0` stable |
 | Stato globale | `redux`, `redux_thunk`, `flutter_redux` |
-| Backend | `firebase_core`, `firebase_auth`, `cloud_firestore` |
+| Backend | `firebase_core`, `firebase_auth`, `cloud_firestore`, `cloud_functions` |
+| Notifiche | `onesignal_flutter` (mobile) + OneSignal Web SDK (JS interop) |
+| HTTP | `http` per comunicazione generica |
 | Design system | `flutter_design_system` (Git dep da GitHub, branch main) |
 | Localizzazione | `intl`, `flutter_localizations` (italiano primario) |
 | Lint | `flutter_lints` v4.0.0 |
@@ -100,13 +104,20 @@ lib/
 │       └── README_ISCRIZIONI.md     # Documentazione logica iscrizioni
 │
 ├── authentication/                  # Flussi auth lato client
-│   ├── login.dart
+│   ├── login.dart                   # Login + OneSignal.login + addEmail
 │   ├── registration.dart
-│   ├── logout.dart
+│   ├── logout.dart                  # Logout + OneSignal.logout
 │   ├── isLogged.dart
 │   ├── deleteUser.dart
 │   ├── resetPassword.dart
 │   └── resendVerificationEmail.dart
+│
+├── services/                        # Servizi esterni e facade
+│   ├── onesignal_service.dart       # Conditional export web/mobile
+│   ├── onesignal_mobile.dart        # Wrapper onesignal_flutter
+│   ├── onesignal_web.dart           # JS interop verso OneSignal Web SDK
+│   ├── notification_service.dart    # Logica waitlist/trial via Cloud Functions
+│   └── email_templates.dart         # Template HTML email
 │
 ├── types/                           # Modelli dati
 │   ├── fitropeUser.dart             # FitropeUser + CancelledEnrollment + TipologiaIscrizione
@@ -157,6 +168,10 @@ lib/
 | numeroTelefono | String? | Telefono |
 | tipologiaCorsoTags | List\<String\> | Tag per filtrare accesso ai corsi |
 | cancelledEnrollments | List\<CancelledEnrollment\> | Storico disiscrizioni |
+| waitlistCourses | List\<String\> | Corsi in lista d'attesa (course IDs) |
+| emailNotificationsEnabled | bool | Preferenza notifiche email (default true) |
+| pushNotificationsEnabled | bool | Preferenza notifiche push (default true) |
+| regolamentoAccettatoIl | Timestamp? | Accettazione regolamento |
 
 ### TipologiaIscrizione (enum)
 
@@ -182,6 +197,7 @@ Traccia le disiscrizioni con: `courseId`, `cancelledAt`, `entryLost` (se l'ingre
 | subscribed | int | Iscritti attuali |
 | trainerId | String? | Trainer assegnato |
 | tags | List\<String\> | Tag per filtro accesso |
+| waitlist | List\<String\> | Utenti in lista d'attesa (user IDs) |
 
 ## Stato globale Redux
 
@@ -282,17 +298,63 @@ Se tocchi queste aree, aggiorna o aggiungi test in `test/`.
 - **Auth domain**: `fit-rope-app-1f575.firebaseapp.com`
 - **Piattaforme**: Web, Android, iOS, macOS, Windows
 - **Config**: `lib/firebase_options.dart` (auto-generato da FlutterFire CLI)
+- **Piano**: Blaze (richiesto per Cloud Functions)
 
 ### Collezioni Firestore
 
-- `users` - documenti utente con dati abbonamento e iscrizioni
-- `courses` - documenti corso con orario e capacita
+- `users` - documenti utente con dati abbonamento, iscrizioni, waitlist, preferenze notifiche
+- `courses` - documenti corso con orario, capacita e waitlist
 
 ### Pattern
 
-- Transazioni per operazioni atomiche (iscrizione/disiscrizione)
+- Transazioni per operazioni atomiche (iscrizione/disiscrizione/waitlist)
 - Server timestamp per audit trail
 - Invalidazione cache dopo mutazioni
+
+## Notifiche (OneSignal + Cloud Functions)
+
+### Architettura
+
+```
+Flutter (web + mobile)
+    │ httpsCallable('sendOneSignalNotification')
+    ▼
+Cloud Function (functions/src/handler.ts)
+    │ REST API key da Google Secret Manager
+    ▼
+OneSignal REST API (push + email)
+```
+
+La REST API key **non e mai esposta al client**. Il client chiama la Cloud Function, che verifica l'auth Firebase, inietta `app_id` server-side e inoltra a OneSignal.
+
+### Casi d'uso
+
+| Trigger | File | Invio |
+|---|---|---|
+| Disiscrizione da corso pieno | `lib/services/notification_service.dart:notifyWaitlistUsers` | Immediato — push + email a tutti gli utenti in waitlist |
+| Iscrizione utente `ABBONAMENTO_PROVA` | `lib/services/notification_service.dart:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 (produzione) o +30s (debug) |
+
+In debug (`kDebugMode`) il promemoria viene inviato a **tutti** gli utenti, non solo prova, con prefisso `TEST - ` nei testi.
+
+### SDK client
+
+- **Mobile** (`lib/services/onesignal_mobile.dart`): wrapper di `onesignal_flutter` con `requestPermission`
+- **Web** (`lib/services/onesignal_web.dart`): JS interop via `dart:js_interop` verso il Web SDK caricato in `web/index.html`
+- **Facade** (`lib/services/onesignal_service.dart`): `export ... if (dart.library.html)` per scelta automatica
+
+Il service worker web e in `web/OneSignalSDKWorker.js`.
+
+### Cloud Function
+
+- Source: `functions/src/`
+- Build: TypeScript → `functions/lib/`
+- Test: Jest in `functions/src/__tests__/`
+- Secret: `firebase functions:secrets:set ONESIGNAL_REST_API_KEY`
+- Deploy: `firebase deploy --only functions`
+
+### Preferenze utente
+
+Ogni utente ha in Firestore `emailNotificationsEnabled` e `pushNotificationsEnabled` (default `true`). Le funzioni in `notification_service.dart` filtrano i destinatari in base a queste preferenze prima di chiamare la Cloud Function.
 
 ## Dashboard Admin
 
@@ -305,7 +367,9 @@ La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in
 
 ## Testing
 
-6 file di test in `test/`, focalizzati sulla logica di business delle iscrizioni:
+### Flutter (test/)
+
+Test focalizzati sulla logica di business e sulla serializzazione dei modelli:
 
 | File | Focus |
 |---|---|
@@ -315,8 +379,24 @@ La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in
 | `enrollment_mismatch_test.dart` | Casi edge mismatch |
 | `subscribe_restriction_test.dart` | Restrizioni per abbonamento |
 | `course_correction_test.dart` | Correzioni dati corso |
+| `waitlist_state_test.dart` | Stati waitlist + serializzazione |
+| `waitlist_operations_test.dart` | Operazioni waitlist |
+| `notification_preferences_test.dart` | Preferenze notifiche utente |
+| `email_templates_test.dart` | Template HTML email |
 
-Framework: `flutter_test` con `group()` e `setUp()` per organizzazione.
+Framework: `flutter_test` con `group()` e `setUp()`. Totale: ~97 test.
+
+### Cloud Functions (functions/src/__tests__/)
+
+Test Jest sull'handler della function `sendOneSignalNotification`:
+
+| File | Focus |
+|---|---|
+| `handler.test.ts` | Auth, validazione payload, inoltro a OneSignal, errori |
+
+Framework: `jest` + `ts-jest`. Esegui con `cd functions && npm test`.
+
+L'handler e isolato in `functions/src/handler.ts` (senza `onCall`) per essere testabile senza emulatori Firebase.
 
 ## CI/CD
 
@@ -344,6 +424,8 @@ flutter pub get → flutter test → flutter analyze → flutter format --set-ex
 
 ## Comandi utili
 
+### Flutter
+
 ```bash
 flutter pub get
 flutter test
@@ -351,6 +433,18 @@ flutter analyze
 flutter format --set-exit-if-changed .
 flutter build web --debug
 flutter run -d chrome
+```
+
+### Cloud Functions
+
+```bash
+cd functions
+npm install            # installa dipendenze Node
+npm run build          # compila TypeScript
+npm test               # esegue test Jest
+npm run serve          # avvia emulatore Firebase Functions
+firebase deploy --only functions    # deploy in produzione
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY   # setup secret
 ```
 
 ## Osservazioni operative
@@ -371,6 +465,9 @@ flutter run -d chrome
 | Gestione utenti admin | `lib/pages/protected/AdminUsersPage.dart`, `CreateUserPage.dart`, `UserDetailPage.dart`, `lib/api/authentication/` |
 | Gestione corsi | `lib/pages/protected/CourseManagementPage.dart`, `RecurringCoursePage.dart`, `lib/api/courses/` |
 | Regole iscrizione/disiscrizione | `lib/api/courses/`, `lib/utils/course_unsubscribe_helper.dart`, `test/` |
+| Waitlist corsi | `lib/api/courses/joinWaitlist.dart`, `leaveWaitlist.dart`, `lib/utils/waitlist_ui_helper.dart` |
+| Notifiche push/email | `lib/services/notification_service.dart`, `lib/services/email_templates.dart`, `functions/src/` |
+| OneSignal SDK | `lib/services/onesignal_*.dart`, `web/index.html`, `web/OneSignalSDKWorker.js` |
 | Dashboard e analisi | `lib/pages/protected/AdminDashboardPage.dart` |
 | Layout e breakpoints | `lib/layout/` |
 | Stili globali | `lib/style.dart`, `lib/components/` |
@@ -384,3 +481,6 @@ flutter run -d chrome
 - Quando aggiungi campi ai modelli Firestore, aggiorna sia `toJson` sia `fromJson`.
 - Dopo operazioni su corsi o utenti, assicurati di invalidare/aggiornare cache e Redux store.
 - Usa transazioni Firestore per qualsiasi operazione che modifica contemporaneamente utente e corso.
+- Non mettere mai la REST API key di OneSignal (o altre secret) nel codice Flutter: devono stare in Google Secret Manager, accessibili solo dalle Cloud Functions.
+- Se modifichi la Cloud Function, esegui `cd functions && npm test` prima del deploy.
+- Se aggiungi nuovi tipi di notifica, aggiorna `notification_service.dart` e i template in `email_templates.dart`. Il payload OneSignal non deve contenere `app_id` (iniettato server-side).
