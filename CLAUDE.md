@@ -22,7 +22,23 @@ cd functions
 npm install              # installa dipendenze Node
 npm run build            # compila TypeScript
 npm test                 # Jest sull'handler OneSignal
-firebase deploy --only functions   # deploy
+```
+
+### Deploy e gestione secret
+
+```bash
+# Deploy (il predeploy compila automaticamente via tsc)
+firebase deploy --only functions
+
+# Aggiornare il secret OneSignal REST API Key
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY
+firebase deploy --only functions   # re-deploy per bindare il nuovo valore
+
+# Vedere i log runtime
+firebase functions:log --only sendOneSignalNotification
+
+# Eliminare la function
+firebase functions:delete sendOneSignalNotification
 ```
 
 Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`. Se tocchi `functions/`, esegui anche `npm test` nella cartella `functions/`.

@@ -177,28 +177,58 @@
     window.OneSignalDeferred = window.OneSignalDeferred || [];
 
     window.oneSignalInit = function(appId) {
+      console.log('🔔 [OneSignal Web] oneSignalInit chiamato con appId:', appId);
       OneSignalDeferred.push(function(OneSignal) {
-        OneSignal.init({ appId: appId }).then(function() {
-          console.log('🔔 [OneSignal Web] SDK inizializzato');
-          OneSignal.Notifications.requestPermission().then(function(accepted) {
-            console.log('🔔 [OneSignal Web] Permesso push: ' + (accepted ? 'accettato' : 'rifiutato'));
+        OneSignal.init({ appId: appId, allowLocalhostAsSecureOrigin: true })
+          .then(function() {
+            console.log('🔔 [OneSignal Web] SDK inizializzato');
+            return OneSignal.Notifications.requestPermission();
+          })
+          .then(function(accepted) {
+            console.log('🔔 [OneSignal Web] Permesso push:', accepted ? 'accettato' : 'rifiutato');
+            console.log('🔔 [OneSignal Web] Push opted in:', OneSignal.User.PushSubscription.optedIn);
+            console.log('🔔 [OneSignal Web] Push token:', OneSignal.User.PushSubscription.token);
+          })
+          .catch(function(err) {
+            console.error('🔔 [OneSignal Web] Errore init/permission:', err);
           });
-        });
       });
     };
     window.oneSignalLogin = function(userId) {
+      console.log('🔔 [OneSignal Web] oneSignalLogin chiamato con userId:', userId);
       OneSignalDeferred.push(function(OneSignal) {
-        OneSignal.login(userId);
+        OneSignal.login(userId)
+          .then(function() {
+            console.log('🔔 [OneSignal Web] login completato per:', userId);
+            console.log('🔔 [OneSignal Web] OneSignal User ID:', OneSignal.User.onesignalId);
+            console.log('🔔 [OneSignal Web] External ID:', OneSignal.User.externalId);
+          })
+          .catch(function(err) {
+            console.error('🔔 [OneSignal Web] Errore login:', err);
+          });
       });
     };
     window.oneSignalLogout = function() {
+      console.log('🔔 [OneSignal Web] oneSignalLogout chiamato');
       OneSignalDeferred.push(function(OneSignal) {
-        OneSignal.logout();
+        OneSignal.logout()
+          .then(function() {
+            console.log('🔔 [OneSignal Web] logout completato');
+          })
+          .catch(function(err) {
+            console.error('🔔 [OneSignal Web] Errore logout:', err);
+          });
       });
     };
     window.oneSignalAddEmail = function(email) {
+      console.log('🔔 [OneSignal Web] oneSignalAddEmail chiamato con email:', email);
       OneSignalDeferred.push(function(OneSignal) {
-        OneSignal.User.addEmail(email);
+        try {
+          OneSignal.User.addEmail(email);
+          console.log('🔔 [OneSignal Web] addEmail invocata per:', email);
+        } catch (err) {
+          console.error('🔔 [OneSignal Web] Errore addEmail:', err);
+        }
       });
     };
   </script>

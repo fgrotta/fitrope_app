@@ -438,14 +438,42 @@ flutter run -d chrome
 ### Cloud Functions
 
 ```bash
+# Sviluppo locale
 cd functions
 npm install            # installa dipendenze Node
 npm run build          # compila TypeScript
-npm test               # esegue test Jest
+npm test               # esegue test Jest (14 test)
 npm run serve          # avvia emulatore Firebase Functions
-firebase deploy --only functions    # deploy in produzione
-firebase functions:secrets:set ONESIGNAL_REST_API_KEY   # setup secret
+
+# Deploy
+firebase deploy --only functions                        # deploy in produzione
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY   # setup/aggiorna secret
+firebase functions:log --only sendOneSignalNotification # vedi log runtime
+firebase functions:delete sendOneSignalNotification     # elimina la function
 ```
+
+Il predeploy in `firebase.json` compila TypeScript automaticamente via `./node_modules/.bin/tsc` (invocazione diretta senza npm per evitare il bug stdin di npm 10+).
+
+**Setup iniziale** (una volta sola per ambiente):
+
+1. `firebase login`
+2. `firebase functions:secrets:set ONESIGNAL_REST_API_KEY` (incolla la REST API Key OneSignal)
+3. `firebase deploy --only functions`
+
+Se il primo deploy fallisce per permessi IAM (errore "missing permission on the build service account"), assegna al compute service account (`PROJECT_NUMBER-compute@developer.gserviceaccount.com`) i ruoli:
+
+- `roles/cloudbuild.builds.builder`
+- `roles/artifactregistry.writer`
+- `roles/logging.logWriter`
+
+**Workflow aggiornamento function:**
+
+1. Modifica `functions/src/`
+2. `cd functions && npm test` (verifica locale)
+3. Commit
+4. `firebase deploy --only functions`
+
+Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al runtime.
 
 ## Osservazioni operative
 

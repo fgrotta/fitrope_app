@@ -23,7 +23,8 @@ Future<void> _sendOneSignalRequest(String label, Map<String, dynamic> body) asyn
   debugPrint('🔔 [OneSignal API] $label — REQUEST body: ${jsonEncode(logBody)}');
 
   try {
-    final callable = FirebaseFunctions.instance.httpsCallable('sendOneSignalNotification');
+    final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
+        .httpsCallable('sendOneSignalNotification');
     final result = await callable.call(body);
     debugPrint('🔔 [OneSignal API] $label — RESPONSE: ${result.data}');
   } on FirebaseFunctionsException catch (e) {

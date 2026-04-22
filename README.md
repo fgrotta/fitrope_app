@@ -72,15 +72,83 @@ npm run build
 
 Il progetto include una Cloud Function che funge da proxy sicuro verso OneSignal per push ed email. La REST API key non viene mai esposta al client.
 
-Setup iniziale (una volta sola):
+### Setup iniziale (una volta sola)
+
+Richiede il piano Firebase **Blaze**.
 
 ```bash
+# 1. Login
 firebase login
+
+# 2. Imposta il secret della REST API Key OneSignal
 firebase functions:secrets:set ONESIGNAL_REST_API_KEY
+# Incolla la chiave os_v2_app_... quando richiesto
+
+# 3. Primo deploy
 firebase deploy --only functions
 ```
 
-Richiede il piano Firebase Blaze.
+Se il primo deploy fallisce con errore di permessi IAM sul build service account, assegna i ruoli necessari al compute service account (`PROJECT_NUMBER-compute@developer.gserviceaccount.com`):
+
+```bash
+PROJECT_ID="fit-rope-app-1f575"
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/cloudbuild.builds.builder"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/logging.logWriter"
+```
+
+### Aggiornare la function
+
+Ogni volta che modifichi il codice in `functions/`:
+
+```bash
+# 1. (opzionale) verifica locale
+cd functions
+npm test
+npm run build
+cd ..
+
+# 2. Deploy (il predeploy compila automaticamente)
+firebase deploy --only functions
+```
+
+### Aggiornare il secret OneSignal
+
+Se cambi la REST API Key:
+
+```bash
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY
+# Dopo l'aggiornamento serve un re-deploy per bindare il nuovo valore
+firebase deploy --only functions
+```
+
+### Vedere i log runtime
+
+```bash
+firebase functions:log                           # tutti i log
+firebase functions:log --only sendOneSignalNotification   # solo una function
+```
+
+Oppure dalla [console Cloud Functions](https://console.cloud.google.com/functions/list?project=fit-rope-app-1f575).
+
+### Rollback o eliminazione
+
+```bash
+# Elimina la function (il client smetterà di funzionare finché non riesegui il deploy)
+firebase functions:delete sendOneSignalNotification
+```
+
+Per un rollback pulito, fai commit del codice precedente e riesegui `firebase deploy --only functions`.
 
 ## Note operative
 
