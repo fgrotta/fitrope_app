@@ -34,6 +34,27 @@ Future<void> _sendOneSignalRequest(String label, Map<String, dynamic> body) asyn
   }
 }
 
+/// Crea o aggiorna l'utente OneSignal con la sua email subscription.
+/// Va chiamata al login così le email possono essere inviate via
+/// `include_aliases.external_id` senza dipendere dal Web SDK.
+Future<void> ensureOneSignalUser(String externalId, String email) async {
+  debugPrint('🔔 [OneSignal API] ensureUser — externalId: $externalId, email: $email');
+
+  try {
+    final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
+        .httpsCallable('ensureOneSignalUser');
+    final result = await callable.call({
+      'externalId': externalId,
+      'email': email,
+    });
+    debugPrint('🔔 [OneSignal API] ensureUser — RESPONSE: ${result.data}');
+  } on FirebaseFunctionsException catch (e) {
+    debugPrint('🔔 [OneSignal API] ensureUser — ERROR ${e.code}: ${e.message}');
+  } catch (e) {
+    debugPrint('🔔 [OneSignal API] ensureUser — ERROR: $e');
+  }
+}
+
 String _formatCourseDate(DateTime startDate) {
   return '${_dayNames[startDate.weekday - 1]} ${startDate.day} ${_monthNames[startDate.month - 1]} ${startDate.year}';
 }
