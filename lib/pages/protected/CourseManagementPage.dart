@@ -40,7 +40,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   String? errorMsg;
   bool isLoading = false;
   List<String> selectedTags = [];
-  
+  bool reminderEnabled = true;
+  bool waitlistEnabled = true;
+
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
 
   @override
@@ -145,9 +147,17 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     }
 
     // Inizializza i tag
-    selectedTags = widget.courseToEdit?.tags ?? 
-                   widget.courseToDuplicate?.tags ?? 
+    selectedTags = widget.courseToEdit?.tags ??
+                   widget.courseToDuplicate?.tags ??
                    [];
+
+    // Inizializza i flag notifiche/waitlist
+    reminderEnabled = widget.courseToEdit?.reminderEnabled ??
+        widget.courseToDuplicate?.reminderEnabled ??
+        true;
+    waitlistEnabled = widget.courseToEdit?.waitlistEnabled ??
+        widget.courseToDuplicate?.waitlistEnabled ??
+        true;
   }
 
   String _getPageTitle() {
@@ -297,6 +307,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           subscribed: widget.courseToEdit!.subscribed,
           trainerId: trainerId,
           tags: selectedTags,
+          waitlist: widget.courseToEdit!.waitlist,
+          reminderEnabled: reminderEnabled,
+          waitlistEnabled: waitlistEnabled,
         );
         
         await updateCourse(updatedCourse);
@@ -316,6 +329,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           subscribed: 0,
           trainerId: trainerId,
           tags: selectedTags,
+          reminderEnabled: reminderEnabled,
+          waitlistEnabled: waitlistEnabled,
         );
         
         await createCourse(newCourse);
@@ -565,6 +580,51 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                               checkmarkColor: primaryColor,
                             );
                           }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Impostazioni notifiche e waitlist
+                Card(
+                  color: surfaceVariantColor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Notifiche e Lista d\'Attesa',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Promemoria corso'),
+                          subtitle: const Text(
+                            'Invia push ed email di promemoria la sera prima',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          value: reminderEnabled,
+                          onChanged: (value) {
+                            setState(() => reminderEnabled = value);
+                          },
+                          activeColor: primaryLightColor,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Lista d\'attesa'),
+                          subtitle: const Text(
+                            'Gli utenti possono mettersi in lista quando il corso è pieno',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          value: waitlistEnabled,
+                          onChanged: (value) {
+                            setState(() => waitlistEnabled = value);
+                          },
+                          activeColor: primaryLightColor,
                         ),
                       ],
                     ),

@@ -12,19 +12,23 @@ class Course {
   final String? trainerId; // ID del trainer assegnato al corso
   final List<String> tags; // Tag per limitare l'accesso al corso
   final List<String> waitlist; // Utenti in lista d'attesa (user IDs)
+  final bool reminderEnabled; // Se true, il promemoria email/push viene programmato
+  final bool waitlistEnabled; // Se true, gli utenti possono mettersi in lista d'attesa
 
-  const Course({ 
+  const Course({
     @Deprecated('Use uid instead')
-    required this.id, 
+    required this.id,
     required this.uid,
-    required this.name, 
-    required this.startDate, 
-    required this.endDate, 
-    required this.capacity, 
-    required this.subscribed, 
+    required this.name,
+    required this.startDate,
+    required this.endDate,
+    required this.capacity,
+    required this.subscribed,
     this.trainerId,
     this.tags = const [],
     this.waitlist = const [],
+    this.reminderEnabled = true,
+    this.waitlistEnabled = true,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -45,6 +49,8 @@ class Course {
       trainerId: json['trainerId'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.map((tag) => tag.toString()).toList() ?? [],
       waitlist: (json['waitlist'] as List<dynamic>?)?.map((id) => id.toString()).toList() ?? [],
+      reminderEnabled: json['reminderEnabled'] as bool? ?? true,
+      waitlistEnabled: json['waitlistEnabled'] as bool? ?? true,
     );
   }
 
@@ -60,6 +66,8 @@ class Course {
       'trainerId': trainerId,
       'tags': tags,
       'waitlist': waitlist,
+      'reminderEnabled': reminderEnabled,
+      'waitlistEnabled': waitlistEnabled,
     };
   }
 }

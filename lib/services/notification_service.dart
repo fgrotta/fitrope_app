@@ -55,6 +55,25 @@ Future<void> ensureOneSignalUser(String externalId, String email) async {
   }
 }
 
+/// Disabilita la subscription email OneSignal dell'utente autenticato.
+/// Serve per il logout web, dove l'email viene registrata lato backend.
+Future<void> removeOneSignalEmail(String email) async {
+  debugPrint('🔔 [OneSignal API] removeEmail — email: $email');
+
+  try {
+    final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
+        .httpsCallable('removeOneSignalEmail');
+    final result = await callable.call({
+      'email': email,
+    });
+    debugPrint('🔔 [OneSignal API] removeEmail — RESPONSE: ${result.data}');
+  } on FirebaseFunctionsException catch (e) {
+    debugPrint('🔔 [OneSignal API] removeEmail — ERROR ${e.code}: ${e.message}');
+  } catch (e) {
+    debugPrint('🔔 [OneSignal API] removeEmail — ERROR: $e');
+  }
+}
+
 String _formatCourseDate(DateTime startDate) {
   return '${_dayNames[startDate.weekday - 1]} ${startDate.day} ${_monthNames[startDate.month - 1]} ${startDate.year}';
 }
@@ -87,6 +106,14 @@ Future<void> scheduleTrialReminder(String userId, String courseId) async {
     }
 
     final courseData = courseQuery.docs.first.data();
+
+    // Rispetta il flag reminderEnabled del corso
+    final bool reminderEnabled = courseData['reminderEnabled'] as bool? ?? true;
+    if (!reminderEnabled) {
+      debugPrint('🔔 [scheduleTrialReminder] Reminder disabilitato per questo corso, skip');
+      return;
+    }
+
     final DateTime startDate = (courseData['startDate'] as Timestamp).toDate();
     final DateTime endDate = (courseData['endDate'] as Timestamp).toDate();
 
@@ -168,6 +195,14 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
     }
 
     final courseData = courseQuery.docs.first.data();
+
+    // Rispetta il flag waitlistEnabled del corso
+    final bool waitlistEnabled = courseData['waitlistEnabled'] as bool? ?? true;
+    if (!waitlistEnabled) {
+      debugPrint('🔔 [notifyWaitlistUsers] Waitlist disabilitata per questo corso, skip');
+      return;
+    }
+
     final List<dynamic> waitlist = courseData['waitlist'] ?? [];
     final int subscribed = courseData['subscribed'] as int? ?? 0;
     final int capacity = courseData['capacity'] as int? ?? 0;

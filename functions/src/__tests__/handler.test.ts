@@ -1,9 +1,12 @@
 import {
   sendOneSignalNotificationHandler,
   ensureOneSignalUserHandler,
+  removeOneSignalEmailHandler,
   ONESIGNAL_APP_ID,
   ONESIGNAL_API_URL,
   ONESIGNAL_USERS_URL,
+  ONESIGNAL_SUBSCRIPTIONS_URL,
+  ONESIGNAL_SUBSCRIPTIONS_BY_TOKEN_URL,
   HandlerRequest,
 } from "../handler";
 import { HttpsError } from "firebase-functions/v2/https";
@@ -436,6 +439,7 @@ describe("ensureOneSignalUserHandler", () => {
     test("accetta 409 anche sull'endpoint subscriptions (email già presente)", async () => {
       fetchMock.mockResolvedValueOnce(mockFetchResponse(409, {})); // users
       fetchMock.mockResolvedValueOnce(mockFetchResponse(409, {})); // subscriptions
+      fetchMock.mockResolvedValueOnce(mockFetchResponse(202, { success: true })); // re-enable
 
       const request: HandlerRequest = {
         auth: { uid: "user-1" },
@@ -443,7 +447,17 @@ describe("ensureOneSignalUserHandler", () => {
       };
 
       const result = await ensureOneSignalUserHandler(request, API_KEY);
-      expect(result).toMatchObject({ alreadyExisted: true });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock.mock.calls[2][0]).toBe(
+        `${ONESIGNAL_SUBSCRIPTIONS_BY_TOKEN_URL}/Email/test%40example.com`
+      );
+      expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
+        subscription: {
+          enabled: true,
+          notification_types: 1,
+        },
+      });
+      expect(result).toMatchObject({ alreadyExisted: true, reenabled: true });
     });
 
     test("lancia errore se 409 senza email (non può aggiungere subscription)", async () => {
@@ -509,5 +523,132 @@ describe("ensureOneSignalUserHandler", () => {
         ensureOneSignalUserHandler(request, API_KEY)
       ).rejects.toMatchObject({ code: "unavailable" });
     });
+  });
+});
+
+describe("removeOneSignalEmailHandler", () => {
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function mockFetchResponse(status: number, data: Record<string, unknown>) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => data,
+    } as Response;
+  }
+
+  test("rifiuta richieste non autenticate", async () => {
+    const request: HandlerRequest = {
+      auth: null,
+      data: { email: "test@example.com" },
+    };
+
+    await expect(
+      removeOneSignalEmailHandler(request, API_KEY)
+    ).rejects.toMatchObject({ code: "unauthenticated" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("rifiuta payload senza email", async () => {
+    const request: HandlerRequest = {
+      auth: { uid: "user-1" },
+      data: {},
+    };
+
+    await expect(
+      removeOneSignalEmailHandler(request, API_KEY)
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("considera già rimossa la subscription se l'utente OneSignal non esiste", async () => {
+    fetchMock.mockResolvedValueOnce(mockFetchResponse(404, {}));
+
+    const request: HandlerRequest = {
+      auth: { uid: "user-1" },
+      data: { email: "test@example.com" },
+    };
+
+    const result = await removeOneSignalEmailHandler(request, API_KEY);
+    expect(result).toMatchObject({ alreadyRemoved: true, reason: "user_not_found" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("considera già rimossa la subscription se l'email non è presente", async () => {
+    fetchMock.mockResolvedValueOnce(mockFetchResponse(200, {
+      subscriptions: [
+        { id: "sub-push-1", type: "iOSPush", token: "push-token", enabled: true },
+      ],
+    }));
+
+    const request: HandlerRequest = {
+      auth: { uid: "user-1" },
+      data: { email: "test@example.com" },
+    };
+
+    const result = await removeOneSignalEmailHandler(request, API_KEY);
+    expect(result).toMatchObject({ alreadyRemoved: true, reason: "email_not_found" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("disabilita la subscription email trovata sull'utente autenticato", async () => {
+    fetchMock.mockResolvedValueOnce(mockFetchResponse(200, {
+      subscriptions: [
+        { id: "sub-email-1", type: "Email", token: "test@example.com", enabled: true },
+      ],
+    }));
+    fetchMock.mockResolvedValueOnce(mockFetchResponse(202, { success: true }));
+
+    const request: HandlerRequest = {
+      auth: { uid: "user-1" },
+      data: { email: "test@example.com" },
+    };
+
+    const result = await removeOneSignalEmailHandler(request, API_KEY);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `${ONESIGNAL_USERS_URL}/by/external_id/user-1`
+    );
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      `${ONESIGNAL_SUBSCRIPTIONS_URL}/sub-email-1`
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      subscription: {
+        enabled: false,
+        notification_types: -2,
+      },
+    });
+    expect(result).toMatchObject({ success: true, subscriptionId: "sub-email-1" });
+  });
+
+  test("non patcha se la subscription email è già disabilitata", async () => {
+    fetchMock.mockResolvedValueOnce(mockFetchResponse(200, {
+      subscriptions: [
+        { id: "sub-email-1", type: "Email", token: "test@example.com", enabled: false },
+      ],
+    }));
+
+    const request: HandlerRequest = {
+      auth: { uid: "user-1" },
+      data: { email: "test@example.com" },
+    };
+
+    const result = await removeOneSignalEmailHandler(request, API_KEY);
+    expect(result).toMatchObject({
+      alreadyRemoved: true,
+      reason: "already_disabled",
+      subscriptionId: "sub-email-1",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

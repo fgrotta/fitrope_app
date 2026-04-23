@@ -67,6 +67,8 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 - Se modifichi il payload inviato a OneSignal, non includere `app_id` — lo inietta la function server-side.
 - `notification_service.dart` chiama `FirebaseFunctions.instance.httpsCallable('sendOneSignalNotification')`.
 - Su web le chiamate dirette a OneSignal falliscono per CORS: passa sempre dalla Cloud Function.
+- **Push web disabilitate**: il Web SDK OneSignal è commentato in `web/index.html` e `onesignal_web.dart` è no-op. Le email su web passano via Cloud Function `ensureOneSignalUser` (creazione utente server-side) + `sendOneSignalNotification`. Le push native restano attive su Android/iOS via `onesignal_flutter`.
+- Ogni corso ha i flag `reminderEnabled` e `waitlistEnabled`: se false, `scheduleTrialReminder` / `notifyWaitlistUsers` saltano l'invio e `getCourseState` ritorna `FULL` invece di `CAN_WAITLIST`.
 
 ## Struttura rapida
 

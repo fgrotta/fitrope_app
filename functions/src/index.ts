@@ -3,6 +3,7 @@ import { defineSecret } from "firebase-functions/params";
 import {
   sendOneSignalNotificationHandler,
   ensureOneSignalUserHandler,
+  removeOneSignalEmailHandler,
 } from "./handler";
 
 // Secret gestito da Google Secret Manager.
@@ -42,6 +43,24 @@ export const ensureOneSignalUser = onCall(
   },
   (request) =>
     ensureOneSignalUserHandler(
+      { auth: request.auth ?? null, data: request.data },
+      oneSignalApiKey.value()
+    )
+);
+
+/**
+ * Disabilita la subscription email OneSignal dell'utente autenticato.
+ *
+ * Payload atteso: { email: string }
+ */
+export const removeOneSignalEmail = onCall(
+  {
+    secrets: [oneSignalApiKey],
+    region: "europe-west8",
+    cors: true,
+  },
+  (request) =>
+    removeOneSignalEmailHandler(
       { auth: request.auth ?? null, data: request.data },
       oneSignalApiKey.value()
     )

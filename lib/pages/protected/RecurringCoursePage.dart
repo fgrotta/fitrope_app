@@ -31,6 +31,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   String? errorMsg;
   bool isLoading = false;
   List<String> selectedTags = [];
+  bool reminderEnabled = true;
+  bool waitlistEnabled = true;
 
   // Variabili per corsi ricorrenti
   Map<int, bool> selectedDays = {
@@ -327,6 +329,8 @@ String _getDayName(DateTime date) {
           subscribed: 0,
           trainerId: trainerId,
           tags: List.from(selectedTags),
+          reminderEnabled: reminderEnabled,
+          waitlistEnabled: waitlistEnabled,
         );
         
         await createCourse(newCourse);
@@ -660,8 +664,52 @@ String _getDayName(DateTime date) {
                   const SizedBox(height: 20),
                 ],
 
+                // Impostazioni notifiche e waitlist
+                Card(
+                  color: surfaceVariantColor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Notifiche e Lista d\'Attesa',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Promemoria corso'),
+                          subtitle: const Text(
+                            'Invia push ed email di promemoria la sera prima',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          value: reminderEnabled,
+                          onChanged: (value) {
+                            setState(() => reminderEnabled = value);
+                          },
+                          activeColor: primaryLightColor,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Lista d\'attesa'),
+                          subtitle: const Text(
+                            'Gli utenti possono mettersi in lista quando il corso è pieno',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          value: waitlistEnabled,
+                          onChanged: (value) {
+                            setState(() => waitlistEnabled = value);
+                          },
+                          activeColor: primaryLightColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
                 // Preview dei corsi
-                                // Preview dei corsi
                 if (courseDates.isNotEmpty) ...[
                   Card(
                     color: surfaceVariantColor,

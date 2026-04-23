@@ -8,7 +8,7 @@ FitRope e una applicazione Flutter per la gestione di utenti, autenticazione e i
 - Firebase Auth
 - Cloud Firestore
 - Cloud Functions (TypeScript, proxy verso OneSignal)
-- OneSignal (push + email, mobile SDK + Web SDK)
+- OneSignal (push mobile native + email server-side). Push web disabilitate.
 - Redux + `flutter_redux`
 - `flutter_design_system` come dipendenza Git esterna
 
@@ -21,6 +21,7 @@ FitRope e una applicazione Flutter per la gestione di utenti, autenticazione e i
 - lista d'attesa (waitlist) con notifiche automatiche quando si libera un posto
 - promemoria email/push per lezioni di prova (schedulati la sera prima)
 - preferenze notifiche utente (push e email, attivabili singolarmente)
+- per ogni corso, l'admin puo abilitare/disabilitare singolarmente promemoria e lista d'attesa
 - dashboard admin con analisi utenti, corsi e abbonamenti (solo desktop)
 - deploy web tramite GitHub Actions
 
@@ -44,7 +45,7 @@ L'app si adatta automaticamente:
 - `lib/utils/`: regole di business e helper
 - `test/`: test Flutter (iscrizioni, waitlist, preferenze, template)
 - `functions/`: Cloud Functions TypeScript (proxy OneSignal)
-- `web/`: service worker OneSignal + bridge JS
+- `web/`: index.html e asset web (OneSignal Web SDK commentato/disabilitato)
 
 ## Avvio locale
 

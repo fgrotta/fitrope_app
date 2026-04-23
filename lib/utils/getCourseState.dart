@@ -34,6 +34,11 @@ CourseState getCourseState(Course course, FitropeUser user) {
   CourseState? limitState = _getSubscriptionLimitState(user, courseDate);
 
   if (courseFull) {
+    // Se la waitlist è disabilitata per questo corso, non proporla
+    if (!course.waitlistEnabled) {
+      if (limitState != null) return limitState;
+      return CourseState.FULL;
+    }
     if (isInWaitlist) return CourseState.IN_WAITLIST;
     if (limitState != null) return limitState;
     return CourseState.CAN_WAITLIST;
@@ -41,7 +46,7 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   // Corso con posti disponibili
   if (limitState != null) return limitState;
-  if (isInWaitlist) return CourseState.WAITLIST_SPOT_AVAILABLE;
+  if (isInWaitlist && course.waitlistEnabled) return CourseState.WAITLIST_SPOT_AVAILABLE;
   return CourseState.CAN_SUBSCRIBE;
 }
 

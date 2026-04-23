@@ -18,8 +18,13 @@ class OneSignalService {
     os.OneSignal.User.addEmail(email);
   }
 
-  static void logout() {
+  static Future<void> removeEmail(String email) async {
+    debugPrint('🔔 [OneSignal] removeEmail(email: $email)');
+    await os.OneSignal.User.removeEmail(email);
+  }
+
+  static Future<void> logout() async {
     debugPrint('🔔 [OneSignal] logout()');
-    os.OneSignal.logout();
+    await os.OneSignal.logout();
   }
 }
