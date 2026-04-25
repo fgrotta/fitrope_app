@@ -4,6 +4,8 @@ Per architettura, modelli dati e regole di business dettagliate vedi `AGENTS.md`
 
 ## Comandi
 
+### Flutter
+
 ```bash
 flutter pub get          # installa dipendenze
 flutter test             # esegui tutti i test
@@ -13,7 +15,33 @@ flutter build web --debug               # build web
 flutter run -d chrome                   # avvio locale
 ```
 
-Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`.
+### Cloud Functions (functions/)
+
+```bash
+cd functions
+npm install              # installa dipendenze Node
+npm run build            # compila TypeScript
+npm test                 # Jest sull'handler OneSignal
+```
+
+### Deploy e gestione secret
+
+```bash
+# Deploy (il predeploy compila automaticamente via tsc)
+firebase deploy --only functions
+
+# Aggiornare il secret OneSignal REST API Key
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY
+firebase deploy --only functions   # re-deploy per bindare il nuovo valore
+
+# Vedere i log runtime
+firebase functions:log --only sendOneSignalNotification
+
+# Eliminare la function
+firebase functions:delete sendOneSignalNotification
+```
+
+Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`. Se tocchi `functions/`, esegui anche `npm test` nella cartella `functions/`.
 
 ## Convenzioni
 
@@ -33,12 +61,25 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 2. Esegui i test: `flutter test`
 3. File chiave: `lib/api/courses/subscribeToCourse.dart`, `unsubscribeToCourse.dart`, `lib/utils/course_unsubscribe_helper.dart`
 
+### Notifiche OneSignal
+
+- REST API key **non** nel codice Flutter: sta in Google Secret Manager, usata solo dalla Cloud Function.
+- Se modifichi il payload inviato a OneSignal, non includere `app_id` — lo inietta la function server-side.
+- `notification_service.dart` chiama `FirebaseFunctions.instance.httpsCallable('sendOneSignalNotification')`.
+- Su web le chiamate dirette a OneSignal falliscono per CORS: passa sempre dalla Cloud Function.
+- **Push web disabilitate**: il Web SDK OneSignal è commentato in `web/index.html` e `onesignal_web.dart` è no-op. Le email su web passano via Cloud Function `ensureOneSignalUser` (creazione utente server-side) + `sendOneSignalNotification`. Le push native restano attive su Android/iOS via `onesignal_flutter`.
+- Ogni corso ha i flag `reminderEnabled` e `waitlistEnabled`: se false, `scheduleTrialReminder` / `notifyWaitlistUsers` saltano l'invio e `getCourseState` ritorna `FULL` invece di `CAN_WAITLIST`.
+- **Logout**: la rimozione dell'email da OneSignal al logout è temporaneamente disabilitata (codice commentato in `lib/authentication/logout.dart`).
+- **Debug email**: in `kDebugMode` è disponibile un FAB in `Protected` che apre `DebugEmailPage` (`/debug-email`). Permette di inviare email di test (waitlist e promemoria prova) all'utente corrente senza triggering reale degli eventi. Le funzioni `sendTestWaitlistEmail` / `sendTestTrialReminderEmail` sono in `notification_service.dart`.
+
 ## Struttura rapida
 
 - Entry point: `lib/main.dart`
-- Route: `lib/router.dart` (7 route statiche)
+- Route: `lib/router.dart` (7 route statiche + 1 debug-only)
 - Stato: `lib/state/` (Redux con thunk)
 - Pagine: `lib/pages/welcome/` (auth) e `lib/pages/protected/` (area protetta)
 - API Firestore: `lib/api/` (authentication + courses)
 - Modelli: `lib/types/fitropeUser.dart`, `lib/types/course.dart`
 - Layout responsive: `lib/layout/` (breakpoints + AppShell)
+- Servizi esterni: `lib/services/` (OneSignal mobile + web, notifiche, email templates)
+- Cloud Functions: `functions/src/` (TypeScript, proxy OneSignal)

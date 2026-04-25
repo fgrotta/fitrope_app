@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/services/notification_service.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
@@ -112,15 +114,18 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
         rethrow;
       }
     }).then((_) async {
-        
-      invalidateUsersCache(); 
+
+      invalidateUsersCache();
+      invalidateCoursesCache();
       if (store.state.user!.uid == userId) {
         Map<String, dynamic>? userData = await getUserData(userId);
         if (userData != null) {
           store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
         }
-      }   
+      }
       store.dispatch(FinishLoadingAction());
+
+      notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
     }).catchError((error, stackTrace) {
       print('❌ Errore nella gestione post-transazione:');
       print('Errore: $error');
@@ -240,13 +245,16 @@ Future<void> forceUnsubscribeWithNoRefund(String courseId, String userId) async 
       }
     }).then((_) async {
       invalidateUsersCache();
+      invalidateCoursesCache();
       if (store.state.user!.uid == userId) {
         Map<String, dynamic>? userData = await getUserData(userId);
         if (userData != null) {
           store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
         }
-      }   
+      }
       store.dispatch(FinishLoadingAction());
+
+      notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
     }).catchError((error, stackTrace) {
       print('❌ Errore nella gestione post-transazione (no refund):');
       print('Errore: $error');

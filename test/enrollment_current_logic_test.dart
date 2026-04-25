@@ -22,7 +22,8 @@ void main() {
       store.dispatch(SetAllCoursesAction([]));
       
       final now = DateTime.now();
-      final mondayThisWeek = now.subtract(Duration(days: now.weekday - 1));
+      // Lunedì prossima settimana (sempre nel futuro) per evitare CourseState.CLOSED
+      final mondayThisWeek = now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
       final mondayNextWeek = mondayThisWeek.add(const Duration(days: 7));
       
       // Corso lunedì questa settimana
@@ -172,11 +173,11 @@ void main() {
           name: 'Corso Giovedì',
           startDate: Timestamp.fromDate(
             DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1))
-              .add(const Duration(days: 3, hours: 10))
+              .add(const Duration(days: 10, hours: 10))
           ),
           endDate: Timestamp.fromDate(
             DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1))
-              .add(const Duration(days: 3, hours: 11))
+              .add(const Duration(days: 10, hours: 11))
           ),
           capacity: 20,
           subscribed: 5,
@@ -257,8 +258,23 @@ void main() {
           capacity: 20,
           subscribed: 5,
         );
-        
-        final result = CourseUnsubscribeHelper.canUnsubscribe(courseFar, userAbbonamentoMensile);
+
+        final userWithCourse = FitropeUser(
+          uid: userAbbonamentoMensile.uid,
+          email: userAbbonamentoMensile.email,
+          name: userAbbonamentoMensile.name,
+          lastName: userAbbonamentoMensile.lastName,
+          courses: [...userAbbonamentoMensile.courses, 'course-far'],
+          tipologiaIscrizione: userAbbonamentoMensile.tipologiaIscrizione,
+          entrateSettimanali: userAbbonamentoMensile.entrateSettimanali,
+          fineIscrizione: userAbbonamentoMensile.fineIscrizione,
+          role: userAbbonamentoMensile.role,
+          isActive: userAbbonamentoMensile.isActive,
+          isAnonymous: userAbbonamentoMensile.isAnonymous,
+          createdAt: userAbbonamentoMensile.createdAt,
+        );
+
+        final result = CourseUnsubscribeHelper.canUnsubscribe(courseFar, userWithCourse);
         
         expect(result['canUnsubscribe'], true);
         expect(result['requiresConfirmation'], false);
@@ -277,12 +293,27 @@ void main() {
           capacity: 20,
           subscribed: 5,
         );
+
+        final userWithCourse = FitropeUser(
+          uid: userAbbonamentoMensile.uid,
+          email: userAbbonamentoMensile.email,
+          name: userAbbonamentoMensile.name,
+          lastName: userAbbonamentoMensile.lastName,
+          courses: [...userAbbonamentoMensile.courses, 'course-soon'],
+          tipologiaIscrizione: userAbbonamentoMensile.tipologiaIscrizione,
+          entrateSettimanali: userAbbonamentoMensile.entrateSettimanali,
+          fineIscrizione: userAbbonamentoMensile.fineIscrizione,
+          role: userAbbonamentoMensile.role,
+          isActive: userAbbonamentoMensile.isActive,
+          isAnonymous: userAbbonamentoMensile.isAnonymous,
+          createdAt: userAbbonamentoMensile.createdAt,
+        );
+
+        final result = CourseUnsubscribeHelper.canUnsubscribe(courseSoon, userWithCourse);
         
-        final result = CourseUnsubscribeHelper.canUnsubscribe(courseSoon, userAbbonamentoMensile);
-        
-        // Logica attuale: non richiede conferma per abbonamenti temporali
+        // Il corso inizia tra 2 ore (< 4 ore): richiede conferma per abbonamenti temporali
         expect(result['canUnsubscribe'], true);
-        expect(result['requiresConfirmation'], false);
+        expect(result['requiresConfirmation'], true);
         expect(result['isPacchettoEntrate'], false);
       });
       

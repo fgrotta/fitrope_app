@@ -7,10 +7,12 @@ import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
+import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/services/onesignal_service.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -46,6 +48,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late bool selectedIsAnonymous;
   late DateTime? selectedCertificatoScadenza;
   late List<String> selectedTipologiaCorsoTags;
+  late bool selectedEmailNotifications;
+  late bool selectedPushNotifications;
   String? errorMsg;
   List<Course> allCourses = [];
   bool _showAllEnrollments12Months = false;
@@ -65,6 +69,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
     selectedIsAnonymous = widget.user.isAnonymous;
     selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
     selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
+    selectedEmailNotifications = widget.user.emailNotificationsEnabled;
+    selectedPushNotifications = widget.user.pushNotificationsEnabled;
     if (widget.openInEditMode && _canEditUser()) {
       isEditing = true;
     }
@@ -81,6 +87,59 @@ class _UserDetailPageState extends State<UserDetailPage> {
     } catch (e) {
       print('Error loading courses: $e');
     }
+  }
+
+  Future<bool> _showPushEnableSoftPrompt() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Attivare le notifiche push'),
+          content: const Text(
+            'Ti invieremo notifiche per promemoria corsi e posti disponibili in waitlist. '
+            'Alla conferma verrà mostrata la richiesta del browser o del sistema operativo.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Non ora', style: TextStyle(color: onPrimaryColor)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Continua', style: TextStyle(color: primaryColor)),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  Future<void> _showPushPermissionHelp() async {
+    if (!mounted) return;
+
+    final message = Theme.of(context).platform == TargetPlatform.iOS
+        ? 'Su iPhone e iPad, se usi la versione web, aggiungi prima l\'app alla schermata Home e poi abilita le notifiche dalle impostazioni del sito.'
+        : 'Se hai negato il permesso, riattivalo dalle impostazioni del browser o del sistema operativo e poi riprova.';
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Permesso notifiche non abilitato'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Ho capito', style: TextStyle(color: primaryColor)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -110,6 +169,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         selectedIsAnonymous = widget.user.isAnonymous;
         selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
         selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
+        selectedEmailNotifications = widget.user.emailNotificationsEnabled;
+        selectedPushNotifications = widget.user.pushNotificationsEnabled;
         errorMsg = null;
       }
     });
@@ -261,7 +322,36 @@ class _UserDetailPageState extends State<UserDetailPage> {
       }
     }
 
+    final isCurrentUser = store.state.user?.uid == widget.user.uid;
+    final previousPushPreference = widget.user.pushNotificationsEnabled;
+    final pushPreferenceChanged =
+        isCurrentUser && selectedPushNotifications != previousPushPreference;
+    bool pushPreferenceApplied = false;
+
     try {
+      if (pushPreferenceChanged) {
+        if (selectedPushNotifications) {
+          final confirmed = await _showPushEnableSoftPrompt();
+          if (!confirmed) {
+            selectedPushNotifications = previousPushPreference;
+          }
+        }
+
+        await OneSignalService.setPushEnabled(selectedPushNotifications);
+        pushPreferenceApplied = true;
+
+        if (selectedPushNotifications) {
+          final hasPermission = await OneSignalService.hasPushPermission();
+          if (!hasPermission) {
+            final canRequest = await OneSignalService.canRequestPushPermission();
+            if (!canRequest) {
+              await _showPushPermissionHelp();
+            }
+            selectedPushNotifications = false;
+          }
+        }
+      }
+
       await updateUser(
         uid: widget.user.uid,
         name: name,
@@ -275,8 +365,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         isAnonymous: selectedIsAnonymous,
         certificatoScadenza: selectedCertificatoScadenza,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
-        tipologiaCorsoTags: selectedTipologiaCorsoTags, 
+        tipologiaCorsoTags: selectedTipologiaCorsoTags,
         cancelledEnrollments: widget.user.cancelledEnrollments,
+        emailNotificationsEnabled: selectedEmailNotifications,
+        pushNotificationsEnabled: selectedPushNotifications,
       );
 
       // Crea un nuovo oggetto utente con i dati aggiornati
@@ -300,9 +392,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ? Timestamp.fromDate(DateTime(selectedCertificatoScadenza!.year, selectedCertificatoScadenza!.month, selectedCertificatoScadenza!.day, 23, 59))
             : null,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
-        tipologiaCorsoTags: selectedTipologiaCorsoTags, 
+        tipologiaCorsoTags: selectedTipologiaCorsoTags,
         cancelledEnrollments: widget.user.cancelledEnrollments,
+        emailNotificationsEnabled: selectedEmailNotifications,
+        pushNotificationsEnabled: selectedPushNotifications,
       );
+
+      // Aggiorna lo store Redux se l'utente ha modificato il proprio profilo
+      if (store.state.user?.uid == widget.user.uid) {
+        store.dispatch(SetUserAction(updatedUser));
+      }
 
       if (!mounted) return;
       setState(() {
@@ -318,6 +417,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
       // Notifica la pagina precedente del cambiamento
       Navigator.pop(context, updatedUser);
     } catch (e) {
+      if (pushPreferenceChanged && pushPreferenceApplied) {
+        await OneSignalService.syncPushPreference(previousPushPreference);
+      }
       if (mounted) setState(() { errorMsg = 'Errore durante l\'aggiornamento'; });
     }
   }
@@ -762,8 +864,32 @@ class _UserDetailPageState extends State<UserDetailPage> {
               ],
             ),
             
+            // Sezione preferenze notifiche (solo per il proprio profilo)
+            if (store.state.user?.uid == widget.user.uid) ...[
+              const SizedBox(height: 24),
+              _buildSection(
+                'Preferenze Notifiche',
+                [
+                  _buildNotificationToggle(
+                    'Notifiche Push',
+                    Icons.notifications_active,
+                    selectedPushNotifications,
+                    (value) => setState(() => selectedPushNotifications = value),
+                    enabled: isEditing,
+                  ),
+                  _buildNotificationToggle(
+                    'Notifiche Email',
+                    Icons.email,
+                    selectedEmailNotifications,
+                    (value) => setState(() => selectedEmailNotifications = value),
+                    enabled: isEditing,
+                  ),
+                ],
+              ),
+            ],
+
             const SizedBox(height: 24),
-            
+
             // Sezione informazioni account
             _buildSection(
               'Informazioni Account',
@@ -1029,6 +1155,32 @@ class _UserDetailPageState extends State<UserDetailPage> {
           ),
           const SizedBox(height: 16),
           ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationToggle(String label, IconData icon, bool value, ValueChanged<bool> onChanged, {bool enabled = true}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: primaryLightColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: primaryLightColor,
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: enabled ? onChanged : null,
+            activeColor: primaryLightColor,
+          ),
         ],
       ),
     );

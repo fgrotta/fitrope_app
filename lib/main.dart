@@ -5,25 +5,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:fitrope_app/services/onesignal_service.dart';
 import 'firebase_options.dart';
 
-void main() async {  
+// TODO: Sostituire con il tuo OneSignal App ID dalla dashboard
+const String oneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
-  // Initialize Italian locale for date formatting
+
+  OneSignalService.initialize(oneSignalAppId);
+
   await initializeDateFormatting('it_IT', null);
-  
-  runApp(
-    SafeArea(
-      child: StoreProvider(
-        store: store,
-        child: const MyApp()
-      ),
-    )
-  );
+
+  runApp(SafeArea(
+    child: StoreProvider(store: store, child: const MyApp()),
+  ));
 
   // tests();
 }

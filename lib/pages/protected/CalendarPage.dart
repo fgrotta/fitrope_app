@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/utils/waitlist_ui_helper.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
@@ -169,6 +170,26 @@ class _CalendarPageState extends State<CalendarPage> {
         'Errore durante la disiscrizione: ${e.toString()}',
       );
     }
+  }
+
+  void onJoinWaitlist(Course course) {
+    WaitlistUiHelper.showJoinWaitlistDialog(
+      context: context,
+      course: course,
+      userId: user.uid,
+      onRefresh: updateCourses,
+      isMounted: () => mounted,
+    );
+  }
+
+  void onLeaveWaitlist(Course course) {
+    WaitlistUiHelper.handleLeaveWaitlist(
+      context: context,
+      course: course,
+      userId: user.uid,
+      onRefresh: updateCourses,
+      isMounted: () => mounted,
+    );
   }
 
   // Funzioni per navigare alla pagina di gestione corsi
@@ -339,6 +360,8 @@ class _CalendarPageState extends State<CalendarPage> {
               showDate: false,
               onSubscribe: () => onSubscribe(course),
               onUnsubscribe: () => onUnsubscribe(course),
+              onJoinWaitlist: () => onJoinWaitlist(course),
+              onLeaveWaitlist: () => onLeaveWaitlist(course),
               onDuplicate: () => showDuplicateCoursePage(course),
               onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
               onEdit: (user.role == 'Admin' ||

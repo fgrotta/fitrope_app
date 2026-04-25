@@ -17,8 +17,10 @@ import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
+import 'package:fitrope_app/services/onesignal_service.dart';
 
 class Protected extends StatefulWidget {
   const Protected({super.key});
@@ -65,6 +67,11 @@ class _ProtectedState extends State<Protected> {
     else {
       if(user != null) {
         print("${user!.name} ${user!.lastName} logged");
+        OneSignalService.login(user!.uid);
+        if (user!.email.isNotEmpty) {
+          OneSignalService.addEmail(user!.email);
+        }
+        OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
       }
       else {
         resetUser();
@@ -83,6 +90,13 @@ class _ProtectedState extends State<Protected> {
         user = store.state.user;
         print("${user!.name} ${user!.lastName} logged");
       });
+      if (user != null) {
+        OneSignalService.login(user!.uid);
+        if (user!.email.isNotEmpty) {
+          OneSignalService.addEmail(user!.email);
+        }
+        OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
+      }
     }
     else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -141,6 +155,13 @@ class _ProtectedState extends State<Protected> {
                       _drawerTitle = null;
                       _drawerUsers = null;
                     }),
+                  )
+                : null,
+            floatingActionButton: kDebugMode
+                ? FloatingActionButton.small(
+                    onPressed: () => Navigator.of(context).pushNamed(DEBUG_EMAIL_ROUTE),
+                    tooltip: 'Debug email',
+                    child: const Icon(Icons.bug_report_outlined),
                   )
                 : null,
             body: Stack(

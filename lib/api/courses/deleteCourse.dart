@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/services/notification_service.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
@@ -74,6 +75,8 @@ Future<void> removeUserFromCourse(String courseId, String userId) async {
       }
     }   
     store.dispatch(FinishLoadingAction());
+
+    notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
     print("Failed to remove user from course: $error");
@@ -138,6 +141,8 @@ Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
       }
     }   
     store.dispatch(FinishLoadingAction());
+
+    notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
     print("Failed to force unsubscribe: $error");
@@ -145,22 +150,41 @@ Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
   });
 }
 
+Future<List<String>> getWaitlistUsers(String courseId) async {
+  var usersCollection = FirebaseFirestore.instance.collection('users');
+  var snapshots = await usersCollection.where('waitlistCourses', arrayContains: courseId).get();
+  return snapshots.docs.map((doc) => "${doc['uid']}").toList();
+}
+
 Future<void> deleteCourse(String courseId) async {
   try {
     print('Deleting course $courseId');
-    // Prima rimuovi il corso da tutti gli utenti iscritti
+    // Rimuovi il corso da tutti gli utenti iscritti
     List<String> subscribers = await getSubscribers(courseId);
-    // Rimuovi il corso dalla lista corsi di ogni utente iscritto
     for (String userId in subscribers) {
       await forceUnsubscribeFromCourse(courseId, userId);
-    }    
+    }
+
+    // Rimuovi il corso dalla waitlistCourses di tutti gli utenti in attesa (batch atomico)
+    List<String> waitlistUserIds = await getWaitlistUsers(courseId);
+    if (waitlistUserIds.isNotEmpty) {
+      WriteBatch batch = firestore.batch();
+      for (String userId in waitlistUserIds) {
+        DocumentReference userRef = firestore.collection('users').doc(userId);
+        batch.update(userRef, {
+          'waitlistCourses': FieldValue.arrayRemove([courseId]),
+        });
+      }
+      await batch.commit();
+    }
+
     // Poi elimina il corso
     await FirebaseFirestore.instance.collection('courses').doc(courseId).delete();
-    invalidateCoursesCache(); // Invalida la cache dopo l'eliminazione
-    
-    print('Course ${courseId} and all subscriptions deleted successfully!');
+    invalidateCoursesCache();
+    invalidateUsersCache();
+
+    print('Course $courseId and all subscriptions/waitlists deleted successfully!');
   } catch (e) {
     print('Error deleting course: $e');
   }
-  
-} 
+}

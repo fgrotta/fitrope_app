@@ -17,6 +17,7 @@ void main() {
     setUp(() {
       // Crea un corso di test che inizia tra 10 ore (> 8 ore)
       testCourse = Course(
+        id: 'test-course-1',
         uid: 'test-course-1',
         name: 'Corso di Test',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
@@ -27,6 +28,7 @@ void main() {
       
       // Corso che inizia tra 6 ore (< 8 ore)
       courseSoon = Course(
+        id: 'test-course-soon',
         uid: 'test-course-soon',
         name: 'Corso Imminente',
         startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 6))),
@@ -37,16 +39,18 @@ void main() {
       
       // Corso che inizia esattamente tra 8 ore (= 8 ore)
       courseExact = Course(
+        id: 'test-course-exact',
         uid: 'test-course-exact',
         name: 'Corso Esatto',
-        startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 8))),
-        endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 9))),
+        startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 8, seconds: 30))),
+        endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 9, seconds: 30))),
         capacity: 20,
         subscribed: 5,
       );
       
       // Corso che è già iniziato
       coursePast = Course(
+        id: 'test-course-past',
         uid: 'test-course-past',
         name: 'Corso Passato',
         startDate: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))),
@@ -61,7 +65,7 @@ void main() {
         email: 'test@example.com',
         name: 'Test',
         lastName: 'User',
-        courses: ['test-course-1', 'test-course-soon', 'test-course-exact', 'test-course-past'],
+        courses: ['test-course-1', 'test-course-soon', 'test-course-exact', 'test-course-past', 'test-course-almost-8', 'test-course-just-over-8'],
         tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
         entrateDisponibili: 5,
         entrateSettimanali: null,
@@ -182,6 +186,7 @@ void main() {
       
       test('should handle course starting in exactly 7 hours and 59 minutes', () {
         final courseAlmost8 = Course(
+          id: 'test-course-almost-8',
           uid: 'test-course-almost-8',
           name: 'Corso Quasi 8 Ore',
           startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 7, minutes: 59))),
@@ -198,10 +203,11 @@ void main() {
       
       test('should handle course starting in exactly 8 hours and 1 minute', () {
         final courseJustOver8 = Course(
+          id: 'test-course-just-over-8',
           uid: 'test-course-just-over-8',
           name: 'Corso Appena Oltre 8 Ore',
-          startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 8, minutes: 1))),
-          endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 9, minutes: 1))),
+          startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 8, minutes: 5))),
+          endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 9, minutes: 5))),
           capacity: 20,
           subscribed: 5,
         );

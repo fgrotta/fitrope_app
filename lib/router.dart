@@ -2,11 +2,13 @@
 
 import 'package:fitrope_app/pages/protected/Protected.dart';
 import 'package:fitrope_app/pages/protected/CourseManagementPage.dart';
+import 'package:fitrope_app/pages/protected/DebugEmailPage.dart';
 import 'package:fitrope_app/pages/welcome/LoginPage.dart';
 import 'package:fitrope_app/pages/welcome/RegistrationPage.dart';
 import 'package:fitrope_app/pages/welcome/WelcomePage.dart';
 import 'package:fitrope_app/pages/protected/RecurringCoursePage.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/pages/welcome/SplashScreen.dart';
 
@@ -18,6 +20,7 @@ const PROTECTED_ROUTE = '/protected';
 const COURSE_MANAGEMENT_ROUTE = '/course-management';
 const RECURRING_COURSE_ROUTE = '/recurring-course';
 const SPLASH_ROUTE = '/splash';
+const DEBUG_EMAIL_ROUTE = '/debug-email';
 
 const INITIAL_ROUTE = SPLASH_ROUTE;
 
@@ -28,6 +31,7 @@ Map<String, Widget Function(BuildContext)> routes = {
   REGISTRATION_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House - Registrazione', child: const RegistrationPage()),
   PROTECTED_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House', child: const Protected()),
   RECURRING_COURSE_ROUTE: (context) => Title(color: Colors.black, title: 'Fit House - Gestione Corso', child: const RecurringCoursePage()),
+  if (kDebugMode) DEBUG_EMAIL_ROUTE: (context) => const DebugEmailPage(),
   COURSE_MANAGEMENT_ROUTE: (context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     final courseToEdit = args?['courseToEdit'] as Course?;

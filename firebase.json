@@ -1,1 +1,41 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"fit-rope-app-1f575","appId":"1:30076380522:android:8750e72642dc627c527113","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"fit-rope-app-1f575","configurations":{"android":"1:30076380522:android:8750e72642dc627c527113","ios":"1:30076380522:ios:33ccf875babe2867527113","macos":"1:30076380522:ios:33ccf875babe2867527113","web":"1:30076380522:web:e0fba7b912897d79527113","windows":"1:30076380522:web:9bd9c884c8d1c0dc527113"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "fit-rope-app-1f575",
+          "appId": "1:30076380522:android:8750e72642dc627c527113",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "fit-rope-app-1f575",
+          "configurations": {
+            "android": "1:30076380522:android:8750e72642dc627c527113",
+            "ios": "1:30076380522:ios:33ccf875babe2867527113",
+            "macos": "1:30076380522:ios:33ccf875babe2867527113",
+            "web": "1:30076380522:web:e0fba7b912897d79527113",
+            "windows": "1:30076380522:web:9bd9c884c8d1c0dc527113"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "cd functions && ./node_modules/.bin/tsc"
+      ]
+    }
+  ]
+}

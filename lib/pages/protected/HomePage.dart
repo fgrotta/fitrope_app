@@ -1,6 +1,7 @@
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/utils/waitlist_ui_helper.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
@@ -49,16 +50,16 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     user = store.state.user!;
     getTrainers().then((List<FitropeUser> response) {
+      if (!mounted) return;
       setState(() {
         trainers = response;
       });
     });
     getAllCourses().then((List<Course> response) {
+      if (!mounted) return;
       setState(() {
-        if (mounted) {
-          allCourses = response;
-          store.dispatch(SetAllCoursesAction(response));
-        }
+        allCourses = response;
+        store.dispatch(SetAllCoursesAction(response));
       });
     });
 
@@ -99,6 +100,7 @@ class _HomePageState extends State<HomePage> {
   // Funzione ottimizzata per caricare solo gli utenti con certificati in scadenza
   Future<void> _loadUtentiConCertificatoInScadenza() async {
     if (user.role != 'Admin') return;
+    if (!mounted) return;
 
     setState(() {
       isLoadingCertificati = true;
@@ -106,6 +108,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final utenti = await getUsersWithExpiringCertificates();
+      if (!mounted) return;
 
       setState(() {
         utentiConCertificatoInScadenza = utenti;
@@ -113,6 +116,7 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       print('Errore nel caricamento utenti con certificati in scadenza: $e');
+      if (!mounted) return;
       setState(() {
         isLoadingCertificati = false;
       });
@@ -122,6 +126,7 @@ class _HomePageState extends State<HomePage> {
   // Funzione ottimizzata per caricare solo gli utenti con abbonamenti in scadenza
   Future<void> _loadUtentiConAbbonamentoInScadenza() async {
     if (user.role != 'Admin') return;
+    if (!mounted) return;
 
     setState(() {
       isLoadingAbbonamenti = true;
@@ -129,6 +134,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final utenti = await getUsersWithExpiringSubscriptions();
+      if (!mounted) return;
 
       setState(() {
         utentiConAbbonamentoInScadenza = utenti;
@@ -136,6 +142,7 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       print('Errore nel caricamento utenti con abbonamenti in scadenza: $e');
+      if (!mounted) return;
       setState(() {
         isLoadingAbbonamenti = false;
       });
@@ -144,6 +151,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadUtentiLezioneProva() async {
     if (user.role != 'Admin') return;
+    if (!mounted) return;
     setState(() {
       _isLoadingLezioniProva = true;
     });
@@ -171,6 +179,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadUtentiSenzaRegolamento() async {
     if (user.role != 'Admin') return;
+    if (!mounted) return;
     setState(() {
       _isLoadingRegolamento = true;
     });
@@ -283,6 +292,26 @@ class _HomePageState extends State<HomePage> {
         );
       }
     });
+  }
+
+  void onJoinWaitlist(Course course) {
+    WaitlistUiHelper.showJoinWaitlistDialog(
+      context: context,
+      course: course,
+      userId: user.uid,
+      onRefresh: refreshCourses,
+      isMounted: () => mounted,
+    );
+  }
+
+  void onLeaveWaitlist(Course course) {
+    WaitlistUiHelper.handleLeaveWaitlist(
+      context: context,
+      course: course,
+      userId: user.uid,
+      onRefresh: refreshCourses,
+      isMounted: () => mounted,
+    );
   }
 
   Widget renderSubscriptionCard() {
@@ -1228,6 +1257,36 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  List<Widget> renderWaitlistCourses() {
+    if (user.waitlistCourses.isEmpty) {
+      return [];
+    }
+
+    DateTime now = DateTime.now();
+
+    List<Course> futureWaitlistCourses = [];
+    for (String courseId in user.waitlistCourses) {
+      Course? course = allCourses.where((c) => c.uid == courseId).firstOrNull;
+      if (course != null && course.startDate.toDate().isAfter(now)) {
+        futureWaitlistCourses.add(course);
+      }
+    }
+
+    futureWaitlistCourses.sort((a, b) => a.startDate.compareTo(b.startDate));
+
+    return futureWaitlistCourses.map((course) => CoursePreviewCard(
+      course: course,
+      currentUser: user,
+      trainers: trainers,
+      showDate: true,
+      onSubscribe: () => onSubscribe(course),
+      onUnsubscribe: () => onUnsubscribe(course),
+      onJoinWaitlist: () => onJoinWaitlist(course),
+      onLeaveWaitlist: () => onLeaveWaitlist(course),
+      onRefresh: () => refreshCourses(),
+    )).toList();
+  }
+
   List<Widget> renderCourses() {
     if (user.courses.isEmpty) {
       return [];
@@ -1249,6 +1308,8 @@ class _HomePageState extends State<HomePage> {
             showDate: true,
             onSubscribe: () => onSubscribe(course),
             onUnsubscribe: () => onUnsubscribe(course),
+            onJoinWaitlist: () => onJoinWaitlist(course),
+            onLeaveWaitlist: () => onLeaveWaitlist(course),
             onRefresh: () => refreshCourses(),
           ),
         );
@@ -1372,6 +1433,25 @@ class _HomePageState extends State<HomePage> {
               _buildCoursesSection(screenType),
             ],
           ),
+
+          // LISTA D'ATTESA
+          Builder(builder: (_) {
+            final waitlistWidgets = renderWaitlistCourses();
+            if (waitlistWidgets.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    width: double.infinity,
+                    child: const Text('Lista d\'attesa', textAlign: TextAlign.left, style: TextStyle(color: Colors.orange, fontSize: 20)),
+                  ),
+                  ...waitlistWidgets
+                ],
+              ),
+            );
+          }),
 
           // SEZIONI ADMIN: certificati, abbonamenti e lezioni di prova
           if (isDesktop(context)) ...[
