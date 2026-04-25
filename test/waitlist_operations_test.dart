@@ -3,6 +3,7 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/components/course_card.dart';
+import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -296,6 +297,51 @@ void main() {
 
       final state = getCourseState(course, user);
       expect(state, CourseState.SUBSCRIBED);
+    });
+
+    test('leaveWaitlist pulisce anche utenti visibili solo da waitlistCourses', () {
+      final result = computeWaitlistRemoval(
+        courseWaitlist: const [],
+        userWaitlistCourses: const ['c1', 'c2'],
+        userId: 'user-1',
+        courseId: 'c1',
+      );
+
+      expect(result.removedFromCourse, false);
+      expect(result.removedFromUser, true);
+      expect(result.hasChanges, true);
+      expect(result.updatedCourseWaitlist, isEmpty);
+      expect(result.updatedUserWaitlistCourses, ['c2']);
+    });
+
+    test('leaveWaitlist continua a rimuovere entrambi i lati quando coerenti', () {
+      final result = computeWaitlistRemoval(
+        courseWaitlist: const ['user-1', 'user-2'],
+        userWaitlistCourses: const ['c1', 'c3'],
+        userId: 'user-1',
+        courseId: 'c1',
+      );
+
+      expect(result.removedFromCourse, true);
+      expect(result.removedFromUser, true);
+      expect(result.hasChanges, true);
+      expect(result.updatedCourseWaitlist, ['user-2']);
+      expect(result.updatedUserWaitlistCourses, ['c3']);
+    });
+
+    test('leaveWaitlist resta errore se utente e corso non hanno alcun legame waitlist', () {
+      final result = computeWaitlistRemoval(
+        courseWaitlist: const ['user-2'],
+        userWaitlistCourses: const ['c3'],
+        userId: 'user-1',
+        courseId: 'c1',
+      );
+
+      expect(result.removedFromCourse, false);
+      expect(result.removedFromUser, false);
+      expect(result.hasChanges, false);
+      expect(result.updatedCourseWaitlist, ['user-2']);
+      expect(result.updatedUserWaitlistCourses, ['c3']);
     });
   });
 }

@@ -6,6 +6,42 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 
+class WaitlistRemovalResult {
+  final List<dynamic> updatedCourseWaitlist;
+  final List<dynamic> updatedUserWaitlistCourses;
+  final bool removedFromCourse;
+  final bool removedFromUser;
+
+  const WaitlistRemovalResult({
+    required this.updatedCourseWaitlist,
+    required this.updatedUserWaitlistCourses,
+    required this.removedFromCourse,
+    required this.removedFromUser,
+  });
+
+  bool get hasChanges => removedFromCourse || removedFromUser;
+}
+
+WaitlistRemovalResult computeWaitlistRemoval({
+  required List<dynamic> courseWaitlist,
+  required List<dynamic> userWaitlistCourses,
+  required String userId,
+  required String courseId,
+}) {
+  final updatedCourseWaitlist = List<dynamic>.from(courseWaitlist);
+  final updatedUserWaitlistCourses = List<dynamic>.from(userWaitlistCourses);
+
+  final removedFromCourse = updatedCourseWaitlist.remove(userId);
+  final removedFromUser = updatedUserWaitlistCourses.remove(courseId);
+
+  return WaitlistRemovalResult(
+    updatedCourseWaitlist: updatedCourseWaitlist,
+    updatedUserWaitlistCourses: updatedUserWaitlistCourses,
+    removedFromCourse: removedFromCourse,
+    removedFromUser: removedFromUser,
+  );
+}
+
 Future<void> leaveWaitlist(String courseId, String userId) async {
   final firestore = FirebaseFirestore.instance;
   store.dispatch(StartLoadingAction());
@@ -35,12 +71,6 @@ Future<void> leaveWaitlist(String courseId, String userId) async {
       }
 
       List<dynamic> waitlist = List.from(courseData['waitlist'] ?? []);
-      if (!waitlist.contains(userId)) {
-        throw Exception('User is not in the waitlist');
-      }
-
-      waitlist.remove(userId);
-      transaction.update(courseRef, {'waitlist': waitlist});
 
       DocumentReference userRef = firestore.collection('users').doc(userId);
       DocumentSnapshot userSnapshot = await transaction.get(userRef);
@@ -54,8 +84,29 @@ Future<void> leaveWaitlist(String courseId, String userId) async {
       }
 
       List<dynamic> waitlistCourses = List.from(userData['waitlistCourses'] ?? []);
-      waitlistCourses.remove(courseId);
-      transaction.update(userRef, {'waitlistCourses': waitlistCourses});
+
+      final removalResult = computeWaitlistRemoval(
+        courseWaitlist: waitlist,
+        userWaitlistCourses: waitlistCourses,
+        userId: userId,
+        courseId: courseId,
+      );
+
+      if (!removalResult.hasChanges) {
+        throw Exception('User is not in the waitlist');
+      }
+
+      if (removalResult.removedFromCourse) {
+        transaction.update(courseRef, {
+          'waitlist': removalResult.updatedCourseWaitlist,
+        });
+      }
+
+      if (removalResult.removedFromUser) {
+        transaction.update(userRef, {
+          'waitlistCourses': removalResult.updatedUserWaitlistCourses,
+        });
+      }
     });
 
     invalidateUsersCache();

@@ -1,40 +1,74 @@
-// Implementazione Web del servizio OneSignal — DISABILITATA.
-//
-// Le push web sono state disabilitate: il SDK OneSignal Web non viene più
-// caricato in `web/index.html`. Su web le email vengono gestite server-side
-// tramite la Cloud Function `ensureOneSignalUser` (crea l'utente OneSignal
-// con email subscription al login) e le notifiche vengono inviate via
-// `sendOneSignalNotification` usando `include_aliases.external_id`.
-//
-// Le push native restano attive solo su Android/iOS (vedi
-// `onesignal_mobile.dart`).
-//
-// Tutti i metodi sono no-op. Se in futuro si vuole riattivare le push web,
-// ripristinare il blocco commentato in `web/index.html` e reintrodurre le
-// chiamate `@JS` a `window.oneSignalInit`, `oneSignalLogin`, ecc.
-
+import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
+
+@JS('oneSignalInit')
+external void _init(JSString appId);
+
+@JS('oneSignalLogin')
+external void _login(JSString userId);
+
+@JS('oneSignalLogout')
+external void _logout();
+
+@JS('oneSignalAddEmail')
+external void _addEmail(JSString email);
+
+@JS('oneSignalRemoveEmail')
+external void _removeEmail(JSString email);
+
+@JS('oneSignalSetPushEnabled')
+external void _setPushEnabled(JSBoolean enabled);
+
+@JS('oneSignalSyncPushPreference')
+external void _syncPushPreference(JSBoolean enabled);
+
+@JS('oneSignalHasPushPermission')
+external JSBoolean _hasPushPermission();
+
+@JS('oneSignalCanRequestPushPermission')
+external JSBoolean _canRequestPushPermission();
 
 class OneSignalService {
   static void initialize(String appId) {
-    debugPrint('🔔 [OneSignal Web] initialize: no-op (push web disabilitate)');
+    debugPrint('🔔 [OneSignal Web] initialize(appId: $appId)');
+    _init(appId.toJS);
   }
 
   static void login(String userId) {
-    debugPrint('🔔 [OneSignal Web] login: no-op (push web disabilitate)');
+    debugPrint('🔔 [OneSignal Web] login(userId: $userId)');
+    _login(userId.toJS);
   }
 
   static void addEmail(String email) {
-    // Le email passano via Cloud Function `ensureOneSignalUser`, non serve
-    // registrarle sul Web SDK.
-    debugPrint('🔔 [OneSignal Web] addEmail: no-op (gestito da Cloud Function)');
+    debugPrint('🔔 [OneSignal Web] addEmail(email: $email)');
+    _addEmail(email.toJS);
   }
 
   static Future<void> removeEmail(String email) async {
-    debugPrint('🔔 [OneSignal Web] removeEmail: no-op (gestito da Cloud Function)');
+    debugPrint('🔔 [OneSignal Web] removeEmail(email: $email)');
+    _removeEmail(email.toJS);
+  }
+
+  static Future<void> setPushEnabled(bool enabled) async {
+    debugPrint('🔔 [OneSignal Web] setPushEnabled(enabled: $enabled)');
+    _setPushEnabled(enabled.toJS);
+  }
+
+  static Future<void> syncPushPreference(bool enabled) async {
+    debugPrint('🔔 [OneSignal Web] syncPushPreference(enabled: $enabled)');
+    _syncPushPreference(enabled.toJS);
+  }
+
+  static Future<bool> hasPushPermission() async {
+    return _hasPushPermission().toDart;
+  }
+
+  static Future<bool> canRequestPushPermission() async {
+    return _canRequestPushPermission().toDart;
   }
 
   static Future<void> logout() async {
-    debugPrint('🔔 [OneSignal Web] logout: no-op (push web disabilitate)');
+    debugPrint('🔔 [OneSignal Web] logout()');
+    _logout();
   }
 }

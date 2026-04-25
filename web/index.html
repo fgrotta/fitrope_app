@@ -25,15 +25,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Fit House Monza">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png?v=20260425">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="favicon.ico"/>
-  <link rel="icon" type="image/png" href="favicon.png"/>
-  <link rel="shortcut icon" href="favicon.ico"/>
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png?v=20260425"/>
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=20260425"/>
+  <link rel="shortcut icon" href="favicon.ico?v=20260425"/>
 
   <title>Fit House</title>
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json?v=20260425">
   
   <!-- Meta tag per impedire caching di version.json -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -171,24 +171,143 @@
     });
   </script>
   
-  <!--
-    OneSignal Web Push SDK — DISABILITATO.
-    Le push web non sono supportate: su web le email passano via Cloud Function
-    `ensureOneSignalUser` (creazione utente server-side con email subscription)
-    e le notifiche push native restano attive solo su Android/iOS tramite il
-    pacchetto `onesignal_flutter`.
-    Se in futuro si vuole riattivare le push web, ripristinare questo blocco
-    e rendere operative le funzioni no-op in lib/services/onesignal_web.dart.
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
 
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      window.oneSignalInit = function(appId) { ... };
-      window.oneSignalLogin = function(userId) { ... };
-      window.oneSignalLogout = function() { ... };
-      window.oneSignalAddEmail = function(email) { ... };
-    </script>
-  -->
+    function fitHouseBasePath() {
+      const baseElement = document.querySelector('base');
+      const rawBase = baseElement ? (baseElement.getAttribute('href') || '/') : '/';
+      const resolvedBase = new URL(rawBase, window.location.origin).pathname;
+      return resolvedBase.endsWith('/') ? resolvedBase : resolvedBase + '/';
+    }
+
+    function fitHouseScopedPath(path) {
+      return fitHouseBasePath() + path;
+    }
+
+    function withOneSignal(action, label) {
+      const initPromise = window.__fitHouseOneSignalInitPromise || Promise.resolve();
+      initPromise.then(() => {
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            await action(OneSignal);
+          } catch (error) {
+            console.error('[OneSignal Web] ' + label + ' error:', error);
+          }
+        });
+      });
+    }
+
+    window.oneSignalInit = function(appId) {
+      if (window.__fitHouseOneSignalInitPromise) {
+        return;
+      }
+
+      window.__fitHouseOneSignalInitPromise = new Promise((resolve) => {
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            if (!OneSignal.Notifications.isPushSupported()) {
+              console.info('[OneSignal Web] Push non supportate da questo browser');
+              resolve();
+              return;
+            }
+
+            const workerScope = fitHouseScopedPath('push/onesignal/');
+            const workerPath = workerScope + 'OneSignalSDKWorker.js';
+            console.info('[OneSignal Web] init config:', {
+              workerPath: workerPath,
+              workerScope: workerScope,
+            });
+
+            await OneSignal.init({
+              appId: appId,
+              serviceWorkerPath: workerPath,
+              serviceWorkerParam: {
+                scope: workerScope,
+              },
+            });
+          } catch (error) {
+            console.error('[OneSignal Web] init error:', error, String(error));
+          }
+
+          resolve();
+        });
+      });
+    };
+
+    window.oneSignalLogin = function(userId) {
+      withOneSignal(async function(OneSignal) {
+        await OneSignal.login(userId);
+      }, 'login');
+    };
+
+    window.oneSignalLogout = function() {
+      withOneSignal(async function(OneSignal) {
+        await OneSignal.logout();
+      }, 'logout');
+    };
+
+    window.oneSignalAddEmail = function(email) {
+      withOneSignal(async function(OneSignal) {
+        await OneSignal.User.addEmail(email);
+      }, 'addEmail');
+    };
+
+    window.oneSignalRemoveEmail = function(email) {
+      withOneSignal(async function(OneSignal) {
+        await OneSignal.User.removeEmail(email);
+      }, 'removeEmail');
+    };
+
+    window.oneSignalSyncPushPreference = function(enabled) {
+      withOneSignal(async function(OneSignal) {
+        if (!OneSignal.Notifications.isPushSupported()) {
+          return;
+        }
+
+        if (enabled) {
+          if (OneSignal.Notifications.permission === true) {
+            await OneSignal.User.PushSubscription.optIn();
+          }
+          return;
+        }
+
+        await OneSignal.User.PushSubscription.optOut();
+      }, 'syncPushPreference');
+    };
+
+    window.oneSignalSetPushEnabled = function(enabled) {
+      withOneSignal(async function(OneSignal) {
+        if (!OneSignal.Notifications.isPushSupported()) {
+          return;
+        }
+
+        if (enabled) {
+          await OneSignal.User.PushSubscription.optIn();
+          return;
+        }
+
+        await OneSignal.User.PushSubscription.optOut();
+      }, 'setPushEnabled');
+    };
+
+    window.oneSignalHasPushPermission = function() {
+      if (!window.Notification) {
+        return false;
+      }
+
+      return Notification.permission === 'granted';
+    };
+
+    window.oneSignalCanRequestPushPermission = function() {
+      if (!window.Notification) {
+        return false;
+      }
+
+      return Notification.permission === 'default';
+    };
+  </script>
 
   <script src="flutter_bootstrap.js" async></script>
 </body>

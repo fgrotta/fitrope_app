@@ -70,6 +70,7 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
         if (fitropeUser.email.isNotEmpty) {
           OneSignalService.addEmail(fitropeUser.email);
         }
+        unawaited(OneSignalService.syncPushPreference(fitropeUser.pushNotificationsEnabled));
         // Server-side: garantisce che l'utente esista su OneSignal con la sua email,
         // indipendentemente dal permesso push del browser. Fire-and-forget.
         if (fitropeUser.email.isNotEmpty) {

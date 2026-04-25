@@ -3,15 +3,15 @@
 /// via HTTP, quindi servono asset pubblici — gli asset Flutter locali non
 /// sarebbero accessibili).
 const String _logoUrl =
-    'https://fit-rope-app-1f575.web.app/assets/assets/new_logo_only.png';
+    'https://app.fithousemonza.it/assets/assets/new_logo_only.png';
 
 String _emailHeader(String title) {
   return '''
           <!-- Header con logo -->
           <tr>
             <td style="background-color: #6077F6; padding: 24px 30px; text-align: center;">
-              <img src="$_logoUrl" alt="Fit House" width="90" height="90"
-                   style="display: block; margin: 0 auto 12px auto; border: 0;" />
+              <img src="$_logoUrl" alt="Fit House" width="72"
+                   style="display: block; margin: 0 auto 12px auto; border: 0; height: auto;" />
               <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">
                 $title
               </h1>

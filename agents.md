@@ -80,7 +80,8 @@ lib/
 │       ├── AdminUsersPage.dart      # Lista utenti admin
 │       ├── CreateUserPage.dart      # Creazione utente (solo admin)
 │       ├── UserDetailPage.dart      # Profilo/modifica utente (admin)
-│       └── AdminDashboardPage.dart  # Analytics (solo desktop)
+│       ├── AdminDashboardPage.dart  # Analytics (solo desktop)
+│       └── DebugEmailPage.dart      # Invio email di test (solo kDebugMode)
 │
 ├── api/                             # Layer Firestore
 │   ├── getUserData.dart             # Fetch singolo utente
@@ -255,6 +256,7 @@ Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layou
 | `PROTECTED_ROUTE` | `/protected` | Protected |
 | `COURSE_MANAGEMENT_ROUTE` | `/course-management` | CourseManagementPage |
 | `RECURRING_COURSE_ROUTE` | `/recurring-course` | RecurringCoursePage |
+| `DEBUG_EMAIL_ROUTE` | `/debug-email` | DebugEmailPage _(solo `kDebugMode`)_ |
 
 `CourseManagementPage` accetta argomenti: `courseToEdit`, `courseToDuplicate`, `mode`.
 
@@ -335,8 +337,11 @@ La REST API key **non e mai esposta al client**. Il client chiama la Cloud Funct
 |---|---|---|
 | Disiscrizione da corso pieno | `lib/services/notification_service.dart:notifyWaitlistUsers` | Immediato — push + email a tutti gli utenti in waitlist |
 | Iscrizione utente `ABBONAMENTO_PROVA` | `lib/services/notification_service.dart:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 (produzione) o +30s (debug) |
+| Debug manuale (solo `kDebugMode`) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
 
 In debug (`kDebugMode`) il promemoria viene inviato a **tutti** gli utenti, non solo prova, con prefisso `TEST - ` nei testi.
+
+**Logout**: la rimozione dell'email da OneSignal al logout è temporaneamente disabilitata (codice commentato in `lib/authentication/logout.dart`).
 
 ### SDK client
 
@@ -506,6 +511,7 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 | Regole iscrizione/disiscrizione | `lib/api/courses/`, `lib/utils/course_unsubscribe_helper.dart`, `test/` |
 | Waitlist corsi | `lib/api/courses/joinWaitlist.dart`, `leaveWaitlist.dart`, `lib/utils/waitlist_ui_helper.dart` |
 | Notifiche push/email | `lib/services/notification_service.dart`, `lib/services/email_templates.dart`, `functions/src/` |
+| Test email manuale (debug) | `lib/pages/protected/DebugEmailPage.dart`, `lib/services/notification_service.dart` (`sendTestWaitlistEmail`, `sendTestTrialReminderEmail`) |
 | OneSignal SDK | `lib/services/onesignal_*.dart`, `web/index.html` (web SDK commentato), `web/OneSignalSDKWorker.js` |
 | Dashboard e analisi | `lib/pages/protected/AdminDashboardPage.dart` |
 | Layout e breakpoints | `lib/layout/` |

@@ -75,7 +75,7 @@ Future<void> removeOneSignalEmail(String email) async {
 }
 
 String _formatCourseDate(DateTime startDate) {
-  return '${_dayNames[startDate.weekday - 1]} ${startDate.day} ${_monthNames[startDate.month - 1]} ${startDate.year}';
+  return '${_dayNames[startDate.weekday - 1]} ${startDate.day} ${_monthNames[startDate.month - 1]}';
 }
 
 String _formatCourseTime(DateTime startDate, DateTime endDate) {
@@ -280,16 +280,16 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
     final String name = courseData['name'] as String? ?? courseName;
 
     await Future.wait([
-      if (pushUserIds.isNotEmpty)
-        _sendOneSignalRequest('Waitlist Push', {
-          'include_aliases': {'external_id': pushUserIds},
-          'target_channel': 'push',
-          'headings': {'it': _testPrefix('Posto disponibile!'), 'en': _testPrefix('Spot available!')},
-          'contents': {
-            'it': 'Si è liberato un posto nel corso "$name" ($courseDate, $courseTime). Iscriviti subito!',
-            'en': 'A spot opened up in "$name" ($courseDate, $courseTime). Subscribe now!',
-          },
-        }),
+      // if (pushUserIds.isNotEmpty)
+      //   _sendOneSignalRequest('Waitlist Push', {
+      //     'include_aliases': {'external_id': pushUserIds},
+      //     'target_channel': 'push',
+      //     'headings': {'it': _testPrefix('Posto disponibile!'), 'en': _testPrefix('Spot available!')},
+      //     'contents': {
+      //       'it': 'Si è liberato un posto nel corso "$name" ($courseDate, $courseTime). Iscriviti subito!',
+      //       'en': 'A spot opened up in "$name" ($courseDate, $courseTime). Subscribe now!',
+      //     },
+      //   }),
       if (emailUserIds.isNotEmpty)
         _sendOneSignalRequest('Waitlist Email', {
           'include_aliases': {'external_id': emailUserIds},
@@ -306,4 +306,44 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
   } catch (e) {
     debugPrint('🔔 [notifyWaitlistUsers] ERRORE: $e');
   }
+}
+
+Future<void> sendTestWaitlistEmail({
+  required String userId,
+  required String courseName,
+  required String courseDate,
+  required String courseTime,
+  required int spotsAvailable,
+}) {
+  assert(kDebugMode);
+  return _sendOneSignalRequest('Waitlist Email [TEST]', {
+    'include_aliases': {'external_id': [userId]},
+    'target_channel': 'email',
+    'email_subject': _testPrefix(waitlistSpotAvailableSubject(courseName)),
+    'email_body': waitlistSpotAvailableBody(
+      courseName: courseName,
+      courseDate: courseDate,
+      courseTime: courseTime,
+      spotsAvailable: spotsAvailable,
+    ),
+  });
+}
+
+Future<void> sendTestTrialReminderEmail({
+  required String userId,
+  required String courseName,
+  required String courseDate,
+  required String courseTime,
+}) {
+  assert(kDebugMode);
+  return _sendOneSignalRequest('Trial Email Reminder [TEST]', {
+    'include_aliases': {'external_id': [userId]},
+    'target_channel': 'email',
+    'email_subject': _testPrefix(trialReminderSubject(courseName)),
+    'email_body': trialReminderBody(
+      courseName: courseName,
+      courseDate: courseDate,
+      courseTime: courseTime,
+    ),
+  });
 }

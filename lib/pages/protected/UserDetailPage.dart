@@ -12,6 +12,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/services/onesignal_service.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -86,6 +87,59 @@ class _UserDetailPageState extends State<UserDetailPage> {
     } catch (e) {
       print('Error loading courses: $e');
     }
+  }
+
+  Future<bool> _showPushEnableSoftPrompt() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Attivare le notifiche push'),
+          content: const Text(
+            'Ti invieremo notifiche per promemoria corsi e posti disponibili in waitlist. '
+            'Alla conferma verrà mostrata la richiesta del browser o del sistema operativo.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Non ora', style: TextStyle(color: onPrimaryColor)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Continua', style: TextStyle(color: primaryColor)),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  Future<void> _showPushPermissionHelp() async {
+    if (!mounted) return;
+
+    final message = Theme.of(context).platform == TargetPlatform.iOS
+        ? 'Su iPhone e iPad, se usi la versione web, aggiungi prima l\'app alla schermata Home e poi abilita le notifiche dalle impostazioni del sito.'
+        : 'Se hai negato il permesso, riattivalo dalle impostazioni del browser o del sistema operativo e poi riprova.';
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Permesso notifiche non abilitato'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Ho capito', style: TextStyle(color: primaryColor)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -268,7 +322,36 @@ class _UserDetailPageState extends State<UserDetailPage> {
       }
     }
 
+    final isCurrentUser = store.state.user?.uid == widget.user.uid;
+    final previousPushPreference = widget.user.pushNotificationsEnabled;
+    final pushPreferenceChanged =
+        isCurrentUser && selectedPushNotifications != previousPushPreference;
+    bool pushPreferenceApplied = false;
+
     try {
+      if (pushPreferenceChanged) {
+        if (selectedPushNotifications) {
+          final confirmed = await _showPushEnableSoftPrompt();
+          if (!confirmed) {
+            selectedPushNotifications = previousPushPreference;
+          }
+        }
+
+        await OneSignalService.setPushEnabled(selectedPushNotifications);
+        pushPreferenceApplied = true;
+
+        if (selectedPushNotifications) {
+          final hasPermission = await OneSignalService.hasPushPermission();
+          if (!hasPermission) {
+            final canRequest = await OneSignalService.canRequestPushPermission();
+            if (!canRequest) {
+              await _showPushPermissionHelp();
+            }
+            selectedPushNotifications = false;
+          }
+        }
+      }
+
       await updateUser(
         uid: widget.user.uid,
         name: name,
@@ -334,6 +417,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
       // Notifica la pagina precedente del cambiamento
       Navigator.pop(context, updatedUser);
     } catch (e) {
+      if (pushPreferenceChanged && pushPreferenceApplied) {
+        await OneSignalService.syncPushPreference(previousPushPreference);
+      }
       if (mounted) setState(() { errorMsg = 'Errore durante l\'aggiornamento'; });
     }
   }
