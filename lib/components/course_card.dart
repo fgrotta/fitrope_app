@@ -91,6 +91,7 @@ class CourseCard extends StatefulWidget {
 
 class _CourseCardState extends State<CourseCard> {
   bool _isProcessing = false;
+  bool _subscribersExpanded = false; // lista iscritti collassata di default
 
   void showSubscribersDialog() {
     showDialog(
@@ -311,29 +312,46 @@ class _CourseCardState extends State<CourseCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: surfaceVariantColor, fontWeight: FontWeight.bold)),
-            // Icona + per aggiungere iscritti (solo per Admin)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (widget.capacity != null && widget.capacity! > 0)
-                  _capacityPill(widget.subscribersUsers!.length, widget.capacity!),
-                if (widget.isAdmin)
-                  IconButton(
-                    icon: const Icon(Icons.add, color: surfaceVariantColor, size: 20),
-                    onPressed: () => _showAddSubscriberDialog(context),
-                    tooltip: 'Aggiungi iscritto',
-                  ),
-                if (_hasEnrollmentMismatch())
-                  IconButton(
-                  icon: const Icon(Icons.sync_problem, color: Colors.red, size: 20),
-                  onPressed: () => _showCorrectCountDialog(context),
-                  tooltip: 'Correggi conteggio iscritti',
+        // Header tappabile: espande/collassa la lista degli iscritti.
+        InkWell(
+          onTap: () =>
+              setState(() => _subscribersExpanded = !_subscribersExpanded),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: onPrimaryColor, fontWeight: FontWeight.bold)),
+                    Icon(
+                      _subscribersExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: onPrimaryColor,
+                      size: 20,
+                    ),
+                  ],
                 ),
-          ])],
+              ),
+              // Icona + per aggiungere iscritti (solo per Admin)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (widget.capacity != null && widget.capacity! > 0)
+                    _capacityPill(widget.subscribersUsers!.length, widget.capacity!),
+                  if (widget.isAdmin)
+                    IconButton(
+                      icon: const Icon(Icons.add, color: onPrimaryColor, size: 20),
+                      onPressed: () => _showAddSubscriberDialog(context),
+                      tooltip: 'Aggiungi iscritto',
+                    ),
+                  if (_hasEnrollmentMismatch())
+                    IconButton(
+                    icon: const Icon(Icons.sync_problem, color: Colors.red, size: 20),
+                    onPressed: () => _showCorrectCountDialog(context),
+                    tooltip: 'Correggi conteggio iscritti',
+                  ),
+            ])],
+          ),
         ),
         if (widget.capacity != null && widget.capacity! > 0) ...[
           const SizedBox(height: 6),
@@ -342,54 +360,62 @@ class _CourseCardState extends State<CourseCard> {
             child: LinearProgressIndicator(
               value: (widget.subscribersUsers!.length / widget.capacity!).clamp(0.0, 1.0),
               minHeight: 6,
-              backgroundColor: Colors.white24,
+              backgroundColor: Colors.black12,
               valueColor: AlwaysStoppedAnimation<Color>(
                 capacityColor(widget.subscribersUsers!.length, widget.capacity!),
               ),
             ),
           ),
         ],
-        const SizedBox(height: 6),
-        ...widget.subscribersUsers!.map((user) {
-          String displayName = getDisplayName(user);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _showUserDetails(context, user),
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Text(
-                        '• $displayName',
-                        style: const TextStyle(
-                          color: surfaceVariantColor,
-                          decoration: TextDecoration.none, 
+        // Lista nomi visibile solo quando espansa.
+        if (_subscribersExpanded) ...[
+          const SizedBox(height: 6),
+          if (widget.subscribersUsers!.isEmpty)
+            const Text('Nessun iscritto',
+                style: TextStyle(color: onPrimaryColor, fontStyle: FontStyle.italic)),
+          ...widget.subscribersUsers!.map((user) {
+            String displayName = getDisplayName(user);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _showUserDetails(context, user),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Text(
+                          '• $displayName',
+                          style: const TextStyle(
+                            color: onPrimaryColor,
+                            decoration: TextDecoration.none,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                // Pulsante di rimozione per admin/trainer
-                if (widget.isAdmin || widget.userRole == 'Trainer')
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 16),
-                    onPressed: () => _showRemoveUserConfirmationDialog(context, user),
-                    tooltip: 'Rimuovi iscrizione',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-              ],
-            ),
-          );
-        }).toList(),
+                  // Pulsante di rimozione per admin/trainer
+                  if (widget.isAdmin || widget.userRole == 'Trainer')
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 16),
+                      onPressed: () => _showRemoveUserConfirmationDialog(context, user),
+                      tooltip: 'Rimuovi iscrizione',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
       ],
     );
   }
 
   Widget _buildWaitlistUsersList(BuildContext context) {
-    if (widget.waitlistUsers == null || widget.waitlistUsers!.isEmpty) {
+    if (!_subscribersExpanded ||
+        widget.waitlistUsers == null ||
+        widget.waitlistUsers!.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -754,8 +780,8 @@ String getDisplayName(FitropeUser user) {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: _hasEnrollmentMismatch()
-                      ? Colors.orange
-                      : primaryDarkColor.withValues(alpha: 0.92),
+                      ? Colors.orange.withValues(alpha: 0.92)
+                      : Colors.white.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(8),
                   border: (widget.capacity != null && widget.capacity! > 0)
                       ? Border(
