@@ -1,5 +1,6 @@
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/capacity_color.dart';
 import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
@@ -23,18 +24,6 @@ enum CourseState {
   CAN_WAITLIST,
   IN_WAITLIST,
   WAITLIST_SPOT_AVAILABLE,
-}
-
-/// Colore della capienza in base ai POSTI LIBERI:
-/// - verde     : >= 50% posti liberi
-/// - rosso     : <= 15% posti liberi (incluso pieno)
-/// - arancione : negli altri casi
-Color capacityColor(int subscribed, int capacity) {
-  if (capacity <= 0) return const Color(0xFFFB8C00);
-  final freeRatio = (capacity - subscribed) / capacity;
-  if (freeRatio <= 0.15) return const Color(0xFFE53935);
-  if (freeRatio >= 0.50) return const Color(0xFF43A047);
-  return const Color(0xFFFB8C00);
 }
 
 class CourseCard extends StatefulWidget {
@@ -527,12 +516,13 @@ String getDisplayName(FitropeUser user) {
 
   Widget renderTitle() {
     if(widget.titleStyle != null) {
-      return Text(widget.title, overflow: TextOverflow.ellipsis, style: widget.titleStyle,);
+      return Text(widget.title, overflow: TextOverflow.ellipsis, maxLines: 1, style: widget.titleStyle,);
     }
 
     return Text(
       widget.title,
       overflow: TextOverflow.ellipsis,
+      maxLines: 1,
       style: const TextStyle(
         color: Colors.white,
         fontSize: 18,
@@ -586,10 +576,15 @@ String getDisplayName(FitropeUser user) {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 16, color: Colors.white70),
+                Icon(icon, size: 16, color: Colors.white, shadows: const [
+                  Shadow(blurRadius: 4, color: Colors.black54),
+                ]),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(value, style: const TextStyle(color: Colors.white)),
+                  child: Text(value, style: const TextStyle(
+                    color: Colors.white,
+                    shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                  )),
                 ),
               ],
             ),
@@ -601,7 +596,6 @@ String getDisplayName(FitropeUser user) {
 
   // Pill che mostra i posti liberi, colorata in base alla capienza.
   Widget _capacityPill(int subscribed, int capacity) {
-    final free = capacity - subscribed;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -609,7 +603,7 @@ String getDisplayName(FitropeUser user) {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        free <= 0 ? 'Pieno' : (free == 1 ? '1 libero' : '$free liberi'),
+        capacityPillLabel(subscribed, capacity),
         style: const TextStyle(
             color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
       ),
@@ -727,22 +721,30 @@ String getDisplayName(FitropeUser user) {
               child: Image.asset(
                 CourseImages.getCourseImage(widget.course),
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                cacheWidth: 700, // evita di decodificare l'asset a piena risoluzione
+                // Se l'asset non carica, ricadi sull'immagine di default del tipo;
+                // se manca anche quella, mostra un fondo scuro coerente (no card "vuota").
+                errorBuilder: (context, error, stackTrace) => Image.asset(
+                  CourseImages.getDefaultImage(widget.course.courseType),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const ColoredBox(color: primaryDarkColor),
+                ),
               ),
             ),
             // Scrim scuro per garantire la leggibilità del testo sopra l'immagine
-            Positioned.fill(
+            const Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.55),
-                      Colors.black.withValues(alpha: 0.35),
-                      Colors.black.withValues(alpha: 0.72),
+                      Color(0x8C000000),
+                      Color(0x59000000),
+                      Color(0xB8000000),
                     ],
-                    stops: const [0.0, 0.4, 1.0],
+                    stops: [0.0, 0.4, 1.0],
                   ),
                 ),
               ),

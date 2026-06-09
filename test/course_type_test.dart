@@ -74,12 +74,24 @@ void main() {
       );
     });
 
-    test('getCourseImage usa imageKey quando presente', () {
+    test('getCourseImage usa imageKey quando è una chiave valida del catalogo', () {
       final course = buildCourse(
         courseType: CourseType.open,
-        imageKey: 'assets/course_images/pt_2.png',
+        imageKey: 'assets/course_images/pt_2.webp',
       );
-      expect(CourseImages.getCourseImage(course), 'assets/course_images/pt_2.png');
+      expect(CourseImages.getCourseImage(course), 'assets/course_images/pt_2.webp');
+    });
+
+    test('getCourseImage ignora un imageKey non più nel catalogo e usa il default', () {
+      // imageKey "stale" (asset rinominato/rimosso): deve ricadere sul default del tipo.
+      final stale = buildCourse(
+        courseType: CourseType.personal_trainer,
+        imageKey: 'assets/course_images/pt_2.png', // estensione vecchia, non più nel catalogo
+      );
+      expect(
+        CourseImages.getCourseImage(stale),
+        CourseImages.getDefaultImage(CourseType.personal_trainer),
+      );
     });
 
     test('getCourseImage fa fallback sul default del tipo se imageKey è nullo o vuoto', () {
@@ -113,20 +125,20 @@ void main() {
     test('toJson include courseType e imageKey', () {
       final json = buildCourse(
         courseType: CourseType.personal_trainer,
-        imageKey: 'assets/course_images/pt_1.png',
+        imageKey: 'assets/course_images/pt_1.webp',
       ).toJson();
       expect(json['courseType'], 'personal_trainer');
-      expect(json['imageKey'], 'assets/course_images/pt_1.png');
+      expect(json['imageKey'], 'assets/course_images/pt_1.webp');
     });
 
     test('fromJson legge courseType e imageKey', () {
       final json = buildCourse(
         courseType: CourseType.personal_trainer,
-        imageKey: 'assets/course_images/pt_3.png',
+        imageKey: 'assets/course_images/pt_3.webp',
       ).toJson();
       final parsed = Course.fromJson(json);
       expect(parsed.courseType, CourseType.personal_trainer);
-      expect(parsed.imageKey, 'assets/course_images/pt_3.png');
+      expect(parsed.imageKey, 'assets/course_images/pt_3.webp');
     });
 
     test('fromJson usa open come default quando courseType manca', () {
@@ -135,10 +147,16 @@ void main() {
       expect(parsed.courseType, CourseType.open);
     });
 
+    test('round-trip preserva imageKey null', () {
+      final json = buildCourse(imageKey: null).toJson();
+      expect(json['imageKey'], isNull);
+      expect(Course.fromJson(json).imageKey, isNull);
+    });
+
     test('round-trip toJson/fromJson preserva la categorizzazione', () {
       final original = buildCourse(
         courseType: CourseType.personal_trainer,
-        imageKey: 'assets/course_images/pt_2.png',
+        imageKey: 'assets/course_images/pt_2.webp',
       );
       final parsed = Course.fromJson(original.toJson());
       expect(parsed.courseType, original.courseType);

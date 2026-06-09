@@ -2,20 +2,9 @@
 // Avviare con: flutter run -t lib/main_preview.dart
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/utils/capacity_color.dart';
 
 void main() => runApp(const PreviewApp());
-
-/// Colore della capienza in base ai POSTI LIBERI.
-/// - verde     : >= 50% posti liberi
-/// - rosso     : <= 15% posti liberi (incluso pieno)
-/// - arancione : negli altri casi
-Color capacityColor(int subscribed, int capacity) {
-  if (capacity <= 0) return const Color(0xFFFB8C00);
-  final freeRatio = (capacity - subscribed) / capacity;
-  if (freeRatio <= 0.15) return const Color(0xFFE53935);
-  if (freeRatio >= 0.50) return const Color(0xFF43A047);
-  return const Color(0xFFFB8C00);
-}
 
 class CaseData {
   final String label;
@@ -38,7 +27,7 @@ const cases = [
       '20/20 · 0% posti liberi → rosso.', 20, 20),
 ];
 
-const _image = 'assets/course_images/pt_1.png';
+const _image = 'assets/course_images/pt_1.webp';
 
 class PreviewApp extends StatelessWidget {
   const PreviewApp({super.key});

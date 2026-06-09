@@ -669,6 +669,7 @@ String _getDayName(DateTime date) {
                                       child: Image.asset(
                                         imagePath,
                                         fit: BoxFit.cover,
+                                        cacheWidth: 300, // miniatura: niente decode a piena risoluzione
                                         errorBuilder: (context, error, stackTrace) => Container(
                                           color: primaryLightColor.withValues(alpha: 0.3),
                                           child: const Center(

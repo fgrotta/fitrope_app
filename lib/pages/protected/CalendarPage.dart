@@ -382,6 +382,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Widget _buildCourseCard(Course course) {
     return CoursePreviewCard(
+      key: ValueKey(course.uid),
       course: course,
       currentUser: user,
       trainers: trainers,

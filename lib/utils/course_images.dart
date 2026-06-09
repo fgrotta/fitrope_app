@@ -6,18 +6,18 @@ import 'package:fitrope_app/types/course.dart';
 class CourseImages {
   /// Immagine di default generica, usata come fallback quando non c'è
   /// né un'immagine esplicita né una stock per la tipologia.
-  static const String defaultImage = 'assets/course_images/default.png';
+  static const String defaultImage = 'assets/course_images/default.webp';
 
   static const Map<CourseType, List<String>> imagesByType = {
     CourseType.open: [
-      'assets/course_images/open_1.png',
-      'assets/course_images/open_2.png',
-      'assets/course_images/open_3.png',
+      'assets/course_images/open_1.webp',
+      'assets/course_images/open_2.webp',
+      'assets/course_images/open_3.webp',
     ],
     CourseType.personal_trainer: [
-      'assets/course_images/pt_1.png',
-      'assets/course_images/pt_2.png',
-      'assets/course_images/pt_3.png',
+      'assets/course_images/pt_1.webp',
+      'assets/course_images/pt_2.webp',
+      'assets/course_images/pt_3.webp',
     ],
   };
 
@@ -37,10 +37,12 @@ class CourseImages {
   }
 
   /// Restituisce il path dell'immagine per un corso.
-  /// Usa imageKey se presente, altrimenti il default per il tipo.
+  /// Usa imageKey solo se è una chiave valida del catalogo, altrimenti
+  /// ricade sul default per la tipologia (evita card "vuote" con imageKey stale).
   static String getCourseImage(Course course) {
-    if (course.imageKey != null && course.imageKey!.isNotEmpty) {
-      return course.imageKey!;
+    final key = course.imageKey;
+    if (key != null && key.isNotEmpty && all.contains(key)) {
+      return key;
     }
     return getDefaultImage(course.courseType);
   }
