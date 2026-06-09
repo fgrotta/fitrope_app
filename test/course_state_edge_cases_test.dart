@@ -142,6 +142,19 @@ void main() {
       expect(getCourseState(course, user), CourseState.NULL);
     });
 
+    test('utente OPEN non puo accedere a corso Hyrox -> NULL', () {
+      final course = makeCourse(tags: [CourseTags.HYROX]);
+      store.dispatch(SetAllCoursesAction([course]));
+      final user = makeUser(
+        tipologia: TipologiaIscrizione.ABBONAMENTO_MENSILE,
+        entrateSettimanali: 3,
+        fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
+        tipologiaCorsoTags: [CourseTags.OPEN],
+      );
+
+      expect(getCourseState(course, user), CourseState.NULL);
+    });
+
     test('il controllo tag avviene prima dell-iscrizione: utente gia iscritto con tag sbagliati -> NULL', () {
       final course = makeCourse(uid: 'c1', tags: [CourseTags.PERSONAL_TRAINER]);
       store.dispatch(SetAllCoursesAction([course]));

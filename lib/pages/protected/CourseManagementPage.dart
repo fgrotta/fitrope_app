@@ -8,6 +8,7 @@ import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/components/sala_selector_card.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -42,6 +43,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   List<String> selectedTags = [];
   bool reminderEnabled = true;
   bool waitlistEnabled = true;
+  String? selectedSala;
 
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
 
@@ -150,6 +152,10 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     selectedTags = widget.courseToEdit?.tags ??
                    widget.courseToDuplicate?.tags ??
                    [];
+
+    // Inizializza la sala
+    selectedSala = widget.courseToEdit?.sala ??
+                   widget.courseToDuplicate?.sala;
 
     // Inizializza i flag notifiche/waitlist
     reminderEnabled = widget.courseToEdit?.reminderEnabled ??
@@ -297,21 +303,20 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         // I Trainer non possono cambiare il trainer assegnato
         final trainerId = user.role == 'Trainer' ? widget.courseToEdit!.trainerId : selectedTrainerId;
         
-        final updatedCourse = Course(
-          uid: widget.courseToEdit!.uid,
-          id: widget.courseToEdit!.uid,
+        // copyWith preserva i campi non editabili (uid, subscribed, waitlist) e
+        // azzera trainerId/sala se l'utente li deseleziona (null esplicito).
+        final updatedCourse = widget.courseToEdit!.copyWith(
           name: name,
           startDate: Timestamp.fromDate(startDate!),
           endDate: Timestamp.fromDate(endDate),
           capacity: capacity,
-          subscribed: widget.courseToEdit!.subscribed,
           trainerId: trainerId,
           tags: selectedTags,
-          waitlist: widget.courseToEdit!.waitlist,
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
+          sala: selectedSala,
         );
-        
+
         await updateCourse(updatedCourse);
         SnackBarUtils.showSuccessSnackBar(context, 'Corso modificato con successo');
       } else {
@@ -331,8 +336,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           tags: selectedTags,
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
+          sala: selectedSala,
         );
-        
+
         await createCourse(newCourse);
         
         final isDuplication = widget.mode == 'duplicate';
@@ -534,6 +540,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                   ),
                   const SizedBox(height: 20),
                 ],
+
+                // Selezione Sala
+                SalaSelectorCard(
+                  value: selectedSala,
+                  onChanged: (value) => setState(() => selectedSala = value),
+                ),
+                const SizedBox(height: 20),
 
                 // Selezione Tag
                 Card(

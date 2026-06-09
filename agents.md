@@ -201,6 +201,9 @@ Traccia le disiscrizioni con: `courseId`, `cancelledAt`, `entryLost` (se l'ingre
 | waitlist | List\<String\> | Utenti in lista d'attesa (user IDs) |
 | reminderEnabled | bool | Se true invia promemoria (default true) |
 | waitlistEnabled | bool | Se true la lista d'attesa è attiva (default true) |
+| sala | String? | Sala del corso (lista chiusa `Sale`: "Sala 1"/"Sala 2"; null = legacy/non impostata) |
+
+I tag dei corsi sono in `CourseTags` (Personal Trainer, Open, **Hyrox**, Hey Mamma). Il registry `CourseTypes` (`lib/utils/course_types.dart`) mappa ogni tag a una tipologia con `displayName` e `defaultSala` (quest'ultimo previsto per il futuro, non usato in v1). La tipologia di un corso si deriva dai `tags` via `CourseTypes.primaryForTags`.
 
 ## Stato globale Redux
 

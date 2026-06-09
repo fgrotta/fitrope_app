@@ -599,6 +599,19 @@ String getDisplayName(FitropeUser user) {
               ),
             // Riga 2: Descrizione
             if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),),
+            // Riga 2b: Sala
+            if(widget.course.sala != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.meeting_room, size: 16, color: Colors.white),
+                    const SizedBox(width: 4),
+                    Text(widget.course.sala!, style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
             // Riga 3: Bottoni iscrizione
             if(!widget.isAdmin)
               Row(

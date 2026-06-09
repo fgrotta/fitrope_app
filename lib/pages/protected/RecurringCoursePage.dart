@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/components/sala_selector_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -33,6 +34,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   List<String> selectedTags = [];
   bool reminderEnabled = true;
   bool waitlistEnabled = true;
+  String? selectedSala;
 
   // Variabili per corsi ricorrenti
   Map<int, bool> selectedDays = {
@@ -132,6 +134,9 @@ String _getDayName(DateTime date) {
 
     // Inizializza i tag (tipo di corso)
     selectedTags = [];
+
+    // Inizializza la sala
+    selectedSala = null;
 
     // Se è un Trainer, assegna automaticamente se stesso
     if (user.role == 'Trainer') {
@@ -331,6 +336,7 @@ String _getDayName(DateTime date) {
           tags: List.from(selectedTags),
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
+          sala: selectedSala,
         );
         
         await createCourse(newCourse);
@@ -559,6 +565,13 @@ String _getDayName(DateTime date) {
                     fillColor: Colors.white,
                   ),
                   keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 20),
+
+                // Selezione Sala
+                SalaSelectorCard(
+                  value: selectedSala,
+                  onChanged: (value) => setState(() => selectedSala = value),
                 ),
                 const SizedBox(height: 20),
 
