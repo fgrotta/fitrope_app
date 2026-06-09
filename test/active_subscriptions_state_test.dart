@@ -677,5 +677,24 @@ void main() {
       // Tipologia primaria = Open (primo tag): si valuta solo l'Open, al limite -> LIMIT.
       expect(getCourseState(multi, u), CourseState.LIMIT);
     });
+
+    test(
+        'tag-access ma famiglia non coperta da abbonamento -> NULL (niente accesso gratis)',
+        () {
+      final target = course(uid: 'h1', tags: [CourseTags.HYROX]);
+      store.dispatch(SetAllCoursesAction([target]));
+      final u = user(
+        tags: [CourseTags.OPEN, CourseTags.HYROX], // accesso via tag a Hyrox
+        subs: [
+          sub(
+              family: SubscriptionFamily.OPEN,
+              mode: BillingMode.FREQUENCY,
+              tags: {CourseTags.OPEN},
+              weeklyFrequency: 2),
+        ],
+      );
+      // Hyrox HA una famiglia ma manca l'abbonamento Hyrox -> non idoneo (non gratis).
+      expect(getCourseState(target, u), CourseState.NULL);
+    });
   });
 }

@@ -51,13 +51,19 @@ CourseState getCourseState(Course course, FitropeUser user) {
   bool isInWaitlist = course.waitlist.contains(user.uid);
   bool courseFull = course.capacity <= course.subscribed;
 
-  // Idoneità (crediti/limiti/scadenza) nello scope corretto. Nel modello
-  // multi-abbonamento un corso accessibile via tag ma NON coperto da alcun
-  // abbonamento (es. Hey Mamma, tipologia senza famiglia) non ha limiti.
+  // Idoneità (crediti/limiti/scadenza) nello scope corretto.
   CourseState? limitState;
   if (useSubscriptions) {
-    limitState =
-        covering.isEmpty ? null : _evaluateCovering(covering, user, courseDate);
+    if (covering.isEmpty) {
+      // Accessibile via tag ma nessun abbonamento copre la tipologia: se la
+      // tipologia ha una famiglia (Open/Hyrox/PT) serve un abbonamento coprente
+      // → non idoneo (NULL); se è una tipologia senza famiglia (es. Hey Mamma)
+      // → nessun limite.
+      final family = CourseTypes.byKey(_coursePrimaryTypeTag(course))?.family;
+      limitState = family == null ? null : CourseState.NULL;
+    } else {
+      limitState = _evaluateCovering(covering, user, courseDate);
+    }
   } else {
     limitState = _getSubscriptionLimitState(user, courseDate);
   }
@@ -81,7 +87,6 @@ CourseState getCourseState(Course course, FitropeUser user) {
   return CourseState.CAN_SUBSCRIBE;
 }
 
-/// Tag di tipologia effettivi del corso (un corso senza tag è trattato come OPEN).
 /// Tipologia "primaria" del corso: primo tag riconosciuto (o OPEN se nessuno).
 /// Determina in modo DETERMINISTICO quale famiglia "consuma" il corso, così un
 /// corso multi-tag non viene servito da più famiglie (no bypass di un limite).

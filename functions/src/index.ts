@@ -13,7 +13,7 @@ import {
   runCertificateEmails,
 } from "./certificateEmails";
 import { db } from "./firebaseAdmin";
-
+import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
 // Secret gestito da Google Secret Manager.
 // Setup: firebase functions:secrets:set ONESIGNAL_REST_API_KEY
 const oneSignalApiKey = defineSecret("ONESIGNAL_REST_API_KEY");
