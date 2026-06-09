@@ -580,8 +580,14 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                 if (selected) {
                                   setState(() {
                                     selectedCourseType = type;
-                                    // Reset immagine quando si cambia tipo
-                                    selectedImageKey = null;
+                                    // Azzera l'immagine solo se non è valida per il
+                                    // nuovo tipo: così tornando al tipo originale in
+                                    // modifica non si perde l'immagine già scelta.
+                                    if (selectedImageKey != null &&
+                                        !CourseImages.forType(type)
+                                            .contains(selectedImageKey)) {
+                                      selectedImageKey = null;
+                                    }
                                   });
                                 }
                               },

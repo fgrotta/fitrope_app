@@ -600,7 +600,12 @@ String _getDayName(DateTime date) {
                                 if (selected) {
                                   setState(() {
                                     selectedCourseType = type;
-                                    selectedImageKey = null;
+                                    // Azzera l'immagine solo se non valida per il nuovo tipo.
+                                    if (selectedImageKey != null &&
+                                        !CourseImages.forType(type)
+                                            .contains(selectedImageKey)) {
+                                      selectedImageKey = null;
+                                    }
                                   });
                                 }
                               },
