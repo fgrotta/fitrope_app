@@ -9,23 +9,18 @@ Future<Course?> createCourse(Course course) async {
     // Se l'id non è presente, genera un id univoco
     if (course.uid.isEmpty) {
       var newID = postsRef.doc().id;
-      Course newCourse = new Course(
-        uid: newID,
-        id: newID, //Deprecated
-        name: course.name, 
-        startDate: course.startDate, 
-        endDate: course.endDate, 
-        capacity: course.capacity, 
-        subscribed: course.subscribed,
-        trainerId: course.trainerId,
-        tags: course.tags,
-      );
-      await postsRef.doc(newCourse.id).set(newCourse.toJson());
+      // Serializza l'intero modello e sovrascrivi solo gli id, così nessun
+      // campo (courseType, imageKey, waitlist, reminderEnabled, ...) viene
+      // perso quando se ne aggiungono di nuovi al modello Course.
+      final data = course.toJson()
+        ..['uid'] = newID
+        ..['id'] = newID;
+      await postsRef.doc(newID).set(data);
       invalidateCoursesCache(); // Invalida la cache dopo la creazione
-      
-      print('Course created successfully with ID: ${newCourse.id}');
-      return newCourse;
-    } else { 
+
+      print('Course created successfully with ID: $newID');
+      return Course.fromJson(data);
+    } else {
       print('Course already exists');
       return null;
     }  
