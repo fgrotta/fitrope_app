@@ -588,9 +588,8 @@ String getDisplayName(FitropeUser user) {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Immagine del corso
-            if (widget.course.imageKey != null && widget.course.imageKey!.isNotEmpty)
-              SizedBox(
+            // Immagine del corso: usa imageKey se presente, altrimenti il default per tipologia
+            SizedBox(
                 height: 120,
                 width: double.infinity,
                 child: Image.asset(
