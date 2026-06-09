@@ -25,6 +25,18 @@ enum CourseState {
   WAITLIST_SPOT_AVAILABLE,
 }
 
+/// Colore della capienza in base ai POSTI LIBERI:
+/// - verde     : >= 50% posti liberi
+/// - rosso     : <= 15% posti liberi (incluso pieno)
+/// - arancione : negli altri casi
+Color capacityColor(int subscribed, int capacity) {
+  if (capacity <= 0) return const Color(0xFFFB8C00);
+  final freeRatio = (capacity - subscribed) / capacity;
+  if (freeRatio <= 0.15) return const Color(0xFFE53935);
+  if (freeRatio >= 0.50) return const Color(0xFF43A047);
+  return const Color(0xFFFB8C00);
+}
+
 class CourseCard extends StatefulWidget {
   final String courseId;
   final Course course;
@@ -307,7 +319,8 @@ class _CourseCardState extends State<CourseCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                
+                if (widget.capacity != null && widget.capacity! > 0)
+                  _capacityPill(widget.subscribersUsers!.length, widget.capacity!),
                 if (widget.isAdmin)
                   IconButton(
                     icon: const Icon(Icons.add, color: surfaceVariantColor, size: 20),
@@ -322,7 +335,21 @@ class _CourseCardState extends State<CourseCard> {
                 ),
           ])],
         ),
-        const SizedBox(height: 4),
+        if (widget.capacity != null && widget.capacity! > 0) ...[
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (widget.subscribersUsers!.length / widget.capacity!).clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: Colors.white24,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                capacityColor(widget.subscribersUsers!.length, widget.capacity!),
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 6),
         ...widget.subscribersUsers!.map((user) {
           String displayName = getDisplayName(user);
           return Padding(
@@ -474,10 +501,93 @@ String getDisplayName(FitropeUser user) {
 
   Widget renderTitle() {
     if(widget.titleStyle != null) {
-      return Text("Corso: " + widget.title, overflow: TextOverflow.visible, style: widget.titleStyle,);
+      return Text(widget.title, overflow: TextOverflow.ellipsis, style: widget.titleStyle,);
     }
 
-    return Text("Corso: " + widget.title, style: const TextStyle(color: Colors.white, ),);
+    return Text(
+      widget.title,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+      ),
+    );
+  }
+
+  // Alternativa C: icona associata a ciascuna riga di metadati.
+  IconData _iconForMeta(String label) {
+    switch (label.toLowerCase()) {
+      case 'orario':
+        return Icons.schedule;
+      case 'trainer':
+        return Icons.person_outline;
+      case 'tipologia':
+        return Icons.fitness_center;
+      case 'iscritti':
+        return Icons.groups_outlined;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
+  // Converte la description ("Label: valore" per riga) in righe con icona.
+  Widget _buildMetadata() {
+    final lines = widget.description
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lines.map((line) {
+          final idx = line.indexOf(':');
+          final IconData icon;
+          final String value;
+          if (idx > 0) {
+            icon = _iconForMeta(line.substring(0, idx).trim());
+            value = line.substring(idx + 1).trim();
+          } else {
+            icon = Icons.info_outline;
+            value = line.trim();
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 16, color: Colors.white70),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(value, style: const TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Pill che mostra i posti liberi, colorata in base alla capienza.
+  Widget _capacityPill(int subscribed, int capacity) {
+    final free = capacity - subscribed;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: capacityColor(subscribed, capacity),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        free <= 0 ? 'Pieno' : (free == 1 ? '1 libero' : '$free liberi'),
+        style: const TextStyle(
+            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
   }
 
   Widget renderButtonSubscribe() {
@@ -584,23 +694,37 @@ String getDisplayName(FitropeUser user) {
           borderRadius: BorderRadius.all(Radius.circular(10)),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            // Immagine del corso: usa imageKey se presente, altrimenti il default per tipologia
-            SizedBox(
-                height: 120,
-                width: double.infinity,
-                child: Image.asset(
-                  CourseImages.getCourseImage(widget.course),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+            // Immagine come sfondo dell'intera card (usa imageKey o il default per tipologia)
+            Positioned.fill(
+              child: Image.asset(
+                CourseImages.getCourseImage(widget.course),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+              ),
+            ),
+            // Scrim scuro per garantire la leggibilità del testo sopra l'immagine
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.55),
+                      Colors.black.withValues(alpha: 0.35),
+                      Colors.black.withValues(alpha: 0.72),
+                    ],
+                    stops: const [0.0, 0.4, 1.0],
+                  ),
                 ),
               ),
+            ),
             Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
             // Riga 1: Titolo + pulsanti User/Admin allineati a sinistra
@@ -608,13 +732,13 @@ String getDisplayName(FitropeUser user) {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  renderTitle(),
+                  Flexible(child: renderTitle()),
                   if(widget.capacity != null && widget.subscribed != null && !widget.isAdmin) renderUserButtons(),
                   if(widget.isAdmin) renderAdminButtons(),
                 ],
               ),
-            // Riga 2: Descrizione
-            if(widget.description != "") Text(widget.description, style: const TextStyle(color: Colors.white, ),),
+            // Riga 2: Metadati con icone (orario, trainer, tipologia)
+            if(widget.description.trim() != "") _buildMetadata(),
             // Riga 3: Bottoni iscrizione
             if(!widget.isAdmin)
               Row(
@@ -626,11 +750,23 @@ String getDisplayName(FitropeUser user) {
             // Mostra la lista cliccabile degli iscritti se richiesto
             if(widget.showClickableSubscribers)
               Container(
-                margin: const EdgeInsets.only(top: 0),
+                margin: const EdgeInsets.only(top: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _hasEnrollmentMismatch() ? Colors.orange : primaryDarkColor,
+                  color: _hasEnrollmentMismatch()
+                      ? Colors.orange
+                      : primaryDarkColor.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(8),
+                  border: (widget.capacity != null && widget.capacity! > 0)
+                      ? Border(
+                          left: BorderSide(
+                            color: capacityColor(
+                                widget.subscribersUsers?.length ?? widget.subscribed ?? 0,
+                                widget.capacity!),
+                            width: 4,
+                          ),
+                        )
+                      : null,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,7 +788,10 @@ Row renderUserButtons() {
   int waitlistCount = widget.course.waitlist.length;
   return Row(
     children: [
-      Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: onPrimaryColor)),
+      if (widget.capacity != null && widget.capacity! > 0)
+        _capacityPill(widget.subscribed ?? 0, widget.capacity!)
+      else
+        Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: Colors.white)),
       if (waitlistCount > 0)
         Text(" +$waitlistCount", style: const TextStyle(color: Colors.orange, fontSize: 12)),
       const SizedBox(width: 7.5),
@@ -660,7 +799,7 @@ Row renderUserButtons() {
         icon: const Icon(Icons.people),
         tooltip: 'Vedi iscritti',
         onPressed: showSubscribersDialog,
-        color: onPrimaryColor,
+        color: Colors.white,
         iconSize: 20,
       ),
     ],
@@ -669,11 +808,17 @@ Row renderUserButtons() {
      
 
   Widget renderAdminButtons() {
-    return Wrap(
-      alignment: WrapAlignment.start,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
-      children: [
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Wrap(
+        alignment: WrapAlignment.start,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        children: [
         if(widget.onEdit != null)
           IconButton(
             icon: const Icon(Icons.edit, color: onPrimaryColor),
@@ -692,7 +837,8 @@ Row renderUserButtons() {
             tooltip: 'Elimina corso',
             onPressed: showDeleteConfirmationDialog,
           ),
-      ],
+        ],
+      ),
     );
   }
 }
