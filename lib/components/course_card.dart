@@ -781,7 +781,7 @@ String getDisplayName(FitropeUser user) {
                 decoration: BoxDecoration(
                   color: _hasEnrollmentMismatch()
                       ? Colors.orange.withValues(alpha: 0.92)
-                      : Colors.white.withValues(alpha: 0.42),
+                      : Colors.white.withValues(alpha: 0.70),
                   borderRadius: BorderRadius.circular(8),
                   border: (widget.capacity != null && widget.capacity! > 0)
                       ? Border(
