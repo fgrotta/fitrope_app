@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fitrope_app/types/userSubscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 
 class CancelledEnrollment {
@@ -55,6 +56,7 @@ class FitropeUser {
   final List<String> waitlistCourses; // Corsi in lista d'attesa (course IDs)
   final bool emailNotificationsEnabled; // Preferenza notifiche email
   final bool pushNotificationsEnabled; // Preferenza notifiche push
+  final List<UserSubscription> activeSubscriptions; // Snapshot abbonamenti attivi (multi-abbonamento)
 
   const FitropeUser({
     required this.name,
@@ -78,6 +80,7 @@ class FitropeUser {
     this.waitlistCourses = const [],
     this.emailNotificationsEnabled = true,
     this.pushNotificationsEnabled = true,
+    this.activeSubscriptions = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -103,6 +106,7 @@ class FitropeUser {
       'waitlistCourses': waitlistCourses,
       'emailNotificationsEnabled': emailNotificationsEnabled,
       'pushNotificationsEnabled': pushNotificationsEnabled,
+      'activeSubscriptions': activeSubscriptions.map((s) => s.toJson()).toList(),
     };
   }
 
@@ -141,6 +145,8 @@ class FitropeUser {
           .toList() ?? [],
       emailNotificationsEnabled: json['emailNotificationsEnabled'] as bool? ?? true,
       pushNotificationsEnabled: json['pushNotificationsEnabled'] as bool? ?? true,
+      activeSubscriptions:
+          _parseActiveSubscriptions(json['activeSubscriptions']),
     );
   }
 }
@@ -152,4 +158,20 @@ enum TipologiaIscrizione {
   ABBONAMENTO_SEMESTRALE,
   ABBONAMENTO_ANNUALE,
   ABBONAMENTO_PROVA // Nuovo abbonamento di prova
+}
+
+/// Parsa lo snapshot degli abbonamenti scartando i singoli elementi malformati,
+/// così uno snapshot sporco non fa fallire l'intera deserializzazione dell'utente
+/// (FitropeUser.fromJson è usato anche su liste admin di tutti gli utenti).
+List<UserSubscription> _parseActiveSubscriptions(dynamic raw) {
+  if (raw is! List) return const [];
+  final result = <UserSubscription>[];
+  for (final item in raw) {
+    try {
+      result.add(UserSubscription.fromJson(item as Map<String, dynamic>));
+    } catch (_) {
+      // Abbonamento illeggibile: salta invece di propagare l'eccezione.
+    }
+  }
+  return result;
 }

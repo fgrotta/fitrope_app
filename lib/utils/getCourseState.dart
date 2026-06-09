@@ -2,7 +2,9 @@ import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/userSubscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/utils/course_types.dart';
 
 CourseState getCourseState(Course course, FitropeUser user) {
   int courseDay = course.startDate.millisecondsSinceEpoch;
@@ -11,18 +13,37 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.CLOSED; // Corso passato
   }
 
-  // Definisce courseDate per i controlli di scadenza
   DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
-  // Controlla prima se l'abbonamento è scaduto
-  if ((user.fineIscrizione != null &&
-      courseDate.isAfter(user.fineIscrizione!.toDate()))) {
+
+  // Modello multi-abbonamento se è presente lo snapshot; altrimenti fallback
+  // al modello legacy (campi tipologiaIscrizione/entrate*/fineIscrizione).
+  final bool useSubscriptions = user.activeSubscriptions.isNotEmpty;
+
+  // Scadenza: solo legacy. Nel modello a abbonamenti è per-abbonamento ed è
+  // valutata in _subscriptionGateState.
+  if (!useSubscriptions &&
+      user.fineIscrizione != null &&
+      courseDate.isAfter(user.fineIscrizione!.toDate())) {
     return CourseState.EXPIRED;
   }
-  // Verifica se l'utente può accedere al corso basandosi sui tag
-  if (!CourseTags.canUserAccessCourse(user.tipologiaCorsoTags, course.tags)) {
+
+  final bool hasTagAccess =
+      CourseTags.canUserAccessCourse(user.tipologiaCorsoTags, course.tags);
+
+  // Abbonamenti che coprono la tipologia del corso (solo modello multi-abbonamento).
+  final List<UserSubscription> covering =
+      useSubscriptions ? _coveringSubscriptions(course, user) : const [];
+
+  // Accesso: legacy = solo tag; multi-abbonamento = tag OPPURE copertura
+  // abbonamento (un abbonamento valido sblocca il corso anche se i tag legacy
+  // non sono allineati, evitando falsi "Non disponibile").
+  if (useSubscriptions) {
+    if (!hasTagAccess && covering.isEmpty) return CourseState.NULL;
+  } else if (!hasTagAccess) {
     return CourseState.NULL;
   }
-  // Usa course.uid per la verifica dell'iscrizione (più affidabile)
+
+  // Già iscritto (precede scadenza/limiti: se sei dentro, resti dentro).
   if (user.courses.contains(course.uid)) {
     return CourseState.SUBSCRIBED;
   }
@@ -30,11 +51,19 @@ CourseState getCourseState(Course course, FitropeUser user) {
   bool isInWaitlist = course.waitlist.contains(user.uid);
   bool courseFull = course.capacity <= course.subscribed;
 
-  // Determina se l'utente è idoneo a iscriversi (crediti, limiti settimanali)
-  CourseState? limitState = _getSubscriptionLimitState(user, courseDate);
+  // Idoneità (crediti/limiti/scadenza) nello scope corretto. Nel modello
+  // multi-abbonamento un corso accessibile via tag ma NON coperto da alcun
+  // abbonamento (es. Hey Mamma, tipologia senza famiglia) non ha limiti.
+  CourseState? limitState;
+  if (useSubscriptions) {
+    limitState =
+        covering.isEmpty ? null : _evaluateCovering(covering, user, courseDate);
+  } else {
+    limitState = _getSubscriptionLimitState(user, courseDate);
+  }
 
   if (courseFull) {
-    // Se la waitlist è disabilitata per questo corso, non proporla
+    // Se la waitlist è disabilitata per questo corso, non proporla.
     if (!course.waitlistEnabled) {
       if (limitState != null) return limitState;
       return CourseState.FULL;
@@ -44,14 +73,63 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.CAN_WAITLIST;
   }
 
-  // Corso con posti disponibili
+  // Corso con posti disponibili.
   if (limitState != null) return limitState;
-  if (isInWaitlist && course.waitlistEnabled) return CourseState.WAITLIST_SPOT_AVAILABLE;
+  if (isInWaitlist && course.waitlistEnabled) {
+    return CourseState.WAITLIST_SPOT_AVAILABLE;
+  }
   return CourseState.CAN_SUBSCRIBE;
 }
 
+/// Tag di tipologia effettivi del corso (un corso senza tag è trattato come OPEN).
+/// Tipologia "primaria" del corso: primo tag riconosciuto (o OPEN se nessuno).
+/// Determina in modo DETERMINISTICO quale famiglia "consuma" il corso, così un
+/// corso multi-tag non viene servito da più famiglie (no bypass di un limite).
+String _coursePrimaryTypeTag(Course course) =>
+    CourseTypes.primaryForTags(course.tags)?.key ?? CourseTags.OPEN;
+
+/// Abbonamenti dell'utente che coprono la tipologia primaria del corso.
+List<UserSubscription> _coveringSubscriptions(Course course, FitropeUser user) {
+  final String primary = _coursePrimaryTypeTag(course);
+  return user.activeSubscriptions
+      .where((s) => s.courseTypeTags.contains(primary))
+      .toList();
+}
+
+/// Valuta scadenza + limiti nello scope degli abbonamenti che coprono il corso.
+/// Precondizione: [covering] non vuoto. Ritorna null se l'utente è idoneo.
+CourseState? _evaluateCovering(
+    List<UserSubscription> covering, FitropeUser user, DateTime courseDate) {
+  // Tieni solo gli abbonamenti validi alla data del corso: già iniziati
+  // (startDate) e non ancora scaduti (endDate).
+  final valid = covering
+      .where((s) =>
+          !courseDate.isBefore(s.startDate.toDate()) &&
+          !courseDate.isAfter(s.endDate.toDate()))
+      .toList();
+  if (valid.isEmpty) return CourseState.EXPIRED;
+
+  // Idoneo se ALMENO UN abbonamento valido consente l'iscrizione.
+  for (final s in valid) {
+    if (s.billingMode == BillingMode.ENTRIES) {
+      if ((s.remainingEntries ?? 0) > 0) return null;
+    } else {
+      // FREQUENCY: null = illimitato.
+      if (s.weeklyFrequency == null) return null;
+      final used =
+          _countWeeklyEntriesForTags(courseDate, user, s.courseTypeTags);
+      if (used < s.weeklyFrequency!) return null;
+    }
+  }
+
+  // Non idoneo: stato in base alla modalità (1:1 famiglia↔tipologia → stessa modalità).
+  return valid.first.billingMode == BillingMode.ENTRIES
+      ? CourseState.SUBSCRIBE_LIMIT
+      : CourseState.LIMIT;
+}
+
 /// Restituisce lo stato limite se l'utente non può iscriversi per crediti/limiti,
-/// oppure null se l'utente è idoneo.
+/// oppure null se l'utente è idoneo. (Modello legacy mono-abbonamento.)
 CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
   if (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA ||
       user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE) {
@@ -78,69 +156,77 @@ CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
   return CourseState.NULL;
 }
 
-/// Conta gli ingressi settimanali usati considerando corsi attivi e disiscrizioni perse
-///
-/// [courseDate] - La data del corso per calcolare la settimana
-/// [user] - L'utente di cui contare gli ingressi
-///
-/// Restituisce il numero di ingressi settimanali usati (corsi attivi + disiscrizioni perse)
-/// Le disiscrizioni perse (entryLost: true) contano come ingressi usati perché l'ingresso è stato perso
-int _countWeeklyEntries(DateTime courseDate, FitropeUser user) {
-  List<Course> allCourses = store.state.allCourses;
-  List<Course> allSubscribedCourse = [];
-
-  // Trova tutti i corsi a cui l'utente è iscritto
-  for (int n = 0; n < user.courses.length; n++) {
-    Course? course = allCourses
-        .where((Course course) => course.uid == user.courses[n])
-        .firstOrNull;
-    if (course != null) {
-      allSubscribedCourse.add(course);
-    }
-  }
-
-  // Calcola l'inizio e la fine della settimana del corso
+/// Inizio/fine (in millis) della settimana che contiene [courseDate] (lun-dom, UTC).
+({int start, int end}) _weekBoundsMillis(DateTime courseDate) {
   DateTime startOfWeek =
       courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
   startOfWeek =
       DateTime.utc(startOfWeek.year, startOfWeek.month, startOfWeek.day);
   DateTime endOfWeek = startOfWeek.add(const Duration(
       days: 6, hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
-  int startOfWeekMillis = startOfWeek.millisecondsSinceEpoch;
-  int endOfWeekMillis = endOfWeek.millisecondsSinceEpoch;
+  return (
+    start: startOfWeek.millisecondsSinceEpoch,
+    end: endOfWeek.millisecondsSinceEpoch
+  );
+}
 
-  // Conta i corsi attivi nella settimana
+/// Conta gli ingressi settimanali usati (corsi attivi + disiscrizioni perse) nel
+/// modello legacy: tutti i corsi della settimana, senza distinzione di tipologia.
+int _countWeeklyEntries(DateTime courseDate, FitropeUser user) {
+  final bounds = _weekBoundsMillis(courseDate);
+  final List<Course> allCourses = store.state.allCourses;
+
   int activeCoursesCount = 0;
-  for (int n = 0; n < allSubscribedCourse.length; n++) {
-    int courseStart = allSubscribedCourse[n].startDate.millisecondsSinceEpoch;
-    bool isWithinCourseWeek =
-        courseStart >= startOfWeekMillis && courseStart <= endOfWeekMillis;
+  for (final id in user.courses) {
+    final Course? course = allCourses.where((c) => c.uid == id).firstOrNull;
+    if (course == null) continue;
+    final int start = course.startDate.millisecondsSinceEpoch;
+    if (start >= bounds.start && start <= bounds.end) activeCoursesCount += 1;
+  }
 
-    if (isWithinCourseWeek) {
+  // Le disiscrizioni perse (entryLost: true) contano come ingressi usati.
+  int lostEntriesCount = 0;
+  for (final cancelled in user.cancelledEnrollments) {
+    if (!cancelled.entryLost) continue;
+    final int start = cancelled.courseStartDate.toDate().millisecondsSinceEpoch;
+    if (start >= bounds.start && start <= bounds.end) lostEntriesCount += 1;
+  }
+
+  return activeCoursesCount + lostEntriesCount;
+}
+
+/// Come [_countWeeklyEntries], ma conta solo i corsi la cui tipologia rientra in
+/// [typeTags] (scoping per famiglia, modello multi-abbonamento). Le disiscrizioni
+/// perse contano solo se il corso originario è ancora risolvibile e della tipologia.
+int _countWeeklyEntriesForTags(
+    DateTime courseDate, FitropeUser user, Set<String> typeTags) {
+  final bounds = _weekBoundsMillis(courseDate);
+  final List<Course> allCourses = store.state.allCourses;
+
+  bool matchesType(Course c) => typeTags.contains(_coursePrimaryTypeTag(c));
+
+  int activeCoursesCount = 0;
+  for (final id in user.courses) {
+    final Course? course = allCourses.where((c) => c.uid == id).firstOrNull;
+    if (course == null) continue;
+    final int start = course.startDate.millisecondsSinceEpoch;
+    if (start >= bounds.start && start <= bounds.end && matchesType(course)) {
       activeCoursesCount += 1;
     }
   }
 
-  // Conta le disiscrizioni perse nella stessa settimana
-  // Le disiscrizioni perse (entryLost: true) contano come ingressi usati
   int lostEntriesCount = 0;
-  for (var cancelled in user.cancelledEnrollments) {
-    if (cancelled.entryLost) {
-      DateTime cancelledCourseDate = cancelled.courseStartDate.toDate();
-      int cancelledCourseStart = cancelledCourseDate.millisecondsSinceEpoch;
-      bool isWithinCourseWeek = cancelledCourseStart >= startOfWeekMillis &&
-          cancelledCourseStart <= endOfWeekMillis;
-
-      if (isWithinCourseWeek) {
-        lostEntriesCount += 1;
-      }
-    }
+  for (final cancelled in user.cancelledEnrollments) {
+    if (!cancelled.entryLost) continue;
+    final int start = cancelled.courseStartDate.toDate().millisecondsSinceEpoch;
+    if (start < bounds.start || start > bounds.end) continue;
+    final Course? course =
+        allCourses.where((c) => c.uid == cancelled.courseId).firstOrNull;
+    // Se il corso non è più risolvibile non possiamo determinarne la tipologia:
+    // contiamo comunque l'ingresso perso (come il modello legacy) per non
+    // sotto-contare il limite. TODO(PR3): denormalizzare i tag in CancelledEnrollment.
+    if (course == null || matchesType(course)) lostEntriesCount += 1;
   }
 
-  // Gli ingressi usati = corsi attivi + disiscrizioni perse
-  // Esempio: se un utente ha 2 ingressi settimanali, è iscritto a 1 corso e ha 1 disiscrizione persa,
-  // allora ha usato 2 ingressi (1 attivo + 1 perso), quindi non può iscriversi ad altri corsi
-  int weeklyEntriesUsed = activeCoursesCount + lostEntriesCount;
-
-  return weeklyEntriesUsed;
+  return activeCoursesCount + lostEntriesCount;
 }

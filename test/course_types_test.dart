@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fitrope_app/types/userSubscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
 import 'package:fitrope_app/utils/sale.dart';
@@ -75,6 +76,14 @@ void main() {
             reason:
                 'defaultSala non valida per ${type.key}: ${type.defaultSala}');
       }
+    });
+
+    test('family mappata: Open->OPEN, PT->PT, Hyrox->HYROX, HeyMamma->null',
+        () {
+      expect(CourseTypes.open.family, SubscriptionFamily.OPEN);
+      expect(CourseTypes.personalTrainer.family, SubscriptionFamily.PT);
+      expect(CourseTypes.hyrox.family, SubscriptionFamily.HYROX);
+      expect(CourseTypes.heyMamma.family, isNull);
     });
   });
 }
