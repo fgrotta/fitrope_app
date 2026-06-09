@@ -108,3 +108,34 @@ if (unsubscribeInfo['requiresConfirmation']) {
 - **Gestione asincrona** con loading states
 - **Logging completo** per debugging
 - **Compatibilità** con sistema di cache esistente
+
+## Modello multi-abbonamento (display/eligibility, da PR2)
+
+In parallelo al modello legacy sopra, `getCourseState` supporta il nuovo modello
+multi-abbonamento (`FitropeUser.activeSubscriptions`, lista di `UserSubscription`).
+
+- **Selezione del modello**: se `activeSubscriptions` è **vuoto** → modello legacy
+  (invariato, zero regressione). Se non è vuoto → modello multi-abbonamento.
+- **Tipologia primaria del corso**: primo tag riconosciuto (`CourseTypes.primaryForTags`,
+  fallback `Open`). Determina deterministicamente quale famiglia "consuma" il corso
+  (un corso multi-tag non è servito da più famiglie).
+- **Copertura**: gli abbonamenti i cui `courseTypeTags` contengono la tipologia primaria.
+- **Accesso**: tag legacy (`canUserAccessCourse`) **OPPURE** copertura abbonamento.
+  I corsi accessibili solo via tag e senza famiglia (es. Hey Mamma) non hanno limiti.
+- **Validità**: un abbonamento conta solo se `startDate ≤ dataCorso ≤ endDate`
+  (scadenza per-abbonamento; se nessuno valido → `EXPIRED`).
+- **Idoneità** (idoneo se ALMENO un abbonamento valido consente):
+  - `FREQUENCY`: `weeklyFrequency` ingressi/settimana **per tipologia** (corsi della
+    stessa tipologia + disiscrizioni perse nella settimana); `null` = illimitato.
+  - `ENTRIES`: `remainingEntries > 0`.
+
+### ⚠️ Vincolo di sequenza (PR3/PR4)
+
+In PR2 questo è **solo read-path/display**: nessuno scrive `activeSubscriptions`
+(le scritture arrivano dalle Cloud Functions in PR3+), quindi in produzione lo
+snapshot è vuoto e vale sempre il fallback legacy → **PR2 non cambia comportamento
+osservabile**. `subscribeToCourse`/`unsubscribeToCourse` sono ancora **solo legacy**
+(non leggono `activeSubscriptions` né decrementano `remainingEntries`). Perciò
+**`assignSubscription` (PR3) non deve andare in produzione prima che il write-path
+server-side (PR4) applichi eligibility + decremento**, altrimenti gli ingressi
+(ENTRIES) non verrebbero scalati. HomePage e label restano legacy fino a PR7.

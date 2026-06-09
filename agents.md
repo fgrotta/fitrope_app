@@ -173,6 +173,7 @@ lib/
 | emailNotificationsEnabled | bool | Preferenza notifiche email (default true) |
 | pushNotificationsEnabled | bool | Preferenza notifiche push (default true) |
 | regolamentoAccettatoIl | Timestamp? | Accettazione regolamento |
+| activeSubscriptions | List\<UserSubscription\> | Snapshot abbonamenti attivi (modello multi-abbonamento, read-path) |
 
 ### TipologiaIscrizione (enum)
 
@@ -186,6 +187,14 @@ lib/
 ### CancelledEnrollment (nested in FitropeUser)
 
 Traccia le disiscrizioni con: `courseId`, `cancelledAt`, `entryLost` (se l'ingresso e stato perso), `courseStartDate`.
+
+### Modello multi-abbonamento (read-path, da PR2)
+
+Un utente puo avere piu abbonamenti attivi insieme. Lo snapshot `FitropeUser.activeSubscriptions` (lista di `UserSubscription`) alimenta il calcolo client di `getCourseState`; le scritture autoritative arriveranno via Cloud Functions (PR3+). Se `activeSubscriptions` e vuoto, `getCourseState` usa il modello legacy (`tipologiaIscrizione`/`entrate*`/`fineIscrizione`) — nessuna regressione.
+
+- **UserSubscription** (`lib/types/userSubscription.dart`): `id?`, `planKey`, `family` (`SubscriptionFamily`: OPEN/HYROX/PT), `billingMode` (`BillingMode`: FREQUENCY/ENTRIES), `courseTypeTags` (accesso), `weeklyFrequency` (2/3/`null`=illimitato), `remainingEntries`, `startDate`, `endDate`.
+- **Catalogo** (`lib/utils/subscription_plans.dart`): Open {2x, 3x, illimitato} × {1,3,6,12} = 12; Hyrox e PT 10 ingressi × {1,3,6,12}.
+- **getCourseState (scope per famiglia):** gli abbonamenti che coprono la tipologia (tag) del corso ne determinano l'idoneita — FREQUENCY conta i corsi della stessa tipologia nella settimana (`null`=illimitato), ENTRIES verifica `remainingEntries > 0`; scadenza per-abbonamento. Accesso = tag legacy OPPURE copertura abbonamento; i corsi accessibili solo via tag (es. Hey Mamma) non hanno limiti di abbonamento.
 
 ### Course (`lib/types/course.dart`)
 
