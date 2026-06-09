@@ -102,6 +102,11 @@ void main() {
         expect(File(path).existsSync(), isTrue, reason: 'asset mancante: $path');
       }
     });
+
+    test('l\'immagine di default esiste su disco', () {
+      expect(File(CourseImages.defaultImage).existsSync(), isTrue,
+          reason: 'asset di default mancante: ${CourseImages.defaultImage}');
+    });
   });
 
   group('Course serializzazione campi categorizzazione', () {
