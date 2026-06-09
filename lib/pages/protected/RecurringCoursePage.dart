@@ -4,6 +4,7 @@ import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/components/sala_selector_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -37,7 +38,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   String? selectedImageKey;
   bool reminderEnabled = true;
   bool waitlistEnabled = true;
-
+  String? selectedSala;
   // Variabili per corsi ricorrenti
   Map<int, bool> selectedDays = {
     1: false, // Lunedì
@@ -148,7 +149,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     // Inizializza tipologia corso e immagine
     selectedCourseType = CourseType.open;
     selectedImageKey = null;
-
+    selectedSala = null;
     // Se è un Trainer, assegna automaticamente se stesso
     if (user.role == 'Trainer') {
       selectedTrainerId = user.uid;
@@ -179,7 +180,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
         final startDay = DateTime(picked.year, picked.month, picked.day);
         final maxDay =
             DateUtils.dateOnly(DateTime.now().add(const Duration(days: 150)));
-        if (endDate == null || DateUtils.dateOnly(endDate!).isBefore(startDay)) {
+        if (endDate == null ||
+            DateUtils.dateOnly(endDate!).isBefore(startDay)) {
           final shifted = startDay.add(const Duration(days: 30));
           endDate = shifted.isAfter(maxDay) ? maxDay : shifted;
         }
@@ -390,6 +392,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
           tags: List.from(selectedTags),
           courseType: selectedCourseType,
           imageKey: selectedImageKey,
+          sala: selectedSala,
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
         );
@@ -625,6 +628,11 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                 ),
                 const SizedBox(height: 20),
 
+                SalaSelectorCard(
+                  value: selectedSala,
+                  onChanged: (value) => setState(() => selectedSala = value),
+                ),
+                const SizedBox(height: 20),
                 // Selezione Tipologia Corso
                 Card(
                   color: surfaceVariantColor,
@@ -658,6 +666,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                                         !CourseImages.forType(type)
                                             .contains(selectedImageKey)) {
                                       selectedImageKey = null;
+                                      selectedSala = null;
                                     }
                                   });
                                 }

@@ -11,6 +11,7 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/components/sala_selector_card.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -35,7 +36,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   final nameController = TextEditingController();
   final durationController = TextEditingController();
   final capacityController = TextEditingController();
-  
+
   late FitropeUser user;
   List<FitropeUser> trainers = [];
   DateTime? startDate;
@@ -47,14 +48,14 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   String? selectedImageKey;
   bool reminderEnabled = true;
   bool waitlistEnabled = true;
-
+  String? selectedSala;
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
 
   @override
   void initState() {
     super.initState();
     user = store.state.user!;
-    
+
     // Controlla se l'utente ha i permessi per accedere a questa pagina
     if (user.role != 'Admin' && user.role != 'Trainer') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -66,9 +67,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       });
       return;
     }
-    
+
     // Controlla se il Trainer può modificare questo corso specifico
-    if (user.role == 'Trainer' && widget.mode == 'edit' && widget.courseToEdit != null) {
+    if (user.role == 'Trainer' &&
+        widget.mode == 'edit' &&
+        widget.courseToEdit != null) {
       final course = widget.courseToEdit!;
       if (course.trainerId != null && course.trainerId != user.uid) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,7 +84,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         return;
       }
     }
-    
+
     _initializeData();
   }
 
@@ -100,7 +103,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       // Inizializza i dati del corso
       _initializeCourseData();
     } catch (e) {
-      SnackBarUtils.showErrorSnackBar(context, 'Errore nel caricamento dei dati');
+      SnackBarUtils.showErrorSnackBar(
+          context, 'Errore nel caricamento dei dati');
     } finally {
       setState(() {
         isLoading = false;
@@ -120,13 +124,14 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     // Per la creazione di nuovi corsi, non permettere date nel passato
     if (widget.mode == 'create' && startDate!.isBefore(DateTime.now())) {
       DateTime now = DateTime.now();
-      startDate = DateTime(now.year, now.month, now.day, defaultTimeOfDay.hour, defaultTimeOfDay.minute);
+      startDate = DateTime(now.year, now.month, now.day, defaultTimeOfDay.hour,
+          defaultTimeOfDay.minute);
     }
     // Per la modifica, permettere date future anche se il corso originale era nel passato
 
     // Inizializza i controller
-    nameController.text = widget.courseToEdit?.name ?? 
-                         widget.courseToDuplicate?.name ?? '';
+    nameController.text =
+        widget.courseToEdit?.name ?? widget.courseToDuplicate?.name ?? '';
 
     if (widget.courseToEdit != null) {
       // Per l'editing, non mostrare la durata
@@ -135,39 +140,44 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       // Per creazione e duplicazione
       final course = widget.courseToEdit ?? widget.courseToDuplicate;
       if (course != null) {
-        final duration = course.endDate.toDate().difference(course.startDate.toDate()).inHours;
+        final duration = course.endDate
+            .toDate()
+            .difference(course.startDate.toDate())
+            .inHours;
         durationController.text = duration.toString();
       } else {
         durationController.text = '1';
       }
     }
 
-    capacityController.text = widget.courseToEdit?.capacity.toString() ?? 
-                             widget.courseToDuplicate?.capacity.toString() ?? '6';
+    capacityController.text = widget.courseToEdit?.capacity.toString() ??
+        widget.courseToDuplicate?.capacity.toString() ??
+        '6';
 
     // Inizializza il trainer
-    selectedTrainerId = widget.courseToEdit?.trainerId ?? 
-                       widget.courseToDuplicate?.trainerId;
-    
+    selectedTrainerId =
+        widget.courseToEdit?.trainerId ?? widget.courseToDuplicate?.trainerId;
+
     // Se è un Trainer che sta creando un nuovo corso, assegna automaticamente se stesso
-    if (user.role == 'Trainer' && widget.mode == 'create' && selectedTrainerId == null) {
+    if (user.role == 'Trainer' &&
+        widget.mode == 'create' &&
+        selectedTrainerId == null) {
       selectedTrainerId = user.uid;
     }
 
     // Inizializza i tag
-    selectedTags = widget.courseToEdit?.tags ??
-                   widget.courseToDuplicate?.tags ??
-                   [];
+    selectedTags =
+        widget.courseToEdit?.tags ?? widget.courseToDuplicate?.tags ?? [];
 
     // Inizializza tipologia corso
     selectedCourseType = widget.courseToEdit?.courseType ??
-                         widget.courseToDuplicate?.courseType ??
-                         CourseType.open;
+        widget.courseToDuplicate?.courseType ??
+        CourseType.open;
 
     // Inizializza immagine
-    selectedImageKey = widget.courseToEdit?.imageKey ??
-                       widget.courseToDuplicate?.imageKey;
-
+    selectedImageKey =
+        widget.courseToEdit?.imageKey ?? widget.courseToDuplicate?.imageKey;
+    selectedSala = widget.courseToEdit?.sala ?? widget.courseToDuplicate?.sala;
     // Inizializza i flag notifiche/waitlist
     reminderEnabled = widget.courseToEdit?.reminderEnabled ??
         widget.courseToDuplicate?.reminderEnabled ??
@@ -210,7 +220,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       // Se stiamo modificando un corso, permettere di spostarlo nel futuro
       firstDate = DateTime.now().subtract(const Duration(days: 1));
     }
-    
+
     final picked = await showDatePicker(
       context: context,
       initialEntryMode: DatePickerEntryMode.calendar,
@@ -219,16 +229,15 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       lastDate: DateTime(DateTime.now().year + 1),
       locale: const Locale('it', 'IT'),
     );
-    
+
     if (picked != null) {
       setState(() {
         startDate = DateTime(
-          picked.year, 
-          picked.month, 
-          picked.day, 
-          startDate?.hour ?? defaultTimeOfDay.hour, 
-          startDate?.minute ?? defaultTimeOfDay.minute
-        );
+            picked.year,
+            picked.month,
+            picked.day,
+            startDate?.hour ?? defaultTimeOfDay.hour,
+            startDate?.minute ?? defaultTimeOfDay.minute);
       });
     }
   }
@@ -236,7 +245,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   Future<void> _selectTime() async {
     final pickedTime = await showTimePicker(
       context: context,
-      initialTime: startDate != null ? TimeOfDay.fromDateTime(startDate!) : defaultTimeOfDay,
+      initialTime: startDate != null
+          ? TimeOfDay.fromDateTime(startDate!)
+          : defaultTimeOfDay,
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
@@ -244,16 +255,15 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         );
       },
     );
-    
+
     if (pickedTime != null) {
       setState(() {
         startDate = DateTime(
-          startDate?.year ?? DateTime.now().year, 
-          startDate?.month ?? DateTime.now().month, 
-          startDate?.day ?? DateTime.now().day, 
-          pickedTime.hour, 
-          pickedTime.minute
-        );
+            startDate?.year ?? DateTime.now().year,
+            startDate?.month ?? DateTime.now().month,
+            startDate?.day ?? DateTime.now().day,
+            pickedTime.hour,
+            pickedTime.minute);
       });
     }
   }
@@ -262,37 +272,49 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     final name = nameController.text.trim();
     final duration = double.tryParse(durationController.text.trim()) ?? 0;
     final capacity = int.tryParse(capacityController.text.trim()) ?? 0;
-    
+
     if (name.isEmpty) {
-      setState(() { errorMsg = 'Il nome del corso è obbligatorio'; });
+      setState(() {
+        errorMsg = 'Il nome del corso è obbligatorio';
+      });
       return false;
     }
-    
+
     if (startDate == null) {
-      setState(() { errorMsg = 'Seleziona una data e un orario'; });
+      setState(() {
+        errorMsg = 'Seleziona una data e un orario';
+      });
       return false;
     }
-    
+
     // Per la creazione di nuovi corsi, non permettere date nel passato
     if (widget.mode == 'create' && startDate!.isBefore(DateTime.now())) {
-      setState(() { errorMsg = 'Non puoi creare un corso nel passato'; });
+      setState(() {
+        errorMsg = 'Non puoi creare un corso nel passato';
+      });
       return false;
     }
-    
+
     // Per la modifica, permettere di spostare corsi nel futuro
     // Non impedire la modifica di corsi nel passato, permettere di spostarli nel futuro
-    
+
     if (capacity <= 0) {
-      setState(() { errorMsg = 'Il numero di partecipanti deve essere maggiore di 0'; });
+      setState(() {
+        errorMsg = 'Il numero di partecipanti deve essere maggiore di 0';
+      });
       return false;
     }
-    
+
     if (widget.mode != 'edit' && duration <= 0) {
-      setState(() { errorMsg = 'La durata deve essere maggiore di 0'; });
+      setState(() {
+        errorMsg = 'La durata deve essere maggiore di 0';
+      });
       return false;
     }
-    
-    setState(() { errorMsg = null; });
+
+    setState(() {
+      errorMsg = null;
+    });
     return true;
   }
 
@@ -312,8 +334,10 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       if (widget.mode == 'edit' && widget.courseToEdit != null) {
         // Modifica corso esistente
         // I Trainer non possono cambiare il trainer assegnato
-        final trainerId = user.role == 'Trainer' ? widget.courseToEdit!.trainerId : selectedTrainerId;
-        
+        final trainerId = user.role == 'Trainer'
+            ? widget.courseToEdit!.trainerId
+            : selectedTrainerId;
+
         final updatedCourse = Course(
           uid: widget.courseToEdit!.uid,
           id: widget.courseToEdit!.uid,
@@ -326,18 +350,20 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           tags: selectedTags,
           courseType: selectedCourseType,
           imageKey: selectedImageKey,
+          sala: selectedSala,
           waitlist: widget.courseToEdit!.waitlist,
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
         );
 
         await updateCourse(updatedCourse);
-        SnackBarUtils.showSuccessSnackBar(context, 'Corso modificato con successo');
+        SnackBarUtils.showSuccessSnackBar(
+            context, 'Corso modificato con successo');
       } else {
         // Crea nuovo corso (creazione o duplicazione)
         // I Trainer vengono automaticamente assegnati ai corsi che creano
         final trainerId = user.role == 'Trainer' ? user.uid : selectedTrainerId;
-        
+
         final newCourse = Course(
           uid: '',
           id: '',
@@ -350,24 +376,31 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           tags: selectedTags,
           courseType: selectedCourseType,
           imageKey: selectedImageKey,
+          sala: selectedSala,
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
         );
 
         await createCourse(newCourse);
-        
+
         final isDuplication = widget.mode == 'duplicate';
         SnackBarUtils.showSuccessSnackBar(
           context,
-          isDuplication ? 'Corso duplicato con successo' : 'Corso creato con successo',
+          isDuplication
+              ? 'Corso duplicato con successo'
+              : 'Corso creato con successo',
         );
       }
 
       // Torna alla pagina precedente
-      Navigator.pop(context, true); // true indica che è stato fatto un salvataggio
+      Navigator.pop(
+          context, true); // true indica che è stato fatto un salvataggio
     } catch (e) {
-      final action = widget.mode == 'edit' ? 'modifica' : 
-                    widget.mode == 'duplicate' ? 'duplicazione' : 'creazione';
+      final action = widget.mode == 'edit'
+          ? 'modifica'
+          : widget.mode == 'duplicate'
+              ? 'duplicazione'
+              : 'creazione';
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante la $action del corso',
@@ -433,9 +466,10 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                   const Text('Data:'),
                                   const SizedBox(height: 4),
                                   Text(
-                                    startDate != null 
-                                      ? DateFormat('dd/MM/yyyy').format(startDate!)
-                                      : 'Non selezionata',
+                                    startDate != null
+                                        ? DateFormat('dd/MM/yyyy')
+                                            .format(startDate!)
+                                        : 'Non selezionata',
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                 ],
@@ -458,9 +492,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                   const Text('Ora:'),
                                   const SizedBox(height: 4),
                                   Text(
-                                    startDate != null 
-                                      ? DateFormat('HH:mm').format(startDate!)
-                                      : 'Non selezionata',
+                                    startDate != null
+                                        ? DateFormat('HH:mm').format(startDate!)
+                                        : 'Non selezionata',
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                 ],
@@ -539,7 +573,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                               ...trainers.map((trainer) {
                                 return DropdownMenuItem<String>(
                                   value: trainer.uid,
-                                  child: Text('${trainer.name} ${trainer.lastName}'),
+                                  child: Text(
+                                      '${trainer.name} ${trainer.lastName}'),
                                 );
                               }).toList(),
                             ],
@@ -556,6 +591,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                   const SizedBox(height: 20),
                 ],
 
+                SalaSelectorCard(
+                  value: selectedSala,
+                  onChanged: (value) => setState(() => selectedSala = value),
+                ),
+                const SizedBox(height: 20),
                 // Selezione Tipologia Corso
                 Card(
                   color: surfaceVariantColor,
@@ -595,7 +635,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                   });
                                 }
                               },
-                              selectedColor: primaryColor.withValues(alpha: 0.3),
+                              selectedColor:
+                                  primaryColor.withValues(alpha: 0.3),
                               checkmarkColor: primaryColor,
                             );
                           }).toList(),
@@ -635,11 +676,16 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                             height: 100,
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
-                              itemCount: CourseImages.forType(selectedCourseType).length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 10),
+                              itemCount:
+                                  CourseImages.forType(selectedCourseType)
+                                      .length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 10),
                               itemBuilder: (context, index) {
-                                final imagePath = CourseImages.forType(selectedCourseType)[index];
-                                final isSelected = selectedImageKey == imagePath;
+                                final imagePath = CourseImages.forType(
+                                    selectedCourseType)[index];
+                                final isSelected =
+                                    selectedImageKey == imagePath;
                                 return GestureDetector(
                                   onTap: () {
                                     setState(() {
@@ -651,7 +697,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
-                                        color: isSelected ? primaryColor : Colors.transparent,
+                                        color: isSelected
+                                            ? primaryColor
+                                            : Colors.transparent,
                                         width: 3,
                                       ),
                                     ),
@@ -660,11 +708,17 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                       child: Image.asset(
                                         imagePath,
                                         fit: BoxFit.cover,
-                                        cacheWidth: 300, // miniatura: niente decode a piena risoluzione
-                                        errorBuilder: (context, error, stackTrace) => Container(
-                                          color: primaryLightColor.withValues(alpha: 0.3),
+                                        cacheWidth:
+                                            300, // miniatura: niente decode a piena risoluzione
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                          color: primaryLightColor.withValues(
+                                              alpha: 0.3),
                                           child: const Center(
-                                            child: Icon(Icons.image_not_supported, color: Colors.grey),
+                                            child: Icon(
+                                                Icons.image_not_supported,
+                                                color: Colors.grey),
                                           ),
                                         ),
                                       ),
@@ -743,7 +797,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                       children: [
                         const Text(
                           'Notifiche e Lista d\'Attesa',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         SwitchListTile(
@@ -805,7 +860,10 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
+                        child: const Text(
+                          'Annulla',
+                          style: TextStyle(color: onPrimaryColor),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -838,4 +896,4 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     capacityController.dispose();
     super.dispose();
   }
-} 
+}

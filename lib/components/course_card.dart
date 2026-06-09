@@ -596,6 +596,8 @@ class _CourseCardState extends State<CourseCard> {
         return Icons.person_outline;
       case 'tipologia':
         return Icons.fitness_center;
+      case 'sala':
+        return Icons.meeting_room_outlined;
       case 'iscritti':
         return Icons.groups_outlined;
       default:
@@ -609,6 +611,9 @@ class _CourseCardState extends State<CourseCard> {
         .split('\n')
         .where((l) => l.trim().isNotEmpty)
         .toList();
+    if (widget.course.sala != null) {
+      lines.add('Sala: ' + widget.course.sala!);
+    }
     if (lines.isEmpty) return const SizedBox.shrink();
 
     return Padding(
