@@ -434,15 +434,22 @@ class _CourseCardState extends State<CourseCard> {
       ),
     );
 
+    if (!mounted) return;
+
     if (confirmed == true) {
       try {
         await leaveWaitlist(widget.courseId, user.uid);
+
+        if (!mounted) return;
+
         SnackBarUtils.showSuccessSnackBar(
           context,
           'Utente rimosso dalla lista d\'attesa',
         );
         widget.onRefresh();
       } catch (e) {
+        if (!mounted) return;
+
         SnackBarUtils.showErrorSnackBar(
           context,
           'Errore durante la rimozione: ${e.toString()}',

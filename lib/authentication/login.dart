@@ -7,6 +7,7 @@ import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
+import 'package:fitrope_app/services/notification_service.dart';
 
 class SignInResponse {
   final FitropeUser? user;
@@ -64,9 +65,16 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
         );
         
         print('🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
+        // Client SDK (per push future): identifica l'utente se abbiamo un permesso push
         OneSignalService.login(fitropeUser.uid);
         if (fitropeUser.email.isNotEmpty) {
           OneSignalService.addEmail(fitropeUser.email);
+        }
+        unawaited(OneSignalService.syncPushPreference(fitropeUser.pushNotificationsEnabled));
+        // Server-side: garantisce che l'utente esista su OneSignal con la sua email,
+        // indipendentemente dal permesso push del browser. Fire-and-forget.
+        if (fitropeUser.email.isNotEmpty) {
+          unawaited(ensureOneSignalUser(fitropeUser.uid, fitropeUser.email));
         }
 
         return SignInResponse(user: fitropeUser, error: "");

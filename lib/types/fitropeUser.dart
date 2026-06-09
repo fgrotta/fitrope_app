@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 
 class CancelledEnrollment {
   final String courseId;
@@ -71,7 +72,7 @@ class FitropeUser {
     required this.createdAt,
     this.certificatoScadenza,
     this.numeroTelefono,
-    this.tipologiaCorsoTags = const ['Tutti i corsi'],
+    this.tipologiaCorsoTags = const [CourseTags.OPEN],
     this.cancelledEnrollments = const [],
     this.regolamentoAccettatoIl,
     this.waitlistCourses = const [],
@@ -130,7 +131,7 @@ class FitropeUser {
       numeroTelefono: json['numeroTelefono'] as String?,
       tipologiaCorsoTags: (json['tipologiaCorsoTags'] as List<dynamic>?)
           ?.map((tag) => tag.toString())
-          .toList() ?? ['Open'],
+          .toList() ?? CourseTags.defaultUserTags,
       cancelledEnrollments: (json['cancelledEnrollments'] as List<dynamic>?)
           ?.map((item) => CancelledEnrollment.fromJson(item as Map<String, dynamic>))
           .toList() ?? [],

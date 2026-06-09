@@ -50,16 +50,16 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     user = store.state.user!;
     getTrainers().then((List<FitropeUser> response) {
+      if (!mounted) return;
       setState(() {
         trainers = response;
       });
     });
     getAllCourses().then((List<Course> response) {
+      if (!mounted) return;
       setState(() {
-        if (mounted) {
-          allCourses = response;
-          store.dispatch(SetAllCoursesAction(response));
-        }
+        allCourses = response;
+        store.dispatch(SetAllCoursesAction(response));
       });
     });
 
@@ -100,6 +100,7 @@ class _HomePageState extends State<HomePage> {
   // Funzione ottimizzata per caricare solo gli utenti con certificati in scadenza
   Future<void> _loadUtentiConCertificatoInScadenza() async {
     if (user.role != 'Admin') return;
+    if (!mounted) return;
 
     setState(() {
       isLoadingCertificati = true;
@@ -107,6 +108,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final utenti = await getUsersWithExpiringCertificates();
+      if (!mounted) return;
 
       setState(() {
         utentiConCertificatoInScadenza = utenti;
@@ -114,6 +116,7 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       print('Errore nel caricamento utenti con certificati in scadenza: $e');
+      if (!mounted) return;
       setState(() {
         isLoadingCertificati = false;
       });
@@ -123,6 +126,7 @@ class _HomePageState extends State<HomePage> {
   // Funzione ottimizzata per caricare solo gli utenti con abbonamenti in scadenza
   Future<void> _loadUtentiConAbbonamentoInScadenza() async {
     if (user.role != 'Admin') return;
+    if (!mounted) return;
 
     setState(() {
       isLoadingAbbonamenti = true;
@@ -130,6 +134,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final utenti = await getUsersWithExpiringSubscriptions();
+      if (!mounted) return;
 
       setState(() {
         utentiConAbbonamentoInScadenza = utenti;
@@ -137,6 +142,7 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       print('Errore nel caricamento utenti con abbonamenti in scadenza: $e');
+      if (!mounted) return;
       setState(() {
         isLoadingAbbonamenti = false;
       });
@@ -145,6 +151,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadUtentiLezioneProva() async {
     if (user.role != 'Admin') return;
+    if (!mounted) return;
     setState(() {
       _isLoadingLezioniProva = true;
     });
@@ -172,6 +179,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadUtentiSenzaRegolamento() async {
     if (user.role != 'Admin') return;
+    if (!mounted) return;
     setState(() {
       _isLoadingRegolamento = true;
     });

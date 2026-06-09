@@ -1,3 +1,36 @@
+/// URL pubblico del logo usato nelle email.
+/// Hostato sul dominio Firebase Hosting (le email OneSignal caricano immagini
+/// via HTTP, quindi servono asset pubblici — gli asset Flutter locali non
+/// sarebbero accessibili).
+const String _logoUrl =
+    'https://app.fithousemonza.it/assets/assets/new_logo_only.png';
+
+String _emailHeader(String title) {
+  return '''
+          <!-- Header con logo -->
+          <tr>
+            <td style="background-color: #6077F6; padding: 24px 30px; text-align: center;">
+              <img src="$_logoUrl" alt="Fit House" width="72"
+                   style="display: block; margin: 0 auto 12px auto; border: 0; height: auto;" />
+              <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">
+                $title
+              </h1>
+            </td>
+          </tr>''';
+}
+
+String _emailFooter() {
+  return '''
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; font-size: 12px; margin: 0;">
+                — Il team Fit House
+              </p>
+            </td>
+          </tr>''';
+}
+
 String trialReminderSubject(String courseName) {
   return 'Promemoria: la tua lezione di prova "$courseName" è domani!';
 }
@@ -15,12 +48,7 @@ String trialReminderBody({
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden;">
 
-          <!-- Header -->
-          <tr>
-            <td style="background-color: #6077F6; padding: 30px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Promemoria lezione di prova</h1>
-            </td>
-          </tr>
+${_emailHeader('Promemoria lezione di prova')}
 
           <!-- Body -->
           <tr>
@@ -56,14 +84,7 @@ String trialReminderBody({
             </td>
           </tr>
 
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; font-size: 12px; margin: 0;">
-                — Il team Fit House
-              </p>
-            </td>
-          </tr>
+${_emailFooter()}
 
         </table>
       </td>
@@ -94,14 +115,9 @@ String waitlistSpotAvailableBody({
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden;">
-          
-          <!-- Header -->
-          <tr>
-            <td style="background-color: #6077F6; padding: 30px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Posto disponibile!</h1>
-            </td>
-          </tr>
-          
+
+${_emailHeader('Posto disponibile!')}
+
           <!-- Body -->
           <tr>
             <td style="padding: 30px;">
@@ -111,7 +127,7 @@ String waitlistSpotAvailableBody({
               <p style="color: #333333; font-size: 16px; line-height: 1.6;">
                 Si è liberato un posto nel corso a cui eri in lista d'attesa!
               </p>
-              
+
               <!-- Course details card -->
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0f2ff; border-radius: 8px; margin: 20px 0;">
                 <tr>
@@ -131,23 +147,16 @@ String waitlistSpotAvailableBody({
                   </td>
                 </tr>
               </table>
-              
+
               <p style="color: #333333; font-size: 16px; line-height: 1.6;">
                 Iscriviti subito prima che il posto venga occupato!
               </p>
-              
+
             </td>
           </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; font-size: 12px; margin: 0;">
-                — Il team Fit House
-              </p>
-            </td>
-          </tr>
-          
+
+${_emailFooter()}
+
         </table>
       </td>
     </tr>

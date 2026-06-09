@@ -8,7 +8,7 @@ FitRope e una app Flutter per la gestione di utenti, autenticazione e iscrizioni
 - `cloud_firestore` per utenti, corsi e stato iscrizioni
 - `cloud_functions` per proxy sicuro verso OneSignal (email + push)
 - Redux minimale per lo stato globale di sessione e lista corsi
-- OneSignal per notifiche push (mobile SDK nativo, web SDK via JS interop)
+- OneSignal: push native su Android/iOS + email server-side via Cloud Function. Push web disabilitate.
 
 L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit House`, mentre il package resta `fitrope_app`.
 
@@ -20,7 +20,7 @@ L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit H
 | Flutter CI | `3.24.0` stable |
 | Stato globale | `redux`, `redux_thunk`, `flutter_redux` |
 | Backend | `firebase_core`, `firebase_auth`, `cloud_firestore`, `cloud_functions` |
-| Notifiche | `onesignal_flutter` (mobile) + OneSignal Web SDK (JS interop) |
+| Notifiche | `onesignal_flutter` (mobile push) + Cloud Functions (email server-side). Web SDK disabilitato. |
 | HTTP | `http` per comunicazione generica |
 | Design system | `flutter_design_system` (Git dep da GitHub, branch main) |
 | Localizzazione | `intl`, `flutter_localizations` (italiano primario) |
@@ -80,7 +80,8 @@ lib/
 │       ├── AdminUsersPage.dart      # Lista utenti admin
 │       ├── CreateUserPage.dart      # Creazione utente (solo admin)
 │       ├── UserDetailPage.dart      # Profilo/modifica utente (admin)
-│       └── AdminDashboardPage.dart  # Analytics (solo desktop)
+│       ├── AdminDashboardPage.dart  # Analytics (solo desktop)
+│       └── DebugEmailPage.dart      # Invio email di test (solo kDebugMode)
 │
 ├── api/                             # Layer Firestore
 │   ├── getUserData.dart             # Fetch singolo utente
@@ -115,7 +116,7 @@ lib/
 ├── services/                        # Servizi esterni e facade
 │   ├── onesignal_service.dart       # Conditional export web/mobile
 │   ├── onesignal_mobile.dart        # Wrapper onesignal_flutter
-│   ├── onesignal_web.dart           # JS interop verso OneSignal Web SDK
+│   ├── onesignal_web.dart           # Disabilitato: metodi no-op
 │   ├── notification_service.dart    # Logica waitlist/trial via Cloud Functions
 │   └── email_templates.dart         # Template HTML email
 │
@@ -198,6 +199,8 @@ Traccia le disiscrizioni con: `courseId`, `cancelledAt`, `entryLost` (se l'ingre
 | trainerId | String? | Trainer assegnato |
 | tags | List\<String\> | Tag per filtro accesso |
 | waitlist | List\<String\> | Utenti in lista d'attesa (user IDs) |
+| reminderEnabled | bool | Se true invia promemoria (default true) |
+| waitlistEnabled | bool | Se true la lista d'attesa è attiva (default true) |
 
 ## Stato globale Redux
 
@@ -253,6 +256,7 @@ Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layou
 | `PROTECTED_ROUTE` | `/protected` | Protected |
 | `COURSE_MANAGEMENT_ROUTE` | `/course-management` | CourseManagementPage |
 | `RECURRING_COURSE_ROUTE` | `/recurring-course` | RecurringCoursePage |
+| `DEBUG_EMAIL_ROUTE` | `/debug-email` | DebugEmailPage _(solo `kDebugMode`)_ |
 
 `CourseManagementPage` accetta argomenti: `courseToEdit`, `courseToDuplicate`, `mode`.
 
@@ -333,16 +337,28 @@ La REST API key **non e mai esposta al client**. Il client chiama la Cloud Funct
 |---|---|---|
 | Disiscrizione da corso pieno | `lib/services/notification_service.dart:notifyWaitlistUsers` | Immediato — push + email a tutti gli utenti in waitlist |
 | Iscrizione utente `ABBONAMENTO_PROVA` | `lib/services/notification_service.dart:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 (produzione) o +30s (debug) |
+| Debug manuale (solo `kDebugMode`) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
 
 In debug (`kDebugMode`) il promemoria viene inviato a **tutti** gli utenti, non solo prova, con prefisso `TEST - ` nei testi.
 
+**Logout**: la rimozione dell'email da OneSignal al logout è temporaneamente disabilitata (codice commentato in `lib/authentication/logout.dart`).
+
 ### SDK client
 
-- **Mobile** (`lib/services/onesignal_mobile.dart`): wrapper di `onesignal_flutter` con `requestPermission`
-- **Web** (`lib/services/onesignal_web.dart`): JS interop via `dart:js_interop` verso il Web SDK caricato in `web/index.html`
+- **Mobile** (`lib/services/onesignal_mobile.dart`): wrapper di `onesignal_flutter` con `requestPermission` — push native attive
+- **Web** (`lib/services/onesignal_web.dart`): **disabilitato**, tutti i metodi sono no-op. Il caricamento del Web SDK in `web/index.html` è commentato.
 - **Facade** (`lib/services/onesignal_service.dart`): `export ... if (dart.library.html)` per scelta automatica
 
-Il service worker web e in `web/OneSignalSDKWorker.js`.
+Su web le email passano via Cloud Function (`ensureOneSignalUser` crea l'utente server-side, poi `sendOneSignalNotification` invia). Il service worker `web/OneSignalSDKWorker.js` rimane nel progetto ma non viene mai caricato finché il blocco script in `web/index.html` è commentato.
+
+### Flag per corso
+
+Ogni `Course` ha due flag configurabili dall'admin in creazione/duplicazione:
+
+- `reminderEnabled` (default true): se false, `scheduleTrialReminder` salta l'invio per questo corso
+- `waitlistEnabled` (default true): se false, `getCourseState` ritorna `FULL` invece di `CAN_WAITLIST`, e `notifyWaitlistUsers` salta l'invio
+
+Entrambi si applicano anche ai corsi creati tramite `RecurringCoursePage`.
 
 ### Cloud Function
 
@@ -438,14 +454,42 @@ flutter run -d chrome
 ### Cloud Functions
 
 ```bash
+# Sviluppo locale
 cd functions
 npm install            # installa dipendenze Node
 npm run build          # compila TypeScript
-npm test               # esegue test Jest
+npm test               # esegue test Jest (14 test)
 npm run serve          # avvia emulatore Firebase Functions
-firebase deploy --only functions    # deploy in produzione
-firebase functions:secrets:set ONESIGNAL_REST_API_KEY   # setup secret
+
+# Deploy
+firebase deploy --only functions                        # deploy in produzione
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY   # setup/aggiorna secret
+firebase functions:log --only sendOneSignalNotification # vedi log runtime
+firebase functions:delete sendOneSignalNotification     # elimina la function
 ```
+
+Il predeploy in `firebase.json` compila TypeScript automaticamente via `./node_modules/.bin/tsc` (invocazione diretta senza npm per evitare il bug stdin di npm 10+).
+
+**Setup iniziale** (una volta sola per ambiente):
+
+1. `firebase login`
+2. `firebase functions:secrets:set ONESIGNAL_REST_API_KEY` (incolla la REST API Key OneSignal)
+3. `firebase deploy --only functions`
+
+Se il primo deploy fallisce per permessi IAM (errore "missing permission on the build service account"), assegna al compute service account (`PROJECT_NUMBER-compute@developer.gserviceaccount.com`) i ruoli:
+
+- `roles/cloudbuild.builds.builder`
+- `roles/artifactregistry.writer`
+- `roles/logging.logWriter`
+
+**Workflow aggiornamento function:**
+
+1. Modifica `functions/src/`
+2. `cd functions && npm test` (verifica locale)
+3. Commit
+4. `firebase deploy --only functions`
+
+Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al runtime.
 
 ## Osservazioni operative
 
@@ -467,7 +511,8 @@ firebase functions:secrets:set ONESIGNAL_REST_API_KEY   # setup secret
 | Regole iscrizione/disiscrizione | `lib/api/courses/`, `lib/utils/course_unsubscribe_helper.dart`, `test/` |
 | Waitlist corsi | `lib/api/courses/joinWaitlist.dart`, `leaveWaitlist.dart`, `lib/utils/waitlist_ui_helper.dart` |
 | Notifiche push/email | `lib/services/notification_service.dart`, `lib/services/email_templates.dart`, `functions/src/` |
-| OneSignal SDK | `lib/services/onesignal_*.dart`, `web/index.html`, `web/OneSignalSDKWorker.js` |
+| Test email manuale (debug) | `lib/pages/protected/DebugEmailPage.dart`, `lib/services/notification_service.dart` (`sendTestWaitlistEmail`, `sendTestTrialReminderEmail`) |
+| OneSignal SDK | `lib/services/onesignal_*.dart`, `web/index.html` (web SDK commentato), `web/OneSignalSDKWorker.js` |
 | Dashboard e analisi | `lib/pages/protected/AdminDashboardPage.dart` |
 | Layout e breakpoints | `lib/layout/` |
 | Stili globali | `lib/style.dart`, `lib/components/` |

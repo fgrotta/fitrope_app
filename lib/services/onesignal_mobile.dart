@@ -5,7 +5,6 @@ class OneSignalService {
   static void initialize(String appId) {
     debugPrint('🔔 [OneSignal] initialize(appId: $appId)');
     os.OneSignal.initialize(appId);
-    os.OneSignal.Notifications.requestPermission(true);
   }
 
   static void login(String userId) {
@@ -18,8 +17,47 @@ class OneSignalService {
     os.OneSignal.User.addEmail(email);
   }
 
-  static void logout() {
+  static Future<void> removeEmail(String email) async {
+    debugPrint('🔔 [OneSignal] removeEmail(email: $email)');
+    await os.OneSignal.User.removeEmail(email);
+  }
+
+  static Future<void> setPushEnabled(bool enabled) async {
+    debugPrint('🔔 [OneSignal] setPushEnabled(enabled: $enabled)');
+    if (enabled) {
+      final granted = await os.OneSignal.Notifications.requestPermission(true);
+      if (granted) {
+        await os.OneSignal.User.pushSubscription.optIn();
+      }
+      return;
+    }
+
+    await os.OneSignal.User.pushSubscription.optOut();
+  }
+
+  static Future<void> syncPushPreference(bool enabled) async {
+    debugPrint('🔔 [OneSignal] syncPushPreference(enabled: $enabled)');
+    if (!enabled) {
+      await os.OneSignal.User.pushSubscription.optOut();
+      return;
+    }
+
+    if (os.OneSignal.Notifications.permission &&
+        os.OneSignal.User.pushSubscription.optedIn == false) {
+      await os.OneSignal.User.pushSubscription.optIn();
+    }
+  }
+
+  static Future<bool> hasPushPermission() async {
+    return os.OneSignal.Notifications.permission;
+  }
+
+  static Future<bool> canRequestPushPermission() async {
+    return os.OneSignal.Notifications.canRequest();
+  }
+
+  static Future<void> logout() async {
     debugPrint('🔔 [OneSignal] logout()');
-    os.OneSignal.logout();
+    await os.OneSignal.logout();
   }
 }

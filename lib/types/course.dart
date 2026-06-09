@@ -15,6 +15,8 @@ class Course {
   final List<String> waitlist; // Utenti in lista d'attesa (user IDs)
   final CourseType courseType; // Tipologia del corso
   final String? imageKey; // Chiave immagine stock del corso
+  final bool reminderEnabled; // Se true, il promemoria email/push viene programmato
+  final bool waitlistEnabled; // Se true, gli utenti possono mettersi in lista d'attesa
 
   const Course({
     @Deprecated('Use uid instead')
@@ -30,6 +32,8 @@ class Course {
     this.waitlist = const [],
     this.courseType = CourseType.open,
     this.imageKey,
+    this.reminderEnabled = true,
+    this.waitlistEnabled = true,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -52,6 +56,8 @@ class Course {
       waitlist: (json['waitlist'] as List<dynamic>?)?.map((id) => id.toString()).toList() ?? [],
       courseType: CourseType.fromString(json['courseType'] as String?),
       imageKey: json['imageKey'] as String?,
+      reminderEnabled: json['reminderEnabled'] as bool? ?? true,
+      waitlistEnabled: json['waitlistEnabled'] as bool? ?? true,
     );
   }
 
@@ -69,6 +75,8 @@ class Course {
       'waitlist': waitlist,
       'courseType': courseType.firestoreValue,
       'imageKey': imageKey,
+      'reminderEnabled': reminderEnabled,
+      'waitlistEnabled': waitlistEnabled,
     };
   }
 }
