@@ -50,9 +50,9 @@ class PreviewApp extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Intestazioni di colonna = nomi delle 3 versioni.
-              Row(
+              const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   _ColHeader('C+', 'Immagine di sfondo'),
                   _ColHeader('C', 'Card blu strutturata'),
                   _ColHeader('D', 'Implementata (sfondo chiaro, lista espandibile)'),
