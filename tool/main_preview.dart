@@ -1,5 +1,6 @@
-// Anteprima standalone dei mockup della CourseCard (Versione C e C+).
-// Avviare con: flutter run -t lib/main_preview.dart
+// Anteprima standalone dei mockup della CourseCard (Versioni C, C+ e D).
+// Strumento di sviluppo, fuori dall'albero di produzione lib/.
+// Avviare con: flutter run -t tool/main_preview.dart
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/utils/capacity_color.dart';
