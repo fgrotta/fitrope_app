@@ -21,8 +21,23 @@ flutter run -d chrome                   # avvio locale
 cd functions
 npm install              # installa dipendenze Node
 npm run build            # compila TypeScript
-npm test                 # Jest sull'handler OneSignal
+npm test                 # Jest (handler OneSignal + dominio enrollment)
 ```
+
+### Ambiente di test locale (Firebase Emulator Suite)
+
+Il QA manuale si fa sull'emulatore, MAI in produzione (vedi `docs/AMBIENTI_DI_TEST.md`).
+Richiede Java 21+ (keg-only via Homebrew: anteporre al PATH).
+
+```bash
+cd functions && npm run build && cd ..
+PATH="/usr/local/opt/openjdk@21/bin:$PATH" firebase emulators:start   # Auth+Firestore+Functions+UI (localhost:4000)
+cd functions && npm run seed:emulator    # dati sintetici (password utenti: test1234)
+flutter run -d chrome --dart-define=USE_EMULATOR=true                 # app contro gli emulatori
+```
+
+Nel codice functions usare SEMPRE `import { Timestamp, FieldValue } from "firebase-admin/firestore"`
+(il namespace `admin.firestore.*` perde le statiche nel runtime emulato).
 
 ### Deploy e gestione secret
 

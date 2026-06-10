@@ -61,6 +61,33 @@ callable esistono quando il client le chiama).
 
 ## Prossimi step (DA FARE)
 
+### PR4.5 — Ambiente di test locale (Emulator Suite)  *(PRIMA di PR5)*
+
+> Analisi completa e decisione: `docs/AMBIENTI_DI_TEST.md`. Deciso il
+> 2026-06-10: **opzione C (progetto staging) è il target migliore** ma richiede
+> creazione progetto/billing (azione di Francesco) → si implementa SUBITO
+> l'opzione A (emulatori locali), C prima del rilascio in prod.
+
+- Config `emulators` in `firebase.json` (Auth/Firestore/Functions/UI) + `.firebaserc`.
+- Wiring client: `--dart-define=USE_EMULATOR=true` in `main.dart`
+  (useAuthEmulator/useFirestoreEmulator/useFunctionsEmulator sulla region
+  `europe-west8`; `EMULATOR_HOST` per device fisici).
+- Seed sintetico (`functions/scripts/seedEmulator.js` + `npm run seed:emulator`):
+  admin/trainer/utenti legacy+nuovo modello/corsi della settimana.
+- `functions/.secret.local` con key OneSignal fittizia (no invii reali).
+- Regola operativa: da ora il QA manuale delle feature enrollment si fa
+  sull'emulatore, NON in produzione.
+
+### Staging (opzione C — ⭐ target, prima del rilascio in prod)
+
+Da fare prima di rilasciare il blocco PR3–PR6 in produzione (vedi
+`docs/AMBIENTI_DI_TEST.md` per il dettaglio): progetto Firebase gemello su
+Blaze (⚠️ serve Francesco per progetto/billing), parametrizzazione
+`ONESIGNAL_APP_ID` (oggi hardcoded in `functions/src/handler.ts` e
+`lib/main.dart`) + seconda app OneSignal, `flutterfire configure` per il
+secondo `firebase_options` + switch `--dart-define=ENV=staging`, alias
+`.firebaserc`, seed sintetico (MAI dati reali: GDPR).
+
 ### PR5 — admin enrollment server-side
 - Portare `deleteCourse`/`removeUserFromCourse`/`forceUnsubscribeFromCourse` (toccano iscrizioni di altri utenti) in Cloud Functions: devono ripristinare anche `remainingEntries` (nuovo modello) leggendo il **registro consumi** (`enrollmentConsumption`) + regola "admin rimborsa sempre" del README. Nello stesso PR: quando `actor != targetUserId`, la callable `unsubscribeFromCourse` deve IGNORARE `confirmedNoRefund` e rimborsare sempre (oggi un privilegiato può far perdere il credito a un altro utente passando `confirmedNoRefund:true` — finding security PR4).
 - Portare anche `updateCourseSubscribedCount` ("Correggi conteggio" in course_card): scrive `courses.subscribed` dal client con update non transazionale — da PR4 il campo è server-owned, e il lockdown PR6 lo romperebbe. Preferibile ricalcolo server-side.

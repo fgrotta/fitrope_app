@@ -1,4 +1,4 @@
-import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import {
   subscribeToCourseHandler,
   unsubscribeFromCourseHandler,
@@ -6,7 +6,6 @@ import {
   leaveWaitlistHandler,
 } from "../enrollment/enrollment";
 
-const Timestamp = admin.firestore.Timestamp;
 
 // Mar 9 giu 2026, 12:00 UTC — "adesso" per tutti i test.
 const NOW = Date.UTC(2026, 5, 9, 12);

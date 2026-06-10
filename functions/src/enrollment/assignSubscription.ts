@@ -7,6 +7,7 @@ import {
   computeActiveSnapshot,
   hasActiveForFamily,
   recordFromDoc,
+  recordToDoc,
   recordToSnapshotEntry,
   UserSubscriptionRecord,
 } from "./subscription";
@@ -14,30 +15,6 @@ import {
 export interface AssignRequest {
   auth?: { uid: string } | null;
   data: unknown;
-}
-
-type FsData = admin.firestore.DocumentData;
-
-/** Documento Firestore (collezione `subscriptions`) da un record. */
-function recordToDoc(
-  r: UserSubscriptionRecord,
-  userId: string,
-  createdBy: string
-): FsData {
-  const Timestamp = admin.firestore.Timestamp;
-  return {
-    userId,
-    createdBy,
-    planKey: r.planKey,
-    family: r.family,
-    billingMode: r.billingMode,
-    courseTypeTags: r.courseTypeTags,
-    weeklyFrequency: r.weeklyFrequency,
-    remainingEntries: r.remainingEntries,
-    startDate: Timestamp.fromMillis(r.startDateMillis),
-    endDate: Timestamp.fromMillis(r.endDateMillis),
-    createdAt: Timestamp.now(),
-  };
 }
 
 /**

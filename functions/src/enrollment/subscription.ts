@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { SubscriptionPlan, SubscriptionFamily, BillingMode } from "./plansCatalog";
 
 // Record di abbonamento in millis (logica pura, indipendente da Firestore).
@@ -82,9 +83,29 @@ export function recordFromDoc(id: string, data: FsData): UserSubscriptionRecord 
   };
 }
 
+/** Documento Firestore (collezione `subscriptions`) da un record. */
+export function recordToDoc(
+  r: UserSubscriptionRecord,
+  userId: string,
+  createdBy: string
+): FsData {
+  return {
+    userId,
+    createdBy,
+    planKey: r.planKey,
+    family: r.family,
+    billingMode: r.billingMode,
+    courseTypeTags: r.courseTypeTags,
+    weeklyFrequency: r.weeklyFrequency,
+    remainingEntries: r.remainingEntries,
+    startDate: Timestamp.fromMillis(r.startDateMillis),
+    endDate: Timestamp.fromMillis(r.endDateMillis),
+    createdAt: Timestamp.now(),
+  };
+}
+
 /** Voce dello snapshot `activeSubscriptions` sul doc utente (mappa su Dart UserSubscription). */
 export function recordToSnapshotEntry(r: UserSubscriptionRecord): FsData {
-  const Timestamp = admin.firestore.Timestamp;
   return {
     id: r.id ?? null,
     planKey: r.planKey,

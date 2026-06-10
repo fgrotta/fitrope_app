@@ -1,7 +1,6 @@
-import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { assignSubscriptionHandler } from "../enrollment/assignSubscription";
 
-const Timestamp = admin.firestore.Timestamp;
 const ADMIN_UID = "admin-uid";
 
 interface FakeOpts {
