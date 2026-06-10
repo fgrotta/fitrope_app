@@ -863,7 +863,7 @@ Row renderUserButtons() {
         children: [
         if(widget.onEdit != null)
           IconButton(
-            icon: const Icon(Icons.edit, color: onPrimaryColor),
+            icon: const Icon(Icons.edit, color: tertiaryColor),
             tooltip: 'Modifica corso',
             onPressed: widget.onEdit,
           ),
