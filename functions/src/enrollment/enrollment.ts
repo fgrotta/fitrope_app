@@ -8,6 +8,11 @@
 
 import { HttpsError, FunctionsErrorCode } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+// Import modulare: nel runtime dell'emulatore functions il namespace
+// `admin.firestore` è patchato e PERDE le proprietà statiche (Timestamp,
+// FieldValue) → vanno importate da "firebase-admin/firestore" (bug trovato
+// dallo smoke test sull'emulatore, vedi docs/AMBIENTI_DI_TEST.md).
+import { Timestamp } from "firebase-admin/firestore";
 import { planByKey } from "./plansCatalog";
 import {
   UserSubscriptionRecord,
@@ -137,7 +142,6 @@ async function fetchWeekCatalog(
   db: Firestore,
   courseStartMillis: number
 ): Promise<WeekCatalog> {
-  const Timestamp = admin.firestore.Timestamp;
   const { start: weekStart, end: weekEnd } = weekBoundsMillis(courseStartMillis);
 
   const snap = await db
@@ -615,7 +619,6 @@ export async function unsubscribeFromCourseHandler(
     }
 
     if (refund.trackCancelled) {
-      const Timestamp = admin.firestore.Timestamp;
       const existing: FsData[] = Array.isArray(user.cancelledEnrollments)
         ? (user.cancelledEnrollments as FsData[])
         : [];

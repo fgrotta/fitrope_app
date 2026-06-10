@@ -8,6 +8,7 @@
 
 import { logger } from "firebase-functions";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { ONESIGNAL_APP_ID, ONESIGNAL_API_URL } from "../handler";
 import {
   trialReminderSubject,
@@ -323,11 +324,11 @@ export async function notifyWaitlistUsers(
   if (expiredUserIds.length > 0) {
     const batch = db.batch();
     batch.update(courseRef, {
-      waitlist: admin.firestore.FieldValue.arrayRemove(...expiredUserIds),
+      waitlist: FieldValue.arrayRemove(...expiredUserIds),
     });
     for (const uid of expiredUserIds) {
       batch.update(db.collection("users").doc(uid), {
-        waitlistCourses: admin.firestore.FieldValue.arrayRemove(courseId),
+        waitlistCourses: FieldValue.arrayRemove(courseId),
       });
     }
     await batch.commit().catch((err) =>

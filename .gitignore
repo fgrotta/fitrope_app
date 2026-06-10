@@ -54,3 +54,6 @@ app.*.map.json
 ios/Podfile
 macos/Podfile
 .cursor/environment.json
+
+# Firebase Emulator Suite (export locali di scenari di test)
+.emulator-data/
