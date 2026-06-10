@@ -6,6 +6,7 @@ import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
+import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/components/assign_subscription_card.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -15,7 +16,6 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -751,11 +751,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Assegnazione abbonamento (Admin). Solo in debug finché PR4 non
-            // applica l'enforcement/decremento server-side: senza, assegnare un
-            // abbonamento renderebbe gli ingressi illimitati (vedi README_ISCRIZIONI).
-            if (kDebugMode && store.state.user?.role == 'Admin') ...[
-              AssignSubscriptionCard(userId: widget.user.uid),
+            // Assegnazione abbonamento (Admin). Attiva da PR4: il write-path
+            // server-side (subscribe/unsubscribe) applica eligibility e
+            // decremento ingressi, quindi assegnare abbonamenti è sicuro.
+            if (store.state.user?.role == 'Admin') ...[
+              AssignSubscriptionCard(
+                userId: widget.user.uid,
+                onAssigned: () {
+                  // Lo snapshot dell'utente è cambiato server-side: invalida la
+                  // cache così liste e dettagli ricaricano dati freschi.
+                  invalidateUsersCache();
+                },
+              ),
               const SizedBox(height: 20),
             ],
             // Header con avatar e nome

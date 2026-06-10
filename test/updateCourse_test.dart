@@ -72,5 +72,26 @@ void main() {
       expect(data['reminderEnabled'], false);
       expect(data['trainerId'], 't1');
     });
+
+    test('NON riscrive i campi server-owned subscribed/waitlist (modello stale)',
+        () async {
+      final created = await seed();
+
+      // Il server (callable enrollment) nel frattempo ha aggiornato i campi.
+      await db.collection('courses').doc(created.uid).update({
+        'subscribed': 7,
+        'waitlist': ['u9'],
+      });
+
+      // L'admin salva una modifica corso partendo dal modello in memoria
+      // (stale: subscribed=3, waitlist=[]) — non deve riportarli indietro.
+      await updateCourse(created.copyWith(name: 'Rinominato'), firestore: db);
+
+      final data =
+          (await db.collection('courses').doc(created.uid).get()).data()!;
+      expect(data['name'], 'Rinominato');
+      expect(data['subscribed'], 7);
+      expect(data['waitlist'], ['u9']);
+    });
   });
 }

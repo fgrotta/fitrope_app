@@ -33,6 +33,12 @@ describe("Catalogo piani (mirror Dart)", () => {
     expect(planByKey("inesistente")).toBeUndefined();
   });
 
+  test("INVARIANTE: ogni piano concede esattamente 1 tag (richiesto dallo scope settimanale condiviso, vedi eligibility.SubscribeInput.weeklyUsed)", () => {
+    expect(
+      SUBSCRIPTION_PLANS.every((p) => p.grantedCourseTypeTags.length === 1)
+    ).toBe(true);
+  });
+
   test("Open ha frequenze {2,3,null}; Hyrox/PT 10 ingressi ENTRIES", () => {
     const open1m = SUBSCRIPTION_PLANS.filter(
       (p) => p.family === "OPEN" && p.durationMonths === 1

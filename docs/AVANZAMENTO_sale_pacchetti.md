@@ -29,33 +29,50 @@ Branch: `fgrotta/sale-pacchetti-abbonamenti` (target `main`).
 | `911b3e6` | infra | Gate riutilizzabile `.claude/workflows/verifica-pr-fitrope.js`, subagent `.claude/agents/fitrope-enrollment-reviewer.md`, job `functions-test` in CI |
 | `4726f2f` | **PR2** | `SubscriptionFamily`/`BillingMode`, `UserSubscription` + serializzazione resiliente, catalogo `SubscriptionPlans` (12 Open + 4 Hyrox + 4 PT), `FitropeUser.activeSubscriptions`, `CourseType.family`, refactor `getCourseState` multi-abbonamento (scope per famiglia, illimitato, scadenza per-abbonamento, accesso tag OR copertura) |
 | `22285e4` | **PR3** | Cloud Function `assignSubscription` (admin, transazione + snapshot, vincolo max 1 attivo/famiglia) + catalogo server TS allineato al client + UI `AssignSubscriptionCard` in UserDetailPage |
+| *(PR4)* | **PR4** | Write-path enrollment → Cloud Functions: callable `subscribeToCourse`/`unsubscribeFromCourse`/`joinWaitlist`/`leaveWaitlist` (eligibility autoritativa `eligibility.ts` mirror di `getCourseState`, **valutata in transazione** — limite settimanale non bypassabile da richieste concorrenti; finestre rimborso 8h/4h `refund.ts`; decremento/ripristino `remainingEntries` + snapshot; **registro consumi per prenotazione** `enrollmentConsumption` — il rimborso ripristina la fonte realmente consumata, niente mint/burn nella transizione legacy→abbonamento né con force a credito zero, clamp al max del piano; **voci snapshot scadute escluse dalla selezione del modello** client+server — i crediti legacy non restano bloccati; gate corso-già-iniziato e `waitlistEnabled`; fix bug decremento legacy sui temporali); promemoria prova + notifiche waitlist server-side (`notify.ts`, Europe/Rome, helper TZ testati su DST; niente promemoria prova a utenti convertiti); client Dart → thin wrapper callable (helper condiviso `enrollment_callable.dart`, stesse firme); `CourseUnsubscribeHelper` multi-abbonamento (8h ENTRIES / 4h FREQUENCY); **rimosso gate `kDebugMode`** su AssignSubscriptionCard + `onAssigned` invalida cache; `functions/lib` fuori dal tracking (predeploy `tsc` garantisce build fresca) |
 
-Verifica: `flutter analyze` pulito, **flutter test 225/225**, **functions 50/50 jest** + `tsc` ok.
+Verifica: `flutter analyze` pulito, **flutter test 232/232**, **functions 168/168 jest** + `tsc` ok. Gate multi-agent tier max passato (fix di tutti i major attuabili; vedi caveat sotto).
 
 ## Stato production-safe (IMPORTANTE)
 
-Tutto il committato **non cambia comportamento osservabile** in produzione:
-- nessuno scrive `activeSubscriptions` (snapshot sempre vuoto) → `getCourseState` usa il path legacy;
-- la UI di assegnazione è **gated dietro `kDebugMode`**.
+Fino a PR3 il committato non cambiava comportamento osservabile. **Con PR4 il
+comportamento cambia**: le scritture enrollment passano dal server e la UI di
+assegnazione abbonamenti è attiva per gli Admin.
 
-⚠️ **Vincolo di sequenza**: `assignSubscription`/UI non devono andare in produzione prima di **PR4** (enforcement + decremento server-side), altrimenti gli ingressi ENTRIES non verrebbero scalati.
+✅ **Vincolo di sequenza risolto**: il write-path server applica eligibility +
+decremento per il modello multi-abbonamento, quindi `assignSubscription` può
+andare in produzione **insieme** a PR4 (stesso deploy `firebase deploy --only
+functions`; deployare functions PRIMA di pubblicare la build web, così le
+callable esistono quando il client le chiama).
+
+⚠️ **Caveat interim PR4→PR5** (dal gate di verifica):
+- I flussi admin ancora client (`deleteCourse`/`removeUserFromCourse`/
+  `forceUnsubscribeFromCourse`) ripristinano solo `entrateDisponibili` legacy:
+  per utenti del nuovo modello NON ripristinano `remainingEntries` (né leggono
+  il registro consumi). Fino a PR5: preferire la disiscrizione standard
+  (callable, già supporta Admin/Trainer su altri) ed evitare assegnazioni di
+  abbonamenti su larga scala prima di PR5.
+- **Modello misto** (crediti legacy residui + abbonamento attivo di un'altra
+  famiglia): finché esiste UNA voce viva nello snapshot, i corsi delle famiglie
+  non coperte risultano non idonei (i crediti legacy non vengono usati come
+  fallback per-famiglia). Decisione di prodotto rimandata (PR7 o memo):
+  nell'interim, all'assegnazione di un abbonamento conviene azzerare/convertire
+  i crediti legacy residui dell'utente.
 
 ## Prossimi step (DA FARE)
 
-### PR4 — subscribe/unsubscribe/waitlist → Cloud Functions  *(il più critico)*
-- Portare `lib/api/courses/subscribeToCourse.dart` e `unsubscribeToCourse.dart` (+ join/leave waitlist) in callable TS sotto `functions/src/enrollment/`, riusando `plansCatalog.ts`/`subscription.ts`.
-- Transazione: validazione eligibility (frequenza per famiglia / `remainingEntries`), capienza, già-iscritto; incremento `course.subscribed`; decremento `remainingEntries` dell'abbonamento giusto (o `entrateDisponibili` legacy) + aggiornamento snapshot; rimborso con finestre **4h/8h** + `entryLost` + `cancelledEnrollments`; rimozione da waitlist; promemoria prova spostato nel server.
-- Client: `lib/api/courses/*` chiamano le callable (pattern `FirebaseFunctions.instanceFor(region:'europe-west8')`); rimuovere le transazioni client.
-- **Poi togliere il gate `kDebugMode`** su `AssignSubscriptionCard` (UserDetailPage) + cablare `onAssigned` (reload utente + invalida `user_cache_manager`).
-- Test: Jest (logica pura eligibility/decremento + handler con fake Firestore), idealmente emulatore per le transazioni.
-
 ### PR5 — admin enrollment server-side
-- Portare `deleteCourse`/`removeUserFromCourse`/`forceUnsubscribeFromCourse` (toccano iscrizioni di altri utenti) in Cloud Functions.
-- `createCourse`/`updateCourse` restano client per ora → `// TODO(server-migration)`.
+- Portare `deleteCourse`/`removeUserFromCourse`/`forceUnsubscribeFromCourse` (toccano iscrizioni di altri utenti) in Cloud Functions: devono ripristinare anche `remainingEntries` (nuovo modello) leggendo il **registro consumi** (`enrollmentConsumption`) + regola "admin rimborsa sempre" del README. Nello stesso PR: quando `actor != targetUserId`, la callable `unsubscribeFromCourse` deve IGNORARE `confirmedNoRefund` e rimborsare sempre (oggi un privilegiato può far perdere il credito a un altro utente passando `confirmedNoRefund:true` — finding security PR4).
+- Portare anche `updateCourseSubscribedCount` ("Correggi conteggio" in course_card): scrive `courses.subscribed` dal client con update non transazionale — da PR4 il campo è server-owned, e il lockdown PR6 lo romperebbe. Preferibile ricalcolo server-side.
+- `createCourse`/`updateCourse` restano client per ora → `// TODO(server-migration)` (updateCourse già esclude `subscribed`/`waitlist` dal payload).
+- **Pruning `enrollmentConsumption`**: oggi le voci dei corsi frequentati (mai disiscritti) restano per sempre sul doc utente — pulizia opportunistica delle voci con corso concluso (allo subscribe/unsubscribe o in un job).
+- **Categoria C del piano (test integrazione Firebase Emulator)**: suite emulatore sulle callable (transazioni a 3 doc, atomicità, concorrenza/capienza, retry) — pianificata dal piano §8 per PR3-PR5, NON ancora consegnata (PR4 usa un fake in-memory). Aggiungere `firebase emulators:exec` + jest in CI.
 
 ### PR6 — firestore.rules nel repo + lockdown  *(ULTIMO PR di scrittura)*
 - Portare `firestore.rules` nel repo + blocco `firestore` in `firebase.json` (oggi assenti).
-- Lockdown: `subscriptions` write solo server; `users` write client solo campi profilo (DENY `entrateDisponibili`/`fineIscrizione`/`tipologiaCorsoTags`/`activeSubscriptions`/`role`/`courses`); `courses` `subscribed`/`waitlist` solo server (field-level finché create/update restano client).
+- Lockdown `users`: **WHITELIST dei soli campi profilo** scrivibili dal client (name, lastName, numeroTelefono, preferenze notifiche, regolamentoAccettatoIl) invece di deny-list. ⚠️ Finding security PR4: il deny-list originario (`entrateDisponibili`/`fineIscrizione`/`tipologiaCorsoTags`/`activeSubscriptions`/`role`/`courses`) NON copre i campi che il server ora usa come input fidati — `enrollmentConsumption` (forgiabile → il server conia entrate legacy all'unsubscribe), `cancelledEnrollments` (svuotabile → bypass del limite settimanale), `tipologiaIscrizione`/`entrateSettimanali` (→ illimitato lato server), `waitlistCourses`. La whitelist li chiude tutti per costruzione.
+- `subscriptions` write solo server; `courses` `subscribed`/`waitlist` solo server (field-level finché create/update restano client).
+- Valutare `enforceAppCheck` sulle callable enrollment + cooldown per le email waitlist per corso (anti spam/amplificazione, parità col pre-PR4 ma ora centralizzato).
 - Test: `@firebase/rules-unit-testing`. **Deve essere dopo PR4/PR5** (altrimenti rompe le scritture client).
 
 ### PR7 — UI polish + docs + cleanup

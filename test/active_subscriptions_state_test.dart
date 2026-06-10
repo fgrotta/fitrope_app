@@ -207,7 +207,7 @@ void main() {
   });
 
   group('scadenza e copertura', () {
-    test('abbonamento scaduto alla data del corso -> EXPIRED', () {
+    test('abbonamento vivo ma scaduto alla data del corso -> EXPIRED', () {
       final target = course(uid: 'o1', tags: [CourseTags.OPEN]);
       store.dispatch(SetAllCoursesAction([target]));
       final u = user(
@@ -218,7 +218,11 @@ void main() {
               mode: BillingMode.FREQUENCY,
               tags: {CourseTags.OPEN},
               weeklyFrequency: 2,
-              validFor: const Duration(days: -1))
+              // Vivo ADESSO ma termina prima dell'inizio del corso (prossima
+              // settimana). Una voce scaduta anche rispetto ad adesso viene
+              // invece scartata dalla selezione del modello -> fallback legacy
+              // (vedi gruppo "Snapshot stantio").
+              validFor: const Duration(hours: 1))
         ],
       );
       expect(getCourseState(target, u), CourseState.EXPIRED);
@@ -695,6 +699,64 @@ void main() {
       );
       // Hyrox HA una famiglia ma manca l'abbonamento Hyrox -> non idoneo (non gratis).
       expect(getCourseState(target, u), CourseState.NULL);
+    });
+  });
+
+  group('Snapshot stantio (voci scadute)', () {
+    // Lo snapshot viene ricalcolato solo alle scritture: una voce scaduta non
+    // deve selezionare il modello multi-abbonamento, altrimenti i crediti
+    // legacy dell'utente restano bloccati per sempre (mirror del server,
+    // evaluateSubscribe in functions/src/enrollment/eligibility.ts).
+    test(
+        'snapshot con SOLE voci scadute -> fallback legacy (crediti riutilizzabili)',
+        () {
+      final target = course(uid: 'o1', tags: [CourseTags.OPEN]);
+      store.dispatch(SetAllCoursesAction([target]));
+      final u = FitropeUser(
+        uid: 'u1',
+        email: 'e',
+        name: 'N',
+        lastName: 'C',
+        courses: const [],
+        role: 'User',
+        createdAt: now,
+        tipologiaCorsoTags: const [CourseTags.OPEN],
+        tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
+        entrateDisponibili: 3,
+        activeSubscriptions: [
+          sub(
+              family: SubscriptionFamily.HYROX,
+              mode: BillingMode.ENTRIES,
+              tags: {CourseTags.HYROX},
+              remainingEntries: 0,
+              validFor: const Duration(days: -1)), // scaduta ieri
+        ],
+      );
+      // Senza filtro: NULL (famiglia OPEN non coperta). Col filtro: legacy
+      // PACCHETTO_ENTRATE con crediti -> CAN_SUBSCRIBE.
+      expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
+    });
+
+    test('voce scaduta + voce viva: decide solo la viva', () {
+      final target = course(uid: 'o1', tags: [CourseTags.OPEN]);
+      store.dispatch(SetAllCoursesAction([target]));
+      final u = user(
+        tags: [CourseTags.OPEN],
+        subs: [
+          sub(
+              family: SubscriptionFamily.OPEN,
+              mode: BillingMode.FREQUENCY,
+              tags: {CourseTags.OPEN},
+              weeklyFrequency: 2,
+              validFor: const Duration(days: -1)), // scaduta
+          sub(
+              family: SubscriptionFamily.OPEN,
+              mode: BillingMode.FREQUENCY,
+              tags: {CourseTags.OPEN},
+              weeklyFrequency: 3), // viva
+        ],
+      );
+      expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
     });
   });
 }

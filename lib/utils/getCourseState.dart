@@ -15,9 +15,17 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
 
-  // Modello multi-abbonamento se è presente lo snapshot; altrimenti fallback
-  // al modello legacy (campi tipologiaIscrizione/entrate*/fineIscrizione).
-  final bool useSubscriptions = user.activeSubscriptions.isNotEmpty;
+  // Modello multi-abbonamento se lo snapshot contiene voci NON scadute;
+  // altrimenti fallback al modello legacy (tipologiaIscrizione/entrate*/
+  // fineIscrizione). Le voci scadute vengono scartate: lo snapshot viene
+  // ricalcolato solo alle scritture (nessun cron di pulizia), quindi una voce
+  // stantia non deve bloccare per sempre i crediti legacy dell'utente.
+  // Mirror server: evaluateSubscribe in functions/src/enrollment/eligibility.ts.
+  final DateTime now = DateTime.now();
+  final List<UserSubscription> liveSubscriptions = user.activeSubscriptions
+      .where((s) => !now.isAfter(s.endDate.toDate()))
+      .toList();
+  final bool useSubscriptions = liveSubscriptions.isNotEmpty;
 
   // Scadenza: solo legacy. Nel modello a abbonamenti è per-abbonamento ed è
   // valutata in _subscriptionGateState.
@@ -32,7 +40,7 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   // Abbonamenti che coprono la tipologia del corso (solo modello multi-abbonamento).
   final List<UserSubscription> covering =
-      useSubscriptions ? _coveringSubscriptions(course, user) : const [];
+      useSubscriptions ? _coveringSubscriptions(course, liveSubscriptions) : const [];
 
   // Accesso: legacy = solo tag; multi-abbonamento = tag OPPURE copertura
   // abbonamento (un abbonamento valido sblocca il corso anche se i tag legacy
@@ -93,10 +101,11 @@ CourseState getCourseState(Course course, FitropeUser user) {
 String _coursePrimaryTypeTag(Course course) =>
     CourseTypes.primaryForTags(course.tags)?.key ?? CourseTags.OPEN;
 
-/// Abbonamenti dell'utente che coprono la tipologia primaria del corso.
-List<UserSubscription> _coveringSubscriptions(Course course, FitropeUser user) {
+/// Abbonamenti (tra quelli non scaduti) che coprono la tipologia primaria del corso.
+List<UserSubscription> _coveringSubscriptions(
+    Course course, List<UserSubscription> liveSubscriptions) {
   final String primary = _coursePrimaryTypeTag(course);
-  return user.activeSubscriptions
+  return liveSubscriptions
       .where((s) => s.courseTypeTags.contains(primary))
       .toList();
 }
