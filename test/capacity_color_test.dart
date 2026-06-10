@@ -5,9 +5,10 @@ import 'package:fitrope_app/utils/capacity_color.dart';
 /// Test per la regola colore/etichetta della capienza (posti liberi):
 /// verde >= 50% liberi, rosso <= 15% liberi o pieno, arancione nel mezzo.
 void main() {
-  const verde = Color(0xFF43A047);
-  const rosso = Color(0xFFE53935);
-  const arancione = Color(0xFFFB8C00);
+  // Tonalità AA-compliant con testo bianco (vedi capacity_color.dart).
+  const verde = Color(0xFF2E7D32);
+  const rosso = Color(0xFFC62828);
+  const arancione = Color(0xFFB45309);
 
   group('capacityColor', () {
     test('capacity <= 0 -> arancione (guardia divisione per zero)', () {

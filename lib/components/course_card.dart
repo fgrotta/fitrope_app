@@ -302,7 +302,15 @@ class _CourseCardState extends State<CourseCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header tappabile: espande/collassa la lista degli iscritti.
-        InkWell(
+        Semantics(
+          button: true,
+          expanded: _subscribersExpanded,
+          label:
+              'Iscritti ${widget.subscribersUsers!.length} di ${widget.capacity}',
+          hint: _subscribersExpanded
+              ? 'Tocca per nascondere la lista iscritti'
+              : 'Tocca per mostrare la lista iscritti',
+          child: InkWell(
           onTap: () =>
               setState(() => _subscribersExpanded = !_subscribersExpanded),
           child: Row(
@@ -341,6 +349,7 @@ class _CourseCardState extends State<CourseCard> {
                   ),
             ])],
           ),
+          ),
         ),
         if (widget.capacity != null && widget.capacity! > 0) ...[
           const SizedBox(height: 6),
@@ -350,6 +359,11 @@ class _CourseCardState extends State<CourseCard> {
               value: (widget.subscribersUsers!.length / widget.capacity!).clamp(0.0, 1.0),
               minHeight: 6,
               backgroundColor: Colors.black12,
+              // Rende la barra leggibile dagli screen reader. Il valore
+              // resta quello percentuale di default (deve essere numerico);
+              // l'informazione sui posti liberi va nella label.
+              semanticsLabel:
+                  'Capienza corso, ${capacityPillLabel(widget.subscribersUsers!.length, widget.capacity!)}',
               valueColor: AlwaysStoppedAnimation<Color>(
                 capacityColor(widget.subscribersUsers!.length, widget.capacity!),
               ),
