@@ -118,6 +118,16 @@ class _CalendarPageState extends State<CalendarPage> {
       setState(() {
         updateCourses();
       });
+    }).catchError((e) {
+      // Da PR4 il server può rifiutare (idoneità/limiti/capienza/corso chiuso):
+      // senza questo handler il fallimento sarebbe silenzioso.
+      print('❌ Errore durante l\'iscrizione: $e');
+      if (mounted) {
+        SnackBarUtils.showErrorSnackBar(
+          context,
+          'Errore durante l\'iscrizione: $e',
+        );
+      }
     });
   }
 

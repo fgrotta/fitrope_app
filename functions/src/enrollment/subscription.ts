@@ -1,3 +1,4 @@
+import * as admin from "firebase-admin";
 import { SubscriptionPlan, SubscriptionFamily, BillingMode } from "./plansCatalog";
 
 // Record di abbonamento in millis (logica pura, indipendente da Firestore).
@@ -59,4 +60,40 @@ export function hasActiveForFamily(
   family: SubscriptionFamily
 ): boolean {
   return active.some((r) => r.family === family);
+}
+
+type FsData = admin.firestore.DocumentData;
+
+/** Record (millis) da un documento Firestore della collezione `subscriptions`. */
+export function recordFromDoc(id: string, data: FsData): UserSubscriptionRecord {
+  const start = data.startDate;
+  const end = data.endDate;
+  return {
+    id,
+    planKey: data.planKey,
+    family: data.family,
+    billingMode: data.billingMode,
+    courseTypeTags: data.courseTypeTags ?? [],
+    weeklyFrequency: data.weeklyFrequency ?? null,
+    remainingEntries: data.remainingEntries ?? null,
+    startDateMillis:
+      start && typeof start.toMillis === "function" ? start.toMillis() : 0,
+    endDateMillis: end && typeof end.toMillis === "function" ? end.toMillis() : 0,
+  };
+}
+
+/** Voce dello snapshot `activeSubscriptions` sul doc utente (mappa su Dart UserSubscription). */
+export function recordToSnapshotEntry(r: UserSubscriptionRecord): FsData {
+  const Timestamp = admin.firestore.Timestamp;
+  return {
+    id: r.id ?? null,
+    planKey: r.planKey,
+    family: r.family,
+    billingMode: r.billingMode,
+    courseTypeTags: r.courseTypeTags,
+    weeklyFrequency: r.weeklyFrequency,
+    remainingEntries: r.remainingEntries,
+    startDate: Timestamp.fromMillis(r.startDateMillis),
+    endDate: Timestamp.fromMillis(r.endDateMillis),
+  };
 }

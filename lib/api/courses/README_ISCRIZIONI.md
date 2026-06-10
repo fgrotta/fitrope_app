@@ -6,6 +6,77 @@ Il sistema gestisce le iscrizioni ai corsi basandosi su due tipi principali di a
 - **Pacchetto Entrate**: Sistema a crediti con regole specifiche per i rimborsi
 - **Abbonamenti Temporali**: Mensile, Trimestrale, Semestrale, Annuale con limiti settimanali
 
+## Write-path server-side (da PR4)
+
+Da PR4 **tutte le scritture** del dominio iscrizioni passano dalle Cloud Functions
+(`europe-west8`, transazioni atomiche con Admin SDK). I file Dart in
+`lib/api/courses/` mantengono le stesse firme ma sono **thin wrapper** delle
+callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
+
+| Callable | Handler | Cosa fa |
+|---|---|---|
+| `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, promemoria prova |
+| `unsubscribeFromCourse` | idem | Finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, `entryLost` + `cancelledEnrollments`, notifica waitlist |
+| `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze) |
+| `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot, max 1 attivo per famiglia |
+
+La logica autoritativa è nei moduli puri (mirror di `getCourseState.dart` /
+`CourseUnsubscribeHelper`): `eligibility.ts`, `refund.ts`, `courseTypes.ts`,
+`plansCatalog.ts`, `subscription.ts`. **Se modifichi le regole qui o lì, tieni
+allineati i due lati** (client = display/UX, server = enforcement).
+
+Garanzie aggiuntive del write-path server (oltre il porting 1:1):
+- **Valutazione in transazione**: eligibility, capienza, già-iscritto e limite
+  settimanale sono valutati sui dati letti **dentro** la transazione (il doc
+  utente fresco serializza le richieste concorrenti dello stesso utente: il
+  limite settimanale non è bypassabile con doppi tap/device paralleli).
+- **Registro consumi per prenotazione** (`users.{uid}.enrollmentConsumption`,
+  mappa `courseId → {kind, subscriptionId?}`): allo subscribe si registra ciò
+  che è stato REALMENTE scalato; all'unsubscribe si ripristina QUELLA fonte.
+  Così la transizione legacy→abbonamento non conia né brucia crediti (es.
+  prenotazione fatta da legacy + abbonamento assegnato dopo → rimborso
+  all'entrata legacy), e un force-subscribe che non ha scalato nulla (credito a
+  zero) non genera mai un rimborso. Prenotazioni pre-registro: fallback alla
+  risoluzione dal modello attuale. Ripristino con clamp al massimo del piano.
+- **Snapshot stantio**: le voci di `activeSubscriptions` scadute rispetto ad
+  adesso sono ESCLUSE dalla selezione del modello (server e client): un utente
+  con soli abbonamenti scaduti torna al percorso legacy e i suoi crediti
+  restano utilizzabili.
+- **Gate CLOSED**: il server rifiuta iscrizioni a corsi già iniziati (il force
+  admin può registrare presenze a posteriori); `joinWaitlist` rispetta
+  `waitlistEnabled`.
+
+Differenze deliberate rispetto al vecchio client (fix di bug, non regressioni):
+- il vecchio `subscribeToCourse` client decrementava `entrateDisponibili` **per
+  tutti** (anche abbonamenti temporali, andando in negativo); il server decrementa
+  solo per i modelli a ingressi (PACCHETTO_ENTRATE/PROVA o abbonamenti ENTRIES);
+- eligibility (crediti/limiti/accesso) ora è **enforceata** anche server-side
+  (prima era garantita solo dalla UI via `getCourseState`);
+- `forceUnsubscribeWithNoRefund` **fuori** finestra rimborsa comunque (non si può
+  perdere credito quando il rimborso è dovuto);
+- promemoria prova e notifiche waitlist partono dal server
+  (`functions/src/enrollment/notify.ts`), con date in Europe/Rome; il promemoria
+  prova NON parte per utenti già convertiti al multi-abbonamento (snapshot vivo),
+  anche se `tipologiaIscrizione` legacy è rimasta `ABBONAMENTO_PROVA`.
+
+Restano client-side (con scritture dirette Firestore) fino a PR5:
+`createCourse`/`updateCourse` (CRUD corso — `updateCourse` esclude già i campi
+server-owned `subscribed`/`waitlist` dal payload),
+`deleteCourse`/`removeUserFromCourse`/`forceUnsubscribeFromCourse` (admin) e
+`updateCourseSubscribedCount` ("Correggi conteggio" admin: scrive `subscribed`
+dal client — da migrare in PR5 a ricalcolo server-side).
+
+⚠️ **Caveat interim PR4→PR5**: i flussi admin legacy sopra ripristinano SOLO
+`entrateDisponibili` legacy. Per un utente del nuovo modello (abbonamento
+ENTRIES), una rimozione admin o un `deleteCourse` NON ripristina
+`remainingEntries` (né legge il registro consumi). Fino a PR5: preferire la
+disiscrizione standard (callable, supporta già Admin/Trainer su altri utenti)
+ed evitare di assegnare abbonamenti in produzione su larga scala prima di PR5.
+Inoltre: via callable un Admin/Trainer che disiscrive un ALTRO utente entro
+finestra con `confirmedNoRefund: true` gli fa perdere il credito — contrario
+alla regola "admin rimborsa sempre"; in PR5 la callable ignorerà
+`confirmedNoRefund` quando actor ≠ target.
+
 ## Logica per Pacchetto Entrate
 
 ### Iscrizione
@@ -114,8 +185,11 @@ if (unsubscribeInfo['requiresConfirmation']) {
 In parallelo al modello legacy sopra, `getCourseState` supporta il nuovo modello
 multi-abbonamento (`FitropeUser.activeSubscriptions`, lista di `UserSubscription`).
 
-- **Selezione del modello**: se `activeSubscriptions` è **vuoto** → modello legacy
-  (invariato, zero regressione). Se non è vuoto → modello multi-abbonamento.
+- **Selezione del modello** (aggiornata in PR4): se `activeSubscriptions` non
+  contiene **voci non scadute** → modello legacy (invariato, zero regressione).
+  Se contiene almeno una voce viva → modello multi-abbonamento. Le voci scadute
+  rispetto ad adesso vengono scartate su entrambi i lati (vedi sezione
+  "Snapshot stantio" sopra).
 - **Tipologia primaria del corso**: primo tag riconosciuto (`CourseTypes.primaryForTags`,
   fallback `Open`). Determina deterministicamente quale famiglia "consuma" il corso
   (un corso multi-tag non è servito da più famiglie).
@@ -129,13 +203,12 @@ multi-abbonamento (`FitropeUser.activeSubscriptions`, lista di `UserSubscription
     stessa tipologia + disiscrizioni perse nella settimana); `null` = illimitato.
   - `ENTRIES`: `remainingEntries > 0`.
 
-### ⚠️ Vincolo di sequenza (PR3/PR4)
+### Vincolo di sequenza (PR3/PR4) — RISOLTO in PR4
 
-In PR2 questo è **solo read-path/display**: nessuno scrive `activeSubscriptions`
-(le scritture arrivano dalle Cloud Functions in PR3+), quindi in produzione lo
-snapshot è vuoto e vale sempre il fallback legacy → **PR2 non cambia comportamento
-osservabile**. `subscribeToCourse`/`unsubscribeToCourse` sono ancora **solo legacy**
-(non leggono `activeSubscriptions` né decrementano `remainingEntries`). Perciò
-**`assignSubscription` (PR3) non deve andare in produzione prima che il write-path
-server-side (PR4) applichi eligibility + decremento**, altrimenti gli ingressi
-(ENTRIES) non verrebbero scalati. HomePage e label restano legacy fino a PR7.
+In PR2/PR3 valeva il vincolo: `assignSubscription` non doveva andare in produzione
+prima del write-path server-side, perché `subscribeToCourse` era ancora legacy e
+non scalava `remainingEntries`. **Da PR4 il vincolo è soddisfatto**: il server
+applica eligibility e decremento per il modello multi-abbonamento, e la UI di
+assegnazione (`AssignSubscriptionCard` in UserDetailPage) non è più gated dietro
+`kDebugMode`. PR3+PR4 vanno deployate **insieme** (stesso deploy functions).
+HomePage e label restano legacy fino a PR7 (solo display).

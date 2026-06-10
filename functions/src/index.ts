@@ -7,6 +7,16 @@ import {
   removeOneSignalEmailHandler,
 } from "./handler";
 import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
+import {
+  subscribeToCourseHandler,
+  unsubscribeFromCourseHandler,
+  joinWaitlistHandler,
+  leaveWaitlistHandler,
+} from "./enrollment/enrollment";
+import {
+  scheduleTrialReminder,
+  notifyWaitlistUsers,
+} from "./enrollment/notify";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -85,6 +95,79 @@ export const assignSubscription = onCall(
   },
   (request) =>
     assignSubscriptionHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore()
+    )
+);
+
+/**
+ * Iscrizione a un corso (server-authoritative): valida idoneità/capienza, scala
+ * gli ingressi dell'abbonamento giusto e aggiorna lo snapshot, in transazione.
+ *
+ * Payload: { courseId: string, userId: string, force?: boolean }
+ */
+export const subscribeToCourse = onCall(
+  { region: "europe-west8", cors: true, secrets: [oneSignalApiKey] },
+  (request) =>
+    subscribeToCourseHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+      {
+        notifyTrialReminder: (userId, courseId) =>
+          scheduleTrialReminder(
+            admin.firestore(),
+            oneSignalApiKey.value(),
+            userId,
+            courseId,
+            Date.now()
+          ),
+      }
+    )
+);
+
+/**
+ * Disiscrizione da un corso: applica le finestre di rimborso (8h ingressi / 4h
+ * frequenza), ripristina il credito dovuto, traccia le disiscrizioni perse e
+ * notifica la waitlist, in transazione.
+ *
+ * Payload: { courseId: string, userId: string, confirmedNoRefund?: boolean }
+ */
+export const unsubscribeFromCourse = onCall(
+  { region: "europe-west8", cors: true, secrets: [oneSignalApiKey] },
+  (request) =>
+    unsubscribeFromCourseHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+      {
+        notifyWaitlist: (courseId) =>
+          notifyWaitlistUsers(admin.firestore(), oneSignalApiKey.value(), courseId),
+      }
+    )
+);
+
+/**
+ * Iscrizione alla lista d'attesa di un corso pieno.
+ *
+ * Payload: { courseId: string, userId: string }
+ */
+export const joinWaitlist = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    joinWaitlistHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore()
+    )
+);
+
+/**
+ * Rimozione dalla lista d'attesa (self oppure Admin/Trainer su altri).
+ *
+ * Payload: { courseId: string, userId: string }
+ */
+export const leaveWaitlist = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    leaveWaitlistHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore()
     )

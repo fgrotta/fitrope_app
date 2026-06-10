@@ -85,93 +85,11 @@ String _formatCourseTime(DateTime startDate, DateTime endDate) {
 }
 
 // ──────────────────────────────────────────────
-//  Promemoria lezione di prova (schedulato)
+//  Promemoria lezione di prova
 // ──────────────────────────────────────────────
-
-Future<void> scheduleTrialReminder(String userId, String courseId) async {
-  debugPrint('🔔 [scheduleTrialReminder] userId: $userId, courseId: $courseId');
-
-  try {
-    final firestore = FirebaseFirestore.instance;
-
-    final courseQuery = await firestore
-        .collection('courses')
-        .where('uid', isEqualTo: courseId)
-        .limit(1)
-        .get();
-
-    if (courseQuery.docs.isEmpty) {
-      debugPrint('🔔 [scheduleTrialReminder] Corso non trovato, skip');
-      return;
-    }
-
-    final courseData = courseQuery.docs.first.data();
-
-    // Rispetta il flag reminderEnabled del corso
-    final bool reminderEnabled = courseData['reminderEnabled'] as bool? ?? true;
-    if (!reminderEnabled) {
-      debugPrint('🔔 [scheduleTrialReminder] Reminder disabilitato per questo corso, skip');
-      return;
-    }
-
-    final DateTime startDate = (courseData['startDate'] as Timestamp).toDate();
-    final DateTime endDate = (courseData['endDate'] as Timestamp).toDate();
-
-    final String sendAfter;
-    if (kDebugMode) {
-      final DateTime debugSendAt = DateTime.now().add(const Duration(seconds: 30));
-      sendAfter = debugSendAt.toUtc().toIso8601String();
-      debugPrint('🔔 [scheduleTrialReminder] DEBUG: invio tra 30 secondi ($sendAfter)');
-    } else {
-      final DateTime sendAt = DateTime(startDate.year, startDate.month, startDate.day - 1, 19, 0);
-      if (sendAt.isBefore(DateTime.now())) {
-        debugPrint('🔔 [scheduleTrialReminder] Data invio già passata ($sendAt), skip');
-        return;
-      }
-      sendAfter = sendAt.toUtc().toIso8601String();
-      debugPrint('🔔 [scheduleTrialReminder] Schedulato per: $sendAfter');
-    }
-
-    final String courseDate = _formatCourseDate(startDate);
-    final String courseTime = _formatCourseTime(startDate, endDate);
-    final String name = courseData['name'] as String? ?? '';
-
-    // Leggi le preferenze notifiche dell'utente
-    final userDoc = await firestore.collection('users').doc(userId).get();
-    final userData = userDoc.data();
-    final bool pushEnabled = userData?['pushNotificationsEnabled'] as bool? ?? true;
-    final bool emailEnabled = userData?['emailNotificationsEnabled'] as bool? ?? true;
-    debugPrint('🔔 [scheduleTrialReminder] Preferenze utente — push: $pushEnabled, email: $emailEnabled');
-
-    await Future.wait([
-      if (pushEnabled)
-        _sendOneSignalRequest('Trial Push Reminder', {
-          'include_aliases': {'external_id': [userId]},
-          'target_channel': 'push',
-          'send_after': sendAfter,
-          'headings': {'it': _testPrefix('Promemoria lezione di prova'), 'en': _testPrefix('Trial lesson reminder')},
-          'contents': {
-            'it': 'La tua lezione di prova "$name" è domani ($courseDate, $courseTime). Ti aspettiamo!',
-            'en': 'Your trial lesson "$name" is tomorrow ($courseDate, $courseTime). See you there!',
-          },
-        }),
-      if (emailEnabled)
-        _sendOneSignalRequest('Trial Email Reminder', {
-          'include_aliases': {'external_id': [userId]},
-          'target_channel': 'email',
-          'send_after': sendAfter,
-          'email_subject': _testPrefix(trialReminderSubject(name)),
-          'email_body': trialReminderBody(
-            courseName: name,
-            courseDate: courseDate,
-            courseTime: courseTime,
-          ),
-        }),
-    ]);
-  } catch (e) {
-    debugPrint('🔔 [scheduleTrialReminder] ERRORE: $e');
-  }
-}
+// Spostato server-side (PR4): è la Cloud Function `subscribeToCourse` a
+// schedularlo (functions/src/enrollment/notify.ts). Resta qui solo l'invio di
+// test da DebugEmailPage (sendTestTrialReminderEmail, in fondo al file).
 
 // ──────────────────────────────────────────────
 //  Notifiche waitlist (immediate)
@@ -239,7 +157,12 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
       final data = doc.data();
       final uid = data['uid'] as String;
 
-      if (data['fineIscrizione'] != null) {
+      // Utenti del nuovo modello (snapshot activeSubscriptions non vuoto): MAI
+      // rimossi in base al solo fineIscrizione legacy, che può essere stantio
+      // (mirror del server, functions/src/enrollment/notify.ts).
+      final bool hasSubscriptions = data['activeSubscriptions'] is List &&
+          (data['activeSubscriptions'] as List).isNotEmpty;
+      if (!hasSubscriptions && data['fineIscrizione'] != null) {
         final DateTime subscriptionEnd = (data['fineIscrizione'] as Timestamp).toDate();
         if (startDate.isAfter(subscriptionEnd)) {
           debugPrint('🔔 [notifyWaitlistUsers] Utente $uid ha abbonamento scaduto, rimozione dalla waitlist');

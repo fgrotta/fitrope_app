@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fitrope_app/api/courses/unsubscribeToCourse.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/userSubscription.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/utils/course_types.dart';
 
 /// Helper per gestire la disiscrizione ai corsi con controlli specifici per il Pacchetto Entrate
 class CourseUnsubscribeHelper {
@@ -181,12 +184,43 @@ class CourseUnsubscribeHelper {
     print('🕐 Ora attuale: $now');
     print('⏰ Differenza ore: $hoursDifference');
 
-    bool isPacchettoEntrate = user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE;
-    bool isAbbonamentoProva = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA;
-    bool isTemporalSubscription = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
-        user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
-        user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
-        user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE;
+    // Selezione del modello: contano solo le voci di snapshot NON scadute
+    // (mirror di getCourseState/server: uno snapshot stantio non deve
+    // disattivare il percorso legacy).
+    final List<UserSubscription> liveSubscriptions = user.activeSubscriptions
+        .where((s) => !now.isAfter(s.endDate.toDate()))
+        .toList();
+
+    bool isPacchettoEntrate;
+    bool isAbbonamentoProva;
+    bool isTemporalSubscription;
+    if (liveSubscriptions.isNotEmpty) {
+      // Modello multi-abbonamento: la finestra dipende dall'abbonamento che
+      // copre la tipologia del corso (stesse regole del server, refund.ts):
+      // ENTRIES → 8h ("credito"), FREQUENCY → 4h ("ingresso settimanale"),
+      // nessuna copertura → nessuna finestra (libera solo il posto).
+      final String primaryTag =
+          CourseTypes.primaryForTags(course.tags)?.key ?? CourseTags.OPEN;
+      final DateTime courseDate = course.startDate.toDate();
+      final List<UserSubscription> validCovering = liveSubscriptions
+          .where((s) =>
+              s.courseTypeTags.contains(primaryTag) &&
+              !courseDate.isBefore(s.startDate.toDate()) &&
+              !courseDate.isAfter(s.endDate.toDate()))
+          .toList();
+      isPacchettoEntrate =
+          validCovering.any((s) => s.billingMode == BillingMode.ENTRIES);
+      isAbbonamentoProva = false;
+      isTemporalSubscription = !isPacchettoEntrate &&
+          validCovering.any((s) => s.billingMode == BillingMode.FREQUENCY);
+    } else {
+      isPacchettoEntrate = user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE;
+      isAbbonamentoProva = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA;
+      isTemporalSubscription = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
+          user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
+          user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
+          user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_ANNUALE;
+    }
 
     // Per pacchetti entrate: conferma se <= 8 ore (usa minuti per evitare troncamento)
     // Per abbonamenti temporali: conferma se <= 4 ore

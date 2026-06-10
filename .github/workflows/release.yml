@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ release ]
 
+# ⚠️ VINCOLO D'ORDINE DEPLOY (da PR4): la build web dipende dalle Cloud
+# Functions enrollment (subscribeToCourse/unsubscribeFromCourse/joinWaitlist/
+# leaveWaitlist in europe-west8). Prima di mergiare su `release`, eseguire
+# MANUALMENTE `firebase deploy --only functions` (non automatizzato qui: serve
+# un service account/secret non configurato). Se la web va online prima delle
+# functions, iscrizioni e disiscrizioni falliscono in produzione.
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -27,8 +33,30 @@ jobs:
       - name: Run analysis
         run: flutter analyze
         
+  functions-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Build functions (tsc)
+        working-directory: functions
+        run: npm run build
+
+      - name: Run functions tests
+        working-directory: functions
+        run: npm test
+
   build-web:
-    needs: test
+    needs: [test, functions-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

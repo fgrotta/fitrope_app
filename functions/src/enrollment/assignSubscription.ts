@@ -6,6 +6,8 @@ import {
   buildSubscriptionFromPlan,
   computeActiveSnapshot,
   hasActiveForFamily,
+  recordFromDoc,
+  recordToSnapshotEntry,
   UserSubscriptionRecord,
 } from "./subscription";
 
@@ -15,23 +17,6 @@ export interface AssignRequest {
 }
 
 type FsData = admin.firestore.DocumentData;
-
-/** Record (millis) da un documento Firestore della collezione `subscriptions`. */
-function recordFromDoc(id: string, data: FsData): UserSubscriptionRecord {
-  const end = data.endDate;
-  const start = data.startDate;
-  return {
-    id,
-    planKey: data.planKey,
-    family: data.family,
-    billingMode: data.billingMode,
-    courseTypeTags: data.courseTypeTags ?? [],
-    weeklyFrequency: data.weeklyFrequency ?? null,
-    remainingEntries: data.remainingEntries ?? null,
-    startDateMillis: start && typeof start.toMillis === "function" ? start.toMillis() : 0,
-    endDateMillis: end && typeof end.toMillis === "function" ? end.toMillis() : 0,
-  };
-}
 
 /** Documento Firestore (collezione `subscriptions`) da un record. */
 function recordToDoc(
@@ -52,22 +37,6 @@ function recordToDoc(
     startDate: Timestamp.fromMillis(r.startDateMillis),
     endDate: Timestamp.fromMillis(r.endDateMillis),
     createdAt: Timestamp.now(),
-  };
-}
-
-/** Voce dello snapshot `activeSubscriptions` sul doc utente (mappa su Dart UserSubscription). */
-function recordToSnapshotEntry(r: UserSubscriptionRecord): FsData {
-  const Timestamp = admin.firestore.Timestamp;
-  return {
-    id: r.id ?? null,
-    planKey: r.planKey,
-    family: r.family,
-    billingMode: r.billingMode,
-    courseTypeTags: r.courseTypeTags,
-    weeklyFrequency: r.weeklyFrequency,
-    remainingEntries: r.remainingEntries,
-    startDate: Timestamp.fromMillis(r.startDateMillis),
-    endDate: Timestamp.fromMillis(r.endDateMillis),
   };
 }
 
