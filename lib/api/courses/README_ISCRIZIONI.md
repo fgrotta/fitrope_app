@@ -16,9 +16,11 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 | Callable | Handler | Cosa fa |
 |---|---|---|
 | `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, promemoria prova |
-| `unsubscribeFromCourse` | idem | Finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, `entryLost` + `cancelledEnrollments`, notifica waitlist |
+| `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, `entryLost` + `cancelledEnrollments`. **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
 | `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze) |
 | `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot, max 1 attivo per famiglia |
+| `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Niente email waitlist |
+| `recountCourseSubscribed` *(SOLO Admin, da PR5)* | `admin.ts` | Ricalcola `subscribed` dalla fonte di verità (utenti con il corso in `courses[]`), in transazione |
 
 La logica autoritativa è nei moduli puri (mirror di `getCourseState.dart` /
 `CourseUnsubscribeHelper`): `eligibility.ts`, `refund.ts`, `courseTypes.ts`,
@@ -59,23 +61,27 @@ Differenze deliberate rispetto al vecchio client (fix di bug, non regressioni):
   prova NON parte per utenti già convertiti al multi-abbonamento (snapshot vivo),
   anche se `tipologiaIscrizione` legacy è rimasta `ABBONAMENTO_PROVA`.
 
-Restano client-side (con scritture dirette Firestore) fino a PR5:
-`createCourse`/`updateCourse` (CRUD corso — `updateCourse` esclude già i campi
-server-owned `subscribed`/`waitlist` dal payload),
-`deleteCourse`/`removeUserFromCourse`/`forceUnsubscribeFromCourse` (admin) e
-`updateCourseSubscribedCount` ("Correggi conteggio" admin: scrive `subscribed`
-dal client — da migrare in PR5 a ricalcolo server-side).
+Restano client-side (con scritture dirette Firestore) SOLO
+`createCourse`/`updateCourse` (CRUD corso, non toccano iscrizioni;
+`updateCourse` esclude già i campi server-owned `subscribed`/`waitlist` dal
+payload; migrazione pianificata, vedi `// TODO(server-migration)`).
 
-⚠️ **Caveat interim PR4→PR5**: i flussi admin legacy sopra ripristinano SOLO
-`entrateDisponibili` legacy. Per un utente del nuovo modello (abbonamento
-ENTRIES), una rimozione admin o un `deleteCourse` NON ripristina
-`remainingEntries` (né legge il registro consumi). Fino a PR5: preferire la
-disiscrizione standard (callable, supporta già Admin/Trainer su altri utenti)
-ed evitare di assegnare abbonamenti in produzione su larga scala prima di PR5.
-Inoltre: via callable un Admin/Trainer che disiscrive un ALTRO utente entro
-finestra con `confirmedNoRefund: true` gli fa perdere il credito — contrario
-alla regola "admin rimborsa sempre"; in PR5 la callable ignorerà
-`confirmedNoRefund` quando actor ≠ target.
+Da PR5 i flussi admin sono server-side e i caveat interim di PR4 sono risolti:
+- `removeUserFromCourse` (l'alias legacy `forceUnsubscribeFromCourse` è stato
+  rimosso: stessa operazione) → callable
+  `unsubscribeFromCourse` (il server riconosce actor ≠ target e rimborsa
+  SEMPRE, anche `remainingEntries` del nuovo modello via registro consumi;
+  `confirmedNoRefund` è ignorato per le operazioni su altri utenti). Fix
+  rispetto al legacy: il contatore `subscribed` ora viene decrementato anche
+  dalla rimozione admin (prima no: era l'origine delle discrepanze) e niente
+  crash con `entrateDisponibili` null.
+- `deleteCourse` → callable atomica (prima era N+2 transazioni separate che
+  inviavano email "posto disponibile" per un corso in cancellazione).
+- "Correggi conteggio" → callable `recountCourseSubscribed` (il client non
+  calcola/scrive più il valore).
+- Il registro consumi ha retention 90 giorni (pruning opportunistico a ogni
+  scrittura: le correzioni admin a posteriori restano possibili entro quella
+  finestra).
 
 ## Logica per Pacchetto Entrate
 
@@ -117,10 +123,13 @@ alla regola "admin rimborsa sempre"; in PR5 la callable ignorerà
 
 ### Funzioni Admin (Sempre Rimborsano)
 - `removeUserFromCourse(courseId, userId)` - Rimozione utente specifico
-- `forceUnsubscribeFromCourse(courseId, userId)` - Disiscrizione forzata
-- `deleteCourse(courseId)` - Cancellazione corso completo
+- `deleteCourse(courseId)` - Cancellazione corso completo (SOLO Admin)
 
-**Importante**: Le funzioni admin **sempre** restituiscono il credito per i Pacchetti Entrate, indipendentemente dal tempo rimanente.
+**Importante**: Le funzioni admin **sempre** restituiscono il credito
+(pacchetti legacy E `remainingEntries` del nuovo modello, via registro
+consumi), indipendentemente dal tempo rimanente — ECCEZIONE: `deleteCourse`
+di un corso GIÀ INIZIATO non rimborsa (i partecipanti hanno frequentato;
+è la pulizia del calendario/storico).
 
 ## Flusso di Utilizzo per Pacchetto Entrate
 

@@ -24,12 +24,13 @@ class EnrollmentException implements Exception {
 /// Invoca una Cloud Function del dominio iscrizioni (region `europe-west8`)
 /// gestendo il boilerplate comune dei wrapper in `lib/api/courses/`:
 /// loading nello store, invalidazione cache corsi/utenti, refresh dell'utente
-/// corrente (se è il soggetto dell'operazione) e conversione di
+/// corrente (se [userId] è il soggetto dell'operazione; null per le operazioni
+/// non per-utente, es. deleteCourse) e conversione di
 /// [FirebaseFunctionsException] in [EnrollmentException].
 Future<void> callEnrollmentFunction(
   String functionName,
   Map<String, dynamic> payload, {
-  required String userId,
+  String? userId,
   required String fallbackError,
 }) async {
   store.dispatch(StartLoadingAction());
@@ -40,7 +41,7 @@ Future<void> callEnrollmentFunction(
 
     invalidateUsersCache();
     invalidateCoursesCache();
-    if (store.state.user?.uid == userId) {
+    if (userId != null && store.state.user?.uid == userId) {
       final userData = await getUserData(userId);
       if (userData != null) {
         store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));

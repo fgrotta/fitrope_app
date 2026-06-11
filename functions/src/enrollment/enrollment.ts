@@ -7,6 +7,7 @@
 // iniettabili tramite `deps`, così i test non toccano la rete.
 
 import { HttpsError, FunctionsErrorCode } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
 import * as admin from "firebase-admin";
 // Import modulare: nel runtime dell'emulatore functions il namespace
 // `admin.firestore` è patchato e PERDE le proprietà statiche (Timestamp,
@@ -31,7 +32,7 @@ import {
   CancelledRecord,
   SubscribeReason,
 } from "./eligibility";
-import { decideRefund, CreditMode } from "./refund";
+import { decideRefund, decideAdminRefund, CreditMode } from "./refund";
 
 type Firestore = admin.firestore.Firestore;
 type FsData = admin.firestore.DocumentData;
@@ -49,9 +50,9 @@ export interface EnrollmentDeps {
   notifyWaitlist?: (courseId: string) => Promise<void>;
 }
 
-const ADMIN_ROLES = new Set(["Admin", "Trainer"]);
+export const ADMIN_ROLES = new Set(["Admin", "Trainer"]);
 
-function requireAuthUid(request: EnrollmentRequest): string {
+export function requireAuthUid(request: EnrollmentRequest): string {
   if (!request.auth) throw new HttpsError("unauthenticated", "Login richiesto");
   return request.auth.uid;
 }
@@ -71,7 +72,7 @@ function requireString(v: unknown, field: string): string {
 }
 
 /** Trova il documento corso per campo `uid` (come il client). */
-async function getCourseDoc(
+export async function getCourseDoc(
   tx: Transaction,
   db: Firestore,
   courseId: string
@@ -91,13 +92,13 @@ async function getRole(tx: Transaction, db: Firestore, uid: string): Promise<str
   return snap.exists ? (snap.data()?.role as string | null) ?? null : null;
 }
 
-function snapshotRecords(userData: FsData): UserSubscriptionRecord[] {
+export function snapshotRecords(userData: FsData): UserSubscriptionRecord[] {
   const raw = userData.activeSubscriptions;
   if (!Array.isArray(raw)) return [];
   return raw.map((e: FsData) => recordFromDoc((e.id as string) ?? "", e));
 }
 
-function toMillis(ts: unknown): number {
+export function toMillis(ts: unknown): number {
   if (ts && typeof (ts as { toMillis?: () => number }).toMillis === "function") {
     return (ts as { toMillis: () => number }).toMillis();
   }
@@ -206,14 +207,87 @@ function weeklyUsedFromCatalog(
  * una prenotazione legacy), e un force-subscribe che non ha scalato nulla non
  * genera mai un rimborso (kind NONE).
  */
-interface ConsumptionRecord {
+export interface ConsumptionRecord {
   kind: "NONE" | "LEGACY_ENTRY" | "SUBSCRIPTION_ENTRY";
   subscriptionId?: string | null;
+  /** Quando è stata registrata (audit). */
+  atMillis?: number;
+  /** Inizio del corso prenotato: àncora della retention (vedi [pruneConsumption]). */
+  courseStartMillis?: number;
 }
 
-function readConsumption(user: FsData): Record<string, ConsumptionRecord> {
+/** Retention delle voci del registro: 90 giorni DOPO l'inizio del corso (le
+ * correzioni admin a posteriori restano possibili entro quella finestra). */
+export const CONSUMPTION_RETENTION_MILLIS = 90 * 24 * 60 * 60 * 1000;
+
+export function readConsumption(user: FsData): Record<string, ConsumptionRecord> {
   const raw = user.enrollmentConsumption;
   return raw && typeof raw === "object" ? { ...(raw as Record<string, ConsumptionRecord>) } : {};
+}
+
+/**
+ * Pruning opportunistico (eseguito a ogni scrittura del registro): senza, le
+ * voci dei corsi frequentati resterebbero per sempre sul doc utente.
+ *
+ * L'àncora è l'INIZIO DEL CORSO (courseStartMillis), non il momento della
+ * prenotazione: una prenotazione per un corso futuro (anche a 4+ mesi) non è
+ * MAI prunabile prima che il corso si svolga — altrimenti il rimborso futuro
+ * perderebbe la provenienza del consumo. Una voce di corso frequentato scade
+ * 90 giorni dopo il corso. Le voci senza alcuna àncora (shape pre-retention,
+ * mai andata in produzione) vengono rimosse.
+ */
+export function pruneConsumption(
+  consumption: Record<string, ConsumptionRecord>,
+  nowMillis: number
+): Record<string, ConsumptionRecord> {
+  const cutoff = nowMillis - CONSUMPTION_RETENTION_MILLIS;
+  const pruned: Record<string, ConsumptionRecord> = {};
+  for (const [courseId, record] of Object.entries(consumption)) {
+    const anchor = record.courseStartMillis ?? record.atMillis ?? 0;
+    if (anchor >= cutoff) pruned[courseId] = record;
+  }
+  return pruned;
+}
+
+/**
+ * Risolve dal modello ATTUALE dell'utente quale tipo di credito governa un
+ * corso (finestre di rimborso, fallback di ripristino quando manca il registro
+ * consumi). Selezione del modello coerente con evaluateSubscribe: contano solo
+ * le voci di snapshot non scadute. Condivisa da unsubscribe e deleteCourse.
+ */
+export function resolveCreditMode(
+  user: FsData,
+  coursePrimaryTag: string,
+  courseStartMillis: number,
+  nowMillis: number
+): { creditMode: CreditMode; subscriptionId: string | null } {
+  const records = snapshotRecords(user);
+  const liveRecords = records.filter((r) => r.endDateMillis >= nowMillis);
+
+  if (liveRecords.length > 0) {
+    const valid = validAtDate(
+      coveringSubsByType(liveRecords, coursePrimaryTag),
+      courseStartMillis
+    );
+    const entrySub = valid.find((s) => s.billingMode === "ENTRIES");
+    const freqSub = valid.find((s) => s.billingMode === "FREQUENCY");
+    if (entrySub) {
+      return { creditMode: "ENTRIES_SUB", subscriptionId: entrySub.id ?? null };
+    }
+    if (freqSub) {
+      return { creditMode: "FREQUENCY_SUB", subscriptionId: null };
+    }
+    return { creditMode: "NONE", subscriptionId: null };
+  }
+
+  const tip = (user.tipologiaIscrizione as string | null) ?? null;
+  if (tip === "PACCHETTO_ENTRATE" || tip === "ABBONAMENTO_PROVA") {
+    return { creditMode: "ENTRIES_LEGACY", subscriptionId: null };
+  }
+  if (tip !== null && tip.startsWith("ABBONAMENTO_")) {
+    return { creditMode: "FREQUENCY_LEGACY", subscriptionId: null };
+  }
+  return { creditMode: "NONE", subscriptionId: null };
 }
 
 // ──────────────────────────────────────────────
@@ -415,7 +489,11 @@ export async function subscribeToCourseHandler(
     // Consumo del credito + registro per-prenotazione (vedi ConsumptionRecord):
     // si registra ciò che è stato REALMENTE scalato, così il rimborso futuro
     // ripristina la fonte giusta anche se il modello dell'utente cambia.
-    const consumed: ConsumptionRecord = { kind: "NONE" };
+    const consumed: ConsumptionRecord = {
+      kind: "NONE",
+      atMillis: nowMillis,
+      courseStartMillis,
+    };
     if (decision.consume.kind === "LEGACY_ENTRY") {
       const current = (user.entrateDisponibili as number | null) ?? 0;
       // Force admin: consuma il credito disponibile senza andare negativo.
@@ -445,7 +523,7 @@ export async function subscribeToCourseHandler(
       }
     }
 
-    const consumption = readConsumption(user);
+    const consumption = pruneConsumption(readConsumption(user), nowMillis);
     consumption[courseId] = consumed;
     userUpdate.enrollmentConsumption = consumption;
 
@@ -485,7 +563,8 @@ export async function unsubscribeFromCourseHandler(
     const user = userTxSnap.data() as FsData;
 
     // Autorizzazione: self, oppure Admin/Trainer su altri.
-    if (targetUserId !== actor) {
+    const adminAction = targetUserId !== actor;
+    if (adminAction) {
       const actorRole = await getRole(tx, db, actor);
       if (actorRole === null || !ADMIN_ROLES.has(actorRole)) {
         throw new HttpsError("permission-denied", "Non puoi disiscrivere un altro utente");
@@ -497,7 +576,10 @@ export async function unsubscribeFromCourseHandler(
     if (!courses.includes(courseId)) {
       throw new HttpsError("failed-precondition", "Non sei iscritto a questo corso");
     }
-    if (subscribed <= 0) {
+    // Contatore a zero con utente realmente iscritto = contatore corrotto: la
+    // rimozione ADMIN deve comunque poter sanare la situazione (decremento
+    // clampato a 0 più sotto); per il self resta un errore.
+    if (subscribed <= 0 && !adminAction) {
       throw new HttpsError("failed-precondition", "Nessun iscritto al corso");
     }
 
@@ -513,40 +595,25 @@ export async function unsubscribeFromCourseHandler(
     }
     const courseTags = Array.isArray(course.data.tags) ? (course.data.tags as string[]) : [];
     const coursePrimaryTag = primaryTypeTagForTags(courseTags);
-    const records = snapshotRecords(user);
-    // Selezione del modello: solo voci non scadute (coerente con evaluateSubscribe).
-    const liveRecords = records.filter((r) => r.endDateMillis >= nowMillis);
-    const useSubs = liveRecords.length > 0;
 
     // Risolvi il creditMode dal modello ATTUALE: determina finestra (8h/4h) e
     // tracciamento cancelledEnrollments. La fonte da RIPRISTINARE invece viene
     // dal registro consumi (vedi sotto), se presente.
-    let creditMode: CreditMode = "NONE";
-    let subscriptionId: string | null = null;
-    if (useSubs) {
-      const valid = validAtDate(
-        coveringSubsByType(liveRecords, coursePrimaryTag),
-        courseStartMillis
-      );
-      const entrySub = valid.find((s) => s.billingMode === "ENTRIES");
-      const freqSub = valid.find((s) => s.billingMode === "FREQUENCY");
-      if (entrySub) {
-        creditMode = "ENTRIES_SUB";
-        subscriptionId = entrySub.id ?? null;
-      } else if (freqSub) {
-        creditMode = "FREQUENCY_SUB";
-      }
-    } else {
-      const tip = (user.tipologiaIscrizione as string | null) ?? null;
-      if (tip === "PACCHETTO_ENTRATE" || tip === "ABBONAMENTO_PROVA") {
-        creditMode = "ENTRIES_LEGACY";
-      } else if (tip !== null && tip.startsWith("ABBONAMENTO_")) {
-        creditMode = "FREQUENCY_LEGACY";
-      }
-    }
+    const { creditMode, subscriptionId } = resolveCreditMode(
+      user,
+      coursePrimaryTag,
+      courseStartMillis,
+      nowMillis
+    );
 
+    // Operazione ADMIN su un altro utente (il ramo target !== actor è già
+    // riservato ai privilegiati): rimborso SEMPRE, `confirmedNoRefund` IGNORATO
+    // (un privilegiato non può far perdere il credito a un altro utente),
+    // nessuna voce in cancelledEnrollments. Regola README "admin rimborsa sempre".
     const minutesToStart = (courseStartMillis - nowMillis) / 60000;
-    const refund = decideRefund({ creditMode, subscriptionId, minutesToStart, confirmedNoRefund });
+    const refund = adminAction
+      ? decideAdminRefund(creditMode, subscriptionId)
+      : decideRefund({ creditMode, subscriptionId, minutesToStart, confirmedNoRefund });
     if (refund.requiresConfirmation) {
       throw new HttpsError(
         "failed-precondition",
@@ -591,7 +658,7 @@ export async function unsubscribeFromCourseHandler(
     }
 
     // ----- scritture (array ricostruiti a partire dai doc letti in transazione) -----
-    tx.update(course.ref, { subscribed: subscribed - 1 });
+    tx.update(course.ref, { subscribed: Math.max(0, subscribed - 1) });
 
     const userUpdate: FsData = {
       courses: courses.filter((id) => id !== courseId),
@@ -605,6 +672,15 @@ export async function unsubscribeFromCourseHandler(
     if (restoreSubId) {
       const ref = subRefById.get(restoreSubId);
       const target = txRecords.find((r) => r.id === restoreSubId);
+      if (!ref || !target) {
+        // Il doc subscription referenziato dal registro non esiste più: il
+        // rimborso non può essere applicato — non deve passare in silenzio.
+        logger.warn("Rimborso abbonamento non applicabile: doc mancante", {
+          userId: targetUserId,
+          courseId,
+          subscriptionId: restoreSubId,
+        });
+      }
       if (ref && target) {
         // Clamp difensivo al massimo del piano: un ripristino legittimo non può
         // mai superare gli ingressi del piano.
@@ -633,12 +709,10 @@ export async function unsubscribeFromCourseHandler(
       ];
     }
 
-    // Registro consumi: la prenotazione è chiusa, rimuovi la voce.
-    if (consumedRecord !== undefined) {
-      const remaining = { ...consumption };
-      delete remaining[courseId];
-      userUpdate.enrollmentConsumption = remaining;
-    }
+    // Registro consumi: la prenotazione è chiusa, rimuovi la voce (+ pruning).
+    const remaining = pruneConsumption(consumption, nowMillis);
+    delete remaining[courseId];
+    userUpdate.enrollmentConsumption = remaining;
 
     tx.update(userRef, userUpdate);
   });

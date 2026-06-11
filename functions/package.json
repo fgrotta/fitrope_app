@@ -10,6 +10,7 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "test": "jest",
+    "test:integration": "npm run build && cd .. && firebase emulators:exec --only auth,firestore,functions --project demo-fitrope \"cd functions && npx jest -c jest.integration.config.js\"",
     "seed:emulator": "node scripts/seedEmulator.js"
   },
   "engines": {

@@ -4,7 +4,11 @@ import {
   unsubscribeFromCourseHandler,
   joinWaitlistHandler,
   leaveWaitlistHandler,
+  pruneConsumption,
+  CONSUMPTION_RETENTION_MILLIS,
+  ConsumptionRecord,
 } from "../enrollment/enrollment";
+import { makeDb, FakeStore, Data } from "./helpers/fakeDb";
 
 
 // Mar 9 giu 2026, 12:00 UTC — "adesso" per tutti i test.
@@ -15,115 +19,7 @@ const FAR = Date.UTC(2026, 5, 10, 10);
 const MID = Date.UTC(2026, 5, 9, 18);
 const SOON = Date.UTC(2026, 5, 9, 14);
 
-type Data = Record<string, unknown>;
 
-interface FakeStore {
-  users: Record<string, Data>;
-  courses: Record<string, Data>; // docId -> data (campo uid dentro)
-  subs: Record<string, Data>;
-}
-
-interface Filter {
-  f: string;
-  op: string;
-  v: unknown;
-}
-
-function makeDb(store: FakeStore) {
-  const userDocRef = (id: string) => ({
-    _kind: "userDoc",
-    _id: id,
-    get: async () => ({
-      exists: store.users[id] !== undefined,
-      data: () => store.users[id],
-    }),
-  });
-
-  const courseDocRef = (docId: string) => ({ _kind: "courseDoc", _id: docId });
-
-  const runCoursesQuery = (filters: Filter[]) => {
-    let entries = Object.entries(store.courses);
-    for (const { f, op, v } of filters) {
-      if (f === "uid" && op === "==") {
-        entries = entries.filter(([, d]) => d.uid === v);
-      } else if (f === "startDate") {
-        const millis = (v as { toMillis: () => number }).toMillis();
-        entries = entries.filter(([, d]) => {
-          const start = (d.startDate as { toMillis: () => number }).toMillis();
-          return op === ">=" ? start >= millis : start <= millis;
-        });
-      }
-    }
-    return {
-      empty: entries.length === 0,
-      docs: entries.map(([id, d]) => ({
-        id,
-        data: () => d,
-        ref: courseDocRef(id),
-      })),
-    };
-  };
-
-  const coursesQuery = (filters: Filter[]): Data => ({
-    _kind: "coursesQuery",
-    _filters: filters,
-    where: (f: string, op: string, v: unknown) =>
-      coursesQuery([...filters, { f, op, v }]),
-    limit: () => coursesQuery(filters),
-    get: async () => runCoursesQuery(filters),
-  });
-
-  const db = {
-    collection(name: string) {
-      if (name === "users") return { doc: userDocRef };
-      if (name === "courses") return coursesQuery([]);
-      if (name === "subscriptions") {
-        return {
-          where: (_f: string, _op: string, v: unknown) => ({
-            _kind: "subsQuery",
-            _userId: v,
-          }),
-        };
-      }
-      throw new Error(`collezione non gestita: ${name}`);
-    },
-    runTransaction: async (fn: (tx: unknown) => Promise<void>) => {
-      const tx = {
-        get: async (q: { _kind: string; _filters?: Filter[]; _id?: string; _userId?: string }) => {
-          if (q._kind === "coursesQuery") return runCoursesQuery(q._filters!);
-          if (q._kind === "userDoc") {
-            return {
-              exists: store.users[q._id!] !== undefined,
-              data: () => store.users[q._id!],
-            };
-          }
-          if (q._kind === "subsQuery") {
-            const docs = Object.entries(store.subs)
-              .filter(([, d]) => d.userId === q._userId)
-              .map(([id, d]) => ({
-                id,
-                data: () => d,
-                ref: { _kind: "subDoc", _id: id },
-              }));
-            return { docs };
-          }
-          throw new Error(`tx.get non gestito: ${q._kind}`);
-        },
-        update: (ref: { _kind: string; _id: string }, data: Data) => {
-          const target =
-            ref._kind === "courseDoc"
-              ? store.courses
-              : ref._kind === "userDoc"
-                ? store.users
-                : store.subs;
-          Object.assign(target[ref._id], data);
-        },
-      };
-      await fn(tx);
-    },
-  };
-  return db as never;
-}
 
 function course(over: Data = {}): Data {
   return {
@@ -451,7 +347,7 @@ describe("subscribeToCourseHandler", () => {
     // Il registro consumi DEVE puntare all'abbonamento decrementato: senza
     // subscriptionId il rimborso futuro non ripristinerebbe nulla.
     expect(store.users.u1.enrollmentConsumption).toEqual({
-      ch: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: "sub-hyrox" },
+      ch: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: "sub-hyrox", atMillis: NOW, courseStartMillis: FAR },
     });
   });
 
@@ -521,7 +417,9 @@ describe("subscribeToCourseHandler", () => {
     );
     expect(res.ok).toBe(true);
     expect(store.subs["sub-open-entries"].remainingEntries).toBe(0); // intatto
-    expect(store.users.u1.enrollmentConsumption).toEqual({ c1: { kind: "NONE" } });
+    expect(store.users.u1.enrollmentConsumption).toEqual({
+      c1: { kind: "NONE", atMillis: NOW, courseStartMillis: FAR },
+    });
   });
 
   test("multi-abbonamento ENTRIES a zero → failed-precondition", async () => {
@@ -775,7 +673,7 @@ describe("subscribeToCourseHandler", () => {
       NOW
     );
     expect(store.users.u1.enrollmentConsumption).toEqual({
-      c1: { kind: "LEGACY_ENTRY" },
+      c1: { kind: "LEGACY_ENTRY", atMillis: NOW, courseStartMillis: FAR },
     });
   });
 
@@ -795,7 +693,9 @@ describe("subscribeToCourseHandler", () => {
       NOW
     );
     expect(store.users.u1.entrateDisponibili).toBe(0);
-    expect(store.users.u1.enrollmentConsumption).toEqual({ c1: { kind: "NONE" } });
+    expect(store.users.u1.enrollmentConsumption).toEqual({
+      c1: { kind: "NONE", atMillis: NOW, courseStartMillis: FAR },
+    });
   });
 });
 
@@ -1314,5 +1214,102 @@ describe("leaveWaitlistHandler", () => {
     await leaveWaitlistHandler({ ...auth("boss"), data: { courseId: "c1", userId: "u2" } }, makeDb(store));
     expect(store.courses.c1.waitlist).toEqual([]);
     expect(store.users.u2.waitlistCourses).toEqual([]);
+  });
+});
+
+// ──────────────────────────────────────────────
+//  Registro consumi: retention e pruning
+// ──────────────────────────────────────────────
+
+describe("pruneConsumption (retention 90gg ancorata all'inizio del corso)", () => {
+  const CUTOFF = NOW - CONSUMPTION_RETENTION_MILLIS;
+  const rec = (courseStartMillis?: number): ConsumptionRecord => ({
+    kind: "LEGACY_ENTRY",
+    atMillis: NOW - 200 * 24 * 3600 * 1000, // prenotata 200 giorni fa: irrilevante
+    ...(courseStartMillis !== undefined ? { courseStartMillis } : {}),
+  });
+
+  test("boundary: corso a cutoff esatto mantenuto, a cutoff-1ms rimosso", () => {
+    const pruned = pruneConsumption(
+      { keep: rec(CUTOFF), drop: rec(CUTOFF - 1) },
+      NOW
+    );
+    expect(Object.keys(pruned)).toEqual(["keep"]);
+  });
+
+  test("prenotazione APERTA per un corso futuro (anche a 4 mesi) non è MAI prunata", () => {
+    const pruned = pruneConsumption(
+      { future: rec(NOW + 120 * 24 * 3600 * 1000) },
+      NOW
+    );
+    expect(pruned.future).toBeDefined();
+  });
+
+  test("voce senza alcuna àncora (shape pre-retention) viene rimossa", () => {
+    const pruned = pruneConsumption(
+      { legacyShape: { kind: "LEGACY_ENTRY" } },
+      NOW
+    );
+    expect(pruned).toEqual({});
+  });
+
+  test("subscribe: le voci di corsi frequentati >90gg fa spariscono, quelle aperte/recenti restano", async () => {
+    const store: FakeStore = {
+      users: {
+        u1: packUser({
+          enrollmentConsumption: {
+            "c-antico": {
+              kind: "LEGACY_ENTRY",
+              atMillis: NOW - 100 * 24 * 3600 * 1000,
+              courseStartMillis: NOW - 95 * 24 * 3600 * 1000, // frequentato 95gg fa
+            },
+            "c-aperto": {
+              kind: "LEGACY_ENTRY",
+              atMillis: NOW - 100 * 24 * 3600 * 1000, // prenotato 100gg fa…
+              courseStartMillis: NOW + 30 * 24 * 3600 * 1000, // …per un corso futuro
+            },
+          },
+        }),
+      },
+      courses: { c1: course() },
+      subs: {},
+    };
+    const db = makeDb(store);
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    const consumption = store.users.u1.enrollmentConsumption as Record<string, unknown>;
+    expect(Object.keys(consumption).sort()).toEqual(["c-aperto", "c1"]);
+  });
+
+  test("unsubscribe: la voce stantia del corso TARGET viene comunque rimborsata (lettura pre-pruning)", async () => {
+    // Corso passato? No: per il rimborso fuori finestra serve un corso futuro
+    // ma con voce dalla shape antica (atMillis nullo) → il rimborso usa il
+    // record letto PRIMA del pruning.
+    const store: FakeStore = {
+      users: {
+        u1: packUser({
+          courses: ["c1"],
+          entrateDisponibili: 4,
+          enrollmentConsumption: {
+            c1: { kind: "LEGACY_ENTRY" }, // nessuna àncora: prunabile
+          },
+        }),
+      },
+      courses: { c1: course() }, // FAR: fuori finestra → rimborso dovuto
+      subs: {},
+    };
+    const db = makeDb(store);
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.entrateDisponibili).toBe(5); // rimborsata
+    expect(store.users.u1.enrollmentConsumption).toEqual({}); // e ripulita
   });
 });
