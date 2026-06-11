@@ -4,7 +4,7 @@ import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/courses/deleteCourse.dart';
-import 'package:fitrope_app/api/courses/updateCourseSubscribedCount.dart';
+import 'package:fitrope_app/api/courses/recountCourseSubscribed.dart';
 import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
@@ -261,7 +261,7 @@ class _CourseCardState extends State<CourseCard> {
               child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
             ),
             ElevatedButton(
-              onPressed: () => _correctSubscribedCount(context, actualCount),
+              onPressed: () => _correctSubscribedCount(context),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child: const Text('Correggi', style: TextStyle(color: Colors.white)),
             ),
@@ -271,12 +271,13 @@ class _CourseCardState extends State<CourseCard> {
     );
   }
 
-  // Corregge il conteggio degli iscritti nel database
-  Future<void> _correctSubscribedCount(BuildContext context, int newCount) async {
+  // Corregge il conteggio degli iscritti: il ricalcolo avviene server-side
+  // dalla fonte di verità (utenti con il corso in courses[]).
+  Future<void> _correctSubscribedCount(BuildContext context) async {
     try {
       Navigator.pop(context); // Chiudi il dialog
-      
-      await updateCourseSubscribedCount(widget.courseId, newCount).then((_) {
+
+      await recountCourseSubscribed(widget.courseId).then((_) {
         widget.onRefresh();
       });
       

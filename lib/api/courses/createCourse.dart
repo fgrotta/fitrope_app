@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 
+// TODO(server-migration): portare createCourse in Cloud Function (piano §11,
+// PR6+): finché resta client, il lockdown delle rules sui corsi è parziale.
 Future<Course?> createCourse(Course course,
     {FirebaseFirestore? firestore}) async {
   try {

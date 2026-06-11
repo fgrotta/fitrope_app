@@ -33,12 +33,15 @@ Auth + Firestore + Functions girano in locale; l'app Flutter si collega con
   firebase-tools 15.x).
 - Istruzioni operative: vedi "Come testare in locale" più sotto.
 
-### B. Test d'integrazione su emulatore in CI — pianificata (PR5)
+### B. Test d'integrazione su emulatore in CI — ✅ CONSEGNATA (PR5)
 
-`firebase emulators:exec` + Jest contro le callable nell'emulatore: transazioni
-a 3 documenti, atomicità, concorrenza/capienza, retry. È la **categoria C** del
-piano (§8), da consegnare in PR5. Diventa la rete di regressione permanente del
-write-path.
+`npm run test:integration` in `functions/`: `firebase emulators:exec` (project
+`demo-fitrope`, offline-only) + Jest contro le callable REALI
+(`functions/src/__integration__/`): round-trip con registro consumi,
+**concorrenza sull'ultimo posto** e **doppio-tap sul limite settimanale**
+(transazioni con contention/retry vere), deleteCourse atomico, recount, authz.
+In CI: job `functions-integration` (`.github/workflows/ci.yml`). È la
+categoria C del piano (§8): la rete di regressione permanente del write-path.
 
 ### C. Progetto Firebase di staging — ⭐ TARGET (la migliore, da fare prima del rilascio)
 
@@ -75,8 +78,8 @@ deployate, dati sintetici, seconda app OneSignal.
 
 | Strato | Stato | Quando |
 |---|---|---|
-| **A. Emulatore locale** | ✅ implementata | da subito, per sviluppo e QA manuale |
-| **B. Emulatore in CI (categoria C)** | pianificata | dentro PR5 |
+| **A. Emulatore locale** | ✅ implementata (PR4.5) | da subito, per sviluppo e QA manuale |
+| **B. Emulatore in CI (categoria C)** | ✅ consegnata (PR5) | gira in CI a ogni push |
 | **C. Staging** | ⭐ target, decisa come opzione migliore | prima del rilascio in prod del blocco PR3–PR6 (serve creazione progetto/billing da parte di Francesco) |
 
 **Regola operativa**: niente arriva in produzione senza essere passato

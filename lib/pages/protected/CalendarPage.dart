@@ -273,10 +273,10 @@ class _CalendarPageState extends State<CalendarPage> {
         'Corso cancellato con successo',
       );
     } catch (e) {
-      // Mostra SnackBar di errore
+      // Mostra SnackBar di errore (col motivo del server, es. permessi)
       SnackBarUtils.showErrorSnackBar(
         context,
-        'Errore durante la cancellazione del corso',
+        'Errore durante la cancellazione del corso: $e',
       );
     }
   }

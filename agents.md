@@ -345,13 +345,13 @@ La REST API key **non e mai esposta al client**. Il client chiama la Cloud Funct
 
 ### Casi d'uso
 
-| Trigger | File | Invio |
+| Trigger | Dove (da PR4/PR5: SERVER-side) | Invio |
 |---|---|---|
-| Disiscrizione da corso pieno | `lib/services/notification_service.dart:notifyWaitlistUsers` | Immediato — push + email a tutti gli utenti in waitlist |
-| Iscrizione utente `ABBONAMENTO_PROVA` | `lib/services/notification_service.dart:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 (produzione) o +30s (debug) |
+| Disiscrizione da corso pieno | Cloud Function `unsubscribeFromCourse` → `functions/src/enrollment/notify.ts:notifyWaitlistUsers` | Immediato — email a tutti gli utenti in waitlist (utenti nuovo modello mai rimossi per `fineIscrizione` stantio) |
+| Iscrizione utente `ABBONAMENTO_PROVA` (solo modello legacy) | Cloud Function `subscribeToCourse` → `functions/src/enrollment/notify.ts:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 Europe/Rome |
 | Debug manuale (solo `kDebugMode`) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
 
-In debug (`kDebugMode`) il promemoria viene inviato a **tutti** gli utenti, non solo prova, con prefisso `TEST - ` nei testi.
+Le versioni client di `notifyWaitlistUsers`/`scheduleTrialReminder` sono state RIMOSSE (PR4/PR5): il server è l'unica autorità.
 
 **Logout**: la rimozione dell'email da OneSignal al logout è temporaneamente disabilitata (codice commentato in `lib/authentication/logout.dart`).
 
@@ -367,8 +367,8 @@ Su web le email passano via Cloud Function (`ensureOneSignalUser` crea l'utente 
 
 Ogni `Course` ha due flag configurabili dall'admin in creazione/duplicazione:
 
-- `reminderEnabled` (default true): se false, `scheduleTrialReminder` salta l'invio per questo corso
-- `waitlistEnabled` (default true): se false, `getCourseState` ritorna `FULL` invece di `CAN_WAITLIST`, e `notifyWaitlistUsers` salta l'invio
+- `reminderEnabled` (default true): se false, `scheduleTrialReminder` (server) salta l'invio per questo corso
+- `waitlistEnabled` (default true): se false, `getCourseState` ritorna `FULL` invece di `CAN_WAITLIST`, `joinWaitlist` (server) rifiuta e `notifyWaitlistUsers` (server) salta l'invio
 
 Entrambi si applicano anche ai corsi creati tramite `RecurringCoursePage`.
 

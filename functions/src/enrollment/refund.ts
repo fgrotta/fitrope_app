@@ -57,6 +57,33 @@ const NO_OP: RefundDecision = {
   entryLost: false,
 };
 
+/**
+ * Rimborso per le operazioni ADMIN su altri utenti (rimozione/disiscrizione
+ * forzata, cancellazione corso): regola README "le funzioni admin rimborsano
+ * SEMPRE" — nessuna finestra, nessuna conferma, nessuna perdita, e nessuna
+ * voce in cancelledEnrollments (non è una disiscrizione volontaria: non deve
+ * pesare sul limite settimanale né sullo storico disiscrizioni dell'utente).
+ */
+export function decideAdminRefund(
+  creditMode: CreditMode,
+  subscriptionId?: string | null
+): RefundDecision {
+  switch (creditMode) {
+    case "ENTRIES_SUB":
+      return {
+        ...NO_OP,
+        restoreSubscriptionEntry: true,
+        subscriptionId: subscriptionId ?? null,
+      };
+    case "ENTRIES_LEGACY":
+      return { ...NO_OP, restoreLegacyEntry: true };
+    case "FREQUENCY_SUB":
+    case "FREQUENCY_LEGACY":
+    case "NONE":
+      return { ...NO_OP };
+  }
+}
+
 export function decideRefund(input: RefundInput): RefundDecision {
   const windowHours = WINDOW_HOURS[input.creditMode];
   const withinWindow =

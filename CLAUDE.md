@@ -22,6 +22,7 @@ cd functions
 npm install              # installa dipendenze Node
 npm run build            # compila TypeScript
 npm test                 # Jest (handler OneSignal + dominio enrollment)
+npm run test:integration # test integrazione su Emulator Suite (richiede Java 21 nel PATH)
 ```
 
 ### Ambiente di test locale (Firebase Emulator Suite)

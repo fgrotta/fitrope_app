@@ -1,190 +1,35 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fitrope_app/api/courses/getCourses.dart';
-import 'package:fitrope_app/api/getUserData.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
-import 'package:fitrope_app/services/notification_service.dart';
-import 'package:fitrope_app/state/actions.dart';
-import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/api/courses/enrollment_callable.dart';
 
-FirebaseFirestore firestore = FirebaseFirestore.instance;
-
-Future<List<String>> getSubscribers(String courseId) async {
-  var usersCollection = FirebaseFirestore.instance.collection('users');
-  var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
-  return snapshots.docs.map((doc) => "${doc['uid']}").toList();
+/// Rimozione admin/trainer di un utente da un corso tramite la Cloud Function
+/// `unsubscribeFromCourse` (server-authoritative).
+///
+/// Il server riconosce l'operazione admin (chiamante ≠ utente target) e applica
+/// la regola "admin rimborsa sempre": nessuna finestra 4h/8h, ripristino della
+/// fonte realmente consumata (registro consumi: entrate legacy O ingressi
+/// abbonamento), nessuna voce in cancelledEnrollments. Fix rispetto al legacy:
+/// ora il contatore `subscribed` viene decrementato anche qui (il vecchio
+/// removeUserFromCourse non lo faceva: era l'origine delle discrepanze).
+Future<void> removeUserFromCourse(String courseId, String userId) {
+  return callEnrollmentFunction(
+    'unsubscribeFromCourse',
+    <String, dynamic>{
+      'courseId': courseId,
+      'userId': userId,
+    },
+    userId: userId,
+    fallbackError: 'Errore durante la rimozione dal corso',
+  );
 }
 
-// Funzione per ottenere gli utenti iscritti con i loro dati completi
-Future<List<FitropeUser>> getSubscribersWithData(String courseId) async {
-  var usersCollection = FirebaseFirestore.instance.collection('users');
-  var snapshots = await usersCollection.where('courses', arrayContains: courseId).get();
-  return snapshots.docs.map((doc) => FitropeUser.fromJson(doc.data())).toList();
-}
-
-// Funzione per admin/trainer per cancellare l'iscrizione di un utente specifico (sempre rimborsa il credito)
-Future<void> removeUserFromCourse(String courseId, String userId) async {
-  QuerySnapshot querySnapshot = await firestore
-      .collection('courses')
-      .where('uid', isEqualTo: courseId)
-      .limit(1)
-      .get();
-
-  if (querySnapshot.docs.isEmpty) {
-    throw Exception('Course does not exist');
-  }
-
-  DocumentReference courseRef = querySnapshot.docs.first.reference;
-
-  await firestore.runTransaction((transaction) async {
-    store.dispatch(StartLoadingAction());
-    DocumentSnapshot courseSnapshot = await transaction.get(courseRef);
-    int subscribed = courseSnapshot['subscribed'];
-
-    if (subscribed > 0) {
-      
-      DocumentReference userRef = firestore.collection('users').doc(userId);
-
-      DocumentSnapshot userSnapshot = await userRef.get();
-
-      List<dynamic> userCourses = userSnapshot['courses'] ?? [];
-
-      if (userCourses.contains(courseId)) {
-        userCourses.remove(courseId);
-
-        // Per la rimozione da admin/trainer, restituisci sempre il credito se è pacchetto entrate o abbonamento prova
-        String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
-        bool isPacchettoEntrate = tipologiaIscrizione == 'PACCHETTO_ENTRATE';
-        bool isAbbonamentoProva = tipologiaIscrizione == 'ABBONAMENTO_PROVA';
-        
-        transaction.update(userRef, {
-          'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] + ((isPacchettoEntrate || isAbbonamentoProva) ? 1 : 0)
-        });
-      }
-    } else {
-      print('No users subscribed to this course');
-      throw Exception('No users subscribed to this course');
-    }
-  }).then((_) async {
-    invalidateUsersCache();
-    if (store.state.user!.uid == userId) {
-      Map<String, dynamic>? userData = await getUserData(userId);
-      if (userData != null) {
-        store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
-      }
-    }   
-    store.dispatch(FinishLoadingAction());
-
-    notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
-  }).catchError((error) {
-    store.dispatch(FinishLoadingAction());
-    print("Failed to remove user from course: $error");
-    throw error;
-  });
-}
-
-// Funzione specifica per la disiscrizione forzata da admin (sempre rimborsa il credito)
-Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
-  QuerySnapshot querySnapshot = await firestore
-      .collection('courses')
-      .where('uid', isEqualTo: courseId)
-      .limit(1)
-      .get();
-
-  if (querySnapshot.docs.isEmpty) {
-    throw Exception('Course does not exist');
-  }
-
-  DocumentReference courseRef = querySnapshot.docs.first.reference;
-
-  await firestore.runTransaction((transaction) async {
-    store.dispatch(StartLoadingAction());
-    DocumentSnapshot courseSnapshot = await transaction.get(courseRef);
-    int subscribed = courseSnapshot['subscribed'];
-
-    if (subscribed > 0) {
-      
-      transaction.update(courseRef, {
-        'subscribed': subscribed - 1,
-      });
-
-      DocumentReference userRef = firestore.collection('users').doc(userId);
-
-      DocumentSnapshot userSnapshot = await userRef.get();
-
-      List<dynamic> userCourses = userSnapshot['courses'] ?? [];
-
-      if (userCourses.contains(courseId)) {
-        userCourses.remove(courseId);
-
-        // Per la cancellazione admin, restituisci sempre il credito se è pacchetto entrate
-        String? tipologiaIscrizione = userSnapshot['tipologiaIscrizione'];
-        bool isPacchettoEntrate = tipologiaIscrizione == 'PACCHETTO_ENTRATE';
-        bool isAbbonamentoProva = tipologiaIscrizione == 'ABBONAMENTO_PROVA';
-        
-        transaction.update(userRef, {
-          'courses': userCourses,
-          'entrateDisponibili': userSnapshot['entrateDisponibili'] + ((isPacchettoEntrate || isAbbonamentoProva) ? 1 : 0)
-        });
-      }
-    } else {
-      print('No users subscribed to this course');
-      throw Exception('No users subscribed to this course');
-    }
-  }).then((_) async {
-    invalidateUsersCache();
-    if (store.state.user!.uid == userId) {
-      Map<String, dynamic>? userData = await getUserData(userId);
-      if (userData != null) {
-        store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
-      }
-    }   
-    store.dispatch(FinishLoadingAction());
-
-    notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
-  }).catchError((error) {
-    store.dispatch(FinishLoadingAction());
-    print("Failed to force unsubscribe: $error");
-    throw error;
-  });
-}
-
-Future<List<String>> getWaitlistUsers(String courseId) async {
-  var usersCollection = FirebaseFirestore.instance.collection('users');
-  var snapshots = await usersCollection.where('waitlistCourses', arrayContains: courseId).get();
-  return snapshots.docs.map((doc) => "${doc['uid']}").toList();
-}
-
-Future<void> deleteCourse(String courseId) async {
-  try {
-    print('Deleting course $courseId');
-    // Rimuovi il corso da tutti gli utenti iscritti
-    List<String> subscribers = await getSubscribers(courseId);
-    for (String userId in subscribers) {
-      await forceUnsubscribeFromCourse(courseId, userId);
-    }
-
-    // Rimuovi il corso dalla waitlistCourses di tutti gli utenti in attesa (batch atomico)
-    List<String> waitlistUserIds = await getWaitlistUsers(courseId);
-    if (waitlistUserIds.isNotEmpty) {
-      WriteBatch batch = firestore.batch();
-      for (String userId in waitlistUserIds) {
-        DocumentReference userRef = firestore.collection('users').doc(userId);
-        batch.update(userRef, {
-          'waitlistCourses': FieldValue.arrayRemove([courseId]),
-        });
-      }
-      await batch.commit();
-    }
-
-    // Poi elimina il corso
-    await FirebaseFirestore.instance.collection('courses').doc(courseId).delete();
-    invalidateCoursesCache();
-    invalidateUsersCache();
-
-    print('Course $courseId and all subscriptions/waitlists deleted successfully!');
-  } catch (e) {
-    print('Error deleting course: $e');
-  }
+/// Cancella un corso tramite la Cloud Function `deleteCourse` (Admin/Trainer):
+/// UNA transazione atomica che rimborsa tutti gli iscritti (registro consumi,
+/// regola admin-rimborsa-sempre), ripulisce le waitlist ed elimina il corso.
+/// A differenza del legacy, NESSUNA email "posto disponibile" alla waitlist
+/// (il corso sta sparendo) e nessuna catena di N transazioni non atomiche.
+Future<void> deleteCourse(String courseId) {
+  return callEnrollmentFunction(
+    'deleteCourse',
+    <String, dynamic>{'courseId': courseId},
+    fallbackError: 'Errore durante la cancellazione del corso',
+  );
 }

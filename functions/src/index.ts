@@ -14,6 +14,10 @@ import {
   leaveWaitlistHandler,
 } from "./enrollment/enrollment";
 import {
+  deleteCourseHandler,
+  recountCourseSubscribedHandler,
+} from "./enrollment/admin";
+import {
   scheduleTrialReminder,
   notifyWaitlistUsers,
 } from "./enrollment/notify";
@@ -168,6 +172,36 @@ export const leaveWaitlist = onCall(
   { region: "europe-west8", cors: true },
   (request) =>
     leaveWaitlistHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore()
+    )
+);
+
+/**
+ * Cancella un corso rimborsando tutti gli iscritti e ripulendo le waitlist
+ * (Admin/Trainer), in una transazione atomica.
+ *
+ * Payload: { courseId: string }
+ */
+export const deleteCourse = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    deleteCourseHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore()
+    )
+);
+
+/**
+ * Ricalcola il contatore `subscribed` di un corso dalla fonte di verità
+ * (Admin/Trainer). Sostituisce la correzione manuale client-side.
+ *
+ * Payload: { courseId: string }
+ */
+export const recountCourseSubscribed = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    recountCourseSubscribedHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore()
     )
