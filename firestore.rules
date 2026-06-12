@@ -1,0 +1,173 @@
+rules_version = '2';
+
+// Lockdown PR6 (ultimo PR di scrittura del piano Sale/pacchetti).
+//
+// Principio: il WRITE-PATH del dominio iscrizioni è SOLO server (Cloud
+// Functions con Admin SDK, che bypassa queste rules). Il client può scrivere
+// esclusivamente:
+//   - il proprio profilo (whitelist di campi non critici),
+//   - l'anagrafica gestionale se Admin/Trainer (field-level, mirror della UI),
+//   - il CRUD corsi (Admin/Trainer) ESCLUSI i campi server-owned
+//     `subscribed`/`waitlist` (TODO(server-migration): callable in futuro).
+//
+// I campi che il server usa come input fidati sono NEGATI a tutti i client
+// (finding security PR4/PR5): courses, waitlistCourses, activeSubscriptions,
+// enrollmentConsumption, cancelledEnrollments, e role/entrate*/tipologia/
+// fineIscrizione per i non-Admin. `users.role` diventa così affidabile come
+// base dell'autorizzazione: solo un Admin esistente (o la console) può
+// modificarlo — nessuna auto-promozione possibile.
+//
+// Test: functions/src/__integration__/firestoreRules.integration.test.ts
+// (@firebase/rules-unit-testing, gira con `npm run test:integration`).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function actorRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && actorRole() == 'Admin';
+    }
+
+    function isTrainer() {
+      return isSignedIn() && actorRole() == 'Trainer';
+    }
+
+    // I soli campi modificati dall'update (i campi inviati con valore
+    // invariato NON contano: la UI esistente può continuare a inviare il
+    // payload completo finché non cambia campi vietati).
+    function affected() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    match /users/{userId} {
+      // Liste utenti/trainer/iscritti sono lette da tutta l'app autenticata.
+      allow read: if isSignedIn();
+
+      // Registrazione self: SOLO il profilo di prova standard, vincolato con
+      // hasOnly all'ESATTA shape di lib/authentication/registration.dart — un
+      // utente non può auto-crearsi crediti, ruoli, tag di accesso premium
+      // (tipologiaCorsoTags è input fidato del server per il gate accesso) né
+      // estendere la finestra di prova (fineIscrizione input fidato per la
+      // scadenza). hasOnly esclude per costruzione ogni campo server-owned.
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(
+             ['uid', 'email', 'createdAt', 'name', 'lastName', 'courses',
+              'tipologiaIscrizione', 'entrateDisponibili', 'entrateSettimanali',
+              'fineIscrizione', 'role', 'numeroTelefono', 'isActive',
+              'isAnonymous', 'tipologiaCorsoTags', 'emailNotificationsEnabled',
+              'pushNotificationsEnabled'])
+        && request.resource.data.uid == userId
+        && request.resource.data.role == 'User'
+        && request.resource.data.courses == []
+        && request.resource.data.tipologiaIscrizione == 'ABBONAMENTO_PROVA'
+        && request.resource.data.entrateDisponibili == 1
+        && request.resource.data.entrateSettimanali == 0
+        && request.resource.data.isActive == true
+        && request.resource.data.tipologiaCorsoTags == ['Open']
+        && request.resource.data.fineIscrizione < request.time + duration.value(40, 'd');
+
+      // Creazione manuale da Admin/Trainer (utenti gestiti senza account auth,
+      // lib/api/authentication/createUser.dart). I Trainer creano solo utenti
+      // 'User' (la UI mostra il selettore ruolo solo all'Admin).
+      //
+      // DECISIONE (documentata in docs/AVANZAMENTO): per i Trainer NON si
+      // vincolano entrate/fineIscrizione/tipologiaCorsoTags-specifici — è un
+      // flusso gestionale legittimo (un Trainer crea il cliente con la sua
+      // tipologia e i suoi ingressi) e i doc manuali nascono con id casuale ≠
+      // auth-uid, quindi non sono loggabili. UNICO hardening: ai Trainer è
+      // negato il tag jolly 'Tutti i corsi' (accesso TOTALE), che la UI non
+      // offre comunque. Resta vietato creare ruoli privilegiati e campi
+      // server-owned. TODO(server-migration): portare createUser su callable
+      // Admin-SDK (come createCourse/updateCourse) per chiudere il debito.
+      allow create: if (isAdmin() || isTrainer())
+        && request.resource.data.courses == []
+        && (isAdmin() || request.resource.data.role == 'User')
+        && (isAdmin()
+            || !('tipologiaCorsoTags' in request.resource.data)
+            || !request.resource.data.tipologiaCorsoTags.hasAny(['Tutti i corsi']))
+        && !request.resource.data.keys().hasAny(
+             ['activeSubscriptions', 'enrollmentConsumption', 'waitlistCourses'])
+        && (!('cancelledEnrollments' in request.resource.data)
+            || request.resource.data.cancelledEnrollments == []);
+
+      // SELF: solo campi profilo. `isActive` solo per auto-disattivarsi
+      // ("Cancella account"); la riattivazione è solo admin.
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && affected().hasOnly(
+             ['name', 'lastName', 'numeroTelefono',
+              'emailNotificationsEnabled', 'pushNotificationsEnabled',
+              'regolamentoAccettatoIl', 'isAnonymous', 'isActive'])
+        && (!affected().hasAny(['isActive'])
+            || request.resource.data.isActive == false);
+
+      // ADMIN: anagrafica gestionale (incl. role/tipologia/entrate/
+      // fineIscrizione/certificato/tag/isActive) MA MAI i campi server-owned
+      // del dominio iscrizioni, l'identità, né la marca probatoria di
+      // accettazione del regolamento (scritta solo dall'utente, come createdAt).
+      allow update: if isAdmin()
+        && !affected().hasAny(
+             ['uid', 'email', 'createdAt', 'regolamentoAccettatoIl',
+              'courses', 'waitlistCourses', 'activeSubscriptions',
+              'enrollmentConsumption', 'cancelledEnrollments']);
+
+      // TRAINER su utenti con ruolo User: solo anagrafica (mirror della UI
+      // _canEditSpecificField in UserDetailPage).
+      allow update: if isTrainer()
+        && resource.data.role == 'User'
+        && affected().hasOnly(['name', 'lastName', 'numeroTelefono', 'isAnonymous']);
+
+      // Nessuna cancellazione di utenti dal client.
+      allow delete: if false;
+    }
+
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+
+      // CRUD corso ancora client (TODO(server-migration)): Admin/Trainer.
+      // I contatori server-owned nascono azzerati; il Trainer può creare solo
+      // corsi propri (la UI auto-assegna trainerId = uid); id coerente col doc.
+      allow create: if (isAdmin() || isTrainer())
+        && request.resource.data.subscribed == 0
+        && request.resource.data.waitlist == []
+        && request.resource.data.id == courseId
+        && (isAdmin() || request.resource.data.trainerId == request.auth.uid);
+
+      // Edit Admin: tutto tranne i campi server-owned/identità.
+      allow update: if isAdmin()
+        && !affected().hasAny(['subscribed', 'waitlist', 'uid', 'id']);
+
+      // Edit Trainer: solo sui PROPRI corsi e SENZA riassegnare la ownership
+      // (mirror della UI: "i Trainer non possono cambiare il trainer assegnato").
+      allow update: if isTrainer()
+        && resource.data.trainerId == request.auth.uid
+        && !affected().hasAny(['subscribed', 'waitlist', 'uid', 'id', 'trainerId']);
+
+      // La cancellazione passa SOLO dalla callable deleteCourse (rimborsi
+      // atomici + pulizia waitlist).
+      allow delete: if false;
+    }
+
+    match /subscriptions/{subscriptionId} {
+      // Fonte di verità degli abbonamenti: scritture SOLO server
+      // (assignSubscription/subscribe/unsubscribe/deleteCourse). Il client
+      // legge dallo snapshot sul doc utente; la lettura dei propri documenti
+      // resta consentita per usi futuri (storico in UserDetailPage, PR7).
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // Tutto il resto: negato.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

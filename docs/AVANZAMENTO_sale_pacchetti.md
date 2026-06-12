@@ -32,8 +32,9 @@ Branch: `fgrotta/sale-pacchetti-abbonamenti` (target `main`).
 | *(PR4)* | **PR4** | Write-path enrollment → Cloud Functions: callable `subscribeToCourse`/`unsubscribeFromCourse`/`joinWaitlist`/`leaveWaitlist` (eligibility autoritativa `eligibility.ts` mirror di `getCourseState`, **valutata in transazione** — limite settimanale non bypassabile da richieste concorrenti; finestre rimborso 8h/4h `refund.ts`; decremento/ripristino `remainingEntries` + snapshot; **registro consumi per prenotazione** `enrollmentConsumption` — il rimborso ripristina la fonte realmente consumata, niente mint/burn nella transizione legacy→abbonamento né con force a credito zero, clamp al max del piano; **voci snapshot scadute escluse dalla selezione del modello** client+server — i crediti legacy non restano bloccati; gate corso-già-iniziato e `waitlistEnabled`; fix bug decremento legacy sui temporali); promemoria prova + notifiche waitlist server-side (`notify.ts`, Europe/Rome, helper TZ testati su DST; niente promemoria prova a utenti convertiti); client Dart → thin wrapper callable (helper condiviso `enrollment_callable.dart`, stesse firme); `CourseUnsubscribeHelper` multi-abbonamento (8h ENTRIES / 4h FREQUENCY); **rimosso gate `kDebugMode`** su AssignSubscriptionCard + `onAssigned` invalida cache; `functions/lib` fuori dal tracking (predeploy `tsc` garantisce build fresca) |
 | `200a444` | **PR4.5** | Ambiente di test locale (Emulator Suite): config emulatori + `.firebaserc`, wiring `--dart-define=USE_EMULATOR` in main.dart (OneSignal spento in emulazione), seed sintetico (`npm run seed:emulator`, shape dal compilato), convention guard import modulari `firebase-admin/firestore` (bug runtime emulatore trovato dallo smoke E2E). Analisi/decisione ambienti in `docs/AMBIENTI_DI_TEST.md` (C=staging target) |
 | *(PR5)* | **PR5** | Admin enrollment server-side: `unsubscribeFromCourse` con semantica ADMIN (actor≠target → rimborsa SEMPRE, `confirmedNoRefund` ignorato, niente cancelledEnrollments, `decideAdminRefund`); callable `deleteCourse` (UNA transazione atomica: rimborsi da registro consumi legacy+abbonamento con clamp, waitlist pulita, niente email — fix del legacy N+2 transazioni); callable `recountCourseSubscribed` (ricalcolo dalla fonte di verità — fix `removeUserFromCourse` legacy che non decrementava `subscribed`); retention 90gg + pruning del registro consumi (`atMillis`); client admin → thin wrapper; rimosso `notifyWaitlistUsers` client (dead); **categoria C consegnata**: test integrazione su Emulator Suite reale (`npm run test:integration`, 6 test: round-trip, concorrenza capienza, concorrenza limite settimanale, deleteCourse atomico, recount, authz) + job `functions-integration` in CI |
+| *(PR6)* | **PR6** | `firestore.rules` nel repo + blocco `firestore` in firebase.json (l'emulatore le carica: QA manuale realistico). **Lockdown field-level basato su `diff().affectedKeys()`**: self → whitelist campi profilo (isActive solo auto-disattivazione); Admin → anagrafica gestionale MA MAI i server-owned (courses/waitlistCourses/activeSubscriptions/enrollmentConsumption/cancelledEnrollments/uid/email/createdAt); Trainer → solo anagrafica di utenti User; registrazione self vincolata al profilo-prova standard (no auto-crediti/ruoli); corsi: create Admin/Trainer con contatori azzerati, update senza subscribed/waitlist (Trainer solo propri), delete solo callable; subscriptions read-self/write-server-only. DECISIONE: rules field-level + **updateUser DIFF-BASED** (invia solo i campi cambiati vs original, confronto per-giorno su date/set sui tag) INVECE della callable adminUpdateUser — il payload completo includeva chiavi aggiunte/Timestamp rinormalizzati in `affectedKeys` e avrebbe NEGATO il salvataggio del proprio profilo (blocker del 1° gate, risolto); `users.role` ora affidabile (nessuna auto-promozione). create-self vincolata con `hasOnly` (no tag-premium/trial-esteso/entrateSettimanali auto-grantabili); Trainer crea solo User; corsi: Trainer create solo propri + no riassegnazione trainerId; regolamentoAccettatoIl protetto. registration.dart scrive la shape canonica completa. Client: rimosso cancelledEnrollments da updateUser, rimosso deleteUser.dart. `updateUser` diff-based estratto in `buildUserUpdateDiff` PURO + `test/updateUser_test.dart`; fix robustezza: campo entrate svuotato non azzera il credito. DECISIONE documentata: la create manuale dei Trainer NON vincola tag/entrate (flusso gestionale legittimo; i doc manuali hanno id≠auth-uid → non loggabili). **Categoria D consegnata**: suite @firebase/rules-unit-testing (30 test integrazione totali: payload REALI su doc registration-shaped legacy, escalation negati, regolamento self-only) |
 
-Verifica: `flutter analyze` pulito, **flutter test 233/233**, **functions 197/197 jest** + **6/6 integrazione su emulatore** + `tsc` ok. Gate multi-agent per ogni PR (fix di blocker/major a ogni passata).
+Verifica: `flutter analyze` pulito, **flutter test 250/250**, **functions 210/210 jest** + **30/30 integrazione su emulatore** (callable + rules) + `tsc` ok. Gate multi-agent per ogni PR (PR6: 4 passate — blocker payload-completo → fix updateUser diff-based + unit test; major rules create chiusi/documentati; 4° gate PASS pulito).
 
 ## Stato production-safe (IMPORTANTE)
 
@@ -43,9 +44,16 @@ assegnazione abbonamenti è attiva per gli Admin.
 
 ✅ **Vincolo di sequenza risolto**: il write-path server applica eligibility +
 decremento per il modello multi-abbonamento, quindi `assignSubscription` può
-andare in produzione **insieme** a PR4 (stesso deploy `firebase deploy --only
-functions`; deployare functions PRIMA di pubblicare la build web, così le
-callable esistono quando il client le chiama).
+andare in produzione **insieme** a PR4.
+
+⚠️ **ORDINE DI DEPLOY DEL BLOCCO PR3–PR6 (critico)**:
+1. `firebase deploy --only functions` (le callable devono esistere prima del client);
+2. pubblicazione build web nuova (merge su `release`);
+3. **per ULTIME** `firebase deploy --only firestore:rules` — le rules bloccano
+   le scritture dirette del VECCHIO client: vanno deployate solo quando la web
+   nuova è online (le tab aperte sulla vecchia versione si romperanno sulle
+   scritture finché non ricaricano: accettabile, comunicarlo).
+PR4+PR5 functions vanno deployate insieme (retention registro consumi).
 
 ✅ **Caveat admin interim PR4→PR5 RISOLTO** (PR5): i flussi admin sono
 server-side, rimborsano sempre (anche `remainingEntries` via registro consumi)
@@ -69,16 +77,6 @@ Blaze (⚠️ serve Francesco per progetto/billing), parametrizzazione
 `lib/main.dart`) + seconda app OneSignal, `flutterfire configure` per il
 secondo `firebase_options` + switch `--dart-define=ENV=staging`, alias
 `.firebaserc`, seed sintetico (MAI dati reali: GDPR).
-
-### PR6 — firestore.rules nel repo + lockdown  *(ULTIMO PR di scrittura)*
-- Portare `firestore.rules` nel repo + blocco `firestore` in `firebase.json` (oggi assenti).
-- Lockdown `users`: **WHITELIST dei soli campi profilo** scrivibili dal client (name, lastName, numeroTelefono, preferenze notifiche, regolamentoAccettatoIl) invece di deny-list. ⚠️ Finding security PR4: il deny-list originario (`entrateDisponibili`/`fineIscrizione`/`tipologiaCorsoTags`/`activeSubscriptions`/`role`/`courses`) NON copre i campi che il server ora usa come input fidati — `enrollmentConsumption` (forgiabile → il server conia entrate legacy all'unsubscribe), `cancelledEnrollments` (svuotabile → bypass del limite settimanale), `tipologiaIscrizione`/`entrateSettimanali` (→ illimitato lato server), `waitlistCourses`. La whitelist li chiude tutti per costruzione.
-- `subscriptions` write solo server; `courses` `subscribed`/`waitlist` solo server (field-level finché create/update restano client).
-- ⚠️ Finding security PR5: l'autorizzazione admin si fonda su `users.role`, oggi client-writable (updateUser scrive `role` direttamente!) → con la whitelist il client perde la scrittura di `role`/`tipologiaIscrizione`/`entrate*`: serve una **callable `adminUpdateUser`** per l'editing admin di UserDetailPage. Hardening consigliato: **custom claims** Firebase Auth per i ruoli (tamper-proof, indipendenti dal doc) — da valutare in PR6.
-- `deleteCourse`/`recountCourseSubscribed` sono già SOLO-Admin lato server (i Trainer non possono invocarle via callable, coerente con la UI).
-- Valutare `enforceAppCheck` sulle callable enrollment + cooldown per le email waitlist per corso (anti spam/amplificazione, parità col pre-PR4 ma ora centralizzato).
-- Test: `@firebase/rules-unit-testing`. **Deve essere dopo PR4/PR5** (altrimenti rompe le scritture client).
-- **Deploy congiunto**: PR4+PR5 vanno deployate insieme in produzione (le voci del registro consumi pre-PR5 senza ancora di retention verrebbero prunate).
 
 ### PR7 — UI polish + docs + cleanup
 - HomePage: card multi-abbonamento (residui/frequenza/scadenza per abbonamento); estendere `getTipologiaIscrizioneLabel` (famiglie + "illimitato"); dashboard; lista abbonamenti in UserDetailPage.

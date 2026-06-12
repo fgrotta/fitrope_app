@@ -121,6 +121,9 @@ flutter run -d chrome --dart-define=USE_EMULATOR=true
 ```
 
 - Emulator UI: <http://localhost:4000> (ispezione documenti, utenti Auth, log functions)
+- Da PR6 l'emulatore carica anche le `firestore.rules` del repo: il QA manuale
+  esercita lo stesso lockdown della produzione (il seed usa l'Admin SDK e le
+  bypassa legittimamente)
 - Utenti seed (password `test1234`): vedi `functions/scripts/seedEmulator.js`
   (admin, trainer, utente legacy a pacchetto, utente legacy temporale, utente
   nuovo modello con abbonamenti)

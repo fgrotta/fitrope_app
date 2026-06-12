@@ -355,7 +355,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       }
 
       await updateUser(
-        uid: widget.user.uid,
+        original: widget.user,
         name: name,
         lastName: lastName,
         role: selectedRole,
@@ -368,7 +368,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
         certificatoScadenza: selectedCertificatoScadenza,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
         tipologiaCorsoTags: selectedTipologiaCorsoTags,
-        cancelledEnrollments: widget.user.cancelledEnrollments,
         emailNotificationsEnabled: selectedEmailNotifications,
         pushNotificationsEnabled: selectedPushNotifications,
       );
