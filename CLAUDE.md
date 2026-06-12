@@ -46,6 +46,10 @@ Nel codice functions usare SEMPRE `import { Timestamp, FieldValue } from "fireba
 # Deploy (il predeploy compila automaticamente via tsc)
 firebase deploy --only functions
 
+# Deploy delle firestore.rules — SEMPRE DOPO functions e web nuova
+# (bloccano le scritture dirette del client vecchio; vedi docs/AVANZAMENTO)
+firebase deploy --only firestore:rules
+
 # Aggiornare il secret OneSignal REST API Key
 firebase functions:secrets:set ONESIGNAL_REST_API_KEY
 firebase deploy --only functions   # re-deploy per bindare il nuovo valore

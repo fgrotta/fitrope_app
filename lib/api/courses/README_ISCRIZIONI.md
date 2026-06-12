@@ -27,6 +27,13 @@ La logica autoritativa è nei moduli puri (mirror di `getCourseState.dart` /
 `plansCatalog.ts`, `subscription.ts`. **Se modifichi le regole qui o lì, tieni
 allineati i due lati** (client = display/UX, server = enforcement).
 
+Da PR6 l'enforcement è EFFETTIVO: `firestore.rules` (nel repo) nega ai client
+le scritture sui campi del dominio iscrizioni (courses, waitlistCourses,
+activeSubscriptions, enrollmentConsumption, cancelledEnrollments, subscribed,
+waitlist, collezione subscriptions) e su `role`/crediti per i non-Admin —
+le callable sono l'unica via di scrittura. Test: categoria D in
+`functions/src/__integration__/firestoreRules.integration.test.ts`.
+
 Garanzie aggiuntive del write-path server (oltre il porting 1:1):
 - **Valutazione in transazione**: eligibility, capienza, già-iscritto e limite
   settimanale sono valutati sui dati letti **dentro** la transazione (il doc

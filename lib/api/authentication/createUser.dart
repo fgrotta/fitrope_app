@@ -14,8 +14,12 @@ class CreateUserResponse {
   });
 }
 
-/// Crea un nuovo utente con validazione automatica
-/// Solo Admin e Trainer possono utilizzare questa funzione
+/// Crea un nuovo utente con validazione automatica.
+/// Solo Admin e Trainer possono utilizzarla.
+// TODO(server-migration): portare su callable Admin-SDK (come createCourse/
+// updateCourse). Finché resta client, le firestore.rules vincolano i Trainer
+// a NON creare ruoli privilegiati, campi server-owned né il tag jolly
+// 'Tutti i corsi' (vedi firestore.rules match /users create manuale).
 Future<CreateUserResponse> createUser({
   String? email,
   String? password,
