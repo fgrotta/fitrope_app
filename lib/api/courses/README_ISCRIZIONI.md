@@ -227,4 +227,35 @@ non scalava `remainingEntries`. **Da PR4 il vincolo è soddisfatto**: il server
 applica eligibility e decremento per il modello multi-abbonamento, e la UI di
 assegnazione (`AssignSubscriptionCard` in UserDetailPage) non è più gated dietro
 `kDebugMode`. PR3+PR4 vanno deployate **insieme** (stesso deploy functions).
-HomePage e label restano legacy fino a PR7 (solo display).
+
+### Display multi-abbonamento (PR7, solo lettura)
+
+La UI rispecchia il nuovo modello senza scrivere nulla (le scritture restano
+server-side):
+
+- **Etichette** (`lib/utils/subscription_labels.dart`, pure/testate): pendant
+  del legacy `getTipologiaIscrizioneLabel`. `getSubscriptionTitle` usa il
+  `displayName` del catalogo (fallback famiglia + variante STABILE per piani
+  fuori catalogo, senza il conteggio residui), `getSubscriptionAllowanceLabel`
+  rende residui (ENTRIES, clampati a 0) / frequenza settimanale o "Accessi
+  illimitati" (FREQUENCY), `getSubscriptionStatusLabel` lo stato ("Scade
+  oggi"/singolare "1 giorno"/"Valido"/"Scaduto"/"Esaurito" per i pacchetti a
+  ingressi con residui a zero — coerente col blocco `SUBSCRIBE_LIMIT` di
+  `getCourseState`). `liveSubscriptions()` filtra
+  le voci scadute con lo **stesso criterio** di `getCourseState` (`now` non
+  successivo a `endDate`): display ed eligibility restano allineati.
+- **HomePage** (`renderSubscriptionCard`): se lo snapshot ha voci vive mostra una
+  `ActiveSubscriptionCard` per abbonamento; altrimenti fallback alla card legacy
+  (zero regressione). NB: un abbonamento vivo SOSTITUISCE la card legacy (lo
+  snapshot vince, come in `getCourseState`).
+- **UserDetailPage**: sezione read-only "Abbonamenti attivi" che mostra TUTTE le
+  voci snapshot (anche scadute: vista gestionale/storica), ordinate per scadenza.
+- **AdminDashboardPage**: distribuzione "Per famiglia abbonamento" (dagli
+  `activeSubscriptions` vivi) accanto a quella legacy per tipologia.
+
+`ActiveSubscriptionCard` (`lib/components/`) colora la scadenza via
+`AbbonamentoHelper` (verde valido / arancio in scadenza / rosso scaduto).
+
+Superfici admin ancora **legacy-only** (cieche agli utenti convertiti, rinviate
+al PR di pulizia legacy): lista/KPI "in scadenza" (`getUsersWithExpiringSubscriptions`,
+query su `fineIscrizione`) e filtri `AdminUsersPage`. Vedi `docs/AVANZAMENTO_sale_pacchetti.md`.

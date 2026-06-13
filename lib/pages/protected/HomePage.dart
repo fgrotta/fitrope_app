@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/utils/waitlist_ui_helper.dart';
+import 'package:fitrope_app/components/active_subscription_card.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
@@ -10,10 +11,12 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/userSubscription.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
 import 'package:fitrope_app/api/authentication/getUsersWithExpiringSubscriptions.dart';
 import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
+import 'package:fitrope_app/utils/subscription_labels.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
@@ -314,7 +317,43 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Header "Il mio abbonamento" condiviso tra modello multi-abbonamento e legacy.
+  Widget _subscriptionHeader() {
+    return Container(
+      padding: const EdgeInsets.only(top: 20, bottom: 10),
+      width: double.infinity,
+      child: const Text(
+        'Il mio abbonamento',
+        textAlign: TextAlign.left,
+        style: TextStyle(color: onPrimaryColor, fontSize: 20),
+      ),
+    );
+  }
+
   Widget renderSubscriptionCard() {
+    // Modello multi-abbonamento: se lo snapshot ha voci NON scadute mostra una
+    // card per abbonamento (residui/frequenza/scadenza). Altrimenti fallback al
+    // modello legacy sotto — stesso criterio di selezione di getCourseState,
+    // così display ed eligibility restano allineati (zero regressione).
+    final List<UserSubscription> live =
+        liveSubscriptions(user.activeSubscriptions);
+    if (live.isNotEmpty) {
+      final certificatoInScadenza = user.certificatoScadenza != null &&
+          CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
+      return Column(
+        children: [
+          _subscriptionHeader(),
+          Column(
+            children: [
+              ...live.map((s) => ActiveSubscriptionCard(subscription: s)),
+              if (certificatoInScadenza) _buildCertificatoInfo(),
+            ],
+          ),
+          const SizedBox(height: 30),
+        ],
+      );
+    }
+
     if (user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_MENSILE &&
         user.tipologiaIscrizione !=
             TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
@@ -325,15 +364,7 @@ class _HomePageState extends State<HomePage> {
         user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_PROVA) {
       return Column(
         children: [
-          Container(
-            padding: const EdgeInsets.only(top: 20, bottom: 10),
-            width: double.infinity,
-            child: const Text(
-              'Il mio abbonamento',
-              textAlign: TextAlign.left,
-              style: TextStyle(color: Colors.white, fontSize: 20),
-            ),
-          ),
+          _subscriptionHeader(),
           const SizedBox(
             height: 20,
           ),
@@ -369,15 +400,7 @@ class _HomePageState extends State<HomePage> {
 
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.only(top: 20, bottom: 10),
-          width: double.infinity,
-          child: const Text(
-            'Il mio abbonamento',
-            textAlign: TextAlign.left,
-            style: TextStyle(color: onPrimaryColor, fontSize: 20),
-          ),
-        ),
+        _subscriptionHeader(),
         Column(
           children: [
             CustomCard(

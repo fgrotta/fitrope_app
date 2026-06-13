@@ -9,6 +9,8 @@ import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/components/assign_subscription_card.dart';
+import 'package:fitrope_app/components/active_subscription_card.dart';
+import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -883,7 +885,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 _buildInfoRow('Fine Iscrizione', widget.user.fineIscrizione != null ? DateFormat('dd/MM/yyyy').format(widget.user.fineIscrizione!.toDate()) : 'Non impostata', null, _canEditSpecificField('Fine Iscrizione') && isEditing, isDatePicker: true),
               ],
             ),
-            
+
+            const SizedBox(height: 24),
+
+            // Sezione abbonamenti del modello multi-abbonamento (sola lettura;
+            // l'assegnazione avviene server-side via AssignSubscriptionCard, in
+            // cima alla pagina per gli Admin).
+            _buildActiveSubscriptionsSection(),
+
             // Sezione preferenze notifiche (solo per il proprio profilo)
             if (store.state.user?.uid == widget.user.uid) ...[
               const SizedBox(height: 24),
@@ -1180,6 +1189,35 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
+  /// Elenco (sola lettura) degli abbonamenti del modello multi-abbonamento.
+  /// Ordinati per scadenza decrescente (tie-break su planKey per ordine
+  /// deterministico tra rebuild): i più futuri in alto, gli eventuali scaduti
+  /// (snapshot stantio) in fondo, ognuno con colore di stato.
+  ///
+  /// NB: qui si mostrano DELIBERATAMENTE TUTTE le voci dello snapshot (anche le
+  /// scadute), perché è la vista gestionale/storica admin; la HomePage utente
+  /// filtra invece con `liveSubscriptions` e mostra solo quelle vive.
+  Widget _buildActiveSubscriptionsSection() {
+    final subs = [...widget.user.activeSubscriptions]
+      ..sort((a, b) {
+        final byEnd = b.endDate.compareTo(a.endDate);
+        return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
+      });
+    return _buildSection(
+      'Abbonamenti attivi',
+      subs.isEmpty
+          ? [
+              const Text(
+                'Nessun abbonamento attivo',
+                style: TextStyle(color: onSurfaceVariantColor),
+              ),
+            ]
+          : subs
+              .map((s) => ActiveSubscriptionCard(subscription: s))
+              .toList(),
+    );
+  }
+
   Widget _buildNotificationToggle(String label, IconData icon, bool value, ValueChanged<bool> onChanged, {bool enabled = true}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -1276,7 +1314,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             items: [
-                              const DropdownMenuItem(value: null, child: Text('Nessuna', style: TextStyle(color: onPrimaryColor),)),
+                              DropdownMenuItem(value: null, child: Text(_getTipologiaLabel(null), style: const TextStyle(color: onPrimaryColor),)),
                               ...TipologiaIscrizione.values.map((tipologia) {
                                 return DropdownMenuItem(
                                   value: tipologia.toString().split('.').last,
@@ -1489,21 +1527,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  String _getTipologiaLabel(TipologiaIscrizione? tipologia) {
-    if (tipologia == null) return 'Nessuna';
-    switch (tipologia) {
-      case TipologiaIscrizione.PACCHETTO_ENTRATE:
-        return 'Pacchetto Entrate';
-      case TipologiaIscrizione.ABBONAMENTO_MENSILE:
-        return 'Abbonamento Mensile';
-      case TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE:
-        return 'Abbonamento Trimestrale';
-      case TipologiaIscrizione.ABBONAMENTO_SEMESTRALE:
-        return 'Abbonamento Semestrale';
-      case TipologiaIscrizione.ABBONAMENTO_ANNUALE:
-        return 'Abbonamento Annuale';
-      case TipologiaIscrizione.ABBONAMENTO_PROVA:
-        return 'Lezione di Prova';
-    }
-  }
+  // Label tipologia legacy centralizzata (era una copia locale divergente):
+  // unica fonte in getTipologiaIscrizioneLabel, coerente con AdminUsersPage /
+  // AdminDashboardPage / HomePage.
+  String _getTipologiaLabel(TipologiaIscrizione? tipologia) =>
+      getTipologiaIscrizioneLabel(tipologia);
 }
