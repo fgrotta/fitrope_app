@@ -7,6 +7,9 @@ import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/userSubscription.dart';
+import 'package:fitrope_app/utils/getTipologiaIscrizioneLabel.dart';
+import 'package:fitrope_app/utils/subscription_labels.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -365,6 +368,22 @@ class _SectionUtenti extends StatelessWidget {
     final tipologiaEntries = byTipologia.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    // Distribuzione per famiglia abbonamento (modello multi-abbonamento). Un
+    // utente conta in OGNI famiglia di cui ha un abbonamento VIVO (dedup per
+    // famiglia: più abbonamenti della stessa famiglia contano una volta sola).
+    // Complementare a "Per tipologia iscrizione" (legacy): per gli utenti
+    // convertiti tipologiaIscrizione non è più valorizzata dal server.
+    final byFamily = <SubscriptionFamily, List<FitropeUser>>{};
+    for (final u in activeList) {
+      final families =
+          liveSubscriptions(u.activeSubscriptions).map((s) => s.family).toSet();
+      for (final f in families) {
+        (byFamily[f] ??= []).add(u);
+      }
+    }
+    final familyEntries = byFamily.entries.toList()
+      ..sort((a, b) => b.value.length.compareTo(a.value.length));
+
     return _DashboardCard(
       title: 'Utenti',
       icon: Icons.people,
@@ -396,14 +415,27 @@ class _SectionUtenti extends StatelessWidget {
                     .toList()),
           ),
         ],
+        if (familyEntries.isNotEmpty) ...[
+          const Divider(height: 24),
+          Text('Per famiglia abbonamento', style: _sectionLabelStyle(context)),
+          const SizedBox(height: 12),
+          _TipologieCorsiChart(
+            entries: familyEntries
+                .map((e) =>
+                    MapEntry(getSubscriptionFamilyLabel(e.key), e.value.length))
+                .toList(),
+            userListsPerEntry: familyEntries.map((e) => e.value).toList(),
+            onEntryTap: (i) => onOpenUserList(
+                getSubscriptionFamilyLabel(familyEntries[i].key),
+                familyEntries[i].value),
+          ),
+        ],
       ],
     );
   }
 
-  String _labelTipologia(TipologiaIscrizione t) {
-    final s = t.toString().split('.').last;
-    return s.replaceAll('_', ' ');
-  }
+  String _labelTipologia(TipologiaIscrizione t) =>
+      getTipologiaIscrizioneLabel(t);
 }
 
 class _SectionCorsi extends StatelessWidget {
@@ -678,10 +710,8 @@ class _SectionAbbonamenti extends StatelessWidget {
     );
   }
 
-  String _labelTipologia(TipologiaIscrizione t) {
-    final s = t.toString().split('.').last;
-    return s.replaceAll('_', ' ');
-  }
+  String _labelTipologia(TipologiaIscrizione t) =>
+      getTipologiaIscrizioneLabel(t);
 }
 
 TextStyle _sectionLabelStyle(BuildContext context) {
