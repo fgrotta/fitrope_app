@@ -2,6 +2,7 @@ import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_images.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -331,8 +332,8 @@ String _getDayName(DateTime date) {
           uid: '',
           id: '',
           name: name,
-          startDate: Timestamp.fromDate(courseDate),
-          endDate: Timestamp.fromDate(endDate),
+          startDate: italianTimestamp(courseDate),
+          endDate: italianTimestamp(endDate),
           capacity: capacity,
           subscribed: 0,
           trainerId: trainerId,

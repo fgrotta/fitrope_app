@@ -4,6 +4,7 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/formatDate.dart';
 import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/user_display_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -99,7 +100,7 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
     final tipologia = widget.course.courseType.label;
 
     if (widget.showDate) {
-      final courseDate = DateTime.fromMillisecondsSinceEpoch(widget.course.startDate.millisecondsSinceEpoch);
+      final courseDate = toItalianTime(widget.course.startDate.toDate());
       return "Orario: ${formatDate(courseDate)}, ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: $tipologia";
     } else {
       return "Orario: ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: $tipologia";

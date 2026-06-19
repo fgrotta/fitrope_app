@@ -9,6 +9,7 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/course_images.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -108,10 +109,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   }
 
   void _initializeCourseData() {
-    // Inizializza startDate
-    startDate = widget.courseToEdit?.startDate.toDate() ?? 
-                widget.courseToDuplicate?.startDate.toDate() ?? 
-                DateTime.now();
+    // Inizializza startDate in orario italiano, così il picker mostra l'ora
+    // italiana e il salvataggio (italianTimestamp) è idempotente in modifica.
+    startDate = widget.courseToEdit != null
+        ? toItalianTime(widget.courseToEdit!.startDate.toDate())
+        : widget.courseToDuplicate != null
+            ? toItalianTime(widget.courseToDuplicate!.startDate.toDate())
+            : DateTime.now();
 
     // Per la creazione di nuovi corsi, non permettere date nel passato
     if (widget.mode == 'create' && startDate!.isBefore(DateTime.now())) {
@@ -314,8 +318,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           uid: widget.courseToEdit!.uid,
           id: widget.courseToEdit!.uid,
           name: name,
-          startDate: Timestamp.fromDate(startDate!),
-          endDate: Timestamp.fromDate(endDate),
+          startDate: italianTimestamp(startDate!),
+          endDate: italianTimestamp(endDate),
           capacity: capacity,
           subscribed: widget.courseToEdit!.subscribed,
           trainerId: trainerId,
@@ -338,8 +342,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           uid: '',
           id: '',
           name: name,
-          startDate: Timestamp.fromDate(startDate!),
-          endDate: Timestamp.fromDate(endDate),
+          startDate: italianTimestamp(startDate!),
+          endDate: italianTimestamp(endDate),
           capacity: capacity,
           subscribed: 0,
           trainerId: trainerId,
