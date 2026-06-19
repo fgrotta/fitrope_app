@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ONESIGNAL_SUBSCRIPTIONS_BY_TOKEN_URL = exports.ONESIGNAL_SUBSCRIPTIONS_URL = exports.ONESIGNAL_USERS_URL = exports.ONESIGNAL_API_URL = exports.ONESIGNAL_APP_ID = void 0;
+exports.postToOneSignal = postToOneSignal;
 exports.sendOneSignalNotificationHandler = sendOneSignalNotificationHandler;
 exports.ensureOneSignalUserHandler = ensureOneSignalUserHandler;
+exports.ensureOneSignalEmailSubscription = ensureOneSignalEmailSubscription;
 exports.removeOneSignalEmailHandler = removeOneSignalEmailHandler;
 const https_1 = require("firebase-functions/v2/https");
 const firebase_functions_1 = require("firebase-functions");
@@ -12,30 +14,11 @@ exports.ONESIGNAL_USERS_URL = `https://api.onesignal.com/apps/${exports.ONESIGNA
 exports.ONESIGNAL_SUBSCRIPTIONS_URL = `https://api.onesignal.com/apps/${exports.ONESIGNAL_APP_ID}/subscriptions`;
 exports.ONESIGNAL_SUBSCRIPTIONS_BY_TOKEN_URL = `https://api.onesignal.com/apps/${exports.ONESIGNAL_APP_ID}/subscriptions_by_token`;
 /**
- * Logica di inoltro verso OneSignal REST API.
- * Esposta separatamente da `onCall` per poter essere testata senza dipendere
- * dall'infrastruttura Firebase Functions.
- *
- * - Verifica autenticazione
- * - Verifica payload
- * - Inietta app_id server-side
- * - Chiama OneSignal con la REST API key (passata come parametro)
+ * Esegue la POST verso OneSignal e gestisce la risposta.
+ * Condivisa tra l'handler onCall e le funzioni schedulate (che non hanno auth).
+ * Il chiamante deve aver già iniettato `app_id` nel payload.
  */
-async function sendOneSignalNotificationHandler(request, apiKey) {
-    if (!request.auth) {
-        throw new https_1.HttpsError("unauthenticated", "Login richiesto");
-    }
-    const payload = request.data;
-    if (!payload || typeof payload !== "object") {
-        throw new https_1.HttpsError("invalid-argument", "Body mancante o invalido");
-    }
-    payload.app_id = exports.ONESIGNAL_APP_ID;
-    const logPayload = { ...payload };
-    delete logPayload.email_body;
-    firebase_functions_1.logger.info("OneSignal request", {
-        uid: request.auth.uid,
-        payload: logPayload,
-    });
+async function postToOneSignal(payload, apiKey) {
     let response;
     try {
         response = await fetch(exports.ONESIGNAL_API_URL, {
@@ -61,6 +44,33 @@ async function sendOneSignalNotificationHandler(request, apiKey) {
     return data;
 }
 /**
+ * Logica di inoltro verso OneSignal REST API.
+ * Esposta separatamente da `onCall` per poter essere testata senza dipendere
+ * dall'infrastruttura Firebase Functions.
+ *
+ * - Verifica autenticazione
+ * - Verifica payload
+ * - Inietta app_id server-side
+ * - Chiama OneSignal con la REST API key (passata come parametro)
+ */
+async function sendOneSignalNotificationHandler(request, apiKey) {
+    if (!request.auth) {
+        throw new https_1.HttpsError("unauthenticated", "Login richiesto");
+    }
+    const payload = request.data;
+    if (!payload || typeof payload !== "object") {
+        throw new https_1.HttpsError("invalid-argument", "Body mancante o invalido");
+    }
+    payload.app_id = exports.ONESIGNAL_APP_ID;
+    const logPayload = { ...payload };
+    delete logPayload.email_body;
+    firebase_functions_1.logger.info("OneSignal request", {
+        uid: request.auth.uid,
+        payload: logPayload,
+    });
+    return postToOneSignal(payload, apiKey);
+}
+/**
  * Crea o aggiorna un utente OneSignal con l'email specificata come subscription.
  * Usa l'endpoint Users di OneSignal v2 per garantire che l'utente esista
  * prima di poter ricevere notifiche via `include_aliases.external_id`.
@@ -79,8 +89,16 @@ async function ensureOneSignalUserHandler(request, apiKey) {
     if (!payload || typeof payload !== "object" || !payload.externalId) {
         throw new https_1.HttpsError("invalid-argument", "externalId obbligatorio");
     }
-    const externalId = payload.externalId;
-    const email = payload.email?.trim();
+    return ensureOneSignalEmailSubscription(payload.externalId, payload.email?.trim(), apiKey);
+}
+/**
+ * Crea/aggiorna la subscription email OneSignal per un external_id.
+ * Estratta dall'handler onCall per essere riusata dalla Cloud Function
+ * schedulata (che non ha contesto auth). Idempotente: se l'utente esiste già
+ * (409) aggiunge l'email; se l'email esiste ma è disabilitata, la riabilita.
+ * È la stessa logica usata al login.
+ */
+async function ensureOneSignalEmailSubscription(externalId, email, apiKey) {
     const body = {
         identity: { external_id: externalId },
     };
@@ -90,7 +108,6 @@ async function ensureOneSignalUserHandler(request, apiKey) {
         ];
     }
     firebase_functions_1.logger.info("OneSignal ensureUser request", {
-        uid: request.auth.uid,
         externalId,
         hasEmail: !!email,
     });

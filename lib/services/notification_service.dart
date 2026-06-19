@@ -347,3 +347,35 @@ Future<void> sendTestTrialReminderEmail({
     ),
   });
 }
+
+/// Invia un'email di test sulla scadenza del certificato medico.
+/// Il template vive server-side (TS), quindi passa per la callable dedicata
+/// `sendTestCertificateEmail` che renderizza e invia. `isExpiryDay` sceglie tra
+/// l'email "10 giorni prima" (false) e quella "scadenza oggi" (true).
+Future<void> sendTestCertificateExpiryEmail({
+  required String userId,
+  required String firstName,
+  required String email,
+  required bool isExpiryDay,
+}) async {
+  assert(kDebugMode);
+  final kind = isExpiryDay ? 'expiryToday' : 'reminder10';
+  debugPrint('🔔 [OneSignal API] Certificate Email [TEST] — userId: $userId, kind: $kind');
+  try {
+    final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
+        .httpsCallable('sendTestCertificateEmail');
+    final result = await callable.call({
+      'externalId': userId,
+      'firstName': firstName,
+      'email': email,
+      'kind': kind,
+    });
+    debugPrint('🔔 [OneSignal API] Certificate Email [TEST] — RESPONSE: ${result.data}');
+  } on FirebaseFunctionsException catch (e) {
+    debugPrint('🔔 [OneSignal API] Certificate Email [TEST] — ERROR ${e.code}: ${e.message}');
+    rethrow;
+  } catch (e) {
+    debugPrint('🔔 [OneSignal API] Certificate Email [TEST] — ERROR: $e');
+    rethrow;
+  }
+}
