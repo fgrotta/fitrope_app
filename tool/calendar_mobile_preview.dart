@@ -42,28 +42,52 @@ class PreviewApp extends StatelessWidget {
       home: Scaffold(
         backgroundColor: const Color(0xFFEFEFF4),
         appBar: AppBar(
-          title: const Text('Vista mobile corsi — 4 alternative'),
+          title: const Text('Prototipi calendario mobile'),
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Wrap(
-            spacing: 24,
-            runSpacing: 24,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              _Phone('A — Filter chips (sticky)',
-                  'Chip Tutti/Open/PT con contatore; filtra la lista. Calendario sempre visibile.',
-                  VariantChips()),
-              _Phone('B — TabBar',
-                  'Una tab per tipologia, contenuto swipeabile. Più app-like ma nasconde le altre.',
-                  VariantTabs()),
-              _Phone('C — Sezioni collassabili',
-                  'Sezioni comprimibili, chiuse di default con contatore: ideale nei giorni pieni.',
-                  VariantExpansion()),
-              _Phone('D — Segmented control',
-                  'Toggle compatto in stile iOS che filtra la lista.',
-                  VariantSegmented()),
+              _SectionTitle('Filtro corsi del giorno'),
+              SizedBox(height: 16),
+              Wrap(
+                spacing: 24,
+                runSpacing: 24,
+                children: [
+                  _Phone('A — Filter chips (sticky)',
+                      'Chip Tutti/Open/PT con contatore; filtra la lista. Calendario sempre visibile.',
+                      VariantChips()),
+                  _Phone('B — TabBar',
+                      'Una tab per tipologia, contenuto swipeabile. Più app-like ma nasconde le altre.',
+                      VariantTabs()),
+                  _Phone('C — Sezioni collassabili',
+                      'Sezioni comprimibili, chiuse di default con contatore: ideale nei giorni pieni.',
+                      VariantExpansion()),
+                  _Phone('D — Segmented control',
+                      'Toggle compatto in stile iOS che filtra la lista.',
+                      VariantSegmented()),
+                ],
+              ),
+              SizedBox(height: 40),
+              _SectionTitle('Visualizzazione mensile'),
+              SizedBox(height: 16),
+              Wrap(
+                spacing: 24,
+                runSpacing: 24,
+                children: [
+                  _Phone('E — Griglia mensile con pallini',
+                      'Griglia del mese con pallini colorati per i corsi; tocca un giorno per vederne i corsi sotto.',
+                      VariantMonthGrid(),
+                      showMiniCalendar: false),
+                  _Phone('F — Agenda mensile',
+                      'Lista di tutti i corsi del mese, raggruppati per giorno e ordinati cronologicamente.',
+                      VariantMonthAgenda(),
+                      showMiniCalendar: false),
+                ],
+              ),
             ],
           ),
         ),
@@ -72,12 +96,23 @@ class PreviewApp extends StatelessWidget {
   }
 }
 
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+  @override
+  Widget build(BuildContext context) => Text(text,
+      style: const TextStyle(
+          color: primaryColor, fontSize: 20, fontWeight: FontWeight.bold));
+}
+
 /// Cornice "telefono" con un mini-calendario in alto, comune a tutte le varianti.
 class _Phone extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
-  const _Phone(this.title, this.subtitle, this.child);
+  final bool showMiniCalendar;
+  const _Phone(this.title, this.subtitle, this.child,
+      {this.showMiniCalendar = true});
 
   @override
   Widget build(BuildContext context) {
@@ -115,8 +150,10 @@ class _Phone extends StatelessWidget {
                           fontSize: 18,
                           fontWeight: FontWeight.bold)),
                 ),
-                const _MiniCalendar(),
-                const Divider(height: 1),
+                if (showMiniCalendar) ...[
+                  const _MiniCalendar(),
+                  const Divider(height: 1),
+                ],
                 Expanded(child: child),
               ],
             ),
@@ -369,6 +406,195 @@ class _VariantSegmentedState extends State<VariantSegmented> {
         ),
         const Divider(height: 1),
         Expanded(child: _list(items)),
+      ],
+    );
+  }
+}
+
+// ===================== Visualizzazione mensile =====================
+
+// Giugno 2026 con corsi distribuiti su più giorni (il giorno 19 riusa `day`).
+const monthCourses = <int, List<MockCourse>>{
+  2: [MockCourse('PT Anna', '08:00 - 09:00', CourseType.personal_trainer, 1, 1)],
+  4: [
+    MockCourse('Functional', '09:00 - 10:00', CourseType.open, 5, 12),
+    MockCourse('Cardio', '18:00 - 19:00', CourseType.open, 8, 12),
+  ],
+  9: [MockCourse('Tabata', '12:30 - 13:30', CourseType.open, 11, 12)],
+  11: [
+    MockCourse('PT Marco', '10:00 - 11:00', CourseType.personal_trainer, 0, 1),
+    MockCourse('Stretching', '19:00 - 20:00', CourseType.open, 3, 12),
+  ],
+  16: [
+    MockCourse('PT Sara', '17:00 - 18:00', CourseType.personal_trainer, 1, 1),
+    MockCourse('Functional', '09:00 - 10:00', CourseType.open, 5, 12),
+    MockCourse('Cardio', '18:00 - 19:00', CourseType.open, 8, 12),
+  ],
+  18: [MockCourse('Tabata', '12:30 - 13:30', CourseType.open, 11, 12)],
+  19: day, // oggi, giornata piena
+  23: [MockCourse('PT Anna', '08:00 - 09:00', CourseType.personal_trainer, 1, 1)],
+  25: [MockCourse('Functional', '09:00 - 10:00', CourseType.open, 4, 12)],
+  26: [
+    MockCourse('Cardio', '18:00 - 19:00', CourseType.open, 8, 12),
+    MockCourse('Stretching', '19:00 - 20:00', CourseType.open, 3, 12),
+  ],
+};
+
+const _giugno2026 = (year: 2026, month: 6, daysInMonth: 30, today: 19);
+const _weekdayShort = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+
+Widget _monthNavHeader() => const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(Icons.chevron_left, color: Color(0xFF5F6368)),
+          Text('Giugno 2026',
+              style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1C1E))),
+          Icon(Icons.chevron_right, color: Color(0xFF5F6368)),
+        ],
+      ),
+    );
+
+// ---------- E: griglia mensile con pallini ----------
+class VariantMonthGrid extends StatefulWidget {
+  const VariantMonthGrid({super.key});
+  @override
+  State<VariantMonthGrid> createState() => _VariantMonthGridState();
+}
+
+class _VariantMonthGridState extends State<VariantMonthGrid> {
+  int _selected = _giugno2026.today;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstWeekday =
+        DateTime(_giugno2026.year, _giugno2026.month, 1).weekday; // 1=Lun
+    final leading = firstWeekday - 1;
+    final cells = leading + _giugno2026.daysInMonth;
+    final selectedCourses = monthCourses[_selected] ?? const <MockCourse>[];
+
+    return Column(
+      children: [
+        _monthNavHeader(),
+        Row(
+          children: _weekdayShort
+              .map((d) => Expanded(
+                    child: Center(
+                      child: Text(d,
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF5F6368))),
+                    ),
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 4),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 0.82,
+          children: List.generate(cells, (i) {
+            if (i < leading) return const SizedBox();
+            final day = i - leading + 1;
+            final courses = monthCourses[day] ?? const <MockCourse>[];
+            final isSelected = day == _selected;
+            final isToday = day == _giugno2026.today;
+            return GestureDetector(
+              onTap: () => setState(() => _selected = day),
+              child: Container(
+                margin: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: isSelected ? primaryColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: isToday && !isSelected
+                      ? Border.all(color: primaryColor, width: 1.5)
+                      : null,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('$day',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF1A1C1E))),
+                    const SizedBox(height: 3),
+                    SizedBox(
+                      height: 6,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: courses
+                            .take(3)
+                            .map((c) => Container(
+                                  width: 5,
+                                  height: 5,
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 1),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : capacityColor(
+                                            c.subscribed, c.capacity),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: selectedCourses.isEmpty
+              ? const Center(
+                  child: Text('Nessun corso in questa giornata',
+                      style: TextStyle(color: Color(0xFF5F6368))))
+              : _list(selectedCourses),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------- F: agenda mensile ----------
+class VariantMonthAgenda extends StatelessWidget {
+  const VariantMonthAgenda({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final days = monthCourses.keys.toList()..sort();
+    return Column(
+      children: [
+        _monthNavHeader(),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            children: days.expand((day) {
+              final wd =
+                  DateTime(_giugno2026.year, _giugno2026.month, day).weekday;
+              return [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
+                  child: Text('${_weekdayShort[wd - 1]} $day giugno',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, color: primaryColor)),
+                ),
+                ...monthCourses[day]!.map((c) => CourseRow(c)),
+              ];
+            }).toList(),
+          ),
+        ),
       ],
     );
   }
