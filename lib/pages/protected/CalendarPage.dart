@@ -42,9 +42,13 @@ class _CalendarPageState extends State<CalendarPage> {
   late DateTime currentDate;
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
+  bool _monthView = false; // false = vista Giorno, true = vista Mese
+  late DateTime _focusedMonth;
   
   @override
   void initState() {
+    final now = DateTime.now();
+    _focusedMonth = DateTime(now.year, now.month);
     user = store.state.user!;
     getTrainers().then((List<FitropeUser> response) {
       setState(() {
@@ -494,6 +498,121 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  // Toggle tra vista Giorno (selezione singolo giorno) e vista Mese (agenda).
+  Widget _buildViewToggle() {
+    Widget segment(String label, IconData icon, bool month) {
+      final selected = _monthView == month;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _monthView = month),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? primaryLightColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18, color: selected ? Colors.white : onPrimaryColor),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: TextStyle(
+                        color: selected ? Colors.white : onPrimaryColor,
+                        fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceVariantColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          segment('Giorno', Icons.view_day, false),
+          segment('Mese', Icons.calendar_month, true),
+        ],
+      ),
+    );
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+  // Corsi del mese in vista, raggruppati per giorno e ordinati cronologicamente.
+  List<MapEntry<DateTime, List<Course>>> _coursesForMonth(DateTime month) {
+    final byDay = <DateTime, List<Course>>{};
+    coursesByDate.forEach((key, list) {
+      if (list.isEmpty) return;
+      final d = DateFormat(pattern).parse(key);
+      if (d.year == month.year && d.month == month.month) {
+        byDay[DateTime(d.year, d.month, d.day)] = [...list]
+          ..sort((a, b) => a.startDate.compareTo(b.startDate));
+      }
+    });
+    final entries = byDay.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return entries;
+  }
+
+  Widget _buildMonthAgenda() {
+    final entries = _coursesForMonth(_focusedMonth);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Navigazione mese
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: onPrimaryColor),
+              tooltip: 'Mese precedente',
+              onPressed: () => setState(() =>
+                  _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1)),
+            ),
+            Text(
+              _capitalize(DateFormat('MMMM yyyy', 'it_IT').format(_focusedMonth)),
+              style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.bold, color: onPrimaryColor),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right, color: onPrimaryColor),
+              tooltip: 'Mese successivo',
+              onPressed: () => setState(() =>
+                  _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1)),
+            ),
+          ],
+        ),
+        if (entries.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text('Nessun corso in questo mese',
+                  style: TextStyle(color: onPrimaryColor)),
+            ),
+          )
+        else
+          ...entries.expand((entry) => [
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 4, left: 4),
+                  child: Text(
+                    _capitalize(DateFormat('EEEE d MMMM', 'it_IT').format(entry.key)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, color: primaryLightColor),
+                  ),
+                ),
+                ...entry.value.map((course) => _buildCourseCard(course)),
+              ]),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenType = breakpointOf(context);
@@ -511,7 +630,13 @@ class _CalendarPageState extends State<CalendarPage> {
                 children: [
                   _buildHeader(),
                   const SizedBox(height: 16),
-                  if (isDesktopLayout)
+                  _buildViewToggle(),
+                  const SizedBox(height: 16),
+                  if (_monthView) ...[
+                    _buildMonthAgenda(),
+                    const SizedBox(height: 16),
+                    _buildActionButtons(compact: !isDesktopLayout),
+                  ] else if (isDesktopLayout)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
