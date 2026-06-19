@@ -42,7 +42,8 @@ class _CalendarPageState extends State<CalendarPage> {
   late DateTime currentDate;
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
-  
+  String? _tagFilter; // null = tutti i tag
+
   @override
   void initState() {
     user = store.state.user!;
@@ -102,6 +103,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void onSelectDate(DateTime selectedDate) {
     currentDate = selectedDate;
+    _tagFilter = null; // ogni giorno riparte da "Tutti"
     selectedCourses = [];
     String indexDate = DateFormat(pattern).format(selectedDate);
     if (coursesByDate[indexDate]!=null){
@@ -402,6 +404,38 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  // Chip di filtro per tag dei corsi del giorno selezionato. I tag sono
+  // dinamici: i chip mostrano "Tutti" + i tag effettivamente presenti.
+  Widget _buildTagFilterChips() {
+    if (selectedCourses.isEmpty) return const SizedBox.shrink();
+    final tags = selectedCourses.expand((c) => c.tags).toSet().toList()..sort();
+    if (tags.isEmpty) return const SizedBox.shrink();
+
+    int countOf(String? tag) => tag == null
+        ? selectedCourses.length
+        : selectedCourses.where((c) => c.tags.contains(tag)).length;
+    Widget chip(String label, String? value) => Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            label: Text('$label (${countOf(value)})'),
+            selected: _tagFilter == value,
+            onSelected: (_) => setState(() => _tagFilter = value),
+            visualDensity: VisualDensity.compact,
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Wrap(
+        spacing: 0,
+        runSpacing: 4,
+        children: [
+          chip('Tutti', null),
+          ...tags.map((t) => chip(t, t)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSelectedCoursesList() {
     if (selectedCourses.isEmpty) {
       return const Padding(
@@ -413,9 +447,23 @@ class _CalendarPageState extends State<CalendarPage> {
       );
     }
 
+    // Applica il filtro per tag (chip).
+    final visible = _tagFilter == null
+        ? selectedCourses
+        : selectedCourses.where((c) => c.tags.contains(_tagFilter)).toList();
+    if (visible.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: Text(
+          'Nessun corso con questo tag in questa giornata',
+          style: TextStyle(color: onPrimaryColor),
+        ),
+      );
+    }
+
     // Raggruppa i corsi per tipologia
     final groupedCourses = <CourseType, List<Course>>{};
-    for (final course in selectedCourses) {
+    for (final course in visible) {
       groupedCourses.putIfAbsent(course.courseType, () => []);
       groupedCourses[course.courseType]!.add(course);
     }
@@ -427,7 +475,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final presentTypes = typeOrder.where((type) => groupedCourses.containsKey(type)).toList();
     if (presentTypes.length <= 1) {
       return Column(
-        children: selectedCourses.map((course) => _buildCourseCard(course)).toList(),
+        children: visible.map((course) => _buildCourseCard(course)).toList(),
       );
     }
 
@@ -531,7 +579,13 @@ class _CalendarPageState extends State<CalendarPage> {
                           flex: 7,
                           child: Padding(
                             padding: const EdgeInsets.only(top: 8),
-                            child: _buildSelectedCoursesList(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildTagFilterChips(),
+                                _buildSelectedCoursesList(),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -540,7 +594,13 @@ class _CalendarPageState extends State<CalendarPage> {
                     _buildCalendar(),
                     Padding(
                       padding: const EdgeInsets.all(10),
-                      child: _buildSelectedCoursesList(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTagFilterChips(),
+                          _buildSelectedCoursesList(),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Padding(
