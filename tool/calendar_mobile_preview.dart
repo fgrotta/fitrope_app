@@ -88,6 +88,19 @@ class PreviewApp extends StatelessWidget {
                       showMiniCalendar: false),
                 ],
               ),
+              SizedBox(height: 40),
+              _SectionTitle('Unione E + A (proposta)'),
+              SizedBox(height: 16),
+              Wrap(
+                spacing: 24,
+                runSpacing: 24,
+                children: [
+                  _Phone('E + A — Griglia mensile + filtri tipologia',
+                      'Calendario del mese (E): tocca un giorno; i chip Tutti/Open/PT (A) filtrano i corsi di quel giorno.',
+                      VariantMonthFiltered(),
+                      showMiniCalendar: false),
+                ],
+              ),
             ],
           ),
         ),
@@ -459,15 +472,11 @@ Widget _monthNavHeader() => const Padding(
       ),
     );
 
-// ---------- E: griglia mensile con pallini ----------
-class VariantMonthGrid extends StatefulWidget {
-  const VariantMonthGrid({super.key});
-  @override
-  State<VariantMonthGrid> createState() => _VariantMonthGridState();
-}
-
-class _VariantMonthGridState extends State<VariantMonthGrid> {
-  int _selected = _giugno2026.today;
+// Griglia del mese con pallini colorati per capienza, riusabile.
+class _MonthGridView extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onSelect;
+  const _MonthGridView({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -475,11 +484,10 @@ class _VariantMonthGridState extends State<VariantMonthGrid> {
         DateTime(_giugno2026.year, _giugno2026.month, 1).weekday; // 1=Lun
     final leading = firstWeekday - 1;
     final cells = leading + _giugno2026.daysInMonth;
-    final selectedCourses = monthCourses[_selected] ?? const <MockCourse>[];
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _monthNavHeader(),
         Row(
           children: _weekdayShort
               .map((d) => Expanded(
@@ -496,15 +504,15 @@ class _VariantMonthGridState extends State<VariantMonthGrid> {
           crossAxisCount: 7,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 0.82,
+          childAspectRatio: 0.9,
           children: List.generate(cells, (i) {
             if (i < leading) return const SizedBox();
             final day = i - leading + 1;
             final courses = monthCourses[day] ?? const <MockCourse>[];
-            final isSelected = day == _selected;
+            final isSelected = day == selected;
             final isToday = day == _giugno2026.today;
             return GestureDetector(
-              onTap: () => setState(() => _selected = day),
+              onTap: () => onSelect(day),
               child: Container(
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
@@ -553,6 +561,29 @@ class _VariantMonthGridState extends State<VariantMonthGrid> {
             );
           }),
         ),
+      ],
+    );
+  }
+}
+
+// ---------- E: griglia mensile con pallini ----------
+class VariantMonthGrid extends StatefulWidget {
+  const VariantMonthGrid({super.key});
+  @override
+  State<VariantMonthGrid> createState() => _VariantMonthGridState();
+}
+
+class _VariantMonthGridState extends State<VariantMonthGrid> {
+  int _selected = _giugno2026.today;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedCourses = monthCourses[_selected] ?? const <MockCourse>[];
+    return Column(
+      children: [
+        _monthNavHeader(),
+        _MonthGridView(
+            selected: _selected, onSelect: (d) => setState(() => _selected = d)),
         const Divider(height: 1),
         Expanded(
           child: selectedCourses.isEmpty
@@ -560,6 +591,68 @@ class _VariantMonthGridState extends State<VariantMonthGrid> {
                   child: Text('Nessun corso in questa giornata',
                       style: TextStyle(color: Color(0xFF5F6368))))
               : _list(selectedCourses),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------- E+A: griglia mensile + filtri tipologia sul giorno selezionato ----------
+class VariantMonthFiltered extends StatefulWidget {
+  const VariantMonthFiltered({super.key});
+  @override
+  State<VariantMonthFiltered> createState() => _VariantMonthFilteredState();
+}
+
+class _VariantMonthFilteredState extends State<VariantMonthFiltered> {
+  int _selected = _giugno2026.today;
+  CourseType? _filter; // null = tutti
+
+  @override
+  Widget build(BuildContext context) {
+    final dayCourses = monthCourses[_selected] ?? const <MockCourse>[];
+    final filtered = _filter == null
+        ? dayCourses
+        : dayCourses.where((c) => c.type == _filter).toList();
+    int countOf(CourseType? t) =>
+        t == null ? dayCourses.length : dayCourses.where((c) => c.type == t).length;
+
+    Widget chip(String label, CourseType? value) => Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            label: Text('$label (${countOf(value)})'),
+            selected: _filter == value,
+            onSelected: (_) => setState(() => _filter = value),
+            visualDensity: VisualDensity.compact,
+          ),
+        );
+
+    return Column(
+      children: [
+        _monthNavHeader(),
+        _MonthGridView(
+            selected: _selected,
+            onSelect: (d) => setState(() => _selected = d)),
+        const Divider(height: 1),
+        // Filtri a chip (dal prototipo A) applicati al giorno selezionato.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          child: Row(
+            children: [
+              chip('Tutti', null),
+              chip('Open', CourseType.open),
+              chip('PT', CourseType.personal_trainer),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(
+                  child: Text('Nessun corso',
+                      style: TextStyle(color: Color(0xFF5F6368))))
+              : _list(filtered),
         ),
       ],
     );
