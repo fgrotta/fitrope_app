@@ -43,7 +43,11 @@ class _CalendarPageState extends State<CalendarPage> {
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
   String? _tagFilter; // null = tutti i tag
-  bool _monthExpanded = false; // false = striscia settimanale (compatta), true = mese
+  bool _monthExpanded =
+      false; // false = striscia settimanale (compatta), true = mese
+  bool _fabOpen = false; // speed-dial CTA admin (solo mobile/tablet)
+
+  bool get _isStaff => user.role == 'Admin' || user.role == 'Trainer';
 
   @override
   void initState() {
@@ -65,28 +69,29 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void refreshCourseMap(List<Course> response) {
     coursesByDate.clear();
-    store.dispatch(SetAllCoursesAction(response));    
+    store.dispatch(SetAllCoursesAction(response));
     courses = response;
-    for(Course course in response) {
+    for (Course course in response) {
       updateCourseToMap(course, null);
     }
-    
   }
 
-  void updateCourseToMap(Course newCourse, Course? oldCourse ) {
+  void updateCourseToMap(Course newCourse, Course? oldCourse) {
     if (oldCourse != null) {
       removeCoruseFromMap(oldCourse);
     }
-    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(newCourse.startDate.millisecondsSinceEpoch);
+    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(
+        newCourse.startDate.millisecondsSinceEpoch);
     String indexDate = DateFormat(pattern).format(courseDate);
-    if(!coursesByDate.containsKey(indexDate)) {
+    if (!coursesByDate.containsKey(indexDate)) {
       coursesByDate[indexDate] = [];
     }
     coursesByDate[indexDate]!.add(newCourse);
   }
 
   void removeCoruseFromMap(Course oldCourse) {
-    coursesByDate[DateFormat(pattern).format(oldCourse.startDate.toDate())]!.remove(oldCourse);
+    coursesByDate[DateFormat(pattern).format(oldCourse.startDate.toDate())]!
+        .remove(oldCourse);
   }
 
   void updateCourses() {
@@ -95,7 +100,7 @@ class _CalendarPageState extends State<CalendarPage> {
     invalidateCoursesCache();
     selectedCourses = [];
     getAllCourses().then((List<Course> response) {
-      if(mounted) { 
+      if (mounted) {
         refreshCourseMap(response);
         onSelectDate(currentDate);
         store.dispatch(SetAllCoursesAction(response));
@@ -108,15 +113,16 @@ class _CalendarPageState extends State<CalendarPage> {
     _tagFilter = null; // ogni giorno riparte da "Tutti"
     selectedCourses = [];
     String indexDate = DateFormat(pattern).format(selectedDate);
-    if (coursesByDate[indexDate]!=null){
+    if (coursesByDate[indexDate] != null) {
       selectedCourses = coursesByDate[indexDate]!;
-    } 
+    }
 
-    setState(() { });
+    setState(() {});
   }
 
   void onSubscribe(Course course) async {
-    bool accepted = await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
+    bool accepted =
+        await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted) return;
 
     subscribeToCourse(course.id, user.uid).then((_) {
@@ -129,17 +135,17 @@ class _CalendarPageState extends State<CalendarPage> {
   void onUnsubscribe(Course course) async {
     try {
       print('🔄 Inizio disiscrizione per corso: ${course.name}');
-      
+
       // Usa il nuovo sistema di disiscrizione intelligente
       bool success = await CourseUnsubscribeHelper.handleUnsubscribe(
         course,
         user,
         context,
       );
-      
+
       if (success) {
         print('✅ Disiscrizione completata con successo');
-        
+
         // Aggiorna lo stato dell'utente corrente
         if (store.state.user != null && store.state.user!.uid == user.uid) {
           // Ricarica i dati utente per aggiornare entrateDisponibili e courses
@@ -167,7 +173,6 @@ class _CalendarPageState extends State<CalendarPage> {
         print('❌ Disiscrizione annullata dall\'utente');
         // L'utente ha annullato la disiscrizione, non fare nulla
       }
-      
     } catch (e) {
       print('❌ Errore durante la disiscrizione: $e');
       SnackBarUtils.showErrorSnackBar(
@@ -241,7 +246,7 @@ class _CalendarPageState extends State<CalendarPage> {
       }
     });
   }
-  
+
   void showRecurringCoursePage() {
     Navigator.pushNamed(
       context,
@@ -252,6 +257,7 @@ class _CalendarPageState extends State<CalendarPage> {
       }
     });
   }
+
   // Funzione di utilità per verificare se un corso è nel futuro
   bool _isCourseInFuture(Course course) {
     return course.startDate.toDate().isAfter(DateTime.now());
@@ -261,7 +267,7 @@ class _CalendarPageState extends State<CalendarPage> {
     try {
       await deleteCourse(course.uid);
       updateCourses();
-      
+
       // Mostra SnackBar di successo
       SnackBarUtils.showSuccessSnackBar(
         context,
@@ -303,7 +309,8 @@ class _CalendarPageState extends State<CalendarPage> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: user)),
               );
             },
           ),
@@ -320,7 +327,8 @@ class _CalendarPageState extends State<CalendarPage> {
           alignment: Alignment.centerRight,
           child: TextButton.icon(
             onPressed: () => setState(() => _monthExpanded = !_monthExpanded),
-            icon: Icon(_monthExpanded ? Icons.unfold_less : Icons.unfold_more, size: 18),
+            icon: Icon(_monthExpanded ? Icons.unfold_less : Icons.unfold_more,
+                size: 18),
             label: Text(_monthExpanded ? 'Vista settimana' : 'Vista mese'),
           ),
         ),
@@ -332,13 +340,15 @@ class _CalendarPageState extends State<CalendarPage> {
   Widget _buildMonthCalendar() {
     return Theme(
       data: ThemeData(
-        colorScheme: const ColorScheme.highContrastDark(onSurface: onPrimaryColor),
+        colorScheme:
+            const ColorScheme.highContrastDark(onSurface: onPrimaryColor),
         datePickerTheme: DatePickerThemeData(
           dayForegroundColor: WidgetStateProperty.all(onSurfaceColor),
           weekdayStyle: const TextStyle(color: onPrimaryColor),
           headerHeadlineStyle: const TextStyle(color: onPrimaryColor),
           todayForegroundColor: WidgetStateProperty.all(onPrimaryColor),
-          todayBackgroundColor: WidgetStateProperty.all(onSurfaceVariantColorTrasparent),
+          todayBackgroundColor:
+              WidgetStateProperty.all(onSurfaceVariantColorTrasparent),
           yearOverlayColor: WidgetStateProperty.all(surfaceVariantColor),
           yearBackgroundColor: WidgetStateProperty.all(primaryLightColor),
           yearForegroundColor: WidgetStateProperty.all(onPrimaryColor),
@@ -357,7 +367,8 @@ class _CalendarPageState extends State<CalendarPage> {
         initialDate: currentDate,
         firstDate: firstDate,
         lastDate: lastDate,
-        filledDays: courses.map((Course course) => course.startDate.toDate()).toList(),
+        filledDays:
+            courses.map((Course course) => course.startDate.toDate()).toList(),
       ),
     );
   }
@@ -365,7 +376,8 @@ class _CalendarPageState extends State<CalendarPage> {
   // Striscia settimanale: la settimana (lun-dom) del giorno selezionato,
   // con frecce per cambiare settimana e pallino sui giorni con corsi.
   Widget _buildWeekStrip() {
-    final monday = currentDate.subtract(Duration(days: currentDate.weekday - 1));
+    final monday =
+        currentDate.subtract(Duration(days: currentDate.weekday - 1));
     final days = List.generate(7, (i) => monday.add(Duration(days: i)));
     final now = DateTime.now();
     const labels = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
@@ -383,7 +395,8 @@ class _CalendarPageState extends State<CalendarPage> {
             Expanded(
               child: Center(
                 child: Text(
-                  _capitalize(DateFormat('MMMM yyyy', 'it_IT').format(currentDate)),
+                  _capitalize(
+                      DateFormat('MMMM yyyy', 'it_IT').format(currentDate)),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, color: onPrimaryColor),
                 ),
@@ -410,7 +423,8 @@ class _CalendarPageState extends State<CalendarPage> {
         Row(
           children: days.map((d) {
             final hasCourses =
-                coursesByDate[DateFormat(pattern).format(d)]?.isNotEmpty ?? false;
+                coursesByDate[DateFormat(pattern).format(d)]?.isNotEmpty ??
+                    false;
             final isSelected = d.year == currentDate.year &&
                 d.month == currentDate.month &&
                 d.day == currentDate.day;
@@ -436,7 +450,8 @@ class _CalendarPageState extends State<CalendarPage> {
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: isSelected ? Colors.white : onPrimaryColor)),
+                              color:
+                                  isSelected ? Colors.white : onPrimaryColor)),
                       const SizedBox(height: 4),
                       SizedBox(
                         height: 6,
@@ -516,7 +531,8 @@ class _CalendarPageState extends State<CalendarPage> {
       onJoinWaitlist: () => onJoinWaitlist(course),
       onLeaveWaitlist: () => onLeaveWaitlist(course),
       onDuplicate: () => showDuplicateCoursePage(course),
-      onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
+      onDelete:
+          user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
       onEdit: (user.role == 'Admin' ||
               (user.role == 'Trainer' &&
                   (course.trainerId == null || course.trainerId == user.uid)))
@@ -531,7 +547,8 @@ class _CalendarPageState extends State<CalendarPage> {
 
   // Intestazione di contesto: giorno selezionato + numero di corsi.
   Widget _buildDayContextHeader() {
-    final label = _capitalize(DateFormat('EEEE d MMMM', 'it_IT').format(currentDate));
+    final label =
+        _capitalize(DateFormat('EEEE d MMMM', 'it_IT').format(currentDate));
     final n = selectedCourses.length;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -540,7 +557,9 @@ class _CalendarPageState extends State<CalendarPage> {
           Expanded(
             child: Text(label,
                 style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold, color: onPrimaryColor)),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: onPrimaryColor)),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -550,7 +569,9 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
             child: Text('$n cors${n == 1 ? 'o' : 'i'}',
                 style: const TextStyle(
-                    color: primaryColor, fontWeight: FontWeight.w600, fontSize: 12)),
+                    color: primaryColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12)),
           ),
         ],
       ),
@@ -569,7 +590,8 @@ class _CalendarPageState extends State<CalendarPage> {
             Text(message,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: onPrimaryColor.withValues(alpha: 0.65), fontSize: 15)),
+                    color: onPrimaryColor.withValues(alpha: 0.65),
+                    fontSize: 15)),
           ],
         ),
       ),
@@ -628,6 +650,44 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  // Numero di colonne in base alla larghezza disponibile: 1 su mobile,
+  // 2-3 su desktop per sfruttare lo spazio orizzontale.
+  int _columnsFor(double width) {
+    const minCardWidth = 340.0;
+    return (width / minCardWidth).floor().clamp(1, 3);
+  }
+
+  // Dispone le card su [columns] colonne con layout "masonry" (round-robin):
+  // ogni colonna impacchetta le proprie card, gestendo bene le altezze variabili.
+  Widget _buildCards(List<Course> list, int columns) {
+    if (columns <= 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: list.map(_buildCourseCard).toList(),
+      );
+    }
+
+    final cols = List.generate(columns, (_) => <Widget>[]);
+    for (var i = 0; i < list.length; i++) {
+      cols[i % columns].add(_buildCourseCard(list[i]));
+    }
+
+    final rowChildren = <Widget>[];
+    for (var c = 0; c < columns; c++) {
+      if (c > 0) rowChildren.add(const SizedBox(width: 12));
+      rowChildren.add(Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: cols[c],
+        ),
+      ));
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: rowChildren,
+    );
+  }
+
   Widget _buildSelectedCoursesList() {
     if (selectedCourses.isEmpty) {
       return _buildEmptyState(
@@ -639,8 +699,8 @@ class _CalendarPageState extends State<CalendarPage> {
         ? selectedCourses
         : selectedCourses.where((c) => c.tags.contains(_tagFilter)).toList();
     if (visible.isEmpty) {
-      return _buildEmptyState(
-          Icons.filter_alt_off, 'Nessun corso con il tag "$_tagFilter" in questa giornata');
+      return _buildEmptyState(Icons.filter_alt_off,
+          'Nessun corso con il tag "$_tagFilter" in questa giornata');
     }
 
     // Raggruppa i corsi per tipologia
@@ -652,54 +712,34 @@ class _CalendarPageState extends State<CalendarPage> {
 
     // Ordine di visualizzazione delle sezioni
     const typeOrder = [CourseType.personal_trainer, CourseType.open];
+    final presentTypes =
+        typeOrder.where((type) => groupedCourses.containsKey(type)).toList();
 
-    // Se c'è un solo tipo, mostra senza header di sezione
-    final presentTypes = typeOrder.where((type) => groupedCourses.containsKey(type)).toList();
-    if (presentTypes.length <= 1) {
-      return Column(
-        children: visible.map((course) => _buildCourseCard(course)).toList(),
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = _columnsFor(constraints.maxWidth);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: presentTypes.expand((type) => [
-        _buildSectionHeader(type),
-        ...groupedCourses[type]!.map((course) => _buildCourseCard(course)),
-      ]).toList(),
+        // Se c'è un solo tipo, mostra senza header di sezione
+        if (presentTypes.length <= 1) {
+          return _buildCards(visible, columns);
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: presentTypes
+              .expand((type) => [
+                    _buildSectionHeader(type),
+                    _buildCards(groupedCourses[type]!, columns),
+                  ])
+              .toList(),
+        );
+      },
     );
   }
 
-  Widget _buildActionButtons({required bool compact}) {
-    if (user.role != 'Admin' && user.role != 'Trainer') {
-      return const SizedBox.shrink();
-    }
-
-    if (compact) {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: showCreateCoursePage,
-              icon: const Icon(Icons.add, color: onPrimaryColor),
-              label: const Text('Crea nuovo corso', style: TextStyle(color: onPrimaryColor)),
-              style: ElevatedButton.styleFrom(backgroundColor: surfaceVariantColor),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: showRecurringCoursePage,
-              icon: const Icon(Icons.repeat, color: onPrimaryColor),
-              label: const Text('Corsi ricorrenti', style: TextStyle(color: onPrimaryColor)),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            ),
-          ),
-        ],
-      );
-    }
+  // CTA admin per desktop: affiancate sotto il calendario.
+  Widget _buildActionButtons() {
+    if (!_isStaff) return const SizedBox.shrink();
 
     return Row(
       children: [
@@ -707,8 +747,10 @@ class _CalendarPageState extends State<CalendarPage> {
           child: ElevatedButton.icon(
             onPressed: showCreateCoursePage,
             icon: const Icon(Icons.add, color: onPrimaryColor),
-            label: const Text('Crea nuovo corso', style: TextStyle(color: onPrimaryColor)),
-            style: ElevatedButton.styleFrom(backgroundColor: surfaceVariantColor),
+            label: const Text('Crea nuovo corso',
+                style: TextStyle(color: onPrimaryColor)),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: surfaceVariantColor),
           ),
         ),
         const SizedBox(width: 16),
@@ -716,8 +758,68 @@ class _CalendarPageState extends State<CalendarPage> {
           child: ElevatedButton.icon(
             onPressed: showRecurringCoursePage,
             icon: const Icon(Icons.repeat, color: onPrimaryColor),
-            label: const Text('Corsi ricorrenti', style: TextStyle(color: onPrimaryColor)),
+            label: const Text('Corsi ricorrenti',
+                style: TextStyle(color: onPrimaryColor)),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Speed-dial CTA admin per mobile/tablet: il FAB principale apre due azioni
+  // (nuovo corso, corsi ricorrenti) senza occupare spazio nel flusso pagina.
+  Widget _buildAdminFab() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          alignment: Alignment.bottomRight,
+          child: _fabOpen
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FloatingActionButton.extended(
+                      heroTag: 'fab-create-course',
+                      backgroundColor: surfaceVariantColor,
+                      onPressed: () {
+                        setState(() => _fabOpen = false);
+                        showCreateCoursePage();
+                      },
+                      icon: const Icon(Icons.add, color: onPrimaryColor),
+                      label: const Text('Nuovo corso',
+                          style: TextStyle(color: onPrimaryColor)),
+                    ),
+                    const SizedBox(height: 12),
+                    FloatingActionButton.extended(
+                      heroTag: 'fab-recurring-course',
+                      backgroundColor: Colors.orange,
+                      onPressed: () {
+                        setState(() => _fabOpen = false);
+                        showRecurringCoursePage();
+                      },
+                      icon: const Icon(Icons.repeat, color: onPrimaryColor),
+                      label: const Text('Corsi ricorrenti',
+                          style: TextStyle(color: onPrimaryColor)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+        FloatingActionButton(
+          heroTag: 'fab-main',
+          backgroundColor: primaryColor,
+          tooltip: _fabOpen ? 'Chiudi' : 'Azioni corso',
+          onPressed: () => setState(() => _fabOpen = !_fabOpen),
+          child: AnimatedRotation(
+            turns: _fabOpen ? 0.125 : 0,
+            duration: const Duration(milliseconds: 180),
+            child: const Icon(Icons.add, color: onPrimaryColor),
           ),
         ),
       ],
@@ -727,77 +829,96 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     final screenType = breakpointOf(context);
-    final bool isDesktopLayout = screenType == ScreenType.desktop || screenType == ScreenType.largeDesktop;
+    final bool isDesktopLayout = screenType == ScreenType.desktop ||
+        screenType == ScreenType.largeDesktop;
 
     return StoreConnector<AppState, AppState>(
-      converter: (store) => store.state,
-      builder: (context, state) {
-        return Stack(
-          children: [
-            SingleChildScrollView(
-              padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  if (isDesktopLayout)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 5,
+        converter: (store) => store.state,
+        builder: (context, state) {
+          return Stack(
+            children: [
+              SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                      left: pagePadding,
+                      right: pagePadding,
+                      bottom: pagePadding,
+                      top:
+                          pagePadding + MediaQuery.of(context).viewPadding.top),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 16),
+                      if (isDesktopLayout)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 4,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildCalendar(),
+                                  const SizedBox(height: 16),
+                                  _buildActionButtons(),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 8,
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildDayContextHeader(),
+                                    _buildTagFilterChips(),
+                                    _buildSelectedCoursesList(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      else ...[
+                        _buildCalendar(),
+                        Padding(
+                          padding: const EdgeInsets.all(10),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildCalendar(),
-                              const SizedBox(height: 16),
-                              _buildActionButtons(compact: false),
+                              _buildDayContextHeader(),
+                              _buildTagFilterChips(),
+                              _buildSelectedCoursesList(),
+                              // Spazio per non far coprire l'ultima card dal FAB.
+                              if (_isStaff) const SizedBox(height: 80),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 7,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildDayContextHeader(),
-                                _buildTagFilterChips(),
-                                _buildSelectedCoursesList(),
-                              ],
-                            ),
-                          ),
-                        ),
                       ],
-                    )
-                  else ...[
-                    _buildCalendar(),
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildDayContextHeader(),
-                          _buildTagFilterChips(),
-                          _buildSelectedCoursesList(),
-                        ],
-                      ),
+                    ],
+                  )),
+              // CTA admin su mobile/tablet: speed-dial flottante (sostituisce i
+              // bottoni a fondo pagina, liberando spazio nel flusso).
+              if (!isDesktopLayout && _isStaff) ...[
+                if (_fabOpen)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _fabOpen = false),
+                      child: Container(
+                          color: Colors.black.withValues(alpha: 0.25)),
                     ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
-                      child: _buildActionButtons(compact: true),
-                    ),
-                  ],
-                ],
-              )),
-            if (state.isLoading) const Loader(),
-          ],
-        );
-      }
-    );
+                  ),
+                Positioned(
+                  right: 16,
+                  bottom: 16 + MediaQuery.of(context).viewPadding.bottom,
+                  child: _buildAdminFab(),
+                ),
+              ],
+              if (state.isLoading) const Loader(),
+            ],
+          );
+        });
   }
 }
