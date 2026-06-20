@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Per architettura, modelli dati e regole di business dettagliate vedi `AGENTS.md`.
+Per architettura, modelli dati e regole di business dettagliate vedi `agents.md`.
 
 ## Comandi
 
