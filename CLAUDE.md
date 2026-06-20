@@ -45,6 +45,8 @@ Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`. Se tocchi 
 
 ## Verifica live e lezioni operative
 
+> **Policy — salva cosa impari.** Al termine di ogni sviluppo significativo, registra le lezioni apprese (trappole dell'ambiente, errori da non ripetere, pattern utili): se hanno valore generale per il progetto aggiungile a questa sezione; in ogni caso annotale nella memoria di progetto. Così le scoperte non vanno riscoperte alla sessione successiva.
+
 Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 
 - `flutter run -d web-server` **ricompila solo all'avvio o su hot-restart** (`R` da stdin). Un'istanza lanciata in background non riceve `R`: dopo ogni modifica al codice **riavvia il run** (kill della porta + relaunch), non basta ricaricare la pagina.
