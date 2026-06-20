@@ -43,6 +43,7 @@ class _CalendarPageState extends State<CalendarPage> {
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
   String? _tagFilter; // null = tutti i tag
+  bool _monthExpanded = false; // false = striscia settimanale (compatta), true = mese
 
   @override
   void initState() {
@@ -311,6 +312,24 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Widget _buildCalendar() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Toggle Settimana/Mese
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _monthExpanded = !_monthExpanded),
+            icon: Icon(_monthExpanded ? Icons.unfold_less : Icons.unfold_more, size: 18),
+            label: Text(_monthExpanded ? 'Vista settimana' : 'Vista mese'),
+          ),
+        ),
+        if (_monthExpanded) _buildMonthCalendar() else _buildWeekStrip(),
+      ],
+    );
+  }
+
+  Widget _buildMonthCalendar() {
     return Theme(
       data: ThemeData(
         colorScheme: const ColorScheme.highContrastDark(onSurface: onPrimaryColor),
@@ -335,11 +354,113 @@ class _CalendarPageState extends State<CalendarPage> {
         onDateChanged: (DateTime value) {
           onSelectDate(value);
         },
-        initialDate: DateTime.now(),
+        initialDate: currentDate,
         firstDate: firstDate,
         lastDate: lastDate,
         filledDays: courses.map((Course course) => course.startDate.toDate()).toList(),
       ),
+    );
+  }
+
+  // Striscia settimanale: la settimana (lun-dom) del giorno selezionato,
+  // con frecce per cambiare settimana e pallino sui giorni con corsi.
+  Widget _buildWeekStrip() {
+    final monday = currentDate.subtract(Duration(days: currentDate.weekday - 1));
+    final days = List.generate(7, (i) => monday.add(Duration(days: i)));
+    final now = DateTime.now();
+    const labels = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: onPrimaryColor),
+              tooltip: 'Settimana precedente',
+              onPressed: () =>
+                  onSelectDate(currentDate.subtract(const Duration(days: 7))),
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  _capitalize(DateFormat('MMMM yyyy', 'it_IT').format(currentDate)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: onPrimaryColor),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right, color: onPrimaryColor),
+              tooltip: 'Settimana successiva',
+              onPressed: () =>
+                  onSelectDate(currentDate.add(const Duration(days: 7))),
+            ),
+          ],
+        ),
+        Row(
+          children: labels
+              .map((l) => Expanded(
+                  child: Center(
+                      child: Text(l,
+                          style: const TextStyle(
+                              fontSize: 12, color: onPrimaryColor)))))
+              .toList(),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: days.map((d) {
+            final hasCourses =
+                coursesByDate[DateFormat(pattern).format(d)]?.isNotEmpty ?? false;
+            final isSelected = d.year == currentDate.year &&
+                d.month == currentDate.month &&
+                d.day == currentDate.day;
+            final isToday =
+                d.year == now.year && d.month == now.month && d.day == now.day;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onSelectDate(DateTime(d.year, d.month, d.day)),
+                child: Container(
+                  margin: const EdgeInsets.all(2),
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: isSelected ? primaryLightColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: isToday && !isSelected
+                        ? Border.all(color: primaryLightColor, width: 1.5)
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('${d.day}',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.white : onPrimaryColor)),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        height: 6,
+                        child: hasCourses
+                            ? Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : const Color.fromARGB(255, 37, 99, 235),
+                                ),
+                              )
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
