@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 
 const Duration _monthScrollDuration = Duration(milliseconds: 200);
 
-const double _dayPickerRowHeight = 42.0;
+const double _dayPickerRowHeight = 34.0; // compattato (era 42) per ridurre l'ingombro verticale
 const int _maxDayPickerRowCount = 6; // A 31 day month that starts on Saturday.
 // One extra row for the day-of-week header.
 const double _maxDayPickerHeight = _dayPickerRowHeight * (_maxDayPickerRowCount + 1);
@@ -20,7 +20,7 @@ const double _yearPickerPadding = 16.0;
 const double _yearPickerRowHeight = 52.0;
 const double _yearPickerRowSpacing = 8.0;
 
-const double _subHeaderHeight = 52.0;
+const double _subHeaderHeight = 44.0; // compattato (era 52)
 const double _monthNavButtonsWidth = 108.0;
 
 // 3.0 is the maximum scale factor on mobile phones. As of 07/30/24, iOS goes up
