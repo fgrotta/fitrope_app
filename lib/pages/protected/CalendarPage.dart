@@ -20,7 +20,7 @@ import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_design_system/components/calendar.dart';
+import 'package:fitrope_app/components/calendar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:intl/intl.dart';
 
@@ -286,7 +286,7 @@ class _CalendarPageState extends State<CalendarPage> {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 30,
+              fontSize: 26,
               color: onPrimaryColor,
             ),
           ),
