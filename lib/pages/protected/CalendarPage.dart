@@ -46,6 +46,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   @override
   void initState() {
+    currentDate = DateTime.now();
     user = store.state.user!;
     getTrainers().then((List<FitropeUser> response) {
       setState(() {
@@ -404,6 +405,56 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  String _capitalize(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+  // Intestazione di contesto: giorno selezionato + numero di corsi.
+  Widget _buildDayContextHeader() {
+    final label = _capitalize(DateFormat('EEEE d MMMM', 'it_IT').format(currentDate));
+    final n = selectedCourses.length;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold, color: onPrimaryColor)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: primaryLightColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text('$n cors${n == 1 ? 'o' : 'i'}',
+                style: const TextStyle(
+                    color: primaryColor, fontWeight: FontWeight.w600, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(IconData icon, String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 56, color: onPrimaryColor.withValues(alpha: 0.30)),
+            const SizedBox(height: 12),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: onPrimaryColor.withValues(alpha: 0.65), fontSize: 15)),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Chip di filtro per tag dei corsi del giorno selezionato. I tag sono
   // dinamici: i chip mostrano "Tutti" + i tag effettivamente presenti.
   Widget _buildTagFilterChips() {
@@ -424,13 +475,33 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Wrap(
-        spacing: 0,
-        runSpacing: 4,
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          chip('Tutti', null),
-          ...tags.map((t) => chip(t, t)),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.filter_list,
+                    size: 16, color: onPrimaryColor.withValues(alpha: 0.6)),
+                const SizedBox(width: 4),
+                Text('Filtra per tag',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: onPrimaryColor.withValues(alpha: 0.6))),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 0,
+            runSpacing: 4,
+            children: [
+              chip('Tutti', null),
+              ...tags.map((t) => chip(t, t)),
+            ],
+          ),
         ],
       ),
     );
@@ -438,13 +509,8 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Widget _buildSelectedCoursesList() {
     if (selectedCourses.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 8),
-        child: Text(
-          'Nessun corso disponibile in questa giornata',
-          style: TextStyle(color: onPrimaryColor),
-        ),
-      );
+      return _buildEmptyState(
+          Icons.event_busy, 'Nessun corso programmato in questa giornata');
     }
 
     // Applica il filtro per tag (chip).
@@ -452,13 +518,8 @@ class _CalendarPageState extends State<CalendarPage> {
         ? selectedCourses
         : selectedCourses.where((c) => c.tags.contains(_tagFilter)).toList();
     if (visible.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 8),
-        child: Text(
-          'Nessun corso con questo tag in questa giornata',
-          style: TextStyle(color: onPrimaryColor),
-        ),
-      );
+      return _buildEmptyState(
+          Icons.filter_alt_off, 'Nessun corso con il tag "$_tagFilter" in questa giornata');
     }
 
     // Raggruppa i corsi per tipologia
@@ -582,6 +643,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                _buildDayContextHeader(),
                                 _buildTagFilterChips(),
                                 _buildSelectedCoursesList(),
                               ],
@@ -597,6 +659,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          _buildDayContextHeader(),
                           _buildTagFilterChips(),
                           _buildSelectedCoursesList(),
                         ],
