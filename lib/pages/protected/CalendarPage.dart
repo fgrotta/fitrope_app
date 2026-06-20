@@ -43,8 +43,9 @@ class _CalendarPageState extends State<CalendarPage> {
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
   String? _tagFilter; // null = tutti i tag
-  bool _monthExpanded =
-      false; // false = striscia settimanale (compatta), true = mese
+  // null = default in base al layout (mese su desktop, settimana su mobile);
+  // una volta che l'utente usa il toggle, il valore esplicito resta per la sessione.
+  bool? _monthExpanded;
   bool _fabOpen = false; // speed-dial CTA admin (solo mobile/tablet)
 
   bool get _isStaff => user.role == 'Admin' || user.role == 'Trainer';
@@ -319,6 +320,9 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Widget _buildCalendar() {
+    // Default: mese su desktop, settimana su mobile/tablet. Il toggle dell'utente
+    // ha la precedenza (valore esplicito di _monthExpanded).
+    final expanded = _monthExpanded ?? isDesktop(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -326,13 +330,13 @@ class _CalendarPageState extends State<CalendarPage> {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton.icon(
-            onPressed: () => setState(() => _monthExpanded = !_monthExpanded),
-            icon: Icon(_monthExpanded ? Icons.unfold_less : Icons.unfold_more,
+            onPressed: () => setState(() => _monthExpanded = !expanded),
+            icon: Icon(expanded ? Icons.unfold_less : Icons.unfold_more,
                 size: 18),
-            label: Text(_monthExpanded ? 'Vista settimana' : 'Vista mese'),
+            label: Text(expanded ? 'Vista settimana' : 'Vista mese'),
           ),
         ),
-        if (_monthExpanded) _buildMonthCalendar() else _buildWeekStrip(),
+        if (expanded) _buildMonthCalendar() else _buildWeekStrip(),
       ],
     );
   }
