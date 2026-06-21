@@ -63,11 +63,22 @@ void main() {
       expect(CourseImages.all.length, expected);
     });
 
-    test('getDefaultImage ritorna la prima immagine del tipo', () {
+    test('getDefaultImage usa il default esplicito se presente', () {
+      // Open ha un default esplicito (open_stock), indipendente dall'ordine.
       expect(
         CourseImages.getDefaultImage(CourseType.open),
-        CourseImages.forType(CourseType.open).first,
+        'assets/course_images/open_stock.webp',
       );
+      expect(
+        CourseImages.getDefaultImage(CourseType.open),
+        CourseImages.defaultByType[CourseType.open],
+      );
+    });
+
+    test('getDefaultImage ricade sulla prima immagine se non c\'è default esplicito', () {
+      // Personal Trainer non ha un default esplicito: usa la prima del catalogo.
+      expect(CourseImages.defaultByType.containsKey(CourseType.personal_trainer),
+          isFalse);
       expect(
         CourseImages.getDefaultImage(CourseType.personal_trainer),
         CourseImages.forType(CourseType.personal_trainer).first,

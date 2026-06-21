@@ -24,10 +24,18 @@ class CourseImages {
       'assets/course_images/open_3.webp',
     ],
     CourseType.personal_trainer: [
+      'assets/course_images/pt_personal_trainer.webp',
+      'assets/course_images/pt_personal_trainer_2.webp',
       'assets/course_images/pt_1.webp',
       'assets/course_images/pt_2.webp',
       'assets/course_images/pt_3.webp',
     ],
+  };
+
+  /// Immagine di default esplicita per tipologia, usata per i corsi senza
+  /// `imageKey`. Se una tipologia non è qui, si ricade sulla prima del catalogo.
+  static const Map<CourseType, String> defaultByType = {
+    CourseType.open: 'assets/course_images/open_stock.webp',
   };
 
   /// Tutte le immagini disponibili (indipendentemente dal tipo)
@@ -38,8 +46,11 @@ class CourseImages {
   static List<String> forType(CourseType type) => imagesByType[type] ?? [];
 
   /// Immagine di default per un dato tipo di corso.
-  /// Se la tipologia non ha immagini stock, usa il default generico.
+  /// Usa il default esplicito di [defaultByType] se presente, altrimenti la
+  /// prima immagine del catalogo per quel tipo; in mancanza il default generico.
   static String getDefaultImage(CourseType type) {
+    final explicit = defaultByType[type];
+    if (explicit != null) return explicit;
     final images = forType(type);
     return images.isNotEmpty ? images.first : defaultImage;
   }
