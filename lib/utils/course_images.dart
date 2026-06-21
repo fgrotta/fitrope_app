@@ -36,6 +36,8 @@ class CourseImages {
   /// `imageKey`. Se una tipologia non è qui, si ricade sulla prima del catalogo.
   static const Map<CourseType, String> defaultByType = {
     CourseType.open: 'assets/course_images/open_stock.webp',
+    CourseType.personal_trainer:
+        'assets/course_images/pt_personal_trainer.webp',
   };
 
   /// Tutte le immagini disponibili (indipendentemente dal tipo)
