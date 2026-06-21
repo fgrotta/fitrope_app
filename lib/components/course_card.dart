@@ -17,7 +17,7 @@ enum CourseState {
   EXPIRED,
   CAN_SUBSCRIBE,
   FULL,
-  SUBSCRIBED, 
+  SUBSCRIBED,
   LIMIT,
   SUBSCRIBE_LIMIT,
   CLOSED,
@@ -47,16 +47,17 @@ class CourseCard extends StatefulWidget {
   final VoidCallback onRefresh; // Callback per aggiornare la lista
   final bool isAdmin;
   final String? userRole; // Ruolo dell'utente corrente
-  final bool showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
+  final bool
+      showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
 
   const CourseCard({
     required this.courseId,
     required this.course,
-    super.key, 
+    super.key,
     required this.title,
-    this.courseState=CourseState.NULL,
+    this.courseState = CourseState.NULL,
     this.titleStyle,
-    this.description="",
+    this.description = "",
     this.descriptionStyle,
     this.onClick,
     this.onClickAction,
@@ -82,25 +83,36 @@ class _CourseCardState extends State<CourseCard> {
   bool _isProcessing = false;
   bool _subscribersExpanded = false; // lista iscritti collassata di default
 
+  // Colore della lista d'attesa: blu accento (come i marker del calendario)
+  // invece dell'arancione, per restare leggibile anche sopra le immagini di
+  // sfondo dal tono caldo, dove l'arancione si confondeva.
+  static const Color _waitlistColor = Color.fromARGB(255, 37, 99, 235);
+
   void showSubscribersDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: backgroundColor,
         title: const Text('Iscritti al corso'),
-        content: widget.subscribersNames == null || widget.subscribersNames!.isEmpty
-          ? const Text('Nessun iscritto')
-          : SizedBox(
-              width: 300,
-              child: ListView(
-                shrinkWrap: true,
-                children: widget.subscribersNames!.map((name) => ListTile(title: Text(name))).toList(),
-              ),
-            ),
+        content:
+            widget.subscribersNames == null || widget.subscribersNames!.isEmpty
+                ? const Text('Nessun iscritto')
+                : SizedBox(
+                    width: 300,
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: widget.subscribersNames!
+                          .map((name) => ListTile(title: Text(name)))
+                          .toList(),
+                    ),
+                  ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Chiudi', style: TextStyle(color: onPrimaryColor),),
+            child: const Text(
+              'Chiudi',
+              style: TextStyle(color: onPrimaryColor),
+            ),
           ),
         ],
       ),
@@ -113,11 +125,15 @@ class _CourseCardState extends State<CourseCard> {
       builder: (context) => AlertDialog(
         backgroundColor: backgroundColor,
         title: const Text('Elimina Corso'),
-        content: Text('Sei sicuro di voler eliminare il corso "${widget.title}"?\n\nQuesta azione eliminerà anche tutte le iscrizioni al corso.'),
+        content: Text(
+            'Sei sicuro di voler eliminare il corso "${widget.title}"?\n\nQuesta azione eliminerà anche tutte le iscrizioni al corso.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
+            child: const Text(
+              'Annulla',
+              style: TextStyle(color: onPrimaryColor),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -152,27 +168,30 @@ class _CourseCardState extends State<CourseCard> {
         capacity: widget.capacity ?? 0,
       ),
     );
-    
+
     // Se è stato aggiunto un utente, aggiorna la lista
     if (result == true) {
       widget.onRefresh();
     }
   }
 
-  void _showRemoveUserConfirmationDialog(BuildContext context, FitropeUser user) async {
+  void _showRemoveUserConfirmationDialog(
+      BuildContext context, FitropeUser user) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: backgroundColor,
         title: const Text('Rimuovi Iscrizione'),
         content: Text(
-          'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dal corso "${widget.title}"?\n\n'
-          'L\'utente riceverà il rimborso del credito se ha un pacchetto entrate.'
-        ),
+            'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dal corso "${widget.title}"?\n\n'
+            'L\'utente riceverà il rimborso del credito se ha un pacchetto entrate.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
+            child: const Text(
+              'Annulla',
+              style: TextStyle(color: onPrimaryColor),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -211,10 +230,10 @@ class _CourseCardState extends State<CourseCard> {
   // Mostra il dialog per correggere il conteggio degli iscritti
   void _showCorrectCountDialog(BuildContext context) {
     if (widget.subscribersUsers == null || widget.subscribed == null) return;
-    
+
     int actualCount = widget.subscribersUsers!.length;
     int storedCount = widget.subscribed!;
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -261,12 +280,14 @@ class _CourseCardState extends State<CourseCard> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+              child: const Text('Annulla',
+                  style: TextStyle(color: onPrimaryColor)),
             ),
             ElevatedButton(
               onPressed: () => _correctSubscribedCount(context, actualCount),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              child: const Text('Correggi', style: TextStyle(color: Colors.white)),
+              child:
+                  const Text('Correggi', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -275,20 +296,20 @@ class _CourseCardState extends State<CourseCard> {
   }
 
   // Corregge il conteggio degli iscritti nel database
-  Future<void> _correctSubscribedCount(BuildContext context, int newCount) async {
+  Future<void> _correctSubscribedCount(
+      BuildContext context, int newCount) async {
     try {
       Navigator.pop(context); // Chiudi il dialog
-      
+
       await updateCourseSubscribedCount(widget.courseId, newCount).then((_) {
         widget.onRefresh();
       });
-      
+
       // Mostra messaggio di successo
       SnackBarUtils.showSuccessSnackBar(
         context,
         'Conteggio iscritti aggiornato con successo!',
       );
-    
     } catch (e) {
       SnackBarUtils.showErrorSnackBar(
         context,
@@ -311,44 +332,52 @@ class _CourseCardState extends State<CourseCard> {
               ? 'Tocca per nascondere la lista iscritti'
               : 'Tocca per mostrare la lista iscritti',
           child: InkWell(
-          onTap: () =>
-              setState(() => _subscribersExpanded = !_subscribersExpanded),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):', style: const TextStyle(color: onPrimaryColor, fontWeight: FontWeight.bold)),
-                    Icon(
-                      _subscribersExpanded ? Icons.expand_less : Icons.expand_more,
-                      color: onPrimaryColor,
-                      size: 20,
-                    ),
-                  ],
+            onTap: () =>
+                setState(() => _subscribersExpanded = !_subscribersExpanded),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                          'Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):',
+                          style: const TextStyle(
+                              color: onPrimaryColor,
+                              fontWeight: FontWeight.bold)),
+                      Icon(
+                        _subscribersExpanded
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        color: onPrimaryColor,
+                        size: 20,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              // Icona + per aggiungere iscritti (solo per Admin)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
+                // Icona + per aggiungere iscritti (solo per Admin)
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                   if (widget.capacity != null && widget.capacity! > 0)
-                    _capacityPill(widget.subscribersUsers!.length, widget.capacity!),
+                    _capacityPill(
+                        widget.subscribersUsers!.length, widget.capacity!),
                   if (widget.isAdmin)
                     IconButton(
-                      icon: const Icon(Icons.add, color: onPrimaryColor, size: 20),
+                      icon: const Icon(Icons.add,
+                          color: onPrimaryColor, size: 20),
                       onPressed: () => _showAddSubscriberDialog(context),
                       tooltip: 'Aggiungi iscritto',
                     ),
                   if (_hasEnrollmentMismatch())
                     IconButton(
-                    icon: const Icon(Icons.sync_problem, color: Colors.red, size: 20),
-                    onPressed: () => _showCorrectCountDialog(context),
-                    tooltip: 'Correggi conteggio iscritti',
-                  ),
-            ])],
-          ),
+                      icon: const Icon(Icons.sync_problem,
+                          color: Colors.red, size: 20),
+                      onPressed: () => _showCorrectCountDialog(context),
+                      tooltip: 'Correggi conteggio iscritti',
+                    ),
+                ])
+              ],
+            ),
           ),
         ),
         if (widget.capacity != null && widget.capacity! > 0) ...[
@@ -356,7 +385,8 @@ class _CourseCardState extends State<CourseCard> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: (widget.subscribersUsers!.length / widget.capacity!).clamp(0.0, 1.0),
+              value: (widget.subscribersUsers!.length / widget.capacity!)
+                  .clamp(0.0, 1.0),
               minHeight: 6,
               backgroundColor: Colors.black12,
               // Rende la barra leggibile dagli screen reader. Il valore
@@ -365,7 +395,8 @@ class _CourseCardState extends State<CourseCard> {
               semanticsLabel:
                   'Capienza corso, ${capacityPillLabel(widget.subscribersUsers!.length, widget.capacity!)}',
               valueColor: AlwaysStoppedAnimation<Color>(
-                capacityColor(widget.subscribersUsers!.length, widget.capacity!),
+                capacityColor(
+                    widget.subscribersUsers!.length, widget.capacity!),
               ),
             ),
           ),
@@ -375,7 +406,8 @@ class _CourseCardState extends State<CourseCard> {
           const SizedBox(height: 6),
           if (widget.subscribersUsers!.isEmpty)
             const Text('Nessun iscritto',
-                style: TextStyle(color: onPrimaryColor, fontStyle: FontStyle.italic)),
+                style: TextStyle(
+                    color: onPrimaryColor, fontStyle: FontStyle.italic)),
           ...widget.subscribersUsers!.map((user) {
             String displayName = getDisplayName(user);
             return Padding(
@@ -400,8 +432,10 @@ class _CourseCardState extends State<CourseCard> {
                   // Pulsante di rimozione per admin/trainer
                   if (widget.isAdmin || widget.userRole == 'Trainer')
                     IconButton(
-                      icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 16),
-                      onPressed: () => _showRemoveUserConfirmationDialog(context, user),
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: Colors.red, size: 16),
+                      onPressed: () =>
+                          _showRemoveUserConfirmationDialog(context, user),
                       tooltip: 'Rimuovi iscrizione',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -428,7 +462,8 @@ class _CourseCardState extends State<CourseCard> {
         const SizedBox(height: 8),
         Text(
           'Lista d\'attesa (${widget.waitlistUsers!.length}):',
-          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+              color: _waitlistColor, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         ...widget.waitlistUsers!.map((user) {
@@ -445,7 +480,7 @@ class _CourseCardState extends State<CourseCard> {
                       child: Text(
                         '• $displayName',
                         style: const TextStyle(
-                          color: Colors.orange,
+                          color: _waitlistColor,
                           decoration: TextDecoration.none,
                         ),
                       ),
@@ -454,7 +489,8 @@ class _CourseCardState extends State<CourseCard> {
                 ),
                 if (widget.isAdmin || widget.userRole == 'Trainer')
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 16),
+                    icon: const Icon(Icons.remove_circle_outline,
+                        color: Colors.red, size: 16),
                     onPressed: () => _removeFromWaitlist(context, user),
                     tooltip: 'Rimuovi dalla lista d\'attesa',
                     padding: EdgeInsets.zero,
@@ -475,12 +511,12 @@ class _CourseCardState extends State<CourseCard> {
         backgroundColor: backgroundColor,
         title: const Text('Rimuovi dalla lista d\'attesa'),
         content: Text(
-          'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dalla lista d\'attesa di "${widget.title}"?'
-        ),
+            'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dalla lista d\'attesa di "${widget.title}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+            child:
+                const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -514,11 +550,11 @@ class _CourseCardState extends State<CourseCard> {
     }
   }
 
-String getDisplayName(FitropeUser user) {
+  String getDisplayName(FitropeUser user) {
     // Usa la stessa logica di UserDisplayUtils per coerenza
     // Questa funzione è chiamata solo per admin/trainer (showClickableSubscribers = true)
     String baseName = '${user.name} ${user.lastName}';
-    
+
     if (user.isAnonymous) {
       return '$baseName - (Anonimo)';
     }
@@ -526,11 +562,16 @@ String getDisplayName(FitropeUser user) {
       return '$baseName - (Prova)';
     }
     return baseName;
-}
+  }
 
   Widget renderTitle() {
-    if(widget.titleStyle != null) {
-      return Text(widget.title, overflow: TextOverflow.ellipsis, maxLines: 1, style: widget.titleStyle,);
+    if (widget.titleStyle != null) {
+      return Text(
+        widget.title,
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        style: widget.titleStyle,
+      );
     }
 
     return Text(
@@ -595,10 +636,11 @@ String getDisplayName(FitropeUser user) {
                 ]),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(value, style: const TextStyle(
-                    color: Colors.white,
-                    shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
-                  )),
+                  child: Text(value,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                      )),
                 ),
               ],
             ),
@@ -630,59 +672,49 @@ String getDisplayName(FitropeUser user) {
     late Color buttonTextColor;
     bool canBeClicked = false;
 
-    if(widget.courseState == CourseState.CAN_SUBSCRIBE) {
+    if (widget.courseState == CourseState.CAN_SUBSCRIBE) {
       canBeClicked = true;
       buttonText = 'Prenotati';
       buttonColor = ghostColor;
       buttonTextColor = Colors.white;
-    }
-    else if(widget.courseState == CourseState.CLOSED) {
+    } else if (widget.courseState == CourseState.CLOSED) {
       return const SizedBox.shrink();
-    }
-    else if(widget.courseState == CourseState.NULL) {
+    } else if (widget.courseState == CourseState.NULL) {
       buttonText = 'Non disponibile';
       buttonColor = primaryLightColor;
       buttonTextColor = onPrimaryColor;
-    }
-    else if(widget.courseState == CourseState.LIMIT) {
+    } else if (widget.courseState == CourseState.LIMIT) {
       buttonText = 'Limite entrate settimanali raggiunto';
       buttonColor = primaryLightColor;
       buttonTextColor = onPrimaryColor;
-    }
-    else if(widget.courseState == CourseState.FULL) {
+    } else if (widget.courseState == CourseState.FULL) {
       buttonText = 'Corso pieno';
       buttonColor = primaryLightColor;
       buttonTextColor = onPrimaryColor;
-    }
-    else if(widget.courseState == CourseState.SUBSCRIBE_LIMIT) {
+    } else if (widget.courseState == CourseState.SUBSCRIBE_LIMIT) {
       buttonText = 'Entrate disponibili esaurite';
       buttonColor = primaryLightColor;
       buttonTextColor = onPrimaryColor;
-    }
-    else if(widget.courseState == CourseState.EXPIRED) {
+    } else if (widget.courseState == CourseState.EXPIRED) {
       buttonText = 'Abbonamento scaduto';
       buttonColor = primaryLightColor;
       buttonTextColor = onPrimaryColor;
-    }
-    else if(widget.courseState == CourseState.SUBSCRIBED) {
+    } else if (widget.courseState == CourseState.SUBSCRIBED) {
       buttonText = 'Rimuovi iscrizione';
       buttonColor = dangerColor;
       buttonTextColor = Colors.white;
       canBeClicked = true;
-    }
-    else if(widget.courseState == CourseState.CAN_WAITLIST) {
+    } else if (widget.courseState == CourseState.CAN_WAITLIST) {
       canBeClicked = true;
       buttonText = 'Lista d\'attesa';
       buttonColor = Colors.orange;
       buttonTextColor = Colors.white;
-    }
-    else if(widget.courseState == CourseState.IN_WAITLIST) {
+    } else if (widget.courseState == CourseState.IN_WAITLIST) {
       canBeClicked = true;
       buttonText = 'Esci dalla lista d\'attesa';
       buttonColor = dangerColor;
       buttonTextColor = Colors.white;
-    }
-    else if(widget.courseState == CourseState.WAITLIST_SPOT_AVAILABLE) {
+    } else if (widget.courseState == CourseState.WAITLIST_SPOT_AVAILABLE) {
       canBeClicked = true;
       buttonText = 'Posto disponibile! Iscriviti ora';
       buttonColor = ghostColor;
@@ -690,27 +722,31 @@ String getDisplayName(FitropeUser user) {
     }
 
     return ElevatedButton(
-      onPressed: canBeClicked && !_isProcessing ? () async {
-        if(widget.onClickAction != null) {
-          setState(() => _isProcessing = true);
-          try {
-            await widget.onClickAction!();
-          } finally {
-            if (mounted) setState(() => _isProcessing = false);
-          }
-        }
-      } : null,
+      onPressed: canBeClicked && !_isProcessing
+          ? () async {
+              if (widget.onClickAction != null) {
+                setState(() => _isProcessing = true);
+                try {
+                  await widget.onClickAction!();
+                } finally {
+                  if (mounted) setState(() => _isProcessing = false);
+                }
+              }
+            }
+          : null,
       style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.all(buttonColor),
-        minimumSize: WidgetStateProperty.all(Size.zero),
-        padding: WidgetStateProperty.all(const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 10)),
-        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-          RoundedRectangleBorder(
+          backgroundColor: WidgetStateProperty.all(buttonColor),
+          minimumSize: WidgetStateProperty.all(Size.zero),
+          padding: WidgetStateProperty.all(
+              const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 10)),
+          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+              RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-          )
-        )
-      ), 
-      child: Text(buttonText, style: TextStyle(color: buttonTextColor),),
+          ))),
+      child: Text(
+        buttonText,
+        style: TextStyle(color: buttonTextColor),
+      ),
     );
   }
 
@@ -718,7 +754,7 @@ String getDisplayName(FitropeUser user) {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        if(widget.onClick != null) {
+        if (widget.onClick != null) {
           widget.onClick!();
         }
       },
@@ -735,7 +771,8 @@ String getDisplayName(FitropeUser user) {
               child: Image.asset(
                 CourseImages.getCourseImage(widget.course),
                 fit: BoxFit.cover,
-                cacheWidth: 700, // evita di decodificare l'asset a piena risoluzione
+                cacheWidth:
+                    700, // evita di decodificare l'asset a piena risoluzione
                 // Se l'asset non carica, ricadi sull'immagine di default del tipo;
                 // se manca anche quella, mostra un fondo scuro coerente (no card "vuota").
                 errorBuilder: (context, error, stackTrace) => Image.asset(
@@ -769,55 +806,61 @@ String getDisplayName(FitropeUser user) {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-            // Riga 1: Titolo + pulsanti User/Admin allineati a sinistra
-            Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Flexible(child: renderTitle()),
-                  if(widget.capacity != null && widget.subscribed != null && !widget.isAdmin) renderUserButtons(),
-                  if(widget.isAdmin) renderAdminButtons(),
-                ],
-              ),
-            // Riga 2: Metadati con icone (orario, trainer, tipologia)
-            if(widget.description.trim() != "") _buildMetadata(),
-            // Riga 3: Bottoni iscrizione
-            if(!widget.isAdmin)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  renderButtonSubscribe(),
-                ],
-              ),
-            // Mostra la lista cliccabile degli iscritti se richiesto
-            if(widget.showClickableSubscribers)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _hasEnrollmentMismatch()
-                      ? Colors.orange.withValues(alpha: 0.92)
-                      : Colors.white.withValues(alpha: 0.70),
-                  borderRadius: BorderRadius.circular(8),
-                  border: (widget.capacity != null && widget.capacity! > 0)
-                      ? Border(
-                          left: BorderSide(
-                            color: capacityColor(
-                                widget.subscribersUsers?.length ?? widget.subscribed ?? 0,
-                                widget.capacity!),
-                            width: 4,
-                          ),
-                        )
-                      : null,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildClickableSubscribersList(context),
-                    _buildWaitlistUsersList(context),
-                  ],
-                ),
-              ),
+                  // Riga 1: Titolo + pulsanti User/Admin allineati a sinistra
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(child: renderTitle()),
+                      if (widget.capacity != null &&
+                          widget.subscribed != null &&
+                          !widget.isAdmin)
+                        renderUserButtons(),
+                      if (widget.isAdmin) renderAdminButtons(),
+                    ],
+                  ),
+                  // Riga 2: Metadati con icone (orario, trainer, tipologia)
+                  if (widget.description.trim() != "") _buildMetadata(),
+                  // Riga 3: Bottoni iscrizione
+                  if (!widget.isAdmin)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        renderButtonSubscribe(),
+                      ],
+                    ),
+                  // Mostra la lista cliccabile degli iscritti se richiesto
+                  if (widget.showClickableSubscribers)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _hasEnrollmentMismatch()
+                            ? Colors.orange.withValues(alpha: 0.92)
+                            : Colors.white.withValues(alpha: 0.70),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            (widget.capacity != null && widget.capacity! > 0)
+                                ? Border(
+                                    left: BorderSide(
+                                      color: capacityColor(
+                                          widget.subscribersUsers?.length ??
+                                              widget.subscribed ??
+                                              0,
+                                          widget.capacity!),
+                                      width: 4,
+                                    ),
+                                  )
+                                : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildClickableSubscribersList(context),
+                          _buildWaitlistUsersList(context),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -826,28 +869,30 @@ String getDisplayName(FitropeUser user) {
       ),
     );
   }
-Row renderUserButtons() {
-  int waitlistCount = widget.course.waitlist.length;
-  return Row(
-    children: [
-      if (widget.capacity != null && widget.capacity! > 0)
-        _capacityPill(widget.subscribed ?? 0, widget.capacity!)
-      else
-        Text("${widget.subscribed}/${widget.capacity}", style: const TextStyle(color: Colors.white)),
-      if (waitlistCount > 0)
-        Text(" +$waitlistCount", style: const TextStyle(color: Colors.orange, fontSize: 12)),
-      const SizedBox(width: 7.5),
-      IconButton(
-        icon: const Icon(Icons.people),
-        tooltip: 'Vedi iscritti',
-        onPressed: showSubscribersDialog,
-        color: Colors.white,
-        iconSize: 20,
-      ),
-    ],
-  );
-}
-     
+
+  Row renderUserButtons() {
+    int waitlistCount = widget.course.waitlist.length;
+    return Row(
+      children: [
+        if (widget.capacity != null && widget.capacity! > 0)
+          _capacityPill(widget.subscribed ?? 0, widget.capacity!)
+        else
+          Text("${widget.subscribed}/${widget.capacity}",
+              style: const TextStyle(color: Colors.white)),
+        if (waitlistCount > 0)
+          Text(" +$waitlistCount",
+              style: const TextStyle(color: Colors.orange, fontSize: 12)),
+        const SizedBox(width: 7.5),
+        IconButton(
+          icon: const Icon(Icons.people),
+          tooltip: 'Vedi iscritti',
+          onPressed: showSubscribersDialog,
+          color: Colors.white,
+          iconSize: 20,
+        ),
+      ],
+    );
+  }
 
   Widget renderAdminButtons() {
     return Container(
@@ -861,24 +906,24 @@ Row renderUserButtons() {
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 4,
         children: [
-        if(widget.onEdit != null)
-          IconButton(
-            icon: const Icon(Icons.edit, color: tertiaryColor),
-            tooltip: 'Modifica corso',
-            onPressed: widget.onEdit,
-          ),
-        if(widget.onDuplicate != null)
-          IconButton(
-            icon: const Icon(Icons.copy, color: tertiaryColor),
-            tooltip: 'Duplica corso',
-            onPressed: widget.onDuplicate,
-          ),
-        if(widget.onDelete != null && widget.userRole == 'Admin')
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
-            tooltip: 'Elimina corso',
-            onPressed: showDeleteConfirmationDialog,
-          ),
+          if (widget.onEdit != null)
+            IconButton(
+              icon: const Icon(Icons.edit, color: tertiaryColor),
+              tooltip: 'Modifica corso',
+              onPressed: widget.onEdit,
+            ),
+          if (widget.onDuplicate != null)
+            IconButton(
+              icon: const Icon(Icons.copy, color: tertiaryColor),
+              tooltip: 'Duplica corso',
+              onPressed: widget.onDuplicate,
+            ),
+          if (widget.onDelete != null && widget.userRole == 'Admin')
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              tooltip: 'Elimina corso',
+              onPressed: showDeleteConfirmationDialog,
+            ),
         ],
       ),
     );
@@ -920,10 +965,11 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
     try {
       final users = await getUsers();
       setState(() {
-        allUsers = users.where((user) => 
-          user.isActive && 
-          !widget.existingSubscribers.any((sub) => sub.uid == user.uid)
-        ).toList();
+        allUsers = users
+            .where((user) =>
+                user.isActive &&
+                !widget.existingSubscribers.any((sub) => sub.uid == user.uid))
+            .toList();
         filteredUsers = allUsers;
         isLoading = false;
       });
@@ -980,7 +1026,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
               onChanged: _filterUsers,
             ),
             const SizedBox(height: 16),
-            
+
             // Messaggio di errore
             if (errorMessage != null)
               Container(
@@ -995,38 +1041,38 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
                   style: const TextStyle(color: Colors.red),
                 ),
               ),
-            
+
             // Lista utenti
             Expanded(
               child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredUsers.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Nessun utente disponibile',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: filteredUsers.length,
-                      itemBuilder: (context, index) {
-                        final user = filteredUsers[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            child: Text(
-                              '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
-                            ),
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredUsers.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'Nessun utente disponibile',
+                            style: TextStyle(color: Colors.grey),
                           ),
-                          title: Text('${user.name} ${user.lastName}'),
-                          subtitle: Text(user.email),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.add),
-                            onPressed: () => _addSubscriber(user.uid),
-                            tooltip: 'Aggiungi al corso',
-                          ),
-                        );
-                      },
-                    ),
+                        )
+                      : ListView.builder(
+                          itemCount: filteredUsers.length,
+                          itemBuilder: (context, index) {
+                            final user = filteredUsers[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                child: Text(
+                                  '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
+                                ),
+                              ),
+                              title: Text('${user.name} ${user.lastName}'),
+                              subtitle: Text(user.email),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: () => _addSubscriber(user.uid),
+                                tooltip: 'Aggiungi al corso',
+                              ),
+                            );
+                          },
+                        ),
             ),
           ],
         ),
@@ -1034,7 +1080,10 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Chiudi', style: TextStyle(color: onPrimaryColor),),
+          child: const Text(
+            'Chiudi',
+            style: TextStyle(color: onPrimaryColor),
+          ),
         ),
       ],
     );
