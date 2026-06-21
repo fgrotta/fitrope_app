@@ -10,6 +10,15 @@ class CourseImages {
 
   static const Map<CourseType, List<String>> imagesByType = {
     CourseType.open: [
+      'assets/course_images/open_yoga.webp',
+      'assets/course_images/open_pilates_funzionale.webp',
+      'assets/course_images/open_calisthenics.webp',
+      'assets/course_images/open_posturale_2.webp',
+      'assets/course_images/open_fitrope.webp',
+      'assets/course_images/open_posturale_1.webp',
+      'assets/course_images/open_stock.webp',
+      'assets/course_images/open_fitrope_2.webp',
+      'assets/course_images/open_pilates_matwork.webp',
       'assets/course_images/open_1.webp',
       'assets/course_images/open_2.webp',
       'assets/course_images/open_3.webp',
@@ -26,8 +35,7 @@ class CourseImages {
       imagesByType.values.expand((list) => list).toList();
 
   /// Immagini disponibili per un dato tipo di corso
-  static List<String> forType(CourseType type) =>
-      imagesByType[type] ?? [];
+  static List<String> forType(CourseType type) => imagesByType[type] ?? [];
 
   /// Immagine di default per un dato tipo di corso.
   /// Se la tipologia non ha immagini stock, usa il default generico.
