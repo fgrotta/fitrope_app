@@ -10,6 +10,7 @@ import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -81,8 +82,7 @@ class _CalendarPageState extends State<CalendarPage> {
     if (oldCourse != null) {
       removeCoruseFromMap(oldCourse);
     }
-    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(
-        newCourse.startDate.millisecondsSinceEpoch);
+    DateTime courseDate = toItalianTime(newCourse.startDate.toDate());
     String indexDate = DateFormat(pattern).format(courseDate);
     if (!coursesByDate.containsKey(indexDate)) {
       coursesByDate[indexDate] = [];
@@ -91,7 +91,8 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void removeCoruseFromMap(Course oldCourse) {
-    coursesByDate[DateFormat(pattern).format(oldCourse.startDate.toDate())]!
+    coursesByDate[DateFormat(pattern)
+            .format(toItalianTime(oldCourse.startDate.toDate()))]!
         .remove(oldCourse);
   }
 
@@ -371,8 +372,9 @@ class _CalendarPageState extends State<CalendarPage> {
         initialDate: currentDate,
         firstDate: firstDate,
         lastDate: lastDate,
-        filledDays:
-            courses.map((Course course) => course.startDate.toDate()).toList(),
+        filledDays: courses
+            .map((Course course) => toItalianTime(course.startDate.toDate()))
+            .toList(),
       ),
     );
   }
