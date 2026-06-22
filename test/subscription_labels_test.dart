@@ -40,7 +40,8 @@ void main() {
     test('piano noto -> displayName del catalogo', () {
       expect(getSubscriptionTitle(_sub(planKey: 'open_unlim_12m')),
           'Open illimitato · 12 mesi');
-      expect(getSubscriptionTitle(_sub(planKey: 'open_3x_1m', weeklyFrequency: 3)),
+      expect(
+          getSubscriptionTitle(_sub(planKey: 'open_3x_1m', weeklyFrequency: 3)),
           'Open 3 volte/sett · 1 mese');
       expect(
           getSubscriptionTitle(_sub(
@@ -53,7 +54,8 @@ void main() {
           'Hyrox 10 ingressi · 3 mesi');
     });
 
-    test('piano noto: il displayName del catalogo prevale su snapshot incoerente',
+    test(
+        'piano noto: il displayName del catalogo prevale su snapshot incoerente',
         () {
       // weeklyFrequency/residui arbitrari e diversi dal piano: il titolo resta
       // quello del catalogo (lo snapshot non sovrascrive il titolo).
@@ -69,7 +71,8 @@ void main() {
     test('piano fuori catalogo -> fallback famiglia + variante STABILE', () {
       // FREQUENCY illimitato fuori catalogo.
       expect(
-          getSubscriptionTitle(_sub(planKey: 'piano_inesistente', weeklyFrequency: null)),
+          getSubscriptionTitle(
+              _sub(planKey: 'piano_inesistente', weeklyFrequency: null)),
           'Open · illimitato');
       // FREQUENCY 2x fuori catalogo.
       expect(getSubscriptionTitle(_sub(planKey: 'fuori', weeklyFrequency: 2)),
@@ -154,29 +157,42 @@ void main() {
 
     test('scaduto / oggi / domani (singolare) / pochi giorni / valido', () {
       expect(
-          getSubscriptionStatusLabel(_sub(end: now.subtract(const Duration(seconds: 1))), now: now),
+          getSubscriptionStatusLabel(
+              _sub(end: now.subtract(const Duration(seconds: 1))),
+              now: now),
           'Scaduto');
       // endDate == now -> non ancora scaduto, 0 giorni -> "Scade oggi".
-      expect(getSubscriptionStatusLabel(_sub(end: now), now: now), 'Scade oggi');
+      expect(
+          getSubscriptionStatusLabel(_sub(end: now), now: now), 'Scade oggi');
       // ~1.5 giorni -> inDays tronca a 1 -> singolare.
       expect(
-          getSubscriptionStatusLabel(_sub(end: now.add(const Duration(days: 1, hours: 12))), now: now),
+          getSubscriptionStatusLabel(
+              _sub(end: now.add(const Duration(days: 1, hours: 12))),
+              now: now),
           'Scade tra 1 giorno');
       expect(
-          getSubscriptionStatusLabel(_sub(end: now.add(const Duration(days: 5))), now: now),
+          getSubscriptionStatusLabel(
+              _sub(end: now.add(const Duration(days: 5))),
+              now: now),
           'Scade tra 5 giorni');
       // Oltre la soglia (15 gg) -> "Valido".
       expect(
-          getSubscriptionStatusLabel(_sub(end: now.add(const Duration(days: 40))), now: now),
+          getSubscriptionStatusLabel(
+              _sub(end: now.add(const Duration(days: 40))),
+              now: now),
           'Valido');
     });
 
     test('confine soglia "in scadenza" (15 gg): 15 dentro, 16 -> Valido', () {
       expect(
-          getSubscriptionStatusLabel(_sub(end: now.add(const Duration(days: 15, hours: 1))), now: now),
+          getSubscriptionStatusLabel(
+              _sub(end: now.add(const Duration(days: 15, hours: 1))),
+              now: now),
           'Scade tra 15 giorni');
       expect(
-          getSubscriptionStatusLabel(_sub(end: now.add(const Duration(days: 16, hours: 1))), now: now),
+          getSubscriptionStatusLabel(
+              _sub(end: now.add(const Duration(days: 16, hours: 1))),
+              now: now),
           'Valido');
     });
 
@@ -243,16 +259,20 @@ void main() {
 
     test('confine al secondo: -1s scaduta, +1s viva', () {
       expect(
-          liveSubscriptions([_sub(end: now.subtract(const Duration(seconds: 1)))], now: now),
+          liveSubscriptions(
+              [_sub(end: now.subtract(const Duration(seconds: 1)))],
+              now: now),
           isEmpty);
       expect(
-          liveSubscriptions([_sub(end: now.add(const Duration(seconds: 1)))], now: now),
+          liveSubscriptions([_sub(end: now.add(const Duration(seconds: 1)))],
+              now: now),
           hasLength(1));
     });
 
     test('preserva l\'ordine relativo delle voci vive (no riordino)', () {
       final a = _sub(planKey: 'a', end: now.add(const Duration(days: 1)));
-      final scad = _sub(planKey: 'x', end: now.subtract(const Duration(days: 1)));
+      final scad =
+          _sub(planKey: 'x', end: now.subtract(const Duration(days: 1)));
       final b = _sub(planKey: 'b', end: now.add(const Duration(days: 30)));
       final result = liveSubscriptions([a, scad, b], now: now);
       expect(result.map((s) => s.planKey), ['a', 'b']);

@@ -1,5 +1,5 @@
 String formatDate(DateTime? dateTime) {
-  if(dateTime == null) {
+  if (dateTime == null) {
     return '';
   }
 

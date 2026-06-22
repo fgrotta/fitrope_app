@@ -73,7 +73,8 @@ void main() {
       expect(data['trainerId'], 't1');
     });
 
-    test('NON riscrive i campi server-owned subscribed/waitlist (modello stale)',
+    test(
+        'NON riscrive i campi server-owned subscribed/waitlist (modello stale)',
         () async {
       final created = await seed();
 

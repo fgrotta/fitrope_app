@@ -41,7 +41,7 @@ class _CalendarPageState extends State<CalendarPage> {
   late DateTime currentDate;
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
-  
+
   @override
   void initState() {
     user = store.state.user!;
@@ -61,28 +61,29 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void refreshCourseMap(List<Course> response) {
     coursesByDate.clear();
-    store.dispatch(SetAllCoursesAction(response));    
+    store.dispatch(SetAllCoursesAction(response));
     courses = response;
-    for(Course course in response) {
+    for (Course course in response) {
       updateCourseToMap(course, null);
     }
-    
   }
 
-  void updateCourseToMap(Course newCourse, Course? oldCourse ) {
+  void updateCourseToMap(Course newCourse, Course? oldCourse) {
     if (oldCourse != null) {
       removeCoruseFromMap(oldCourse);
     }
-    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(newCourse.startDate.millisecondsSinceEpoch);
+    DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(
+        newCourse.startDate.millisecondsSinceEpoch);
     String indexDate = DateFormat(pattern).format(courseDate);
-    if(!coursesByDate.containsKey(indexDate)) {
+    if (!coursesByDate.containsKey(indexDate)) {
       coursesByDate[indexDate] = [];
     }
     coursesByDate[indexDate]!.add(newCourse);
   }
 
   void removeCoruseFromMap(Course oldCourse) {
-    coursesByDate[DateFormat(pattern).format(oldCourse.startDate.toDate())]!.remove(oldCourse);
+    coursesByDate[DateFormat(pattern).format(oldCourse.startDate.toDate())]!
+        .remove(oldCourse);
   }
 
   void updateCourses() {
@@ -91,7 +92,7 @@ class _CalendarPageState extends State<CalendarPage> {
     invalidateCoursesCache();
     selectedCourses = [];
     getAllCourses().then((List<Course> response) {
-      if(mounted) { 
+      if (mounted) {
         refreshCourseMap(response);
         onSelectDate(currentDate);
         store.dispatch(SetAllCoursesAction(response));
@@ -103,15 +104,16 @@ class _CalendarPageState extends State<CalendarPage> {
     currentDate = selectedDate;
     selectedCourses = [];
     String indexDate = DateFormat(pattern).format(selectedDate);
-    if (coursesByDate[indexDate]!=null){
+    if (coursesByDate[indexDate] != null) {
       selectedCourses = coursesByDate[indexDate]!;
-    } 
+    }
 
-    setState(() { });
+    setState(() {});
   }
 
   void onSubscribe(Course course) async {
-    bool accepted = await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
+    bool accepted =
+        await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted) return;
 
     subscribeToCourse(course.id, user.uid).then((_) {
@@ -134,17 +136,17 @@ class _CalendarPageState extends State<CalendarPage> {
   void onUnsubscribe(Course course) async {
     try {
       print('🔄 Inizio disiscrizione per corso: ${course.name}');
-      
+
       // Usa il nuovo sistema di disiscrizione intelligente
       bool success = await CourseUnsubscribeHelper.handleUnsubscribe(
         course,
         user,
         context,
       );
-      
+
       if (success) {
         print('✅ Disiscrizione completata con successo');
-        
+
         // Aggiorna lo stato dell'utente corrente
         if (store.state.user != null && store.state.user!.uid == user.uid) {
           // Ricarica i dati utente per aggiornare entrateDisponibili e courses
@@ -172,7 +174,6 @@ class _CalendarPageState extends State<CalendarPage> {
         print('❌ Disiscrizione annullata dall\'utente');
         // L'utente ha annullato la disiscrizione, non fare nulla
       }
-      
     } catch (e) {
       print('❌ Errore durante la disiscrizione: $e');
       SnackBarUtils.showErrorSnackBar(
@@ -246,7 +247,7 @@ class _CalendarPageState extends State<CalendarPage> {
       }
     });
   }
-  
+
   void showRecurringCoursePage() {
     Navigator.pushNamed(
       context,
@@ -257,6 +258,7 @@ class _CalendarPageState extends State<CalendarPage> {
       }
     });
   }
+
   // Funzione di utilità per verificare se un corso è nel futuro
   bool _isCourseInFuture(Course course) {
     return course.startDate.toDate().isAfter(DateTime.now());
@@ -266,7 +268,7 @@ class _CalendarPageState extends State<CalendarPage> {
     try {
       await deleteCourse(course.uid);
       updateCourses();
-      
+
       // Mostra SnackBar di successo
       SnackBarUtils.showSuccessSnackBar(
         context,
@@ -308,7 +310,8 @@ class _CalendarPageState extends State<CalendarPage> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: user)),
               );
             },
           ),
@@ -319,13 +322,15 @@ class _CalendarPageState extends State<CalendarPage> {
   Widget _buildCalendar() {
     return Theme(
       data: ThemeData(
-        colorScheme: const ColorScheme.highContrastDark(onSurface: onPrimaryColor),
+        colorScheme:
+            const ColorScheme.highContrastDark(onSurface: onPrimaryColor),
         datePickerTheme: DatePickerThemeData(
           dayForegroundColor: WidgetStateProperty.all(onSurfaceColor),
           weekdayStyle: const TextStyle(color: onPrimaryColor),
           headerHeadlineStyle: const TextStyle(color: onPrimaryColor),
           todayForegroundColor: WidgetStateProperty.all(onPrimaryColor),
-          todayBackgroundColor: WidgetStateProperty.all(onSurfaceVariantColorTrasparent),
+          todayBackgroundColor:
+              WidgetStateProperty.all(onSurfaceVariantColorTrasparent),
           yearOverlayColor: WidgetStateProperty.all(surfaceVariantColor),
           yearBackgroundColor: WidgetStateProperty.all(primaryLightColor),
           yearForegroundColor: WidgetStateProperty.all(onPrimaryColor),
@@ -344,7 +349,8 @@ class _CalendarPageState extends State<CalendarPage> {
         initialDate: DateTime.now(),
         firstDate: firstDate,
         lastDate: lastDate,
-        filledDays: courses.map((Course course) => course.startDate.toDate()).toList(),
+        filledDays:
+            courses.map((Course course) => course.startDate.toDate()).toList(),
       ),
     );
   }
@@ -373,11 +379,16 @@ class _CalendarPageState extends State<CalendarPage> {
               onJoinWaitlist: () => onJoinWaitlist(course),
               onLeaveWaitlist: () => onLeaveWaitlist(course),
               onDuplicate: () => showDuplicateCoursePage(course),
-              onDelete: user.role == 'Admin' ? () => deleteCourseAndUpdate(course) : null,
+              onDelete: user.role == 'Admin'
+                  ? () => deleteCourseAndUpdate(course)
+                  : null,
               onEdit: (user.role == 'Admin' ||
                       (user.role == 'Trainer' &&
-                          (course.trainerId == null || course.trainerId == user.uid)))
-                  ? (_isCourseInFuture(course) ? () => showEditCoursPage(course) : null)
+                          (course.trainerId == null ||
+                              course.trainerId == user.uid)))
+                  ? (_isCourseInFuture(course)
+                      ? () => showEditCoursPage(course)
+                      : null)
                   : null,
               onRefresh: () => updateCourses(),
             ),
@@ -399,8 +410,10 @@ class _CalendarPageState extends State<CalendarPage> {
             child: ElevatedButton.icon(
               onPressed: showCreateCoursePage,
               icon: const Icon(Icons.add, color: onPrimaryColor),
-              label: const Text('Crea nuovo corso', style: TextStyle(color: onPrimaryColor)),
-              style: ElevatedButton.styleFrom(backgroundColor: surfaceVariantColor),
+              label: const Text('Crea nuovo corso',
+                  style: TextStyle(color: onPrimaryColor)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: surfaceVariantColor),
             ),
           ),
           const SizedBox(height: 12),
@@ -409,7 +422,8 @@ class _CalendarPageState extends State<CalendarPage> {
             child: ElevatedButton.icon(
               onPressed: showRecurringCoursePage,
               icon: const Icon(Icons.repeat, color: onPrimaryColor),
-              label: const Text('Corsi ricorrenti', style: TextStyle(color: onPrimaryColor)),
+              label: const Text('Corsi ricorrenti',
+                  style: TextStyle(color: onPrimaryColor)),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             ),
           ),
@@ -423,8 +437,10 @@ class _CalendarPageState extends State<CalendarPage> {
           child: ElevatedButton.icon(
             onPressed: showCreateCoursePage,
             icon: const Icon(Icons.add, color: onPrimaryColor),
-            label: const Text('Crea nuovo corso', style: TextStyle(color: onPrimaryColor)),
-            style: ElevatedButton.styleFrom(backgroundColor: surfaceVariantColor),
+            label: const Text('Crea nuovo corso',
+                style: TextStyle(color: onPrimaryColor)),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: surfaceVariantColor),
           ),
         ),
         const SizedBox(width: 16),
@@ -432,7 +448,8 @@ class _CalendarPageState extends State<CalendarPage> {
           child: ElevatedButton.icon(
             onPressed: showRecurringCoursePage,
             icon: const Icon(Icons.repeat, color: onPrimaryColor),
-            label: const Text('Corsi ricorrenti', style: TextStyle(color: onPrimaryColor)),
+            label: const Text('Corsi ricorrenti',
+                style: TextStyle(color: onPrimaryColor)),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
           ),
         ),
@@ -443,63 +460,71 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     final screenType = breakpointOf(context);
-    final bool isDesktopLayout = screenType == ScreenType.desktop || screenType == ScreenType.largeDesktop;
+    final bool isDesktopLayout = screenType == ScreenType.desktop ||
+        screenType == ScreenType.largeDesktop;
 
     return StoreConnector<AppState, AppState>(
-      converter: (store) => store.state,
-      builder: (context, state) {
-        return Stack(
-          children: [
-            SingleChildScrollView(
-              padding: EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding, top: pagePadding + MediaQuery.of(context).viewPadding.top),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  if (isDesktopLayout)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildCalendar(),
-                              const SizedBox(height: 16),
-                              _buildActionButtons(compact: false),
-                            ],
-                          ),
+        converter: (store) => store.state,
+        builder: (context, state) {
+          return Stack(
+            children: [
+              SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                      left: pagePadding,
+                      right: pagePadding,
+                      bottom: pagePadding,
+                      top:
+                          pagePadding + MediaQuery.of(context).viewPadding.top),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 16),
+                      if (isDesktopLayout)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildCalendar(),
+                                  const SizedBox(height: 16),
+                                  _buildActionButtons(compact: false),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 7,
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: _buildSelectedCoursesList(),
+                              ),
+                            ),
+                          ],
+                        )
+                      else ...[
+                        _buildCalendar(),
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: _buildSelectedCoursesList(),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 7,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: _buildSelectedCoursesList(),
-                          ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(
+                              left: pagePadding,
+                              right: pagePadding,
+                              bottom: pagePadding),
+                          child: _buildActionButtons(compact: true),
                         ),
                       ],
-                    )
-                  else ...[
-                    _buildCalendar(),
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: _buildSelectedCoursesList(),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(left: pagePadding, right: pagePadding, bottom: pagePadding),
-                      child: _buildActionButtons(compact: true),
-                    ),
-                  ],
-                ],
-              )),
-            if (state.isLoading) const Loader(),
-          ],
-        );
-      }
-    );
+                    ],
+                  )),
+              if (state.isLoading) const Loader(),
+            ],
+          );
+        });
   }
 }

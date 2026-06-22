@@ -12,13 +12,11 @@ List<FitropeUser>? _cachedTrainers;
 DateTime? _lastTrainersCacheTime;
 const Duration _trainersCacheDuration = Duration(minutes: 5);
 
-
-
 Future<FitropeUser?> getUser(String uid) async {
   final usersCollection = FirebaseFirestore.instance.collection('users');
   final snapshot = await usersCollection.doc(uid).get();
   final data = snapshot.data();
-  if(data == null) {
+  if (data == null) {
     return null;
   }
   return FitropeUser.fromJson(data);
@@ -37,7 +35,7 @@ Future<List<FitropeUser>> getUsers() async {
   try {
     final usersCollection = FirebaseFirestore.instance.collection('users');
     final snapshot = await usersCollection.get();
-    
+
     final usersList = snapshot.docs.map((doc) {
       final data = doc.data();
       return FitropeUser(
@@ -48,22 +46,30 @@ Future<List<FitropeUser>> getUsers() async {
         role: data['role'] ?? 'User',
         courses: List<String>.from(data['courses'] ?? []),
         cancelledEnrollments: (data['cancelledEnrollments'] as List<dynamic>?)
-          ?.map((item) => CancelledEnrollment.fromJson(item as Map<String, dynamic>))
-          .toList() ?? [],
-        tipologiaIscrizione: data['tipologiaIscrizione'] != null 
-            ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == data['tipologiaIscrizione']).firstOrNull
+                ?.map((item) =>
+                    CancelledEnrollment.fromJson(item as Map<String, dynamic>))
+                .toList() ??
+            [],
+        tipologiaIscrizione: data['tipologiaIscrizione'] != null
+            ? TipologiaIscrizione.values
+                .where((e) =>
+                    e.toString().split('.').last == data['tipologiaIscrizione'])
+                .firstOrNull
             : null,
         entrateDisponibili: data['entrateDisponibili'] as int?,
         entrateSettimanali: data['entrateSettimanali'] as int?,
         fineIscrizione: data['fineIscrizione'] as Timestamp?,
-        createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
+        createdAt: data['createdAt'] != null
+            ? (data['createdAt'] as Timestamp).toDate()
+            : DateTime.now(),
         isActive: data['isActive'] ?? true,
         isAnonymous: data['isAnonymous'] ?? false,
         certificatoScadenza: data['certificatoScadenza'] as Timestamp?,
         numeroTelefono: data['numeroTelefono'] as String?,
         tipologiaCorsoTags: (data['tipologiaCorsoTags'] as List<dynamic>?)
-          ?.map((tag) => tag.toString())
-          .toList() ?? CourseTags.defaultUserTags,
+                ?.map((tag) => tag.toString())
+                .toList() ??
+            CourseTags.defaultUserTags,
         regolamentoAccettatoIl: data['regolamentoAccettatoIl'] as Timestamp?,
       );
     }).toList();
@@ -91,7 +97,8 @@ void invalidateUsersCache() {
 Future<List<FitropeUser>> getTrainers() async {
   // Controlla se la cache è ancora valida
   if (_cachedTrainers != null && _lastTrainersCacheTime != null) {
-    final timeSinceLastCache = DateTime.now().difference(_lastTrainersCacheTime!);
+    final timeSinceLastCache =
+        DateTime.now().difference(_lastTrainersCacheTime!);
     if (timeSinceLastCache < _trainersCacheDuration) {
       // Ritorna i dati dalla cache
       return _cachedTrainers!;
@@ -100,8 +107,10 @@ Future<List<FitropeUser>> getTrainers() async {
 
   try {
     final usersList = await getUsers();
-    final trainersList = usersList.where((user) => user.role == 'Trainer' && user.isActive).toList();
-    
+    final trainersList = usersList
+        .where((user) => user.role == 'Trainer' && user.isActive)
+        .toList();
+
     // Aggiorna la cache dei trainer
     _cachedTrainers = trainersList;
     _lastTrainersCacheTime = DateTime.now();

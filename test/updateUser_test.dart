@@ -28,11 +28,13 @@ void main() {
       tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
       entrateDisponibili: entrate,
       entrateSettimanali: 0,
-      fineIscrizione:
-          fine != null ? Timestamp.fromDate(fine) : Timestamp.fromDate(DateTime(2026, 7, 1, 11, 30)),
+      fineIscrizione: fine != null
+          ? Timestamp.fromDate(fine)
+          : Timestamp.fromDate(DateTime(2026, 7, 1, 11, 30)),
       isActive: true,
       isAnonymous: false,
-      certificatoScadenza: certificato != null ? Timestamp.fromDate(certificato) : null,
+      certificatoScadenza:
+          certificato != null ? Timestamp.fromDate(certificato) : null,
       numeroTelefono: '3331112222',
       tipologiaCorsoTags: tags,
       createdAt: DateTime(2026, 1, 1),
@@ -69,7 +71,8 @@ void main() {
       fineIscrizione: fineIscrizione ?? u.fineIscrizione?.toDate(),
       isActive: isActive ?? u.isActive,
       isAnonymous: u.isAnonymous,
-      certificatoScadenza: certificatoScadenza ?? u.certificatoScadenza?.toDate(),
+      certificatoScadenza:
+          certificatoScadenza ?? u.certificatoScadenza?.toDate(),
       numeroTelefono:
           numeroTelefono == '__keep__' ? u.numeroTelefono : numeroTelefono,
       tipologiaCorsoTags: tipologiaCorsoTags ?? u.tipologiaCorsoTags,
@@ -139,65 +142,114 @@ void main() {
       expect((diff['tipologiaCorsoTags'] as List).toSet(), {'Open', 'Hyrox'});
     });
 
-    test('numeroTelefono svuotato (null) → emesso come null (azzeramento voluto)', () {
+    test(
+        'numeroTelefono svuotato (null) → emesso come null (azzeramento voluto)',
+        () {
       final u = original();
       final diff = diffWith(u, numeroTelefono: null);
       expect(diff, {'numeroTelefono': null});
     });
 
-    test('data prima ASSENTE poi impostata → emessa a 23:59 (assegnazione scadenza)', () {
+    test(
+        'data prima ASSENTE poi impostata → emessa a 23:59 (assegnazione scadenza)',
+        () {
       // Utente legacy/manuale senza scadenza: l'admin la imposta per la prima volta.
       final u = FitropeUser(
-        uid: 'u1', email: 'u1@test.it', name: 'M', lastName: 'R', role: 'User',
-        courses: const [], tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
-        entrateSettimanali: 3, fineIscrizione: null, certificatoScadenza: null,
-        isActive: true, isAnonymous: false, tipologiaCorsoTags: const ['Open'],
+        uid: 'u1',
+        email: 'u1@test.it',
+        name: 'M',
+        lastName: 'R',
+        role: 'User',
+        courses: const [],
+        tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
+        entrateSettimanali: 3,
+        fineIscrizione: null,
+        certificatoScadenza: null,
+        isActive: true,
+        isAnonymous: false,
+        tipologiaCorsoTags: const ['Open'],
         createdAt: DateTime(2026, 1, 1),
       );
       final fine = buildUserUpdateDiff(
-        original: u, name: u.name, lastName: u.lastName, role: u.role,
-        tipologiaIscrizione: u.tipologiaIscrizione, entrateSettimanali: u.entrateSettimanali,
-        fineIscrizione: DateTime(2026, 8, 15), certificatoScadenza: null,
-        isActive: u.isActive, isAnonymous: u.isAnonymous,
+        original: u,
+        name: u.name,
+        lastName: u.lastName,
+        role: u.role,
+        tipologiaIscrizione: u.tipologiaIscrizione,
+        entrateSettimanali: u.entrateSettimanali,
+        fineIscrizione: DateTime(2026, 8, 15),
+        certificatoScadenza: null,
+        isActive: u.isActive,
+        isAnonymous: u.isAnonymous,
         tipologiaCorsoTags: u.tipologiaCorsoTags,
         emailNotificationsEnabled: u.emailNotificationsEnabled,
         pushNotificationsEnabled: u.pushNotificationsEnabled,
       );
-      expect((fine['fineIscrizione'] as Timestamp).toDate(), DateTime(2026, 8, 15, 23, 59));
+      expect((fine['fineIscrizione'] as Timestamp).toDate(),
+          DateTime(2026, 8, 15, 23, 59));
 
       final cert = buildUserUpdateDiff(
-        original: u, name: u.name, lastName: u.lastName, role: u.role,
-        tipologiaIscrizione: u.tipologiaIscrizione, entrateSettimanali: u.entrateSettimanali,
-        fineIscrizione: null, certificatoScadenza: DateTime(2026, 9, 1),
-        isActive: u.isActive, isAnonymous: u.isAnonymous,
+        original: u,
+        name: u.name,
+        lastName: u.lastName,
+        role: u.role,
+        tipologiaIscrizione: u.tipologiaIscrizione,
+        entrateSettimanali: u.entrateSettimanali,
+        fineIscrizione: null,
+        certificatoScadenza: DateTime(2026, 9, 1),
+        isActive: u.isActive,
+        isAnonymous: u.isAnonymous,
         tipologiaCorsoTags: u.tipologiaCorsoTags,
         emailNotificationsEnabled: u.emailNotificationsEnabled,
         pushNotificationsEnabled: u.pushNotificationsEnabled,
       );
-      expect((cert['certificatoScadenza'] as Timestamp).toDate(), DateTime(2026, 9, 1, 23, 59));
+      expect((cert['certificatoScadenza'] as Timestamp).toDate(),
+          DateTime(2026, 9, 1, 23, 59));
     });
 
-    test('campi finora scoperti, cambiati → chiave corretta (lastName/entrateSettimanali/isAnonymous/push)', () {
+    test(
+        'campi finora scoperti, cambiati → chiave corretta (lastName/entrateSettimanali/isAnonymous/push)',
+        () {
       final u = original();
-      expect(diffWith(u, ).isEmpty, isTrue); // sanity: no-op
+      expect(
+          diffWith(
+            u,
+          ).isEmpty,
+          isTrue); // sanity: no-op
       expect(
         buildUserUpdateDiff(
-          original: u, name: u.name, lastName: 'Bianchi', role: u.role,
+          original: u,
+          name: u.name,
+          lastName: 'Bianchi',
+          role: u.role,
           tipologiaIscrizione: u.tipologiaIscrizione,
-          entrateDisponibili: u.entrateDisponibili, entrateSettimanali: 3,
-          fineIscrizione: u.fineIscrizione?.toDate(), isActive: u.isActive,
-          isAnonymous: true, certificatoScadenza: u.certificatoScadenza?.toDate(),
-          numeroTelefono: u.numeroTelefono, tipologiaCorsoTags: u.tipologiaCorsoTags,
+          entrateDisponibili: u.entrateDisponibili,
+          entrateSettimanali: 3,
+          fineIscrizione: u.fineIscrizione?.toDate(),
+          isActive: u.isActive,
+          isAnonymous: true,
+          certificatoScadenza: u.certificatoScadenza?.toDate(),
+          numeroTelefono: u.numeroTelefono,
+          tipologiaCorsoTags: u.tipologiaCorsoTags,
           emailNotificationsEnabled: u.emailNotificationsEnabled,
           pushNotificationsEnabled: false,
         ),
-        {'lastName': 'Bianchi', 'entrateSettimanali': 3, 'isAnonymous': true, 'pushNotificationsEnabled': false},
+        {
+          'lastName': 'Bianchi',
+          'entrateSettimanali': 3,
+          'isAnonymous': true,
+          'pushNotificationsEnabled': false
+        },
       );
     });
 
-    test('certificato stesso giorno → non emesso; giorno nuovo → emesso 23:59', () {
+    test('certificato stesso giorno → non emesso; giorno nuovo → emesso 23:59',
+        () {
       final u = original(certificato: DateTime(2026, 9, 10, 8, 0));
-      expect(diffWith(u, certificatoScadenza: DateTime(2026, 9, 10)).containsKey('certificatoScadenza'), isFalse);
+      expect(
+          diffWith(u, certificatoScadenza: DateTime(2026, 9, 10))
+              .containsKey('certificatoScadenza'),
+          isFalse);
       final diff = diffWith(u, certificatoScadenza: DateTime(2026, 10, 1));
       expect((diff['certificatoScadenza'] as Timestamp).toDate().hour, 23);
     });
@@ -226,7 +278,8 @@ void main() {
       fineIscrizione: clearFine ? null : u.fineIscrizione?.toDate(),
       isActive: u.isActive,
       isAnonymous: u.isAnonymous,
-      certificatoScadenza: clearCertificato ? null : u.certificatoScadenza?.toDate(),
+      certificatoScadenza:
+          clearCertificato ? null : u.certificatoScadenza?.toDate(),
       numeroTelefono: u.numeroTelefono,
       tipologiaCorsoTags: u.tipologiaCorsoTags,
       emailNotificationsEnabled: u.emailNotificationsEnabled,
@@ -242,20 +295,23 @@ void main() {
     });
 
     test('fineIscrizione → null (data rimossa) → emesso null', () {
-      final diff =
-          diffClearing(original(fine: DateTime(2026, 7, 1, 11, 30)), clearFine: true);
+      final diff = diffClearing(original(fine: DateTime(2026, 7, 1, 11, 30)),
+          clearFine: true);
       expect(diff.containsKey('fineIscrizione'), isTrue);
       expect(diff['fineIscrizione'], isNull);
     });
 
     test('certificatoScadenza → null (rimosso) → emesso null', () {
       final diff = diffClearing(
-          original(certificato: DateTime(2026, 9, 10, 8, 0)), clearCertificato: true);
+          original(certificato: DateTime(2026, 9, 10, 8, 0)),
+          clearCertificato: true);
       expect(diff.containsKey('certificatoScadenza'), isTrue);
       expect(diff['certificatoScadenza'], isNull);
     });
 
-    test('campi già null e ripassati null → NESSUN diff (non si scrive null spurio)', () {
+    test(
+        'campi già null e ripassati null → NESSUN diff (non si scrive null spurio)',
+        () {
       // Utente SENZA fineIscrizione/certificato (costruito inline: l'helper
       // `original` mette un default quando il param è null).
       final u = FitropeUser(

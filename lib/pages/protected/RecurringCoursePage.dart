@@ -23,7 +23,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   final nameController = TextEditingController();
   final durationController = TextEditingController();
   final capacityController = TextEditingController();
-  
+
   late FitropeUser user;
   List<FitropeUser> trainers = [];
   DateTime? startDate;
@@ -46,9 +46,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     6: false, // Sabato
     7: false, // Domenica
   };
-  
+
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
-  
+
   // Nomi dei giorni in italiano
   final Map<int, String> dayNames = {
     1: 'Lunedì',
@@ -60,13 +60,11 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     7: 'Domenica',
   };
 
-
-
   @override
   void initState() {
     super.initState();
     user = store.state.user!;
-    
+
     // Controlla se l'utente ha i permessi per accedere a questa pagina
     if (user.role != 'Admin' && user.role != 'Trainer') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -78,7 +76,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       });
       return;
     }
-    
+
     _initializeData();
   }
 
@@ -97,38 +95,48 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       // Inizializza i dati
       _initializeCourseData();
     } catch (e) {
-      SnackBarUtils.showErrorSnackBar(context, 'Errore nel caricamento dei dati');
+      SnackBarUtils.showErrorSnackBar(
+          context, 'Errore nel caricamento dei dati');
     } finally {
       setState(() {
         isLoading = false;
       });
     }
   }
-String _getDayName(DateTime date) {
-  switch (date.weekday) {
-    case 1: return 'Lunedì';
-    case 2: return 'Martedì';
-    case 3: return 'Mercoledì';
-    case 4: return 'Giovedì';
-    case 5: return 'Venerdì';
-    case 6: return 'Sabato';
-    case 7: return 'Domenica';
-    default: return '';
+
+  String _getDayName(DateTime date) {
+    switch (date.weekday) {
+      case 1:
+        return 'Lunedì';
+      case 2:
+        return 'Martedì';
+      case 3:
+        return 'Mercoledì';
+      case 4:
+        return 'Giovedì';
+      case 5:
+        return 'Venerdì';
+      case 6:
+        return 'Sabato';
+      case 7:
+        return 'Domenica';
+      default:
+        return '';
+    }
   }
-}
 
   void _initializeCourseData() {
     // Inizializza startDate a oggi
     startDate = DateTime.now();
-    
+
     // Inizializza endDate a 1 mese da oggi
     endDate = DateTime.now().add(const Duration(days: 30));
-    
+
     // Inizializza i controller
     nameController.text = '';
     durationController.text = '1';
     capacityController.text = '6';
-    
+
     // Inizializza il trainer
     selectedTrainerId = null;
 
@@ -153,16 +161,15 @@ String _getDayName(DateTime date) {
       lastDate: DateTime.now().add(const Duration(days: 150)), // 5 mesi
       locale: const Locale('it', 'IT'),
     );
-    
+
     if (picked != null) {
       setState(() {
         startDate = DateTime(
-          picked.year, 
-          picked.month, 
-          picked.day, 
-          startDate?.hour ?? defaultTimeOfDay.hour, 
-          startDate?.minute ?? defaultTimeOfDay.minute
-        );
+            picked.year,
+            picked.month,
+            picked.day,
+            startDate?.hour ?? defaultTimeOfDay.hour,
+            startDate?.minute ?? defaultTimeOfDay.minute);
       });
     }
   }
@@ -176,7 +183,7 @@ String _getDayName(DateTime date) {
       lastDate: DateTime.now().add(const Duration(days: 150)), // 5 mesi
       locale: const Locale('it', 'IT'),
     );
-    
+
     if (picked != null) {
       setState(() {
         endDate = DateTime(picked.year, picked.month, picked.day);
@@ -187,7 +194,9 @@ String _getDayName(DateTime date) {
   Future<void> _selectTime() async {
     final pickedTime = await showTimePicker(
       context: context,
-      initialTime: startDate != null ? TimeOfDay.fromDateTime(startDate!) : defaultTimeOfDay,
+      initialTime: startDate != null
+          ? TimeOfDay.fromDateTime(startDate!)
+          : defaultTimeOfDay,
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
@@ -195,16 +204,15 @@ String _getDayName(DateTime date) {
         );
       },
     );
-    
+
     if (pickedTime != null) {
       setState(() {
         startDate = DateTime(
-          startDate?.year ?? DateTime.now().year, 
-          startDate?.month ?? DateTime.now().month, 
-          startDate?.day ?? DateTime.now().day, 
-          pickedTime.hour, 
-          pickedTime.minute
-        );
+            startDate?.year ?? DateTime.now().year,
+            startDate?.month ?? DateTime.now().month,
+            startDate?.day ?? DateTime.now().day,
+            pickedTime.hour,
+            pickedTime.minute);
       });
     }
   }
@@ -217,15 +225,16 @@ String _getDayName(DateTime date) {
 
   List<DateTime> _calculateCourseDates() {
     if (startDate == null || endDate == null) return [];
-    
+
     List<DateTime> dates = [];
     DateTime currentDate = DateTime(
       startDate!.year,
       startDate!.month,
       startDate!.day,
     );
-    
-    while (currentDate.isBefore(endDate!) || currentDate.isAtSameMomentAs(endDate!)) {
+
+    while (currentDate.isBefore(endDate!) ||
+        currentDate.isAtSameMomentAs(endDate!)) {
       int weekday = currentDate.weekday;
       if (selectedDays[weekday] == true) {
         dates.add(DateTime(
@@ -238,7 +247,7 @@ String _getDayName(DateTime date) {
       }
       currentDate = currentDate.add(const Duration(days: 1));
     }
-    
+
     return dates;
   }
 
@@ -246,52 +255,70 @@ String _getDayName(DateTime date) {
     final name = nameController.text.trim();
     final duration = double.tryParse(durationController.text.trim()) ?? 0;
     final capacity = int.tryParse(capacityController.text.trim()) ?? 0;
-    
+
     if (name.isEmpty) {
-      setState(() { errorMsg = 'Il nome del corso è obbligatorio'; });
+      setState(() {
+        errorMsg = 'Il nome del corso è obbligatorio';
+      });
       return false;
     }
-    
+
     if (startDate == null) {
-      setState(() { errorMsg = 'Seleziona una data di inizio'; });
+      setState(() {
+        errorMsg = 'Seleziona una data di inizio';
+      });
       return false;
     }
-    
+
     if (endDate == null) {
-      setState(() { errorMsg = 'Seleziona una data di fine'; });
+      setState(() {
+        errorMsg = 'Seleziona una data di fine';
+      });
       return false;
     }
-    
+
     if (startDate!.isAfter(endDate!)) {
-      setState(() { errorMsg = 'La data di inizio deve essere precedente alla data di fine'; });
+      setState(() {
+        errorMsg = 'La data di inizio deve essere precedente alla data di fine';
+      });
       return false;
     }
-    
+
     // Verifica che non sia oltre 5 mesi
     final maxDate = DateTime.now().add(const Duration(days: 150));
     if (endDate!.isAfter(maxDate)) {
-      setState(() { errorMsg = 'La data di fine non può essere oltre 5 mesi da oggi'; });
+      setState(() {
+        errorMsg = 'La data di fine non può essere oltre 5 mesi da oggi';
+      });
       return false;
     }
-    
+
     // Verifica che almeno un giorno sia selezionato
     bool hasSelectedDay = selectedDays.values.any((selected) => selected);
     if (!hasSelectedDay) {
-      setState(() { errorMsg = 'Seleziona almeno un giorno della settimana'; });
+      setState(() {
+        errorMsg = 'Seleziona almeno un giorno della settimana';
+      });
       return false;
     }
-    
+
     if (capacity <= 0) {
-      setState(() { errorMsg = 'Il numero di partecipanti deve essere maggiore di 0'; });
+      setState(() {
+        errorMsg = 'Il numero di partecipanti deve essere maggiore di 0';
+      });
       return false;
     }
-    
+
     if (duration <= 0) {
-      setState(() { errorMsg = 'La durata deve essere maggiore di 0'; });
+      setState(() {
+        errorMsg = 'La durata deve essere maggiore di 0';
+      });
       return false;
     }
-    
-    setState(() { errorMsg = null; });
+
+    setState(() {
+      errorMsg = null;
+    });
     return true;
   }
 
@@ -306,24 +333,26 @@ String _getDayName(DateTime date) {
       final name = nameController.text.trim();
       final duration = double.tryParse(durationController.text.trim()) ?? 1;
       final capacity = int.tryParse(capacityController.text.trim()) ?? 6;
-      
+
       // Calcola le date dei corsi
       final courseDates = _calculateCourseDates();
-      
+
       if (courseDates.isEmpty) {
-        setState(() { errorMsg = 'Nessuna data valida trovata per i giorni selezionati'; });
+        setState(() {
+          errorMsg = 'Nessuna data valida trovata per i giorni selezionati';
+        });
         return;
       }
-      
+
       // I Trainer vengono automaticamente assegnati ai corsi che creano
       final trainerId = user.role == 'Trainer' ? user.uid : selectedTrainerId;
-      
+
       int createdCount = 0;
-      
+
       // Crea un corso per ogni data
       for (DateTime courseDate in courseDates) {
         final endDate = courseDate.add(Duration(hours: duration.toInt()));
-        
+
         final newCourse = Course(
           uid: '',
           id: '',
@@ -338,11 +367,11 @@ String _getDayName(DateTime date) {
           waitlistEnabled: waitlistEnabled,
           sala: selectedSala,
         );
-        
+
         await createCourse(newCourse);
         createdCount++;
       }
-      
+
       SnackBarUtils.showSuccessSnackBar(
         context,
         'Creati $createdCount corsi ricorrenti con successo',
@@ -365,7 +394,7 @@ String _getDayName(DateTime date) {
   @override
   Widget build(BuildContext context) {
     final courseDates = _calculateCourseDates();
-    
+
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
@@ -418,9 +447,10 @@ String _getDayName(DateTime date) {
                                   const Text('Data:'),
                                   const SizedBox(height: 4),
                                   Text(
-                                    startDate != null 
-                                      ? DateFormat('dd/MM/yyyy').format(startDate!)
-                                      : 'Non selezionata',
+                                    startDate != null
+                                        ? DateFormat('dd/MM/yyyy')
+                                            .format(startDate!)
+                                        : 'Non selezionata',
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                 ],
@@ -443,9 +473,9 @@ String _getDayName(DateTime date) {
                                   const Text('Ora:'),
                                   const SizedBox(height: 4),
                                   Text(
-                                    startDate != null 
-                                      ? DateFormat('HH:mm').format(startDate!)
-                                      : 'Non selezionata',
+                                    startDate != null
+                                        ? DateFormat('HH:mm').format(startDate!)
+                                        : 'Non selezionata',
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                 ],
@@ -489,9 +519,10 @@ String _getDayName(DateTime date) {
                                   const Text('Data:'),
                                   const SizedBox(height: 4),
                                   Text(
-                                    endDate != null 
-                                      ? DateFormat('dd/MM/yyyy').format(endDate!)
-                                      : 'Non selezionata',
+                                    endDate != null
+                                        ? DateFormat('dd/MM/yyyy')
+                                            .format(endDate!)
+                                        : 'Non selezionata',
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                 ],
@@ -660,7 +691,8 @@ String _getDayName(DateTime date) {
                               ...trainers.map((trainer) {
                                 return DropdownMenuItem<String>(
                                   value: trainer.uid,
-                                  child: Text('${trainer.name} ${trainer.lastName}'),
+                                  child: Text(
+                                      '${trainer.name} ${trainer.lastName}'),
                                 );
                               }).toList(),
                             ],
@@ -687,7 +719,8 @@ String _getDayName(DateTime date) {
                       children: [
                         const Text(
                           'Notifiche e Lista d\'Attesa',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         SwitchListTile(
@@ -765,7 +798,8 @@ String _getDayName(DateTime date) {
                               itemBuilder: (context, index) {
                                 final date = courseDates[index];
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
                                   child: Row(
                                     children: [
                                       Icon(

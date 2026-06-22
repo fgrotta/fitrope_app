@@ -22,10 +22,12 @@ class RegistrationPage extends StatefulWidget {
 class _RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _numeroTelefonoController = TextEditingController();
+  final TextEditingController _numeroTelefonoController =
+      TextEditingController();
 
   String? emailError;
   String? passwordError;
@@ -42,48 +44,44 @@ class _RegistrationPageState extends State<RegistrationPage> {
   @override
   void initState() {
     super.initState();
-    if(isLogged()){
+    if (isLogged()) {
       loggedRedirect(context);
     }
   }
 
   void validateEmail() {
-    if(_emailController.text.trim().isEmpty) {
+    if (_emailController.text.trim().isEmpty) {
       emailError = "L'email non è valida";
-    }
-    else {
+    } else {
       emailError = null;
     }
   }
 
   void validatePassword() {
-    if(_passwordController.text.trim().length < 6) {
+    if (_passwordController.text.trim().length < 6) {
       passwordError = "La password deve essere lunga almeno 6 caratteri";
-    }
-    else if(_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
+    } else if (_passwordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
       passwordError = "Le password devono essere uguali";
       confirmPasswordError = "Le password devono essere uguali";
-    }
-    else {
+    } else {
       passwordError = null;
       confirmPasswordError = null;
     }
   }
 
   void validateName() {
-    if(_nameController.text.trim().length < 2) {
+    if (_nameController.text.trim().length < 2) {
       nameError = "Il nome non è valido";
-    }
-    else {
+    } else {
       nameError = null;
     }
   }
 
   void validateLastName() {
-    if(_lastNameController.text.trim().length < 2) {
+    if (_lastNameController.text.trim().length < 2) {
       lastNameError = "Il cognome non è valido";
-    }
-    else {
+    } else {
       lastNameError = null;
     }
   }
@@ -93,9 +91,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
     if (phoneNumber.isNotEmpty) {
       // Verifica che contenga solo numeri
       if (!RegExp(r'^[0-9]+$').hasMatch(phoneNumber)) {
-        numeroTelefonoError = "Il numero di telefono deve contenere solo numeri";
+        numeroTelefonoError =
+            "Il numero di telefono deve contenere solo numeri";
       } else if (phoneNumber.length != 10) {
-        numeroTelefonoError = "Il numero di telefono deve contenere esattamente 10 cifre";
+        numeroTelefonoError =
+            "Il numero di telefono deve contenere esattamente 10 cifre";
       } else {
         numeroTelefonoError = null;
       }
@@ -106,7 +106,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   @override
   Widget build(BuildContext context) {
-    if(validatingEmail) {
+    if (validatingEmail) {
       return Scaffold(
         backgroundColor: backgroundColor,
         body: Column(
@@ -115,18 +115,30 @@ class _RegistrationPageState extends State<RegistrationPage> {
             Center(
               child: Column(
                 children: [
-                  const Icon(Icons.email, size: 60, color:onPrimaryColor,),
-                  const SizedBox(height: 30,),
-                  const Text("Email di conferma inviata!", style: TextStyle(fontSize: 20, color: onPrimaryColor)),
-                  const SizedBox(height: 30,),
+                  const Icon(
+                    Icons.email,
+                    size: 60,
+                    color: onPrimaryColor,
+                  ),
+                  const SizedBox(
+                    height: 30,
+                  ),
+                  const Text("Email di conferma inviata!",
+                      style: TextStyle(fontSize: 20, color: onPrimaryColor)),
+                  const SizedBox(
+                    height: 30,
+                  ),
                   ElevatedButton(
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.all(successColor)
-                    ),
-                    onPressed: () {
-                      Navigator.pushNamed(context, LOGIN_ROUTE);
-                    }, child: const Text("Login", style: TextStyle(color: onPrimaryColor),)
-                  )
+                      style: ButtonStyle(
+                          backgroundColor:
+                              WidgetStateProperty.all(successColor)),
+                      onPressed: () {
+                        Navigator.pushNamed(context, LOGIN_ROUTE);
+                      },
+                      child: const Text(
+                        "Login",
+                        style: TextStyle(color: onPrimaryColor),
+                      ))
                 ],
               ),
             ),
@@ -139,14 +151,21 @@ class _RegistrationPageState extends State<RegistrationPage> {
       appBar: AppBar(
         backgroundColor: backgroundColor,
         iconTheme: const IconThemeData(color: ghostColor),
-        title: const Text("Registrazione", style: TextStyle(color: onPrimaryColor),),
+        title: const Text(
+          "Registrazione",
+          style: TextStyle(color: onPrimaryColor),
+        ),
       ),
       backgroundColor: backgroundColor,
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.only(
-            left: isDesktop(context) ? MediaQuery.of(context).size.width * 0.40 : pagePadding,
-            right: isDesktop(context) ? MediaQuery.of(context).size.width * 0.40 : pagePadding,
+            left: isDesktop(context)
+                ? MediaQuery.of(context).size.width * 0.40
+                : pagePadding,
+            right: isDesktop(context)
+                ? MediaQuery.of(context).size.width * 0.40
+                : pagePadding,
             bottom: pagePadding,
             top: pagePadding + MediaQuery.of(context).viewPadding.top,
           ),
@@ -156,56 +175,150 @@ class _RegistrationPageState extends State<RegistrationPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Email',),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _emailController, hintText: 'Inserisci la tua email', onTapOutside: (_) => setState(() { validateEmail(); }),),
-                  const SizedBox(height: 5,),
-                  Text(emailError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Password',),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _passwordController, hintText: 'Inserisci la password', obscureText: true, onTapOutside: (_) => setState(() { validatePassword(); }),),
-                  const SizedBox(height: 5,),
-                  Text(passwordError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Conferma password',),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _confirmPasswordController, hintText: 'Conferma la password', obscureText: true, onTapOutside: (_) => setState(() { validatePassword(); }),),
-                  const SizedBox(height: 5,),
-                  Text(confirmPasswordError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Nome',),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _nameController, hintText: 'Inserisci il tuo nome', onTapOutside: (_) => setState(() { validateName(); }),),
-                  const SizedBox(height: 5,),
-                  Text(nameError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Cognome',),
-                  const SizedBox(height: 10,),
-                  CustomTextField(controller: _lastNameController, hintText: 'Inserisci il tuo cognome', onTapOutside: (_) => setState(() { validateLastName(); }),),
-                  const SizedBox(height: 5,),
-                  Text(lastNameError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
-                  const Text('Numero di Telefono (opzionale)',),
-                  const SizedBox(height: 10,),
+                  const Text(
+                    'Email',
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
                   CustomTextField(
-                    controller: _numeroTelefonoController, 
+                    controller: _emailController,
+                    hintText: 'Inserisci la tua email',
+                    onTapOutside: (_) => setState(() {
+                      validateEmail();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    emailError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Password',
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _passwordController,
+                    hintText: 'Inserisci la password',
+                    obscureText: true,
+                    onTapOutside: (_) => setState(() {
+                      validatePassword();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    passwordError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Conferma password',
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _confirmPasswordController,
+                    hintText: 'Conferma la password',
+                    obscureText: true,
+                    onTapOutside: (_) => setState(() {
+                      validatePassword();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    confirmPasswordError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Nome',
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _nameController,
+                    hintText: 'Inserisci il tuo nome',
+                    onTapOutside: (_) => setState(() {
+                      validateName();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    nameError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Cognome',
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _lastNameController,
+                    hintText: 'Inserisci il tuo cognome',
+                    onTapOutside: (_) => setState(() {
+                      validateLastName();
+                    }),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    lastNameError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  const Text(
+                    'Numero di Telefono (opzionale)',
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  CustomTextField(
+                    controller: _numeroTelefonoController,
                     hintText: 'Inserisci il tuo numero di telefono',
-                    onTapOutside: (_) => setState(() { validateNumeroTelefono(); }),
+                    onTapOutside: (_) => setState(() {
+                      validateNumeroTelefono();
+                    }),
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(10),
                     ],
                   ),
-                  const SizedBox(height: 5,),
-                  Text(numeroTelefonoError ?? '', style: const TextStyle(color: dangerColor),),
-        
-                  const SizedBox(height: 20,),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  Text(
+                    numeroTelefonoError ?? '',
+                    style: const TextStyle(color: dangerColor),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
                   Row(
                     children: [
                       Checkbox(
@@ -221,7 +334,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         onTap: () async {
                           final url = Uri.parse('https://www.google.it');
                           if (await canLaunchUrl(url)) {
-                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                            await launchUrl(url,
+                                mode: LaunchMode.externalApplication);
                           }
                         },
                         child: const Text(
@@ -236,7 +350,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   ),
                 ],
               ),
-              Text(registrationError ?? '', style: const TextStyle(color: dangerColor),),
+              Text(
+                registrationError ?? '',
+                style: const TextStyle(color: dangerColor),
+              ),
               if (privacyError != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
@@ -245,7 +362,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     style: const TextStyle(color: dangerColor),
                   ),
                 ),
-              const SizedBox(height: 10,),
+              const SizedBox(
+                height: 10,
+              ),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -263,15 +382,13 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       }
                     });
 
-                    if (
-                      nameError != null ||
-                      lastNameError != null ||
-                      emailError != null ||
-                      passwordError != null ||
-                      confirmPasswordError != null ||
-                      numeroTelefonoError != null ||
-                      !privacyAccepted
-                    ) {
+                    if (nameError != null ||
+                        lastNameError != null ||
+                        emailError != null ||
+                        passwordError != null ||
+                        confirmPasswordError != null ||
+                        numeroTelefonoError != null ||
+                        !privacyAccepted) {
                       return;
                     }
 
@@ -280,7 +397,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       _passwordController.text.trim(),
                       _nameController.text.trim(),
                       _lastNameController.text.trim(),
-                      numeroTelefono: _numeroTelefonoController.text.trim().isNotEmpty ? _numeroTelefonoController.text.trim() : null,
+                      numeroTelefono:
+                          _numeroTelefonoController.text.trim().isNotEmpty
+                              ? _numeroTelefonoController.text.trim()
+                              : null,
                     ).then((SignUpResponse? response) {
                       if (response != null && response.user != null) {
                         store.dispatch(SetUserAction(response.user!));
@@ -296,14 +416,15 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     });
                   },
                   style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.all(secondaryColor),
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                      RoundedRectangleBorder(
+                      backgroundColor: WidgetStateProperty.all(secondaryColor),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                          RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                      )
-                    )
-                  ), 
-                  child: const Text('Registrati', style: TextStyle(color: Colors.white),),
+                      ))),
+                  child: const Text(
+                    'Registrati',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ),
             ],

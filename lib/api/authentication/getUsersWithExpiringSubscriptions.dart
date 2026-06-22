@@ -11,22 +11,27 @@ const Duration _cacheDurationWithExpiringSubscriptions = Duration(minutes: 5);
 /// Utilizza query Firestore per massimizzare le performance
 Future<List<FitropeUser>> getUsersWithExpiringSubscriptions() async {
   try {
-    if (_cachedUsersWithExpiringSubscriptions != null && _lastCacheTimeWithExpiringSubscriptions != null) {
-      final timeSinceLastCache = DateTime.now().difference(_lastCacheTimeWithExpiringSubscriptions!);
+    if (_cachedUsersWithExpiringSubscriptions != null &&
+        _lastCacheTimeWithExpiringSubscriptions != null) {
+      final timeSinceLastCache =
+          DateTime.now().difference(_lastCacheTimeWithExpiringSubscriptions!);
       if (timeSinceLastCache < _cacheDurationWithExpiringSubscriptions) {
         return _cachedUsersWithExpiringSubscriptions!;
       }
     }
 
     final oggi = DateTime.now();
-    final dataLimite = oggi.add(Duration(days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
-    
+    final dataLimite = oggi.add(
+        Duration(days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
+
     // Query ottimizzata: cerca solo utenti con abbonamento in scadenza
     final querySnapshot = await FirebaseFirestore.instance
         .collection('users')
         .where('fineIscrizione', isNull: false)
-        .where('fineIscrizione', isGreaterThanOrEqualTo: Timestamp.fromDate(oggi))
-        .where('fineIscrizione', isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
+        .where('fineIscrizione',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(oggi))
+        .where('fineIscrizione',
+            isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
         .orderBy('fineIscrizione', descending: false)
         .get();
 
@@ -45,8 +50,10 @@ Future<List<FitropeUser>> getUsersWithExpiringSubscriptions() async {
 /// API per ottenere il conteggio degli utenti con abbonamenti in scadenza
 /// Utile per badge o indicatori senza dover caricare tutti i dati
 Future<int> getCountUsersWithExpiringSubscriptions() async {
-  if (_cachedUsersWithExpiringSubscriptions != null && _lastCacheTimeWithExpiringSubscriptions != null) {
-    final timeSinceLastCache = DateTime.now().difference(_lastCacheTimeWithExpiringSubscriptions!);
+  if (_cachedUsersWithExpiringSubscriptions != null &&
+      _lastCacheTimeWithExpiringSubscriptions != null) {
+    final timeSinceLastCache =
+        DateTime.now().difference(_lastCacheTimeWithExpiringSubscriptions!);
     if (timeSinceLastCache < _cacheDurationWithExpiringSubscriptions) {
       return _cachedUsersWithExpiringSubscriptions!.length;
     }
@@ -54,13 +61,16 @@ Future<int> getCountUsersWithExpiringSubscriptions() async {
 
   try {
     final oggi = DateTime.now();
-    final dataLimite = oggi.add(Duration(days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
-    
+    final dataLimite = oggi.add(
+        Duration(days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
+
     final querySnapshot = await FirebaseFirestore.instance
         .collection('users')
         .where('fineIscrizione', isNull: false)
-        .where('fineIscrizione', isGreaterThanOrEqualTo: Timestamp.fromDate(oggi))
-        .where('fineIscrizione', isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
+        .where('fineIscrizione',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(oggi))
+        .where('fineIscrizione',
+            isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
         .get();
 
     _cachedUsersWithExpiringSubscriptions = querySnapshot.docs

@@ -182,7 +182,8 @@ void main() {
     });
 
     group('Round-trip serialization', () {
-      test('should preserve notification preferences through toJson/fromJson', () {
+      test('should preserve notification preferences through toJson/fromJson',
+          () {
         final original = FitropeUser(
           uid: 'user-roundtrip',
           email: 'roundtrip@example.com',
@@ -198,11 +199,15 @@ void main() {
         final json = original.toJson();
         final deserialized = FitropeUser.fromJson(json);
 
-        expect(deserialized.emailNotificationsEnabled, original.emailNotificationsEnabled);
-        expect(deserialized.pushNotificationsEnabled, original.pushNotificationsEnabled);
+        expect(deserialized.emailNotificationsEnabled,
+            original.emailNotificationsEnabled);
+        expect(deserialized.pushNotificationsEnabled,
+            original.pushNotificationsEnabled);
       });
 
-      test('should preserve all fields including notifications through round-trip', () {
+      test(
+          'should preserve all fields including notifications through round-trip',
+          () {
         final original = FitropeUser(
           uid: 'user-full',
           email: 'full@example.com',
@@ -211,7 +216,8 @@ void main() {
           courses: ['c1', 'c2'],
           tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
           entrateSettimanali: 3,
-          fineIscrizione: Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
+          fineIscrizione:
+              Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
           role: 'User',
           createdAt: DateTime.now(),
           waitlistCourses: ['c3'],

@@ -11,21 +11,25 @@ const Duration _cacheDurationWithExpiringCertificates = Duration(minutes: 5);
 /// Utilizza query Firestore per massimizzare le performance
 Future<List<FitropeUser>> getUsersWithExpiringCertificates() async {
   try {
-    if (_cachedUsersWithExpiringCertificates != null && _lastCacheTimeWithExpiringCertificates != null) {
-      final timeSinceLastCache = DateTime.now().difference(_lastCacheTimeWithExpiringCertificates!);
+    if (_cachedUsersWithExpiringCertificates != null &&
+        _lastCacheTimeWithExpiringCertificates != null) {
+      final timeSinceLastCache =
+          DateTime.now().difference(_lastCacheTimeWithExpiringCertificates!);
       if (timeSinceLastCache < _cacheDurationWithExpiringCertificates) {
         return _cachedUsersWithExpiringCertificates!;
       }
     }
 
     final oggi = DateTime.now();
-    final dataLimite = oggi.add(Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
-    
+    final dataLimite =
+        oggi.add(Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
+
     // Query ottimizzata: cerca solo utenti con certificato in scadenza
     final querySnapshot = await FirebaseFirestore.instance
         .collection('users')
         .where('certificatoScadenza', isNull: false)
-        .where('certificatoScadenza', isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
+        .where('certificatoScadenza',
+            isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
         .orderBy('certificatoScadenza', descending: false)
         .get();
 
@@ -45,8 +49,10 @@ Future<List<FitropeUser>> getUsersWithExpiringCertificates() async {
 /// API per ottenere il conteggio degli utenti con certificati in scadenza
 /// Utile per badge o indicatori senza dover caricare tutti i dati
 Future<int> getCountUsersWithExpiringCertificates() async {
-  if (_cachedUsersWithExpiringCertificates != null && _lastCacheTimeWithExpiringCertificates != null) {
-    final timeSinceLastCache = DateTime.now().difference(_lastCacheTimeWithExpiringCertificates!);
+  if (_cachedUsersWithExpiringCertificates != null &&
+      _lastCacheTimeWithExpiringCertificates != null) {
+    final timeSinceLastCache =
+        DateTime.now().difference(_lastCacheTimeWithExpiringCertificates!);
     if (timeSinceLastCache < _cacheDurationWithExpiringCertificates) {
       return _cachedUsersWithExpiringCertificates!.length;
     }
@@ -54,12 +60,14 @@ Future<int> getCountUsersWithExpiringCertificates() async {
 
   try {
     final oggi = DateTime.now();
-    final dataLimite = oggi.add(Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
-    
+    final dataLimite =
+        oggi.add(Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
+
     final querySnapshot = await FirebaseFirestore.instance
         .collection('users')
         .where('certificatoScadenza', isNull: false)
-        .where('certificatoScadenza', isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
+        .where('certificatoScadenza',
+            isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
         .get();
 
     _cachedUsersWithExpiringCertificates = querySnapshot.docs
@@ -73,7 +81,6 @@ Future<int> getCountUsersWithExpiringCertificates() async {
     print('Errore nel conteggio utenti con certificati in scadenza: $e');
     return 0;
   }
- 
 }
 
 // Funzione per invalidare la cache (utile quando si vuole forzare un refresh)

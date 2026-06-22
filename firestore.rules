@@ -139,6 +139,7 @@ service cloud.firestore {
         && request.resource.data.subscribed == 0
         && request.resource.data.waitlist == []
         && request.resource.data.id == courseId
+        && request.resource.data.uid == courseId
         && (isAdmin() || request.resource.data.trainerId == request.auth.uid);
 
       // Edit Admin: tutto tranne i campi server-owned/identità.

@@ -349,12 +349,10 @@ class _SectionUtenti extends StatelessWidget {
 
     final activeList = users.where((u) => u.isActive).toList();
     final active = activeList.length;
-    final new7List = activeList
-        .where((u) => u.createdAt.isAfter(sevenDaysAgo))
-        .toList();
-    final new30List = activeList
-        .where((u) => u.createdAt.isAfter(thirtyDaysAgo))
-        .toList();
+    final new7List =
+        activeList.where((u) => u.createdAt.isAfter(sevenDaysAgo)).toList();
+    final new30List =
+        activeList.where((u) => u.createdAt.isAfter(thirtyDaysAgo)).toList();
     final new7 = new7List.length;
     final new30 = new30List.length;
 

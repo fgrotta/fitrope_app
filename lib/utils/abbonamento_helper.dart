@@ -26,28 +26,29 @@ class AbbonamentoHelper {
   /// Verifica se un abbonamento è in scadenza (≤ 15 giorni)
   static bool isAbbonamentoInScadenza(Timestamp? scadenza) {
     if (scadenza == null) return false;
-    
+
     final oggi = DateTime.now();
     final dataScadenza = scadenza.toDate();
     final differenzaGiorni = dataScadenza.difference(oggi).inDays;
-    
-    return differenzaGiorni <= GIORNI_SOGLIA_SCADENZA_ABBONAMENTO && differenzaGiorni >= 0;
+
+    return differenzaGiorni <= GIORNI_SOGLIA_SCADENZA_ABBONAMENTO &&
+        differenzaGiorni >= 0;
   }
 
   /// Verifica se un abbonamento è scaduto
   static bool isAbbonamentoScaduto(Timestamp? scadenza) {
     if (scadenza == null) return false;
-    
+
     final oggi = DateTime.now();
     final dataScadenza = scadenza.toDate();
-    
+
     return dataScadenza.isBefore(oggi);
   }
 
   /// Formatta la data di scadenza dell'abbonamento
   static String formatDataScadenza(Timestamp? scadenza) {
     if (scadenza == null) return 'Non impostato';
-    
+
     final formatter = DateFormat('dd/MM/yyyy');
     return formatter.format(scadenza.toDate());
   }
@@ -55,7 +56,7 @@ class AbbonamentoHelper {
   /// Ottiene il colore appropriato per la data di scadenza
   static Color getColoreScadenza(Timestamp? scadenza) {
     if (scadenza == null) return Colors.grey;
-    
+
     if (isAbbonamentoScaduto(scadenza)) {
       return Colors.red;
     } else if (isAbbonamentoInScadenza(scadenza)) {
@@ -68,7 +69,7 @@ class AbbonamentoHelper {
   /// Ottiene il testo di stato dell'abbonamento
   static String getStatoAbbonamento(Timestamp? scadenza) {
     if (scadenza == null) return 'Non impostato';
-    
+
     if (isAbbonamentoScaduto(scadenza)) {
       return 'Scaduto';
     } else if (isAbbonamentoInScadenza(scadenza)) {
@@ -82,11 +83,11 @@ class AbbonamentoHelper {
   /// Calcola i giorni rimanenti alla scadenza
   static int getGiorniRimanenti(Timestamp? scadenza) {
     if (scadenza == null) return -1;
-    
+
     final oggi = DateTime.now();
     final dataScadenza = scadenza.toDate();
     final differenzaGiorni = dataScadenza.difference(oggi).inDays;
-    
+
     return differenzaGiorni;
   }
 }

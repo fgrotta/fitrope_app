@@ -25,6 +25,7 @@ import 'package:flutter/services.dart';
 
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
+
   /// Se true e i permessi lo consentono, apre direttamente la modalità modifica.
   final bool openInEditMode;
 
@@ -63,9 +64,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
     super.initState();
     nameController = TextEditingController(text: widget.user.name);
     lastNameController = TextEditingController(text: widget.user.lastName);
-    numeroTelefonoController = TextEditingController(text: widget.user.numeroTelefono ?? '');
-    entrateDisponibiliController = TextEditingController(text: widget.user.entrateDisponibili?.toString() ?? '');
-    entrateSettimanaliController = TextEditingController(text: widget.user.entrateSettimanali?.toString() ?? '');
+    numeroTelefonoController =
+        TextEditingController(text: widget.user.numeroTelefono ?? '');
+    entrateDisponibiliController = TextEditingController(
+        text: widget.user.entrateDisponibili?.toString() ?? '');
+    entrateSettimanaliController = TextEditingController(
+        text: widget.user.entrateSettimanali?.toString() ?? '');
     selectedRole = widget.user.role;
     selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
     selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
@@ -107,11 +111,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Non ora', style: TextStyle(color: onPrimaryColor)),
+              child: const Text('Non ora',
+                  style: TextStyle(color: onPrimaryColor)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Continua', style: TextStyle(color: primaryColor)),
+              child:
+                  const Text('Continua', style: TextStyle(color: primaryColor)),
             ),
           ],
         );
@@ -138,7 +144,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Ho capito', style: TextStyle(color: primaryColor)),
+              child: const Text('Ho capito',
+                  style: TextStyle(color: primaryColor)),
             ),
           ],
         );
@@ -164,8 +171,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         nameController.text = widget.user.name;
         lastNameController.text = widget.user.lastName;
         numeroTelefonoController.text = widget.user.numeroTelefono ?? '';
-        entrateDisponibiliController.text = widget.user.entrateDisponibili?.toString() ?? '';
-        entrateSettimanaliController.text = widget.user.entrateSettimanali?.toString() ?? '';
+        entrateDisponibiliController.text =
+            widget.user.entrateDisponibili?.toString() ?? '';
+        entrateSettimanaliController.text =
+            widget.user.entrateSettimanali?.toString() ?? '';
         selectedRole = widget.user.role;
         selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
         selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
@@ -195,7 +204,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
           if (startDate.isBefore(twelveMonthsAgo)) continue;
         }
         String courseName = course.name;
-        String courseDate = DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
+        String courseDate =
+            DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
         String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
         userCourses.add({
           'name': courseName,
@@ -207,15 +217,19 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
     // Ordina: se last12MonthsOnly, ordine cronologico (data crescente); altrimenti per titolo e data (più recenti prima)
     if (last12MonthsOnly) {
-      userCourses.sort((a, b) =>
-          DateFormat('dd/MM/yyyy').parse(a['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(b['date']!)));
+      userCourses.sort((a, b) => DateFormat('dd/MM/yyyy')
+          .parse(a['date']!)
+          .compareTo(DateFormat('dd/MM/yyyy').parse(b['date']!)));
     } else {
       userCourses.sort((a, b) {
-        int nameComparison = a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase());
+        int nameComparison =
+            a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase());
         if (nameComparison != 0) {
           return nameComparison;
         }
-        return DateFormat('dd/MM/yyyy').parse(b['date']!).compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!));
+        return DateFormat('dd/MM/yyyy')
+            .parse(b['date']!)
+            .compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!));
       });
     }
 
@@ -248,21 +262,26 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   List<Map<String, String>> getUserCancelledEnrollments() {
     List<Map<String, String>> cancelledEnrollments = [];
-    
+
     // Prendi le ultime 20 disiscrizioni (o tutte se sono meno di 20)
-    var cancelledList = widget.user.cancelledEnrollments.length > 20 
-        ? widget.user.cancelledEnrollments.sublist(widget.user.cancelledEnrollments.length - 20) 
+    var cancelledList = widget.user.cancelledEnrollments.length > 20
+        ? widget.user.cancelledEnrollments
+            .sublist(widget.user.cancelledEnrollments.length - 20)
         : widget.user.cancelledEnrollments;
-    
+
     for (var cancelled in cancelledList) {
-      Course? course = allCourses.where((c) => c.id == cancelled.courseId).firstOrNull;
+      Course? course =
+          allCourses.where((c) => c.id == cancelled.courseId).firstOrNull;
       if (course != null) {
         String courseName = course.name;
-        String cancelledDate = DateFormat('dd/MM/yyyy HH:mm').format(cancelled.cancelledAt.toDate());
-        String courseDate = DateFormat('dd/MM/yyyy').format(cancelled.courseStartDate.toDate());
+        String cancelledDate = DateFormat('dd/MM/yyyy HH:mm')
+            .format(cancelled.cancelledAt.toDate());
+        String courseDate =
+            DateFormat('dd/MM/yyyy').format(cancelled.courseStartDate.toDate());
         // Determina la tipologia del corso (usa il primo tag o 'Open' come default)
         String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
-        String status = cancelled.entryLost ? 'Ingresso perso' : 'Ingresso non perso';
+        String status =
+            cancelled.entryLost ? 'Ingresso perso' : 'Ingresso non perso';
         cancelledEnrollments.add({
           'name': courseName,
           'cancelledDate': cancelledDate,
@@ -272,19 +291,23 @@ class _UserDetailPageState extends State<UserDetailPage> {
         });
       }
     }
-    
+
     // Ordina per data di disiscrizione (più recenti prima)
     cancelledEnrollments.sort((a, b) {
-      return DateFormat('dd/MM/yyyy HH:mm').parse(b['cancelledDate']!).compareTo(DateFormat('dd/MM/yyyy HH:mm').parse(a['cancelledDate']!));
+      return DateFormat('dd/MM/yyyy HH:mm')
+          .parse(b['cancelledDate']!)
+          .compareTo(DateFormat('dd/MM/yyyy HH:mm').parse(a['cancelledDate']!));
     });
-    
+
     return cancelledEnrollments;
   }
 
-  Map<String, List<Map<String, String>>> getUserCancelledEnrollmentsByTipologia() {
-    List<Map<String, String>> allCancelledEnrollments = getUserCancelledEnrollments();
+  Map<String, List<Map<String, String>>>
+      getUserCancelledEnrollmentsByTipologia() {
+    List<Map<String, String>> allCancelledEnrollments =
+        getUserCancelledEnrollments();
     Map<String, List<Map<String, String>>> cancelledByTipologia = {};
-    
+
     // Raggruppa le disiscrizioni per tipologia
     for (var cancelledInfo in allCancelledEnrollments) {
       String tipologia = cancelledInfo['tipologia'] ?? 'Open';
@@ -293,7 +316,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       }
       cancelledByTipologia[tipologia]!.add(cancelledInfo);
     }
-    
+
     return cancelledByTipologia;
   }
 
@@ -301,16 +324,22 @@ class _UserDetailPageState extends State<UserDetailPage> {
     final name = nameController.text.trim();
     final lastName = lastNameController.text.trim();
     final numeroTelefono = numeroTelefonoController.text.trim();
-    final entrateDisponibili = int.tryParse(entrateDisponibiliController.text.trim());
-    final entrateSettimanali = int.tryParse(entrateSettimanaliController.text.trim());
-    
+    final entrateDisponibili =
+        int.tryParse(entrateDisponibiliController.text.trim());
+    final entrateSettimanali =
+        int.tryParse(entrateSettimanaliController.text.trim());
+
     if (name.isEmpty || lastName.isEmpty) {
-      setState(() { errorMsg = 'Compila tutti i campi obbligatori'; });
+      setState(() {
+        errorMsg = 'Compila tutti i campi obbligatori';
+      });
       return;
     }
-  
+
     if (entrateSettimanali != null && entrateSettimanali < 0) {
-      setState(() { errorMsg = 'Le entrate settimanali non possono essere negative'; });
+      setState(() {
+        errorMsg = 'Le entrate settimanali non possono essere negative';
+      });
       return;
     }
 
@@ -318,10 +347,15 @@ class _UserDetailPageState extends State<UserDetailPage> {
     if (numeroTelefono.isNotEmpty) {
       // Verifica che contenga solo numeri
       if (!RegExp(r'^[0-9]+$').hasMatch(numeroTelefono)) {
-        setState(() { errorMsg = 'Il numero di telefono deve contenere solo numeri'; });
+        setState(() {
+          errorMsg = 'Il numero di telefono deve contenere solo numeri';
+        });
         return;
       } else if (numeroTelefono.length != 10) {
-        setState(() { errorMsg = 'Il numero di telefono deve contenere esattamente 10 cifre'; });
+        setState(() {
+          errorMsg =
+              'Il numero di telefono deve contenere esattamente 10 cifre';
+        });
         return;
       }
     }
@@ -347,7 +381,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         if (selectedPushNotifications) {
           final hasPermission = await OneSignalService.hasPushPermission();
           if (!hasPermission) {
-            final canRequest = await OneSignalService.canRequestPushPermission();
+            final canRequest =
+                await OneSignalService.canRequestPushPermission();
             if (!canRequest) {
               await _showPushPermissionHelp();
             }
@@ -385,14 +420,24 @@ class _UserDetailPageState extends State<UserDetailPage> {
         tipologiaIscrizione: selectedTipologiaIscrizione,
         entrateDisponibili: entrateDisponibili,
         entrateSettimanali: entrateSettimanali,
-        fineIscrizione: selectedFineIscrizione != null 
-            ? Timestamp.fromDate(DateTime(selectedFineIscrizione!.year, selectedFineIscrizione!.month, selectedFineIscrizione!.day, 23, 59))
+        fineIscrizione: selectedFineIscrizione != null
+            ? Timestamp.fromDate(DateTime(
+                selectedFineIscrizione!.year,
+                selectedFineIscrizione!.month,
+                selectedFineIscrizione!.day,
+                23,
+                59))
             : null,
         isActive: selectedIsActive,
         isAnonymous: selectedIsAnonymous,
         createdAt: widget.user.createdAt,
-        certificatoScadenza: selectedCertificatoScadenza != null 
-            ? Timestamp.fromDate(DateTime(selectedCertificatoScadenza!.year, selectedCertificatoScadenza!.month, selectedCertificatoScadenza!.day, 23, 59))
+        certificatoScadenza: selectedCertificatoScadenza != null
+            ? Timestamp.fromDate(DateTime(
+                selectedCertificatoScadenza!.year,
+                selectedCertificatoScadenza!.month,
+                selectedCertificatoScadenza!.day,
+                23,
+                59))
             : null,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
         tipologiaCorsoTags: selectedTipologiaCorsoTags,
@@ -428,7 +473,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
       if (pushPreferenceChanged && pushPreferenceApplied) {
         await OneSignalService.syncPushPreference(previousPushPreference);
       }
-      if (mounted) setState(() { errorMsg = 'Errore durante l\'aggiornamento'; });
+      if (mounted)
+        setState(() {
+          errorMsg = 'Errore durante l\'aggiornamento';
+        });
     }
   }
 
@@ -443,7 +491,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
+              child: const Text(
+                'Annulla',
+                style: TextStyle(color: onPrimaryColor),
+              ),
             ),
             TextButton(
               onPressed: () async {
@@ -460,7 +511,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 }
               },
               style: TextButton.styleFrom(foregroundColor: warningColor),
-              child: const Text('Logout', style: TextStyle(color: warningColor, fontWeight: FontWeight.bold),),
+              child: const Text(
+                'Logout',
+                style:
+                    TextStyle(color: warningColor, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -483,7 +538,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
+              child: const Text(
+                'Annulla',
+                style: TextStyle(color: onPrimaryColor),
+              ),
             ),
             TextButton(
               onPressed: () async {
@@ -491,13 +549,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   // Disattiva l'account dell'utente
                   await toggleUserStatus(widget.user.uid, false);
                   Navigator.pop(context); // Chiudi la modale
-                  
+
                   // Mostra messaggio di conferma
                   SnackBarUtils.showSuccessSnackBar(
                     context,
                     'Account disattivato con successo. Sei stato sloggato.',
                   );
-                  
+
                   // Effettua il logout immediatamente
                   await signOut();
                   // Verifica se il context è ancora valido prima di navigare
@@ -513,7 +571,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 }
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Cancella Account', style: TextStyle(color: errorColor, fontWeight: FontWeight.bold),),
+              child: const Text(
+                'Cancella Account',
+                style:
+                    TextStyle(color: errorColor, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -521,7 +583,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  void showCancelledEnrollmentInfo(String courseName, String courseDate, String cancelledDate, String status) {
+  void showCancelledEnrollmentInfo(String courseName, String courseDate,
+      String cancelledDate, String status) {
     showDialog(
       context: context,
       builder: (context) {
@@ -542,7 +605,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Chiudi', style: TextStyle(color: onPrimaryColor)),
+              child:
+                  const Text('Chiudi', style: TextStyle(color: onPrimaryColor)),
             ),
           ],
         );
@@ -564,14 +628,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
+              child: const Text(
+                'Annulla',
+                style: TextStyle(color: onPrimaryColor),
+              ),
             ),
             TextButton(
               onPressed: () async {
                 try {
                   await resetPassword(widget.user.email);
                   Navigator.pop(context); // Chiudi la modale
-                  
+
                   SnackBarUtils.showSuccessSnackBar(
                     context,
                     'Email di reset password inviata con successo a ${widget.user.email}',
@@ -585,7 +652,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 }
               },
               style: TextButton.styleFrom(foregroundColor: primaryColor),
-              child: const Text('Invia Email', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),),
+              child: const Text(
+                'Invia Email',
+                style:
+                    TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -596,22 +667,22 @@ class _UserDetailPageState extends State<UserDetailPage> {
   bool _canViewUser() {
     final currentUser = store.state.user;
     if (currentUser == null) return false;
-    
+
     // L'utente può sempre vedere il suo profilo
     if (currentUser.uid == widget.user.uid) {
       return true;
     }
-    
+
     // Admin può vedere tutti gli utenti
     if (currentUser.role == 'Admin') {
       return true;
     }
-    
+
     // Trainer può vedere solo utenti con ruolo User
     if (currentUser.role == 'Trainer') {
       return widget.user.role == 'User';
     }
-    
+
     // User può vedere solo il suo profilo (già controllato sopra)
     return false;
   }
@@ -633,7 +704,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   bool _canEditSpecificField(String fieldName) {
     final currentUser = store.state.user;
-  
+
     if (currentUser == null) return false;
     // Admin può modificare tutti i campi
     if (currentUser.role == 'Admin') {
@@ -641,19 +712,28 @@ class _UserDetailPageState extends State<UserDetailPage> {
     }
     // Trainer può modificare solo Nome, Cognome e Numero di Telefono di utenti con ruolo User
     if (currentUser.role == 'Trainer' && widget.user.role == 'User') {
-      return fieldName == 'Nome' || fieldName == 'Cognome' || fieldName == 'Numero di Telefono' || fieldName == 'Anonimo';
+      return fieldName == 'Nome' ||
+          fieldName == 'Cognome' ||
+          fieldName == 'Numero di Telefono' ||
+          fieldName == 'Anonimo';
     }
 
     // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo, Fine Iscrizione, Certificato e Tipologia Corso sono gestiti solo dagli Admin
-    if (fieldName == 'Stato' || fieldName == 'Tipologia' || fieldName == 'Entrate Disponibili' || 
-        fieldName == 'Entrate Settimanali' || fieldName == 'Fine Iscrizione' || fieldName == 'Ruolo' || fieldName == 'Certificato' || fieldName == 'Tipologia Corso') {
+    if (fieldName == 'Stato' ||
+        fieldName == 'Tipologia' ||
+        fieldName == 'Entrate Disponibili' ||
+        fieldName == 'Entrate Settimanali' ||
+        fieldName == 'Fine Iscrizione' ||
+        fieldName == 'Ruolo' ||
+        fieldName == 'Certificato' ||
+        fieldName == 'Tipologia Corso') {
       return currentUser.role == 'Admin';
     }
     return true;
   }
 
   String _getValidRoleForDropdown() {
-    // Se l'utente corrente non è Admin e selectedRole è Trainer, 
+    // Se l'utente corrente non è Admin e selectedRole è Trainer,
     // restituisci 'User' come fallback
     if (store.state.user?.role != 'Admin' && selectedRole == 'Trainer') {
       return 'User';
@@ -665,10 +745,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
     if (widget.user.certificatoScadenza == null) {
       return 'Non impostato';
     }
-    
-    final dataFormattata = CertificatoHelper.formatDataScadenza(widget.user.certificatoScadenza);
-    final stato = CertificatoHelper.getStatoCertificato(widget.user.certificatoScadenza);
-    
+
+    final dataFormattata =
+        CertificatoHelper.formatDataScadenza(widget.user.certificatoScadenza);
+    final stato =
+        CertificatoHelper.getStatoCertificato(widget.user.certificatoScadenza);
+
     return '$dataFormattata ($stato)';
   }
 
@@ -710,7 +792,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 ),
               )
             : null,
-        title: Text(store.state.user?.uid == widget.user.uid ? 'Il Mio Profilo' : 'Dettagli Utente'),
+        title: Text(store.state.user?.uid == widget.user.uid
+            ? 'Il Mio Profilo'
+            : 'Dettagli Utente'),
         actions: [
           Padding(
             padding: EdgeInsetsDirectional.only(end: horizontalInset),
@@ -746,7 +830,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
-          horizontal: isDesktop(context) ? MediaQuery.of(context).size.width * 0.15 : pagePadding,
+          horizontal: isDesktop(context)
+              ? MediaQuery.of(context).size.width * 0.15
+              : pagePadding,
           vertical: pagePadding,
         ),
         child: Column(
@@ -782,7 +868,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: primaryLightColor,
                           borderRadius: BorderRadius.circular(20),
@@ -798,7 +885,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       if (!widget.user.isActive) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(20),
@@ -825,22 +913,42 @@ class _UserDetailPageState extends State<UserDetailPage> {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Sezione informazioni personali
             _buildSection(
               'Informazioni Personali',
               [
-                _buildInfoRow('Nome', widget.user.name, nameController, _canEditSpecificField('Nome') && isEditing),
-                _buildInfoRow('Cognome', widget.user.lastName, lastNameController, _canEditSpecificField('Cognome') && isEditing),
-                _buildInfoRow('Numero di Telefono', widget.user.numeroTelefono ?? 'Non impostato', numeroTelefonoController, _canEditSpecificField('Numero di Telefono') && isEditing),
+                _buildInfoRow('Nome', widget.user.name, nameController,
+                    _canEditSpecificField('Nome') && isEditing),
+                _buildInfoRow(
+                    'Cognome',
+                    widget.user.lastName,
+                    lastNameController,
+                    _canEditSpecificField('Cognome') && isEditing),
+                _buildInfoRow(
+                    'Numero di Telefono',
+                    widget.user.numeroTelefono ?? 'Non impostato',
+                    numeroTelefonoController,
+                    _canEditSpecificField('Numero di Telefono') && isEditing),
                 _buildInfoRow('Email', widget.user.email, null, false),
                 if (isAdmin)
-                _buildInfoRow('Ruolo', widget.user.role, null, _canEditSpecificField('Ruolo') && isEditing, isDropdown: true),
-                _buildInfoRow('Certificato Medico', _getCertificatoText(), null, _canEditSpecificField('Certificato') && isEditing, isCertificatoDatePicker: true),
+                  _buildInfoRow('Ruolo', widget.user.role, null,
+                      _canEditSpecificField('Ruolo') && isEditing,
+                      isDropdown: true),
+                _buildInfoRow('Certificato Medico', _getCertificatoText(), null,
+                    _canEditSpecificField('Certificato') && isEditing,
+                    isCertificatoDatePicker: true),
                 // Campo Stato visibile solo agli Admin
                 if (isAdmin)
-                  _buildInfoRow('Stato', widget.user.isActive ? 'Attivo' : 'Disattivato', null, _canEditSpecificField('Stato') && isEditing, isStatusDropdown: true),
-                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No', null, _canEditSpecificField('Anonimo') && isEditing, isAnonymousDropdown: true),
+                  _buildInfoRow(
+                      'Stato',
+                      widget.user.isActive ? 'Attivo' : 'Disattivato',
+                      null,
+                      _canEditSpecificField('Stato') && isEditing,
+                      isStatusDropdown: true),
+                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No',
+                    null, _canEditSpecificField('Anonimo') && isEditing,
+                    isAnonymousDropdown: true),
                 // Pulsante per inviare email di reset password (solo per Admin)
                 if (isAdmin) ...[
                   const SizedBox(height: 16),
@@ -869,20 +977,49 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 ],
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Sezione piano di iscrizione
             _buildSection(
               'Piano di Iscrizione',
               [
-                _buildInfoRow('Tipologia', _getTipologiaLabel(widget.user.tipologiaIscrizione), null, _canEditSpecificField('Tipologia') && isEditing, isTipologiaDropdown: true),
-                _buildInfoRow('Tipologia Corso', widget.user.tipologiaCorsoTags.join(', '), null, _canEditSpecificField('Tipologia Corso') && isEditing, isTagsMultiSelect: true),
-                if (widget.user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE || isAdmin) ...[
-                  _buildInfoRow('Entrate Disponibili', widget.user.entrateDisponibili?.toString() ?? '0', entrateDisponibiliController, _canEditSpecificField('Entrate Disponibili') && isEditing),                  
+                _buildInfoRow(
+                    'Tipologia',
+                    _getTipologiaLabel(widget.user.tipologiaIscrizione),
+                    null,
+                    _canEditSpecificField('Tipologia') && isEditing,
+                    isTipologiaDropdown: true),
+                _buildInfoRow(
+                    'Tipologia Corso',
+                    widget.user.tipologiaCorsoTags.join(', '),
+                    null,
+                    _canEditSpecificField('Tipologia Corso') && isEditing,
+                    isTagsMultiSelect: true),
+                if (widget.user.tipologiaIscrizione ==
+                        TipologiaIscrizione.PACCHETTO_ENTRATE ||
+                    isAdmin) ...[
+                  _buildInfoRow(
+                      'Entrate Disponibili',
+                      widget.user.entrateDisponibili?.toString() ?? '0',
+                      entrateDisponibiliController,
+                      _canEditSpecificField('Entrate Disponibili') &&
+                          isEditing),
                 ],
-                _buildInfoRow('Entrate Settimanali', widget.user.entrateSettimanali?.toString() ?? '0', entrateSettimanaliController, _canEditSpecificField('Entrate Settimanali') && isEditing),
-                _buildInfoRow('Fine Iscrizione', widget.user.fineIscrizione != null ? DateFormat('dd/MM/yyyy').format(widget.user.fineIscrizione!.toDate()) : 'Non impostata', null, _canEditSpecificField('Fine Iscrizione') && isEditing, isDatePicker: true),
+                _buildInfoRow(
+                    'Entrate Settimanali',
+                    widget.user.entrateSettimanali?.toString() ?? '0',
+                    entrateSettimanaliController,
+                    _canEditSpecificField('Entrate Settimanali') && isEditing),
+                _buildInfoRow(
+                    'Fine Iscrizione',
+                    widget.user.fineIscrizione != null
+                        ? DateFormat('dd/MM/yyyy')
+                            .format(widget.user.fineIscrizione!.toDate())
+                        : 'Non impostata',
+                    null,
+                    _canEditSpecificField('Fine Iscrizione') && isEditing,
+                    isDatePicker: true),
               ],
             ),
 
@@ -903,14 +1040,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     'Notifiche Push',
                     Icons.notifications_active,
                     selectedPushNotifications,
-                    (value) => setState(() => selectedPushNotifications = value),
+                    (value) =>
+                        setState(() => selectedPushNotifications = value),
                     enabled: isEditing,
                   ),
                   _buildNotificationToggle(
                     'Notifiche Email',
                     Icons.email,
                     selectedEmailNotifications,
-                    (value) => setState(() => selectedEmailNotifications = value),
+                    (value) =>
+                        setState(() => selectedEmailNotifications = value),
                     enabled: isEditing,
                   ),
                 ],
@@ -923,8 +1062,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
             _buildSection(
               'Informazioni Account',
               [
-                _buildInfoRow('Data Registrazione', DateFormat('dd/MM/yyyy HH:mm').format(widget.user.createdAt), null, false),
-                _buildInfoRow('Corsi Iscritti', '${widget.user.courses.length}', null, false),
+                _buildInfoRow(
+                    'Data Registrazione',
+                    DateFormat('dd/MM/yyyy HH:mm')
+                        .format(widget.user.createdAt),
+                    null,
+                    false),
+                _buildInfoRow('Corsi Iscritti', '${widget.user.courses.length}',
+                    null, false),
               ],
             ),
 
@@ -937,7 +1082,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 _buildInfoRow(
                   'Accettato il',
                   widget.user.regolamentoAccettatoIl != null
-                      ? DateFormat('dd/MM/yyyy HH:mm').format(widget.user.regolamentoAccettatoIl!.toDate())
+                      ? DateFormat('dd/MM/yyyy HH:mm')
+                          .format(widget.user.regolamentoAccettatoIl!.toDate())
                       : 'Non ancora accettato',
                   null,
                   false,
@@ -947,7 +1093,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   onTap: () => RegolamentoHelper.openRegolamento(),
                   child: const Row(
                     children: [
-                      Icon(Icons.description, color: Colors.blueAccent, size: 20),
+                      Icon(Icons.description,
+                          color: Colors.blueAccent, size: 20),
                       SizedBox(width: 8),
                       Text(
                         'Visualizza regolamento completo',
@@ -967,7 +1114,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        final accepted = await RegolamentoHelper.checkAndAcceptRegolamento(
+                        final accepted =
+                            await RegolamentoHelper.checkAndAcceptRegolamento(
                           context,
                           widget.user,
                         );
@@ -984,17 +1132,20 @@ class _UserDetailPageState extends State<UserDetailPage> {
                             lastName: widget.user.lastName,
                             role: widget.user.role,
                             courses: widget.user.courses,
-                            tipologiaIscrizione: widget.user.tipologiaIscrizione,
+                            tipologiaIscrizione:
+                                widget.user.tipologiaIscrizione,
                             entrateDisponibili: widget.user.entrateDisponibili,
                             entrateSettimanali: widget.user.entrateSettimanali,
                             fineIscrizione: widget.user.fineIscrizione,
                             isActive: widget.user.isActive,
                             isAnonymous: widget.user.isAnonymous,
                             createdAt: widget.user.createdAt,
-                            certificatoScadenza: widget.user.certificatoScadenza,
+                            certificatoScadenza:
+                                widget.user.certificatoScadenza,
                             numeroTelefono: widget.user.numeroTelefono,
                             tipologiaCorsoTags: widget.user.tipologiaCorsoTags,
-                            cancelledEnrollments: widget.user.cancelledEnrollments,
+                            cancelledEnrollments:
+                                widget.user.cancelledEnrollments,
                             regolamentoAccettatoIl: Timestamp.now(),
                           );
                           Navigator.pop(context, updatedUser);
@@ -1021,21 +1172,27 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 ],
               ],
             ),
-            
+
             if (widget.user.courses.isNotEmpty) ...[
               const SizedBox(height: 24),
               if (isAdmin)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: OutlinedButton.icon(
-                    onPressed: () => setState(() => _showAllEnrollments12Months = !_showAllEnrollments12Months),
+                    onPressed: () => setState(() =>
+                        _showAllEnrollments12Months =
+                            !_showAllEnrollments12Months),
                     icon: Icon(
-                      _showAllEnrollments12Months ? Icons.list : Icons.calendar_month,
+                      _showAllEnrollments12Months
+                          ? Icons.list
+                          : Icons.calendar_month,
                       size: 18,
                       color: primaryLightColor,
                     ),
                     label: Text(
-                      _showAllEnrollments12Months ? 'Vedi ultime 20' : 'Vedi tutte (ultimi 12 mesi)',
+                      _showAllEnrollments12Months
+                          ? 'Vedi ultime 20'
+                          : 'Vedi tutte (ultimi 12 mesi)',
                       style: const TextStyle(color: primaryLightColor),
                     ),
                   ),
@@ -1044,8 +1201,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 _buildSection(
                   'Tutte le iscrizioni (ultimi 12 mesi)',
                   getUserCourses(maxCount: null, last12MonthsOnly: true)
-                      .map((courseInfo) =>
-                          _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false))
+                      .map((courseInfo) => _buildInfoRow(courseInfo['name']!,
+                          courseInfo['date']!, null, false))
                       .toList(),
                 ),
                 const SizedBox(height: 24),
@@ -1061,15 +1218,20 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     children: [
                       _buildSection(
                         'Ultime ${isAdmin ? 20 : 10} iscrizioni - $tipologia',
-                        courses.map((courseInfo) =>
-                            _buildInfoRow(courseInfo['name']!, courseInfo['date']!, null, false)).toList(),
+                        courses
+                            .map((courseInfo) => _buildInfoRow(
+                                courseInfo['name']!,
+                                courseInfo['date']!,
+                                null,
+                                false))
+                            .toList(),
                       ),
                       const SizedBox(height: 24),
                     ],
                   );
                 }).toList(),
             ],
-            
+
             // Sezione disiscrizioni (solo per Admin)
             if (isAdmin && widget.user.cancelledEnrollments.isNotEmpty) ...[
               const SizedBox(height: 24),
@@ -1080,24 +1242,25 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   children: [
                     _buildSection(
                       'Ultime 20 disiscrizioni - $tipologia',
-                      cancelledEnrollments.map((cancelledInfo) => 
-                        _buildInfoRow(
-                          cancelledInfo['name']!, 
-                          cancelledInfo['courseDate']!,
-                          null, 
-                          false,
-                          trailing: IconButton(
-                            icon: const Icon(Icons.info_outline, size: 20, color: primaryLightColor),
-                            onPressed: () => showCancelledEnrollmentInfo(
-                              cancelledInfo['name']!,
-                              cancelledInfo['courseDate']!,
-                              cancelledInfo['cancelledDate']!,
-                              cancelledInfo['status']!,
-                            ),
-                            tooltip: 'Informazioni disiscrizione',
-                          ),
-                        )
-                      ).toList(),
+                      cancelledEnrollments
+                          .map((cancelledInfo) => _buildInfoRow(
+                                cancelledInfo['name']!,
+                                cancelledInfo['courseDate']!,
+                                null,
+                                false,
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.info_outline,
+                                      size: 20, color: primaryLightColor),
+                                  onPressed: () => showCancelledEnrollmentInfo(
+                                    cancelledInfo['name']!,
+                                    cancelledInfo['courseDate']!,
+                                    cancelledInfo['cancelledDate']!,
+                                    cancelledInfo['status']!,
+                                  ),
+                                  tooltip: 'Informazioni disiscrizione',
+                                ),
+                              ))
+                          .toList(),
                     ),
                     const SizedBox(height: 24),
                   ],
@@ -1121,7 +1284,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   ),
                 ),
               ),
-            
+
             // Pulsante Logout (solo per il proprio profilo)
             if (store.state.user?.uid == widget.user.uid) ...[
               const SizedBox(height: 32),
@@ -1198,8 +1361,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   /// scadute), perché è la vista gestionale/storica admin; la HomePage utente
   /// filtra invece con `liveSubscriptions` e mostra solo quelle vive.
   Widget _buildActiveSubscriptionsSection() {
-    final subs = [...widget.user.activeSubscriptions]
-      ..sort((a, b) {
+    final subs = [...widget.user.activeSubscriptions]..sort((a, b) {
         final byEnd = b.endDate.compareTo(a.endDate);
         return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
       });
@@ -1212,13 +1374,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 style: TextStyle(color: onSurfaceVariantColor),
               ),
             ]
-          : subs
-              .map((s) => ActiveSubscriptionCard(subscription: s))
-              .toList(),
+          : subs.map((s) => ActiveSubscriptionCard(subscription: s)).toList(),
     );
   }
 
-  Widget _buildNotificationToggle(String label, IconData icon, bool value, ValueChanged<bool> onChanged, {bool enabled = true}) {
+  Widget _buildNotificationToggle(
+      String label, IconData icon, bool value, ValueChanged<bool> onChanged,
+      {bool enabled = true}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -1244,7 +1406,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, TextEditingController? controller, bool isEditable, {bool isDropdown = false, bool isTipologiaDropdown = false, bool isDatePicker = false, bool isStatusDropdown = false, bool isAnonymousDropdown = false, bool isCertificatoDatePicker = false, bool isTagsMultiSelect = false, Widget? trailing}) {
+  Widget _buildInfoRow(String label, String value,
+      TextEditingController? controller, bool isEditable,
+      {bool isDropdown = false,
+      bool isTipologiaDropdown = false,
+      bool isDatePicker = false,
+      bool isStatusDropdown = false,
+      bool isAnonymousDropdown = false,
+      bool isCertificatoDatePicker = false,
+      bool isTagsMultiSelect = false,
+      Widget? trailing}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -1265,255 +1436,359 @@ class _UserDetailPageState extends State<UserDetailPage> {
               children: [
                 Expanded(
                   child: isEditable && controller != null
-                ? TextField(
-                    controller: controller,
-                    keyboardType: label == 'Numero di Telefono (opzionale)' ? TextInputType.phone : TextInputType.number,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    inputFormatters: label == 'Numero di Telefono' ? [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(10),
-                    ] : null,
-                  )
-                : isEditable && isDropdown
-                    ? DropdownButtonFormField<String>(
-                        value: _getValidRoleForDropdown(),
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'User',
-                            child: Text('User'),
+                      ? TextField(
+                          controller: controller,
+                          keyboardType:
+                              label == 'Numero di Telefono (opzionale)'
+                                  ? TextInputType.phone
+                                  : TextInputType.number,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                           ),
-                          // Solo gli admin possono assegnare il ruolo Trainer
-                          if (isAdmin)
-                            DropdownMenuItem(
-                              value: 'Trainer',
-                              child: Text('Trainer'),
-                            ),
-                          DropdownMenuItem(
-                            value: 'Admin',
-                            child: Text('Admin'),
-                          ),
-                        ],
-                        onChanged: (newValue) {
-                          setState(() {
-                            selectedRole = newValue!;
-                          });
-                        },
-                      )
-                    : isEditable && isTipologiaDropdown
-                        ? DropdownButtonFormField<String>(
-                            value: selectedTipologiaIscrizione?.toString().split('.').last,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            items: [
-                              DropdownMenuItem(value: null, child: Text(_getTipologiaLabel(null), style: const TextStyle(color: onPrimaryColor),)),
-                              ...TipologiaIscrizione.values.map((tipologia) {
-                                return DropdownMenuItem(
-                                  value: tipologia.toString().split('.').last,
-                                  child: Text(_getTipologiaLabel(tipologia)),
-                                );
-                              }),
-                            ],
-                            onChanged: (newValue) {
-                              setState(() {
-                                selectedTipologiaIscrizione = newValue != null 
-                                    ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == newValue).firstOrNull
-                                    : null;
-                              });
-                            },
-                          )
-                  : isEditable && isDatePicker
-                            ? InkWell(
-                                onTap: () async {
-                                  final DateTime now = DateTime.now();
-                                  final DateTime initialDate = selectedFineIscrizione != null && selectedFineIscrizione!.isAfter(now)
-                                      ? selectedFineIscrizione!
-                                      : now;
-
-                                  final DateTime? picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: initialDate,
-                                    firstDate: now,
-                                    lastDate: now.add(const Duration(days: 365 * 2)),
-                                    locale: const Locale('it', 'IT'),
-                                  );
-                                  if (picked != null) {
-                                    setState(() {
-                                      selectedFineIscrizione = picked;
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        selectedFineIscrizione != null 
-                                            ? DateFormat('dd/MM/yyyy').format(selectedFineIscrizione!)
-                                            : 'Seleziona data',
-                                        style: const TextStyle(fontSize: 16),
-                                      ),
-                                      const Icon(Icons.calendar_today),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            : isEditable && isStatusDropdown
-                            ? DropdownButtonFormField<bool>(
-                                value: selectedIsActive,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                items: [
-                                  DropdownMenuItem(
-                                    value: true,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.check_circle, color: Colors.green),
-                                        SizedBox(width: 8),
-                                        Text('Attivo', style: TextStyle(color: onPrimaryColor),),
-                                      ],
-                                    ),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: false,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.block, color: Colors.red),
-                                        SizedBox(width: 8),
-                                        Text('Disattivato'),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (newValue) {
-                                  setState(() {
-                                    selectedIsActive = newValue!;
-                                  });
-                                },
-                              )
-                            : isEditable && isAnonymousDropdown
-                            ? DropdownButtonFormField<bool>(
-                                value: selectedIsAnonymous,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                items: [
-                                  DropdownMenuItem(
-                                    value: false,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.person, color: Colors.green),
-                                        SizedBox(width: 8),
-                                        Text('No'),
-                                      ],
-                                    ),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: true,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.visibility_off, color: Colors.grey),
-                                        SizedBox(width: 8),
-                                        Text('Sì'),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (newValue) {
-                                  setState(() {
-                                    selectedIsAnonymous = newValue!;
-                                  });
-                                },
-                              )
-                            : isEditable && isCertificatoDatePicker
-                            ? InkWell(
-                                onTap: () async {
-                                  final DateTime now = DateTime.now();
-                                  final DateTime initialDate = selectedCertificatoScadenza != null && selectedCertificatoScadenza!.isAfter(now)
-                                      ? selectedCertificatoScadenza!
-                                      : now;
-                                  
-                                  final DateTime? picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: initialDate,
-                                    firstDate: now.subtract(const Duration(days: 180)),
-                                    lastDate: now.add(const Duration(days: 400)),
-                                    locale: const Locale('it', 'IT'),
-                                  );
-                                  if (picked != null) {
-                                    setState(() {
-                                      selectedCertificatoScadenza = picked;
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        selectedCertificatoScadenza != null 
-                                            ? DateFormat('dd/MM/yyyy').format(selectedCertificatoScadenza!)
-                                            : 'Seleziona data',
-                                        style: const TextStyle(fontSize: 16),
-                                      ),
-                                      const Icon(Icons.calendar_today),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            : isEditable && isTagsMultiSelect
-                            ? Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: CourseTags.all.map((tag) {
-                                  final isSelected = selectedTipologiaCorsoTags.contains(tag);
-                                  return FilterChip(
-                                    label: Text(tag),
-                                    selected: isSelected,
-                                    onSelected: (selected) {
-                                      setState(() {
-                                        if (selected) {
-                                          selectedTipologiaCorsoTags.add(tag);
-                                        } else {
-                                          selectedTipologiaCorsoTags.remove(tag);
-                                        }
-                                      });
-                                    },
-                                    selectedColor: primaryColor.withOpacity(0.3),
-                                    checkmarkColor: primaryColor,
-                                  );
-                                }).toList(),
-                              )
-                            : Text(
-                                value,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: label == 'Certificato Medico' && widget.user.certificatoScadenza != null
-                                      ? CertificatoHelper.getColoreScadenza(widget.user.certificatoScadenza)
-                                      : null,
-                                ),
+                          inputFormatters: label == 'Numero di Telefono'
+                              ? [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(10),
+                                ]
+                              : null,
+                        )
+                      : isEditable && isDropdown
+                          ? DropdownButtonFormField<String>(
+                              value: _getValidRoleForDropdown(),
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                               ),
+                              items: [
+                                DropdownMenuItem(
+                                  value: 'User',
+                                  child: Text('User'),
+                                ),
+                                // Solo gli admin possono assegnare il ruolo Trainer
+                                if (isAdmin)
+                                  DropdownMenuItem(
+                                    value: 'Trainer',
+                                    child: Text('Trainer'),
+                                  ),
+                                DropdownMenuItem(
+                                  value: 'Admin',
+                                  child: Text('Admin'),
+                                ),
+                              ],
+                              onChanged: (newValue) {
+                                setState(() {
+                                  selectedRole = newValue!;
+                                });
+                              },
+                            )
+                          : isEditable && isTipologiaDropdown
+                              ? DropdownButtonFormField<String>(
+                                  value: selectedTipologiaIscrizione
+                                      ?.toString()
+                                      .split('.')
+                                      .last,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                  ),
+                                  items: [
+                                    DropdownMenuItem(
+                                        value: null,
+                                        child: Text(
+                                          _getTipologiaLabel(null),
+                                          style: const TextStyle(
+                                              color: onPrimaryColor),
+                                        )),
+                                    ...TipologiaIscrizione.values
+                                        .map((tipologia) {
+                                      return DropdownMenuItem(
+                                        value: tipologia
+                                            .toString()
+                                            .split('.')
+                                            .last,
+                                        child:
+                                            Text(_getTipologiaLabel(tipologia)),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (newValue) {
+                                    setState(() {
+                                      selectedTipologiaIscrizione = newValue !=
+                                              null
+                                          ? TipologiaIscrizione.values
+                                              .where((e) =>
+                                                  e
+                                                      .toString()
+                                                      .split('.')
+                                                      .last ==
+                                                  newValue)
+                                              .firstOrNull
+                                          : null;
+                                    });
+                                  },
+                                )
+                              : isEditable && isDatePicker
+                                  ? InkWell(
+                                      onTap: () async {
+                                        final DateTime now = DateTime.now();
+                                        final DateTime initialDate =
+                                            selectedFineIscrizione != null &&
+                                                    selectedFineIscrizione!
+                                                        .isAfter(now)
+                                                ? selectedFineIscrizione!
+                                                : now;
+
+                                        final DateTime? picked =
+                                            await showDatePicker(
+                                          context: context,
+                                          initialDate: initialDate,
+                                          firstDate: now,
+                                          lastDate: now.add(
+                                              const Duration(days: 365 * 2)),
+                                          locale: const Locale('it', 'IT'),
+                                        );
+                                        if (picked != null) {
+                                          setState(() {
+                                            selectedFineIscrizione = picked;
+                                          });
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          border:
+                                              Border.all(color: Colors.grey),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              selectedFineIscrizione != null
+                                                  ? DateFormat('dd/MM/yyyy')
+                                                      .format(
+                                                          selectedFineIscrizione!)
+                                                  : 'Seleziona data',
+                                              style:
+                                                  const TextStyle(fontSize: 16),
+                                            ),
+                                            const Icon(Icons.calendar_today),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : isEditable && isStatusDropdown
+                                      ? DropdownButtonFormField<bool>(
+                                          value: selectedIsActive,
+                                          decoration: const InputDecoration(
+                                            border: OutlineInputBorder(),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8),
+                                          ),
+                                          items: [
+                                            DropdownMenuItem(
+                                              value: true,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.check_circle,
+                                                      color: Colors.green),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    'Attivo',
+                                                    style: TextStyle(
+                                                        color: onPrimaryColor),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: false,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.block,
+                                                      color: Colors.red),
+                                                  SizedBox(width: 8),
+                                                  Text('Disattivato'),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          onChanged: (newValue) {
+                                            setState(() {
+                                              selectedIsActive = newValue!;
+                                            });
+                                          },
+                                        )
+                                      : isEditable && isAnonymousDropdown
+                                          ? DropdownButtonFormField<bool>(
+                                              value: selectedIsAnonymous,
+                                              decoration: const InputDecoration(
+                                                border: OutlineInputBorder(),
+                                                contentPadding:
+                                                    EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8),
+                                              ),
+                                              items: [
+                                                DropdownMenuItem(
+                                                  value: false,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.person,
+                                                          color: Colors.green),
+                                                      SizedBox(width: 8),
+                                                      Text('No'),
+                                                    ],
+                                                  ),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: true,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.visibility_off,
+                                                          color: Colors.grey),
+                                                      SizedBox(width: 8),
+                                                      Text('Sì'),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  selectedIsAnonymous =
+                                                      newValue!;
+                                                });
+                                              },
+                                            )
+                                          : isEditable &&
+                                                  isCertificatoDatePicker
+                                              ? InkWell(
+                                                  onTap: () async {
+                                                    final DateTime now =
+                                                        DateTime.now();
+                                                    final DateTime initialDate =
+                                                        selectedCertificatoScadenza !=
+                                                                    null &&
+                                                                selectedCertificatoScadenza!
+                                                                    .isAfter(
+                                                                        now)
+                                                            ? selectedCertificatoScadenza!
+                                                            : now;
+
+                                                    final DateTime? picked =
+                                                        await showDatePicker(
+                                                      context: context,
+                                                      initialDate: initialDate,
+                                                      firstDate: now.subtract(
+                                                          const Duration(
+                                                              days: 180)),
+                                                      lastDate: now.add(
+                                                          const Duration(
+                                                              days: 400)),
+                                                      locale: const Locale(
+                                                          'it', 'IT'),
+                                                    );
+                                                    if (picked != null) {
+                                                      setState(() {
+                                                        selectedCertificatoScadenza =
+                                                            picked;
+                                                      });
+                                                    }
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8),
+                                                    decoration: BoxDecoration(
+                                                      border: Border.all(
+                                                          color: Colors.grey),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Text(
+                                                          selectedCertificatoScadenza !=
+                                                                  null
+                                                              ? DateFormat(
+                                                                      'dd/MM/yyyy')
+                                                                  .format(
+                                                                      selectedCertificatoScadenza!)
+                                                              : 'Seleziona data',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 16),
+                                                        ),
+                                                        const Icon(Icons
+                                                            .calendar_today),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                )
+                                              : isEditable && isTagsMultiSelect
+                                                  ? Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 8,
+                                                      children: CourseTags.all
+                                                          .map((tag) {
+                                                        final isSelected =
+                                                            selectedTipologiaCorsoTags
+                                                                .contains(tag);
+                                                        return FilterChip(
+                                                          label: Text(tag),
+                                                          selected: isSelected,
+                                                          onSelected:
+                                                              (selected) {
+                                                            setState(() {
+                                                              if (selected) {
+                                                                selectedTipologiaCorsoTags
+                                                                    .add(tag);
+                                                              } else {
+                                                                selectedTipologiaCorsoTags
+                                                                    .remove(
+                                                                        tag);
+                                                              }
+                                                            });
+                                                          },
+                                                          selectedColor:
+                                                              primaryColor
+                                                                  .withOpacity(
+                                                                      0.3),
+                                                          checkmarkColor:
+                                                              primaryColor,
+                                                        );
+                                                      }).toList(),
+                                                    )
+                                                  : Text(
+                                                      value,
+                                                      style: TextStyle(
+                                                        fontSize: 16,
+                                                        color: label ==
+                                                                    'Certificato Medico' &&
+                                                                widget.user
+                                                                        .certificatoScadenza !=
+                                                                    null
+                                                            ? CertificatoHelper
+                                                                .getColoreScadenza(
+                                                                    widget.user
+                                                                        .certificatoScadenza)
+                                                            : null,
+                                                      ),
+                                                    ),
                 ),
                 if (trailing != null) ...[
                   const SizedBox(width: 8),

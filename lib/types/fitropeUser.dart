@@ -51,12 +51,14 @@ class FitropeUser {
   final Timestamp? certificatoScadenza;
   final String? numeroTelefono;
   final List<String> tipologiaCorsoTags; // Tag per limitare l'accesso ai corsi
-  final List<CancelledEnrollment> cancelledEnrollments; // Tracciamento disiscrizioni
+  final List<CancelledEnrollment>
+      cancelledEnrollments; // Tracciamento disiscrizioni
   final Timestamp? regolamentoAccettatoIl;
   final List<String> waitlistCourses; // Corsi in lista d'attesa (course IDs)
   final bool emailNotificationsEnabled; // Preferenza notifiche email
   final bool pushNotificationsEnabled; // Preferenza notifiche push
-  final List<UserSubscription> activeSubscriptions; // Snapshot abbonamenti attivi (multi-abbonamento)
+  final List<UserSubscription>
+      activeSubscriptions; // Snapshot abbonamenti attivi (multi-abbonamento)
 
   const FitropeUser({
     required this.name,
@@ -101,12 +103,14 @@ class FitropeUser {
       'certificatoScadenza': certificatoScadenza,
       'numeroTelefono': numeroTelefono,
       'tipologiaCorsoTags': tipologiaCorsoTags,
-      'cancelledEnrollments': cancelledEnrollments.map((e) => e.toJson()).toList(),
+      'cancelledEnrollments':
+          cancelledEnrollments.map((e) => e.toJson()).toList(),
       'regolamentoAccettatoIl': regolamentoAccettatoIl,
       'waitlistCourses': waitlistCourses,
       'emailNotificationsEnabled': emailNotificationsEnabled,
       'pushNotificationsEnabled': pushNotificationsEnabled,
-      'activeSubscriptions': activeSubscriptions.map((s) => s.toJson()).toList(),
+      'activeSubscriptions':
+          activeSubscriptions.map((s) => s.toJson()).toList(),
     };
   }
 
@@ -117,10 +121,14 @@ class FitropeUser {
       name: json['name'] as String,
       lastName: json['lastName'] as String,
       courses: (json['courses'] as List<dynamic>?)
-          ?.map((courseId) => courseId.toString())
-          .toList() ?? [],
-      tipologiaIscrizione: json['tipologiaIscrizione'] != null 
-          ? TipologiaIscrizione.values.where((e) => e.toString().split('.').last == json['tipologiaIscrizione']).firstOrNull
+              ?.map((courseId) => courseId.toString())
+              .toList() ??
+          [],
+      tipologiaIscrizione: json['tipologiaIscrizione'] != null
+          ? TipologiaIscrizione.values
+              .where((e) =>
+                  e.toString().split('.').last == json['tipologiaIscrizione'])
+              .firstOrNull
           : null,
       entrateDisponibili: json['entrateDisponibili'] as int?,
       entrateSettimanali: json['entrateSettimanali'] as int?,
@@ -128,23 +136,29 @@ class FitropeUser {
       role: json['role'] ?? 'User',
       isActive: json['isActive'] as bool? ?? true,
       isAnonymous: json['isAnonymous'] as bool? ?? false,
-      createdAt: json['createdAt'] != null 
-          ? (json['createdAt'] as Timestamp).toDate() 
+      createdAt: json['createdAt'] != null
+          ? (json['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
       certificatoScadenza: json['certificatoScadenza'] as Timestamp?,
       numeroTelefono: json['numeroTelefono'] as String?,
       tipologiaCorsoTags: (json['tipologiaCorsoTags'] as List<dynamic>?)
-          ?.map((tag) => tag.toString())
-          .toList() ?? CourseTags.defaultUserTags,
+              ?.map((tag) => tag.toString())
+              .toList() ??
+          CourseTags.defaultUserTags,
       cancelledEnrollments: (json['cancelledEnrollments'] as List<dynamic>?)
-          ?.map((item) => CancelledEnrollment.fromJson(item as Map<String, dynamic>))
-          .toList() ?? [],
+              ?.map((item) =>
+                  CancelledEnrollment.fromJson(item as Map<String, dynamic>))
+              .toList() ??
+          [],
       regolamentoAccettatoIl: json['regolamentoAccettatoIl'] as Timestamp?,
       waitlistCourses: (json['waitlistCourses'] as List<dynamic>?)
-          ?.map((id) => id.toString())
-          .toList() ?? [],
-      emailNotificationsEnabled: json['emailNotificationsEnabled'] as bool? ?? true,
-      pushNotificationsEnabled: json['pushNotificationsEnabled'] as bool? ?? true,
+              ?.map((id) => id.toString())
+              .toList() ??
+          [],
+      emailNotificationsEnabled:
+          json['emailNotificationsEnabled'] as bool? ?? true,
+      pushNotificationsEnabled:
+          json['pushNotificationsEnabled'] as bool? ?? true,
       activeSubscriptions:
           _parseActiveSubscriptions(json['activeSubscriptions']),
     );

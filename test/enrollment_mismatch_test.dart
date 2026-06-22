@@ -5,22 +5,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() {
   group('Enrollment Mismatch Detection Tests', () {
-    
     late Course testCourse;
     late List<FitropeUser> testUsers;
-    
+
     setUp(() {
       // Crea un corso di test
       testCourse = Course(
         id: 'test-course-1',
         uid: 'test-course-1',
         name: 'Corso di Test',
-        startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
-        endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 11))),
+        startDate:
+            Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
+        endDate:
+            Timestamp.fromDate(DateTime.now().add(const Duration(hours: 11))),
         capacity: 20,
         subscribed: 3, // Il corso dice di avere 3 iscritti
       );
-      
+
       // Crea alcuni utenti di test
       testUsers = [
         FitropeUser(
@@ -62,7 +63,9 @@ void main() {
       ];
     });
 
-    test('should detect mismatch when actual users count differs from course.subscribed', () {
+    test(
+        'should detect mismatch when actual users count differs from course.subscribed',
+        () {
       // Test con 4 utenti effettivi ma corso.subscribed = 3
       expect(testUsers.length, 4);
       expect(testCourse.subscribed, 3);
@@ -75,12 +78,14 @@ void main() {
         id: 'test-course-2',
         uid: 'test-course-2',
         name: 'Corso Matching',
-        startDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
-        endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 11))),
+        startDate:
+            Timestamp.fromDate(DateTime.now().add(const Duration(hours: 10))),
+        endDate:
+            Timestamp.fromDate(DateTime.now().add(const Duration(hours: 11))),
         capacity: 20,
         subscribed: 4, // Matcha il numero di utenti
       );
-      
+
       expect(testUsers.length, 4);
       expect(matchingCourse.subscribed, 4);
       expect(testUsers.length != matchingCourse.subscribed, false);

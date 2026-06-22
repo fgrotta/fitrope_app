@@ -75,8 +75,8 @@ Map<String, dynamic> buildUserUpdateDiff({
   }
   if (!_sameDay(fineIscrizione, original.fineIscrizione?.toDate())) {
     changed['fineIscrizione'] = fineIscrizione != null
-        ? Timestamp.fromDate(DateTime(fineIscrizione.year,
-            fineIscrizione.month, fineIscrizione.day, 23, 59))
+        ? Timestamp.fromDate(DateTime(fineIscrizione.year, fineIscrizione.month,
+            fineIscrizione.day, 23, 59))
         : null;
   }
   if (isActive != null && isActive != original.isActive) {

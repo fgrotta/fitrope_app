@@ -27,9 +27,10 @@ class _CreateUserPageState extends State<CreateUserPage> {
   final _numeroTelefonoController = TextEditingController();
   final _entrateDisponibiliController = TextEditingController(text: '1');
   final _entrateSettimanaliController = TextEditingController(text: '0');
-  
+
   String _selectedRole = 'User';
-  TipologiaIscrizione? _selectedTipologia = TipologiaIscrizione.ABBONAMENTO_PROVA;
+  TipologiaIscrizione? _selectedTipologia =
+      TipologiaIscrizione.ABBONAMENTO_PROVA;
   int? _entrateDisponibili = 1;
   int? _entrateSettimanali = 0;
   bool _isAnonymous = false;
@@ -39,7 +40,6 @@ class _CreateUserPageState extends State<CreateUserPage> {
   @override
   void initState() {
     super.initState();
-   
   }
 
   @override
@@ -63,8 +63,12 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
     try {
       final response = await createUser(
-        email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-        password: _passwordController.text.trim().isEmpty ? null : _passwordController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
+        password: _passwordController.text.trim().isEmpty
+            ? null
+            : _passwordController.text.trim(),
         name: _nameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         role: _selectedRole,
@@ -72,7 +76,9 @@ class _CreateUserPageState extends State<CreateUserPage> {
         entrateDisponibili: _entrateDisponibili,
         entrateSettimanali: _entrateSettimanali,
         isAnonymous: _isAnonymous,
-        numeroTelefono: _numeroTelefonoController.text.trim().isNotEmpty ? _numeroTelefonoController.text.trim() : null,
+        numeroTelefono: _numeroTelefonoController.text.trim().isNotEmpty
+            ? _numeroTelefonoController.text.trim()
+            : null,
         tipologiaCorsoTags: _selectedTipologiaCorsoTags,
       );
 
@@ -218,7 +224,8 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value != null && value.trim().isNotEmpty) {
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                        .hasMatch(value.trim())) {
                       return 'Inserisci un\'email valida';
                     }
                   }
@@ -347,7 +354,8 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 ),
                 keyboardType: TextInputType.number,
                 onChanged: (value) {
-                  _entrateDisponibili = value.isEmpty ? null : int.tryParse(value);
+                  _entrateDisponibili =
+                      value.isEmpty ? null : int.tryParse(value);
                 },
               ),
               const SizedBox(height: 16),
@@ -364,7 +372,8 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 ),
                 keyboardType: TextInputType.number,
                 onChanged: (value) {
-                  _entrateSettimanali = value.isEmpty ? null : int.tryParse(value);
+                  _entrateSettimanali =
+                      value.isEmpty ? null : int.tryParse(value);
                 },
               ),
               const SizedBox(height: 16),
@@ -411,7 +420,8 @@ class _CreateUserPageState extends State<CreateUserPage> {
                         spacing: 8,
                         runSpacing: 8,
                         children: CourseTags.all.map((tag) {
-                          final isSelected = _selectedTipologiaCorsoTags.contains(tag);
+                          final isSelected =
+                              _selectedTipologiaCorsoTags.contains(tag);
                           return FilterChip(
                             label: Text(tag),
                             selected: isSelected,
@@ -440,12 +450,14 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _isLoading ? null : () => Navigator.pop(context),
+                      onPressed:
+                          _isLoading ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: onPrimaryColor),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+                      child: const Text('Annulla',
+                          style: TextStyle(color: onPrimaryColor)),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -462,10 +474,12 @@ class _CreateUserPageState extends State<CreateUserPage> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text('Crea Utente', style: TextStyle(color: Colors.white)),
+                          : const Text('Crea Utente',
+                              style: TextStyle(color: Colors.white)),
                     ),
                   ),
                 ],

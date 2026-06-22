@@ -1109,6 +1109,59 @@ describe("joinWaitlistHandler", () => {
     expect(store.users.u1.waitlistCourses).toEqual(["c1"]);
   });
 
+  test("utente senza accesso alla tipologia → permission-denied", async () => {
+    const db = makeDb({
+      users: { u1: packUser({ tipologiaCorsoTags: ["Open"] }) },
+      courses: { c1: course({ subscribed: 10, tags: ["Hyrox"] }) },
+      subs: {},
+    });
+    await expectCode(
+      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
+      "permission-denied"
+    );
+  });
+
+  test("utente senza crediti → failed-precondition", async () => {
+    const db = makeDb({
+      users: { u1: packUser({ entrateDisponibili: 0 }) },
+      courses: { c1: course({ subscribed: 10 }) },
+      subs: {},
+    });
+    await expectCode(
+      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
+      "failed-precondition"
+    );
+  });
+
+  test("utente con abbonamento scaduto prima del corso → failed-precondition", async () => {
+    const db = makeDb({
+      users: {
+        u1: packUser({ fineIscrizione: Timestamp.fromMillis(NOW + 3600000) }),
+      },
+      courses: { c1: course({ subscribed: 10 }) },
+      subs: {},
+    });
+    await expectCode(
+      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
+      "failed-precondition"
+    );
+  });
+
+  test("utente al limite settimanale → failed-precondition", async () => {
+    const db = makeDb({
+      users: { u1: tempUser({ entrateSettimanali: 1, courses: ["used"] }) },
+      courses: {
+        c1: course({ subscribed: 10 }),
+        used: course({ uid: "used", subscribed: 1 }),
+      },
+      subs: {},
+    });
+    await expectCode(
+      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
+      "failed-precondition"
+    );
+  });
+
   test("già in waitlist → already-exists; già iscritto → already-exists", async () => {
     const db1 = makeDb({
       users: { u1: packUser() },

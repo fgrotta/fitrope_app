@@ -31,7 +31,8 @@ class RegolamentoHelper {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Errore durante il salvataggio dell\'accettazione del regolamento'),
+            content: Text(
+                'Errore durante il salvataggio dell\'accettazione del regolamento'),
             backgroundColor: Colors.red,
           ),
         );

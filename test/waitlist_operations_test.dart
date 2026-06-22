@@ -35,10 +35,13 @@ void main() {
 
     test('utente non può entrare in waitlist se corso non è pieno', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
         endDate: Timestamp.fromDate(now.add(const Duration(days: 2, hours: 1))),
-        capacity: 10, subscribed: 5,
+        capacity: 10,
+        subscribed: 5,
       );
       store.dispatch(SetAllCoursesAction([course]));
 
@@ -49,10 +52,13 @@ void main() {
 
     test('utente può entrare in waitlist se corso è pieno e ha crediti', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
         endDate: Timestamp.fromDate(now.add(const Duration(days: 2, hours: 1))),
-        capacity: 10, subscribed: 10,
+        capacity: 10,
+        subscribed: 10,
       );
       store.dispatch(SetAllCoursesAction([course]));
 
@@ -62,17 +68,22 @@ void main() {
 
     test('utente con abbonamento scaduto non può entrare in waitlist', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 60))),
-        endDate: Timestamp.fromDate(now.add(const Duration(days: 60, hours: 1))),
-        capacity: 10, subscribed: 10,
+        endDate:
+            Timestamp.fromDate(now.add(const Duration(days: 60, hours: 1))),
+        capacity: 10,
+        subscribed: 10,
       );
       store.dispatch(SetAllCoursesAction([course]));
 
       final expiredUser = FitropeUser(
         uid: 'user-expired',
         email: 'test@example.com',
-        name: 'Test', lastName: 'User',
+        name: 'Test',
+        lastName: 'User',
         courses: [],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
         entrateSettimanali: 3,
@@ -85,19 +96,24 @@ void main() {
       expect(state, CourseState.EXPIRED);
     });
 
-    test('utente pacchetto entrate senza crediti non può entrare in waitlist', () {
+    test('utente pacchetto entrate senza crediti non può entrare in waitlist',
+        () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
         endDate: Timestamp.fromDate(now.add(const Duration(days: 2, hours: 1))),
-        capacity: 10, subscribed: 10,
+        capacity: 10,
+        subscribed: 10,
       );
       store.dispatch(SetAllCoursesAction([course]));
 
       final userNoEntries = FitropeUser(
         uid: 'user-no-entries',
         email: 'test@example.com',
-        name: 'Test', lastName: 'User',
+        name: 'Test',
+        lastName: 'User',
         courses: [],
         tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
         entrateDisponibili: 0,
@@ -111,10 +127,13 @@ void main() {
 
     test('utente già in waitlist vede IN_WAITLIST', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
         endDate: Timestamp.fromDate(now.add(const Duration(days: 2, hours: 1))),
-        capacity: 10, subscribed: 10,
+        capacity: 10,
+        subscribed: 10,
         waitlist: ['user-1'],
       );
       store.dispatch(SetAllCoursesAction([course]));
@@ -123,12 +142,17 @@ void main() {
       expect(state, CourseState.IN_WAITLIST);
     });
 
-    test('utente in waitlist vede WAITLIST_SPOT_AVAILABLE quando si libera un posto', () {
+    test(
+        'utente in waitlist vede WAITLIST_SPOT_AVAILABLE quando si libera un posto',
+        () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
         endDate: Timestamp.fromDate(now.add(const Duration(days: 2, hours: 1))),
-        capacity: 10, subscribed: 9,
+        capacity: 10,
+        subscribed: 9,
         waitlist: ['user-1'],
       );
       store.dispatch(SetAllCoursesAction([course]));
@@ -139,10 +163,13 @@ void main() {
 
     test('utente iscritto al corso vede SUBSCRIBED anche se in waitlist', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
         endDate: Timestamp.fromDate(now.add(const Duration(days: 2, hours: 1))),
-        capacity: 10, subscribed: 10,
+        capacity: 10,
+        subscribed: 10,
         waitlist: ['user-1'],
       );
       store.dispatch(SetAllCoursesAction([course]));
@@ -150,7 +177,8 @@ void main() {
       final subscribedUser = FitropeUser(
         uid: 'user-1',
         email: 'test@example.com',
-        name: 'Test', lastName: 'User',
+        name: 'Test',
+        lastName: 'User',
         courses: ['c1'],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
         entrateSettimanali: 3,
@@ -165,10 +193,13 @@ void main() {
 
     test('corso passato mostra CLOSED indipendentemente dalla waitlist', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso Passato',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso Passato',
         startDate: Timestamp.fromDate(now.subtract(const Duration(hours: 2))),
         endDate: Timestamp.fromDate(now.subtract(const Duration(hours: 1))),
-        capacity: 10, subscribed: 10,
+        capacity: 10,
+        subscribed: 10,
         waitlist: ['user-1'],
       );
       store.dispatch(SetAllCoursesAction([course]));
@@ -183,10 +214,13 @@ void main() {
 
     test('utente non in waitlist non dovrebbe poter lasciare', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
         endDate: Timestamp.fromDate(now.add(const Duration(days: 2, hours: 1))),
-        capacity: 10, subscribed: 10,
+        capacity: 10,
+        subscribed: 10,
         waitlist: ['other-user'],
       );
       store.dispatch(SetAllCoursesAction([course]));
@@ -194,7 +228,8 @@ void main() {
       final user = FitropeUser(
         uid: 'user-1',
         email: 'test@example.com',
-        name: 'Test', lastName: 'User',
+        name: 'Test',
+        lastName: 'User',
         courses: [],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
         entrateSettimanali: 3,
@@ -213,7 +248,9 @@ void main() {
   group('Waitlist Data Consistency', () {
     final now = DateTime.now();
 
-    test('waitlistCourses e course.waitlist devono essere coerenti per getCourseState', () {
+    test(
+        'waitlistCourses e course.waitlist devono essere coerenti per getCourseState',
+        () {
       // Scenario: utente ha courseId in waitlistCourses ma course.waitlist non contiene userId
       // getCourseState usa solo course.waitlist, non user.waitlistCourses
       final course = Course(
@@ -245,37 +282,50 @@ void main() {
 
     test('waitlist multipla: più utenti in waitlist stesso corso', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
         endDate: Timestamp.fromDate(now.add(const Duration(days: 2, hours: 1))),
-        capacity: 10, subscribed: 10,
+        capacity: 10,
+        subscribed: 10,
         waitlist: ['user-1', 'user-2', 'user-3'],
       );
       store.dispatch(SetAllCoursesAction([course]));
 
       final user1 = FitropeUser(
-        uid: 'user-1', email: 'a@b.com', name: 'A', lastName: 'B',
+        uid: 'user-1',
+        email: 'a@b.com',
+        name: 'A',
+        lastName: 'B',
         courses: [],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
         entrateSettimanali: 3,
         fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
-        role: 'User', createdAt: now,
+        role: 'User',
+        createdAt: now,
       );
 
       final user4 = FitropeUser(
-        uid: 'user-4', email: 'c@d.com', name: 'C', lastName: 'D',
+        uid: 'user-4',
+        email: 'c@d.com',
+        name: 'C',
+        lastName: 'D',
         courses: [],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
         entrateSettimanali: 3,
         fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
-        role: 'User', createdAt: now,
+        role: 'User',
+        createdAt: now,
       );
 
       expect(getCourseState(course, user1), CourseState.IN_WAITLIST);
       expect(getCourseState(course, user4), CourseState.CAN_WAITLIST);
     });
 
-    test('subscribeToCourse deve pulire waitlist: scenario coperto da getCourseState', () {
+    test(
+        'subscribeToCourse deve pulire waitlist: scenario coperto da getCourseState',
+        () {
       // Dopo che un utente in waitlist si iscrive, il suo stato diventa SUBSCRIBED
       final course = Course(
         id: 'c1', uid: 'c1', name: 'Corso',
@@ -299,7 +349,8 @@ void main() {
       expect(state, CourseState.SUBSCRIBED);
     });
 
-    test('leaveWaitlist pulisce anche utenti visibili solo da waitlistCourses', () {
+    test('leaveWaitlist pulisce anche utenti visibili solo da waitlistCourses',
+        () {
       final result = computeWaitlistRemoval(
         courseWaitlist: const [],
         userWaitlistCourses: const ['c1', 'c2'],
@@ -314,7 +365,8 @@ void main() {
       expect(result.updatedUserWaitlistCourses, ['c2']);
     });
 
-    test('leaveWaitlist continua a rimuovere entrambi i lati quando coerenti', () {
+    test('leaveWaitlist continua a rimuovere entrambi i lati quando coerenti',
+        () {
       final result = computeWaitlistRemoval(
         courseWaitlist: const ['user-1', 'user-2'],
         userWaitlistCourses: const ['c1', 'c3'],
@@ -329,7 +381,9 @@ void main() {
       expect(result.updatedUserWaitlistCourses, ['c3']);
     });
 
-    test('leaveWaitlist resta errore se utente e corso non hanno alcun legame waitlist', () {
+    test(
+        'leaveWaitlist resta errore se utente e corso non hanno alcun legame waitlist',
+        () {
       final result = computeWaitlistRemoval(
         courseWaitlist: const ['user-2'],
         userWaitlistCourses: const ['c3'],

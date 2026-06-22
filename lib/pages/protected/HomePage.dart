@@ -240,7 +240,8 @@ class _HomePageState extends State<HomePage> {
 
   // Callback per l'iscrizione
   void onSubscribe(Course course) async {
-    bool accepted = await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
+    bool accepted =
+        await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted) return;
 
     print('🔄 Iscrizione al corso: ${course.name}');
@@ -1263,7 +1264,9 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(width: 6),
                 Icon(
-                  expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  expanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
                   size: 18,
                   color: onSurfaceVariantColor,
                 ),
@@ -1297,17 +1300,19 @@ class _HomePageState extends State<HomePage> {
 
     futureWaitlistCourses.sort((a, b) => a.startDate.compareTo(b.startDate));
 
-    return futureWaitlistCourses.map((course) => CoursePreviewCard(
-      course: course,
-      currentUser: user,
-      trainers: trainers,
-      showDate: true,
-      onSubscribe: () => onSubscribe(course),
-      onUnsubscribe: () => onUnsubscribe(course),
-      onJoinWaitlist: () => onJoinWaitlist(course),
-      onLeaveWaitlist: () => onLeaveWaitlist(course),
-      onRefresh: () => refreshCourses(),
-    )).toList();
+    return futureWaitlistCourses
+        .map((course) => CoursePreviewCard(
+              course: course,
+              currentUser: user,
+              trainers: trainers,
+              showDate: true,
+              onSubscribe: () => onSubscribe(course),
+              onUnsubscribe: () => onUnsubscribe(course),
+              onJoinWaitlist: () => onJoinWaitlist(course),
+              onLeaveWaitlist: () => onLeaveWaitlist(course),
+              onRefresh: () => refreshCourses(),
+            ))
+        .toList();
   }
 
   List<Widget> renderCourses() {
@@ -1468,7 +1473,9 @@ class _HomePageState extends State<HomePage> {
                   Container(
                     padding: const EdgeInsets.only(bottom: 10),
                     width: double.infinity,
-                    child: const Text('Lista d\'attesa', textAlign: TextAlign.left, style: TextStyle(color: Colors.orange, fontSize: 20)),
+                    child: const Text('Lista d\'attesa',
+                        textAlign: TextAlign.left,
+                        style: TextStyle(color: Colors.orange, fontSize: 20)),
                   ),
                   ...waitlistWidgets
                 ],
@@ -1481,7 +1488,8 @@ class _HomePageState extends State<HomePage> {
             _buildCollapsibleRow(
               title: 'Scadenze',
               expanded: _scadenzeExpanded,
-              onToggle: () => setState(() => _scadenzeExpanded = !_scadenzeExpanded),
+              onToggle: () =>
+                  setState(() => _scadenzeExpanded = !_scadenzeExpanded),
               children: [
                 Expanded(child: _buildCertificatiInScadenzaCard()),
                 const SizedBox(width: 16),
@@ -1492,7 +1500,8 @@ class _HomePageState extends State<HomePage> {
             _buildCollapsibleRow(
               title: 'Lezioni di prova',
               expanded: _lezioniProvaExpanded,
-              onToggle: () => setState(() => _lezioniProvaExpanded = !_lezioniProvaExpanded),
+              onToggle: () => setState(
+                  () => _lezioniProvaExpanded = !_lezioniProvaExpanded),
               children: [
                 Expanded(child: _buildLezioniProvaProssimi7Giorni()),
                 const SizedBox(width: 16),
@@ -1503,7 +1512,8 @@ class _HomePageState extends State<HomePage> {
             _buildCollapsibleRow(
               title: 'Regolamento',
               expanded: _regolamentoExpanded,
-              onToggle: () => setState(() => _regolamentoExpanded = !_regolamentoExpanded),
+              onToggle: () =>
+                  setState(() => _regolamentoExpanded = !_regolamentoExpanded),
               children: [
                 Expanded(child: _buildUtentiSenzaRegolamentoCard()),
               ],

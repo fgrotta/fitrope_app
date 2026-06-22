@@ -36,7 +36,8 @@ Future<CreateUserResponse> createUser({
 }) async {
   try {
     // Verifica che l'utente corrente abbia i permessi necessari
-    CollectionReference postsRef = FirebaseFirestore.instance.collection('users');
+    CollectionReference postsRef =
+        FirebaseFirestore.instance.collection('users');
     var newID = postsRef.doc().id;
     // Crea il documento utente in Firestore
 
@@ -47,7 +48,8 @@ Future<CreateUserResponse> createUser({
       'lastName': lastName,
       'role': role,
       'courses': [],
-      'tipologiaIscrizione': tipologiaIscrizione?.toString().split('.').last ?? 'ABBONAMENTO_PROVA',
+      'tipologiaIscrizione': tipologiaIscrizione?.toString().split('.').last ??
+          'ABBONAMENTO_PROVA',
       'entrateDisponibili': entrateDisponibili ?? 1,
       'entrateSettimanali': entrateSettimanali ?? 0,
       'fineIscrizione': null,
@@ -72,7 +74,8 @@ Future<CreateUserResponse> createUser({
       lastName: lastName,
       role: role,
       courses: [],
-      tipologiaIscrizione: tipologiaIscrizione ?? TipologiaIscrizione.ABBONAMENTO_PROVA,
+      tipologiaIscrizione:
+          tipologiaIscrizione ?? TipologiaIscrizione.ABBONAMENTO_PROVA,
       entrateDisponibili: entrateDisponibili ?? 1,
       entrateSettimanali: entrateSettimanali ?? 0,
       fineIscrizione: null,
@@ -85,7 +88,6 @@ Future<CreateUserResponse> createUser({
 
     print('User created successfully: ${email ?? 'no-email'} with role $role');
     return CreateUserResponse(user: fitropeUser);
-
   } on FirebaseAuthException catch (e) {
     String errorMessage;
     switch (e.code) {
@@ -104,6 +106,7 @@ Future<CreateUserResponse> createUser({
     return CreateUserResponse(error: errorMessage);
   } catch (e) {
     print('Error creating user: $e');
-    return CreateUserResponse(error: 'Errore durante la creazione dell\'utente');
+    return CreateUserResponse(
+        error: 'Errore durante la creazione dell\'utente');
   }
 }

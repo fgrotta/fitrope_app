@@ -740,6 +740,21 @@ export async function joinWaitlistHandler(
   const courseId = requireString(data.courseId, "courseId");
   const targetUserId = requireString(data.userId, "userId");
 
+  // Pre-fase coerente con subscribeToCourse: serve il catalogo settimana per
+  // validare i limiti FREQUENCY/temporali senza leggerlo dopo le scritture.
+  const coursePreSnap = await db
+    .collection("courses")
+    .where("uid", "==", courseId)
+    .limit(1)
+    .get();
+  if (coursePreSnap.empty) {
+    throw new HttpsError("not-found", `Corso ${courseId} inesistente`);
+  }
+  const weekCatalog = await fetchWeekCatalog(
+    db,
+    toMillis(coursePreSnap.docs[0].data().startDate)
+  );
+
   await db.runTransaction(async (tx) => {
     const course = await getCourseDoc(tx, db, courseId);
     const userRef = db.collection("users").doc(targetUserId);
@@ -747,7 +762,15 @@ export async function joinWaitlistHandler(
     if (!userTxSnap.exists) throw new HttpsError("not-found", "Utente inesistente");
     const user = userTxSnap.data() as FsData;
 
-    if (targetUserId !== actor) {
+    if (targetUserId === actor) {
+      const actorRole = (user.role as string | null) ?? null;
+      if (actorRole !== null && ADMIN_ROLES.has(actorRole)) {
+        throw new HttpsError(
+          "permission-denied",
+          "Admin e Trainer non possono iscriversi ai corsi"
+        );
+      }
+    } else {
       const actorRole = await getRole(tx, db, actor);
       if (actorRole === null || !ADMIN_ROLES.has(actorRole)) {
         throw new HttpsError("permission-denied", "Non puoi gestire la waitlist di un altro utente");
@@ -782,6 +805,89 @@ export async function joinWaitlistHandler(
     const courses: string[] = Array.isArray(user.courses) ? (user.courses as string[]) : [];
     if (courses.includes(courseId)) {
       throw new HttpsError("already-exists", "Sei già iscritto a questo corso");
+    }
+
+    const courseStartMillis = toMillis(course.data.startDate);
+    const courseTags = Array.isArray(course.data.tags) ? (course.data.tags as string[]) : [];
+    const coursePrimaryTag = primaryTypeTagForTags(courseTags);
+
+    if (
+      courseStartMillis < weekCatalog.weekStart ||
+      courseStartMillis > weekCatalog.weekEnd
+    ) {
+      throw new HttpsError(
+        "aborted",
+        "Il corso è stato riprogrammato: riprova l'iscrizione in lista d'attesa"
+      );
+    }
+
+    const records = snapshotRecords(user);
+    const liveRecords = records.filter((r) => r.endDateMillis >= nowMillis);
+    const cancelledRaw: FsData[] = Array.isArray(user.cancelledEnrollments)
+      ? (user.cancelledEnrollments as FsData[])
+      : [];
+
+    let weeklyUsed = 0;
+    if (liveRecords.length > 0) {
+      const valid = validAtDate(
+        coveringSubsByType(liveRecords, coursePrimaryTag),
+        courseStartMillis
+      );
+      const freqSub = valid.find(
+        (s) => s.billingMode === "FREQUENCY" && s.weeklyFrequency !== null
+      );
+      if (freqSub) {
+        const tags = new Set<string>();
+        valid
+          .filter((s) => s.billingMode === "FREQUENCY")
+          .forEach((s) => s.courseTypeTags.forEach((t) => tags.add(t)));
+        weeklyUsed = weeklyUsedFromCatalog(
+          weekCatalog,
+          courseStartMillis,
+          courses,
+          cancelledRaw,
+          tags
+        );
+      }
+    } else {
+      const tip = (user.tipologiaIscrizione as string | null) ?? null;
+      const temporal =
+        tip !== null && tip.startsWith("ABBONAMENTO_") && tip !== "ABBONAMENTO_PROVA";
+      if (temporal && user.entrateSettimanali != null) {
+        weeklyUsed = weeklyUsedFromCatalog(
+          weekCatalog,
+          courseStartMillis,
+          courses,
+          cancelledRaw,
+          null
+        );
+      }
+    }
+
+    // Il corso DEVE essere pieno per la waitlist; dopo quel gate validiamo
+    // l'idoneità come se ci fosse posto, senza consumare crediti.
+    const decision = evaluateSubscribe({
+      force: false,
+      alreadySubscribed: false,
+      courseFull: false,
+      userTags: Array.isArray(user.tipologiaCorsoTags)
+        ? (user.tipologiaCorsoTags as string[])
+        : [],
+      courseTags,
+      coursePrimaryTag,
+      courseStartMillis,
+      nowMillis,
+      activeSubscriptions: records,
+      tipologia: (user.tipologiaIscrizione as string | null) ?? null,
+      entrateDisponibili: (user.entrateDisponibili as number | null) ?? null,
+      entrateSettimanali: (user.entrateSettimanali as number | null) ?? null,
+      fineIscrizioneMillis: user.fineIscrizione ? toMillis(user.fineIscrizione) : null,
+      weeklyUsed,
+    });
+
+    if (!decision.allowed) {
+      const e = REASON_TO_HTTP[decision.reason as Exclude<SubscribeReason, "OK">];
+      throw new HttpsError(e.code, e.msg);
     }
 
     const waitlistCourses: string[] = Array.isArray(user.waitlistCourses)

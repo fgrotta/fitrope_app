@@ -323,7 +323,7 @@ Da PR4/PR5 le scritture del dominio iscrizioni sono server-side: il client manti
 
 - `joinWaitlist` / `leaveWaitlist` sono callable server-side.
 - `waitlistEnabled == false` fa tornare `FULL` nel client e fa rifiutare `joinWaitlist` sul server.
-- Punto aperto di review: `joinWaitlistHandler` valida corso pieno, duplicati, waitlist flag e corso iniziato, ma non replica ancora tutta l'eligibility server-side di `subscribeToCourse` (tag, crediti, limiti, scadenze).
+- `joinWaitlistHandler` valida corso pieno, duplicati, waitlist flag, corso non iniziato e la stessa eligibility server-side di `subscribeToCourse` (tag, crediti, limiti settimanali, scadenze), senza consumare ingressi.
 
 ### Cache
 
@@ -463,7 +463,7 @@ Test Jest su handler OneSignal e dominio enrollment:
 - `enrollmentHandlers.test.ts`, `adminHandlers.test.ts`, `assignSubscription.test.ts`
 - `notify.test.ts`, `notifyOrchestration.test.ts`, `conventions.test.ts`
 
-Framework: `jest` + `ts-jest`. Conteggio verificato localmente: `cd functions && npm test` passa 210 test.
+Framework: `jest` + `ts-jest`. Conteggio verificato localmente: `cd functions && npm test` passa 214 test.
 
 ### Integration tests emulatori
 
@@ -480,11 +480,11 @@ Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e fireb
 
 **ci.yml** (branch `main`, `develop`):
 
-- `test`: `flutter pub get` -> `flutter test` -> `flutter analyze` -> `flutter format --set-exit-if-changed .` -> `flutter build web --debug`
+- `test`: `flutter pub get` -> `flutter test` -> `flutter analyze --no-fatal-infos` -> `dart format --set-exit-if-changed .` -> `flutter build web --debug`
 - `functions-test`: Node 20, `npm ci`, `npm run build`, `npm test`
 - `functions-integration`: Node 20 + Java 21 + firebase-tools 15, `npm run test:integration` con project `demo-fitrope`
 
-Nota operativa: `flutter analyze` e parte della CI. Se resta rosso anche solo con issue info-level, il job fallisce.
+Nota operativa: la CI esegue `flutter analyze --no-fatal-infos`; warning/error restano bloccanti, mentre le issue info-level sono riportate ma non fanno fallire il job.
 
 **release.yml** (branch `release`):
 
@@ -508,7 +508,7 @@ Nota operativa: `flutter analyze` e parte della CI. Se resta rosso anche solo co
 flutter pub get
 flutter test
 flutter analyze
-flutter format --set-exit-if-changed .
+dart format --set-exit-if-changed .
 flutter build web --debug
 flutter run -d chrome
 ```
@@ -520,7 +520,7 @@ flutter run -d chrome
 cd functions
 npm install            # installa dipendenze Node (runtime Node 20)
 npm run build          # compila TypeScript
-npm test               # esegue test Jest unitari (210 test verificati)
+npm test               # esegue test Jest unitari (214 test verificati)
 npm run test:integration # Emulator Suite, richiede Java 21+
 npm run seed:emulator  # seed dati sintetici su emulatori avviati
 npm run serve          # avvia emulatore Firebase Functions
@@ -563,11 +563,9 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 
 ## Punti aperti di review
 
-- `functions/src/enrollment/enrollment.ts:joinWaitlistHandler` non replica ancora tutta l'eligibility server-side di `subscribeToCourse` (tag, crediti, limiti settimanali, scadenze).
-- `firestore.rules` in create corso vincola `request.resource.data.id == courseId`, ma dovrebbe vincolare anche `uid == courseId` per evitare corsi ambigui rispetto alle query Functions su `uid`.
 - Il bottone UI "Correggi conteggio" puo comparire anche ai Trainer tramite `CoursePreviewCard`, ma `recountCourseSubscribed` e Admin-only lato server.
 - `assignSubscriptionHandler` dovrebbe leggere e validare l'esistenza del doc utente target prima di creare `subscriptions` e fare `tx.set(userRef, ..., merge: true)`.
-- `flutter analyze` oggi non e pulito localmente: fallisce con issue info-level. Finche la CI esegue analyze senza override, questo resta un rischio merge.
+- Debito lint Dart: `flutter analyze` senza `--no-fatal-infos` emette ancora issue info-level storiche (naming file, print, const, deprecated APIs, async context). Non blocca la CI, ma va ripulito in un refactor dedicato.
 
 ## Osservazioni operative
 

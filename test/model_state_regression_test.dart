@@ -10,7 +10,9 @@ import 'package:fitrope_app/utils/getCourseState.dart';
 
 void main() {
   group('FitropeUser defaults and legacy parsing', () {
-    test('constructor default tags stay aligned with CourseTags.defaultUserTags', () {
+    test(
+        'constructor default tags stay aligned with CourseTags.defaultUserTags',
+        () {
       final user = FitropeUser(
         uid: 'user-1',
         email: 'test@example.com',
@@ -38,7 +40,9 @@ void main() {
       expect(user.tipologiaCorsoTags, CourseTags.defaultUserTags);
     });
 
-    test('fromJson keeps unknown tipologiaIscrizione as null instead of throwing', () {
+    test(
+        'fromJson keeps unknown tipologiaIscrizione as null instead of throwing',
+        () {
       final user = FitropeUser.fromJson({
         'uid': 'legacy-user',
         'email': 'legacy@example.com',
@@ -59,8 +63,10 @@ void main() {
       final course = Course.fromJson({
         'id': 'legacy-course',
         'name': 'Corso Legacy',
-        'startDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 1))),
-        'endDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 1, hours: 1))),
+        'startDate':
+            Timestamp.fromDate(DateTime.now().add(const Duration(days: 1))),
+        'endDate': Timestamp.fromDate(
+            DateTime.now().add(const Duration(days: 1, hours: 1))),
         'capacity': 10,
         'subscribed': 0,
       });
@@ -74,8 +80,10 @@ void main() {
         'uid': 'new-course',
         'id': 'legacy-course',
         'name': 'Corso',
-        'startDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 1))),
-        'endDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 1, hours: 1))),
+        'startDate':
+            Timestamp.fromDate(DateTime.now().add(const Duration(days: 1))),
+        'endDate': Timestamp.fromDate(
+            DateTime.now().add(const Duration(days: 1, hours: 1))),
         'capacity': 10,
         'subscribed': 0,
       });
@@ -91,8 +99,9 @@ void main() {
     setUp(() {
       store.dispatch(SetAllCoursesAction([]));
       final now = DateTime.now();
-      mondayNextWeek =
-          now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
+      mondayNextWeek = now
+          .subtract(Duration(days: now.weekday - 1))
+          .add(const Duration(days: 7));
     });
 
     Course makeCourse({
@@ -126,13 +135,16 @@ void main() {
         courses: courses,
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
         entrateSettimanali: entrateSettimanali,
-        fineIscrizione: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 30))),
+        fineIscrizione:
+            Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 30))),
         role: 'User',
         createdAt: DateTime.now(),
       );
     }
 
-    test('user in waitlist with free spot still sees LIMIT when weekly quota is exhausted', () {
+    test(
+        'user in waitlist with free spot still sees LIMIT when weekly quota is exhausted',
+        () {
       final bookedCourse = makeCourse(
         uid: 'booked-course',
         startDate: mondayNextWeek.add(const Duration(hours: 10)),
@@ -155,7 +167,9 @@ void main() {
       expect(getCourseState(waitlistCourse, user), CourseState.LIMIT);
     });
 
-    test('weekly count ignores stale course ids that are missing from the store', () {
+    test(
+        'weekly count ignores stale course ids that are missing from the store',
+        () {
       final targetCourse = makeCourse(
         uid: 'target-course',
         startDate: mondayNextWeek.add(const Duration(days: 2, hours: 10)),

@@ -9,8 +9,8 @@ Per architettura, modelli dati e regole di business dettagliate vedi `agents.md`
 ```bash
 flutter pub get          # installa dipendenze
 flutter test             # esegui tutti i test
-flutter analyze          # analisi statica
-flutter format --set-exit-if-changed .  # check formattazione
+flutter analyze --no-fatal-infos        # analisi statica CI-compatible
+dart format --set-exit-if-changed .     # check formattazione
 flutter build web --debug               # build web
 flutter run -d chrome                   # avvio locale
 ```
@@ -61,7 +61,7 @@ firebase functions:log --only sendOneSignalNotification
 firebase functions:delete sendOneSignalNotification
 ```
 
-Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`. Se tocchi `functions/`, esegui anche `npm test` nella cartella `functions/`.
+Dopo ogni modifica, esegui almeno `flutter test`, `flutter analyze --no-fatal-infos` e `dart format --set-exit-if-changed .`. Se tocchi `functions/`, esegui anche `npm test` nella cartella `functions/`.
 
 ## Convenzioni
 

@@ -81,7 +81,9 @@ void main() {
       expect(getCourseState(course, user), CourseState.NULL);
     });
 
-    test('utente senza tipologiaIscrizione su corso pieno -> NULL (limitState prevale)', () {
+    test(
+        'utente senza tipologiaIscrizione su corso pieno -> NULL (limitState prevale)',
+        () {
       final course = makeCourse(subscribed: 10);
       store.dispatch(SetAllCoursesAction([course]));
       final user = makeUser(tipologia: null);
@@ -115,7 +117,8 @@ void main() {
       expect(getCourseState(course, user), CourseState.SUBSCRIBE_LIMIT);
     });
 
-    test('ABBONAMENTO_PROVA con entrateDisponibili null -> SUBSCRIBE_LIMIT', () {
+    test('ABBONAMENTO_PROVA con entrateDisponibili null -> SUBSCRIBE_LIMIT',
+        () {
       final course = makeCourse();
       store.dispatch(SetAllCoursesAction([course]));
       final user = makeUser(
@@ -155,7 +158,9 @@ void main() {
       expect(getCourseState(course, user), CourseState.NULL);
     });
 
-    test('il controllo tag avviene prima dell-iscrizione: utente gia iscritto con tag sbagliati -> NULL', () {
+    test(
+        'il controllo tag avviene prima dell-iscrizione: utente gia iscritto con tag sbagliati -> NULL',
+        () {
       final course = makeCourse(uid: 'c1', tags: [CourseTags.PERSONAL_TRAINER]);
       store.dispatch(SetAllCoursesAction([course]));
       final user = makeUser(
@@ -183,10 +188,14 @@ void main() {
     });
   });
 
-  group('getCourseState - corso pieno + waitlistEnabled false + limiti raggiunti', () {
+  group(
+      'getCourseState - corso pieno + waitlistEnabled false + limiti raggiunti',
+      () {
     setUp(() => store.dispatch(SetAllCoursesAction([])));
 
-    test('corso pieno + waitlistEnabled false + pacchetto entrate senza crediti -> SUBSCRIBE_LIMIT', () {
+    test(
+        'corso pieno + waitlistEnabled false + pacchetto entrate senza crediti -> SUBSCRIBE_LIMIT',
+        () {
       final course = makeCourse(subscribed: 10, waitlistEnabled: false);
       store.dispatch(SetAllCoursesAction([course]));
       final user = makeUser(
@@ -198,10 +207,18 @@ void main() {
       expect(getCourseState(course, user), CourseState.SUBSCRIBE_LIMIT);
     });
 
-    test('corso pieno + waitlistEnabled false + limite settimanale raggiunto -> LIMIT', () {
+    test(
+        'corso pieno + waitlistEnabled false + limite settimanale raggiunto -> LIMIT',
+        () {
       final courseStart = now.add(const Duration(days: 2));
-      final course = makeCourse(uid: 'c-full', subscribed: 10, waitlistEnabled: false, start: courseStart);
-      final weekCourse = makeCourse(uid: 'c-already', start: courseStart.subtract(const Duration(hours: 1)));
+      final course = makeCourse(
+          uid: 'c-full',
+          subscribed: 10,
+          waitlistEnabled: false,
+          start: courseStart);
+      final weekCourse = makeCourse(
+          uid: 'c-already',
+          start: courseStart.subtract(const Duration(hours: 1)));
       store.dispatch(SetAllCoursesAction([course, weekCourse]));
       final user = makeUser(
         tipologia: TipologiaIscrizione.ABBONAMENTO_MENSILE,
@@ -217,7 +234,8 @@ void main() {
   group('getCourseState - abbonamento temporale senza entrateSettimanali', () {
     setUp(() => store.dispatch(SetAllCoursesAction([])));
 
-    test('ABBONAMENTO_MENSILE con entrateSettimanali null -> nessun limite', () {
+    test('ABBONAMENTO_MENSILE con entrateSettimanali null -> nessun limite',
+        () {
       final course = makeCourse();
       store.dispatch(SetAllCoursesAction([course]));
       final user = makeUser(
@@ -230,7 +248,9 @@ void main() {
     });
   });
 
-  group('getCourseState - abbonamento scaduto precede tutti gli altri controlli', () {
+  group(
+      'getCourseState - abbonamento scaduto precede tutti gli altri controlli',
+      () {
     setUp(() => store.dispatch(SetAllCoursesAction([])));
 
     test('utente scaduto iscritto al corso -> EXPIRED (non SUBSCRIBED)', () {
@@ -251,19 +271,28 @@ void main() {
   });
 
   group('CourseUnsubscribeHelper.canUnsubscribe - ABBONAMENTO_PROVA', () {
-    test('ABBONAMENTO_PROVA > 8 ore: nessuna conferma richiesta, isPacchettoEntrate true', () {
+    test(
+        'ABBONAMENTO_PROVA > 8 ore: nessuna conferma richiesta, isPacchettoEntrate true',
+        () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(hours: 10))),
         endDate: Timestamp.fromDate(now.add(const Duration(hours: 11))),
-        capacity: 10, subscribed: 1,
+        capacity: 10,
+        subscribed: 1,
       );
       final user = FitropeUser(
-        uid: 'u1', email: 'x@y.z', name: 'N', lastName: 'L',
+        uid: 'u1',
+        email: 'x@y.z',
+        name: 'N',
+        lastName: 'L',
         courses: ['c1'],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_PROVA,
         entrateDisponibili: 1,
-        role: 'User', createdAt: now,
+        role: 'User',
+        createdAt: now,
       );
 
       final result = CourseUnsubscribeHelper.canUnsubscribe(course, user);
@@ -275,19 +304,28 @@ void main() {
       expect(result['message'], 'Disiscrizione: il credito ti sarà rimborsato');
     });
 
-    test('ABBONAMENTO_PROVA <= 8 ore: conferma richiesta con messaggio "perderai il credito"', () {
+    test(
+        'ABBONAMENTO_PROVA <= 8 ore: conferma richiesta con messaggio "perderai il credito"',
+        () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(hours: 4))),
         endDate: Timestamp.fromDate(now.add(const Duration(hours: 5))),
-        capacity: 10, subscribed: 1,
+        capacity: 10,
+        subscribed: 1,
       );
       final user = FitropeUser(
-        uid: 'u1', email: 'x@y.z', name: 'N', lastName: 'L',
+        uid: 'u1',
+        email: 'x@y.z',
+        name: 'N',
+        lastName: 'L',
         courses: ['c1'],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_PROVA,
         entrateDisponibili: 1,
-        role: 'User', createdAt: now,
+        role: 'User',
+        createdAt: now,
       );
 
       final result = CourseUnsubscribeHelper.canUnsubscribe(course, user);
@@ -295,51 +333,72 @@ void main() {
       expect(result['canUnsubscribe'], true);
       expect(result['requiresConfirmation'], true);
       expect(result['isPacchettoEntrate'], true);
-      expect(result['message'], 'Disiscrizione a meno di 8 ore: perderai il credito');
+      expect(result['message'],
+          'Disiscrizione a meno di 8 ore: perderai il credito');
     });
   });
 
-  group('CourseUnsubscribeHelper.canUnsubscribe - tipologiaIscrizione null', () {
-    test('utente senza tipologia: mai richiede conferma, messaggio generico "liberi il posto"', () {
+  group('CourseUnsubscribeHelper.canUnsubscribe - tipologiaIscrizione null',
+      () {
+    test(
+        'utente senza tipologia: mai richiede conferma, messaggio generico "liberi il posto"',
+        () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(hours: 1))),
         endDate: Timestamp.fromDate(now.add(const Duration(hours: 2))),
-        capacity: 10, subscribed: 1,
+        capacity: 10,
+        subscribed: 1,
       );
       final user = FitropeUser(
-        uid: 'u1', email: 'x@y.z', name: 'N', lastName: 'L',
+        uid: 'u1',
+        email: 'x@y.z',
+        name: 'N',
+        lastName: 'L',
         courses: ['c1'],
         tipologiaIscrizione: null,
-        role: 'User', createdAt: now,
+        role: 'User',
+        createdAt: now,
       );
 
       final result = CourseUnsubscribeHelper.canUnsubscribe(course, user);
 
       expect(result['canUnsubscribe'], true);
       expect(result['requiresConfirmation'], false,
-          reason: 'Senza tipologia non rientra in nessuna soglia: nessuna conferma');
+          reason:
+              'Senza tipologia non rientra in nessuna soglia: nessuna conferma');
       expect(result['isPacchettoEntrate'], false);
       expect(result['isTemporalSubscription'], false);
       expect(result['message'], 'Disiscrizione: liberi il posto nel corso');
     });
   });
 
-  group('CourseUnsubscribeHelper.canUnsubscribe - ABBONAMENTO temporale > 4 ore', () {
+  group(
+      'CourseUnsubscribeHelper.canUnsubscribe - ABBONAMENTO temporale > 4 ore',
+      () {
     test('ABBONAMENTO_TRIMESTRALE a 5 ore: nessuna conferma', () {
       final course = Course(
-        id: 'c1', uid: 'c1', name: 'Corso',
+        id: 'c1',
+        uid: 'c1',
+        name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(hours: 5))),
         endDate: Timestamp.fromDate(now.add(const Duration(hours: 6))),
-        capacity: 10, subscribed: 1,
+        capacity: 10,
+        subscribed: 1,
       );
       final user = FitropeUser(
-        uid: 'u1', email: 'x@y.z', name: 'N', lastName: 'L',
+        uid: 'u1',
+        email: 'x@y.z',
+        name: 'N',
+        lastName: 'L',
         courses: ['c1'],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE,
         entrateSettimanali: 3,
         fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 60))),
-        role: 'User', createdAt: now,
+        role: 'User',
+        createdAt: now,
       );
 
       final result = CourseUnsubscribeHelper.canUnsubscribe(course, user);
@@ -349,28 +408,36 @@ void main() {
       expect(result['message'], 'Disiscrizione: liberi il posto nel corso');
     });
 
-    test('ABBONAMENTO_ANNUALE esattamente a 4 ore: conferma richiesta (soglia inclusiva)', () {
+    test(
+        'ABBONAMENTO_ANNUALE esattamente a 4 ore: conferma richiesta (soglia inclusiva)',
+        () {
       final course = Course(
         id: 'c1', uid: 'c1', name: 'Corso',
         // 4 ore esatte, + qualche secondo per robustezza cronometrica
-        startDate: Timestamp.fromDate(now.add(const Duration(hours: 4, seconds: 1))),
+        startDate:
+            Timestamp.fromDate(now.add(const Duration(hours: 4, seconds: 1))),
         endDate: Timestamp.fromDate(now.add(const Duration(hours: 5))),
         capacity: 10, subscribed: 1,
       );
       final user = FitropeUser(
-        uid: 'u1', email: 'x@y.z', name: 'N', lastName: 'L',
+        uid: 'u1',
+        email: 'x@y.z',
+        name: 'N',
+        lastName: 'L',
         courses: ['c1'],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_ANNUALE,
         entrateSettimanali: 3,
         fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 300))),
-        role: 'User', createdAt: now,
+        role: 'User',
+        createdAt: now,
       );
 
       final result = CourseUnsubscribeHelper.canUnsubscribe(course, user);
 
       expect(result['requiresConfirmation'], true);
       expect(result['isTemporalSubscription'], true);
-      expect(result['message'], 'Disiscrizione a meno di 4 ore: perderai l\'ingresso settimanale');
+      expect(result['message'],
+          'Disiscrizione a meno di 4 ore: perderai l\'ingresso settimanale');
     });
   });
 }

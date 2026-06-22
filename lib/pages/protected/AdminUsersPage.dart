@@ -63,18 +63,24 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
   String _desktopTableScadenzaAbbonamentoCell(FitropeUser u) {
     final ts = u.fineIscrizione;
-    return ts == null ? 'Non impostata' : _userTableDateFormat.format(ts.toDate());
+    return ts == null
+        ? 'Non impostata'
+        : _userTableDateFormat.format(ts.toDate());
   }
 
   /// Filtro tag: null = tutti i tag
   String? selectedTagFilter;
+
   /// Filtro tipologia abbonamento: null = tutte le tipologie
   TipologiaIscrizione? selectedTipologiaFilter;
+
   /// Filtro stato: null = tutti, true = solo attivi, false = solo disattivati
   bool? activeFilter;
+
   /// Solo Admin: filtro su fine iscrizione (allineato al KPI dashboard per i 30 gg)
   AbbonamentoScadenzaListFilter _abbonamentoScadenzaFilter =
       AbbonamentoScadenzaListFilter.tutti;
+
   /// Su mobile: filtri nascosti o mostrati (dropdown espanso/collassato)
   bool _filtersExpanded = false;
 
@@ -95,7 +101,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   }
 
   void _onScroll() {
-    if (scrollController.position.pixels >= 
+    if (scrollController.position.pixels >=
         scrollController.position.maxScrollExtent - 200) {
       // Carica più elementi quando si è a 200px dalla fine
       _loadMoreUsers();
@@ -116,13 +122,13 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         users = usersList;
         isLoading = false;
       });
-      
+
       _applyFilters();
     } catch (e) {
       print('Error loading users: $e');
       setState(() {
         isLoading = false;
-      }); 
+      });
     }
   }
 
@@ -136,10 +142,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     // Simula un piccolo delay per evitare troppe chiamate
     Future.delayed(Duration(milliseconds: 100), () {
       if (!mounted) return;
-      
+
       final currentLength = displayedUsers.length;
       final nextLength = currentLength + _itemsPerPage;
-      
+
       setState(() {
         displayedUsers = filteredUsers.take(nextLength).toList();
         hasMore = nextLength < filteredUsers.length;
@@ -165,12 +171,16 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
       // Filtro tag
       if (selectedTagFilter != null) {
-        result = result.where((u) => u.tipologiaCorsoTags.contains(selectedTagFilter!)).toList();
+        result = result
+            .where((u) => u.tipologiaCorsoTags.contains(selectedTagFilter!))
+            .toList();
       }
 
       // Filtro tipologia abbonamento
       if (selectedTipologiaFilter != null) {
-        result = result.where((u) => u.tipologiaIscrizione == selectedTipologiaFilter).toList();
+        result = result
+            .where((u) => u.tipologiaIscrizione == selectedTipologiaFilter)
+            .toList();
       }
 
       // Filtro stato (attivi / disattivati)
@@ -217,7 +227,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
   bool _canSendResetPasswordFromList() => user.role == 'Admin';
 
-  void showUserDetails(FitropeUser targetUser, {bool openInEditMode = false}) async {
+  void showUserDetails(FitropeUser targetUser,
+      {bool openInEditMode = false}) async {
     final updatedUser = await Navigator.push<FitropeUser>(
       context,
       MaterialPageRoute(
@@ -227,7 +238,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         ),
       ),
     );
-    
+
     // Se l'utente è stato aggiornato, aggiorna la lista
     if (updatedUser != null) {
       setState(() {
@@ -261,7 +272,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+              child: const Text('Annulla',
+                  style: TextStyle(color: onPrimaryColor)),
             ),
             TextButton(
               onPressed: () async {
@@ -285,7 +297,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               style: TextButton.styleFrom(foregroundColor: primaryColor),
               child: const Text(
                 'Invia Email',
-                style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                style:
+                    TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -298,18 +311,22 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     final isCurrentlyActive = user.isActive;
     final action = isCurrentlyActive ? 'disattivare' : 'attivare';
     final actionPast = isCurrentlyActive ? 'disattivato' : 'attivato';
-    
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: backgroundColor,
           title: Text(isCurrentlyActive ? 'Disattiva Utente' : 'Attiva Utente'),
-          content: Text('Sei sicuro di voler $action l\'utente ${user.name} ${user.lastName}?'),
+          content: Text(
+              'Sei sicuro di voler $action l\'utente ${user.name} ${user.lastName}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla', style: TextStyle(color: onPrimaryColor),),
+              child: const Text(
+                'Annulla',
+                style: TextStyle(color: onPrimaryColor),
+              ),
             ),
             TextButton(
               onPressed: () async {
@@ -330,9 +347,13 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 }
               },
               style: TextButton.styleFrom(
-                foregroundColor: isCurrentlyActive ? Colors.orange : Colors.green
+                  foregroundColor:
+                      isCurrentlyActive ? Colors.orange : Colors.green),
+              child: Text(
+                isCurrentlyActive ? 'Disattiva' : 'Attiva',
+                style: TextStyle(
+                    color: isCurrentlyActive ? warningColor : successColor),
               ),
-              child: Text(isCurrentlyActive ? 'Disattiva' : 'Attiva', style: TextStyle(color: isCurrentlyActive ? warningColor : successColor),),
             ),
           ],
         );
@@ -342,8 +363,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
   Widget _buildFiltersRow(BuildContext context) {
     final screenType = breakpointOf(context);
-    final bool desktopLayout =
-        screenType == ScreenType.desktop || screenType == ScreenType.largeDesktop;
+    final bool desktopLayout = screenType == ScreenType.desktop ||
+        screenType == ScreenType.largeDesktop;
     final bool isAdmin = user.role == 'Admin';
 
     final tagDropdown = DropdownButtonFormField<String?>(
@@ -356,7 +377,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       ),
       items: [
         const DropdownMenuItem(value: null, child: Text('Tutti i tag')),
-        ...CourseTags.all.map((tag) => DropdownMenuItem(value: tag, child: Text(tag))),
+        ...CourseTags.all
+            .map((tag) => DropdownMenuItem(value: tag, child: Text(tag))),
       ],
       onChanged: (value) {
         selectedTagFilter = value;
@@ -375,9 +397,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       items: [
         const DropdownMenuItem(value: null, child: Text('Tutte le tipologie')),
         ...TipologiaIscrizione.values.map((t) => DropdownMenuItem(
-          value: t,
-          child: Text(getTipologiaIscrizioneLabel(t)),
-        )),
+              value: t,
+              child: Text(getTipologiaIscrizioneLabel(t)),
+            )),
       ],
       onChanged: (value) {
         selectedTipologiaFilter = value;
@@ -502,7 +524,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         ),
       ),
     );
-    
+
     // Se l'utente è stato creato con successo, ricarica la lista
     if (result == true) {
       loadUsers();
@@ -556,7 +578,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     return DataRow(
                       onSelectChanged: (_) => showUserDetails(fitropeUser),
                       cells: [
-                        DataCell(Text('${fitropeUser.name} ${fitropeUser.lastName}')),
+                        DataCell(Text(
+                            '${fitropeUser.name} ${fitropeUser.lastName}')),
                         DataCell(Text(fitropeUser.email)),
                         if (showDesktopExtraColumns) ...[
                           DataCell(
@@ -582,7 +605,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                             child: _userTableEllipsisText(
                               fitropeUser.isActive ? 'Attivo' : 'Disattivo',
                               style: TextStyle(
-                                color: fitropeUser.isActive ? successColor : warningColor,
+                                color: fitropeUser.isActive
+                                    ? successColor
+                                    : warningColor,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -603,25 +628,34 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                   visualDensity: VisualDensity.compact,
                                   icon: const Icon(Icons.edit_outlined),
                                   tooltip: 'Modifica',
-                                  onPressed: () =>
-                                      showUserDetails(fitropeUser, openInEditMode: true),
+                                  onPressed: () => showUserDetails(fitropeUser,
+                                      openInEditMode: true),
                                 ),
                               if (_canSendResetPasswordFromList() &&
                                   fitropeUser.email.trim().isNotEmpty)
                                 IconButton(
                                   visualDensity: VisualDensity.compact,
-                                  icon: const Icon(Icons.mark_email_unread_outlined),
+                                  icon: const Icon(
+                                      Icons.mark_email_unread_outlined),
                                   tooltip: 'Invia email reset password',
-                                  onPressed: () => _showResetPasswordDialog(fitropeUser),
+                                  onPressed: () =>
+                                      _showResetPasswordDialog(fitropeUser),
                                 ),
                               IconButton(
                                 visualDensity: VisualDensity.compact,
                                 icon: Icon(
-                                  fitropeUser.isActive ? Icons.block : Icons.check_circle,
-                                  color: fitropeUser.isActive ? warningColor : successColor,
+                                  fitropeUser.isActive
+                                      ? Icons.block
+                                      : Icons.check_circle,
+                                  color: fitropeUser.isActive
+                                      ? warningColor
+                                      : successColor,
                                 ),
-                                tooltip: fitropeUser.isActive ? 'Disattiva' : 'Attiva',
-                                onPressed: () => showToggleUserStatusDialog(fitropeUser),
+                                tooltip: fitropeUser.isActive
+                                    ? 'Disattiva'
+                                    : 'Attiva',
+                                onPressed: () =>
+                                    showToggleUserStatusDialog(fitropeUser),
                               ),
                             ],
                           ),
@@ -644,7 +678,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       ],
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return StoreConnector<AppState, AppState>(
@@ -668,7 +702,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Image(image: AssetImage('assets/new_logo_only.png'), width: 30),
+                      const Image(
+                          image: AssetImage('assets/new_logo_only.png'),
+                          width: 30),
                       Expanded(
                         child: Text(
                           'Gestione Utenti',
@@ -685,13 +721,16 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       else
                         GestureDetector(
                           child: CircleAvatar(
-                            backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                            backgroundColor:
+                                const Color.fromARGB(255, 96, 119, 246),
                             child: Text(user.name[0] + user.lastName[0]),
                           ),
                           onTap: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      UserDetailPage(user: user)),
                             );
                           },
                         ),
@@ -718,10 +757,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       child: ElevatedButton.icon(
                         onPressed: _navigateToCreateUser,
                         icon: const Icon(Icons.person_add, color: Colors.white),
-                        label: const Text('Crea Utente', style: TextStyle(color: Colors.white)),
+                        label: const Text('Crea Utente',
+                            style: TextStyle(color: Colors.white)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
                         ),
                       ),
                     )
@@ -731,10 +772,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       child: ElevatedButton.icon(
                         onPressed: _navigateToCreateUser,
                         icon: const Icon(Icons.person_add, color: Colors.white),
-                        label: const Text('Crea Utente', style: TextStyle(color: Colors.white)),
+                        label: const Text('Crea Utente',
+                            style: TextStyle(color: Colors.white)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
                         ),
                       ),
                     ),
@@ -765,13 +808,16 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                               )
                             : ListView.builder(
                                 controller: scrollController,
-                                itemCount: displayedUsers.length + (hasMore ? 1 : 0),
+                                itemCount:
+                                    displayedUsers.length + (hasMore ? 1 : 0),
                                 itemBuilder: (context, index) {
                                   if (index >= displayedUsers.length) {
                                     return const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 16),
                                       child: Center(
-                                        child: CircularProgressIndicator(color: primaryColor),
+                                        child: CircularProgressIndicator(
+                                            color: primaryColor),
                                       ),
                                     );
                                   }
@@ -790,7 +836,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                             backgroundColor: primaryLightColor,
                                             child: Text(
                                               '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
-                                              style: const TextStyle(color: Colors.white),
+                                              style: const TextStyle(
+                                                  color: Colors.white),
                                             ),
                                           ),
                                           if (!user.isActive)
@@ -798,7 +845,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                               right: 0,
                                               bottom: 0,
                                               child: Container(
-                                                padding: const EdgeInsets.all(2),
+                                                padding:
+                                                    const EdgeInsets.all(2),
                                                 decoration: const BoxDecoration(
                                                   color: Colors.red,
                                                   shape: BoxShape.circle,
@@ -812,9 +860,11 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                             ),
                                         ],
                                       ),
-                                      title: Text('${user.name} ${user.lastName}'),
+                                      title:
+                                          Text('${user.name} ${user.lastName}'),
                                       subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(user.email),
                                           Text('Ruolo: ${user.role}'),
@@ -839,12 +889,18 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                             child: Row(
                                               children: [
                                                 Icon(
-                                                  user.isActive ? Icons.block : Icons.check_circle,
-                                                  color: user.isActive ? Colors.orange : Colors.green,
+                                                  user.isActive
+                                                      ? Icons.block
+                                                      : Icons.check_circle,
+                                                  color: user.isActive
+                                                      ? Colors.orange
+                                                      : Colors.green,
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
-                                                  user.isActive ? 'Disattiva' : 'Attiva',
+                                                  user.isActive
+                                                      ? 'Disattiva'
+                                                      : 'Attiva',
                                                   style: TextStyle(
                                                     color: user.isActive
                                                         ? Colors.orange

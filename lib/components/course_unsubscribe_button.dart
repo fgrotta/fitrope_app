@@ -10,7 +10,7 @@ class CourseUnsubscribeButton extends StatefulWidget {
   final FitropeUser user;
   final VoidCallback? onUnsubscribed;
   final VoidCallback? onError;
-  
+
   const CourseUnsubscribeButton({
     super.key,
     required this.course,
@@ -20,7 +20,8 @@ class CourseUnsubscribeButton extends StatefulWidget {
   });
 
   @override
-  State<CourseUnsubscribeButton> createState() => _CourseUnsubscribeButtonState();
+  State<CourseUnsubscribeButton> createState() =>
+      _CourseUnsubscribeButtonState();
 }
 
 class _CourseUnsubscribeButtonState extends State<CourseUnsubscribeButton> {
@@ -30,13 +31,15 @@ class _CourseUnsubscribeButtonState extends State<CourseUnsubscribeButton> {
   @override
   void initState() {
     super.initState();
-    _unsubscribeInfo = CourseUnsubscribeHelper.canUnsubscribe(widget.course, widget.user);
+    _unsubscribeInfo =
+        CourseUnsubscribeHelper.canUnsubscribe(widget.course, widget.user);
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_unsubscribeInfo['canUnsubscribe']) {
-      return const SizedBox.shrink(); // Non mostrare il pulsante se non può disiscriversi
+      return const SizedBox
+          .shrink(); // Non mostrare il pulsante se non può disiscriversi
     }
 
     return Column(
@@ -72,7 +75,7 @@ class _CourseUnsubscribeButtonState extends State<CourseUnsubscribeButton> {
               ],
             ),
           ),
-        
+
         // Pulsante di disiscrizione
         SizedBox(
           width: double.infinity,
@@ -183,7 +186,7 @@ class SimpleUnsubscribeButton extends StatelessWidget {
   final Course course;
   final FitropeUser user;
   final VoidCallback? onUnsubscribed;
-  
+
   const SimpleUnsubscribeButton({
     super.key,
     required this.course,
@@ -193,15 +196,20 @@ class SimpleUnsubscribeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unsubscribeInfo = CourseUnsubscribeHelper.canUnsubscribe(course, user);
-    
+    final unsubscribeInfo =
+        CourseUnsubscribeHelper.canUnsubscribe(course, user);
+
     return ElevatedButton(
       onPressed: () => _handleSimpleUnsubscribe(context),
       style: ElevatedButton.styleFrom(
-        backgroundColor: unsubscribeInfo['requiresConfirmation'] ? Colors.orange : Colors.red,
+        backgroundColor: unsubscribeInfo['requiresConfirmation']
+            ? Colors.orange
+            : Colors.red,
         foregroundColor: Colors.white,
       ),
-      child: Text(unsubscribeInfo['requiresConfirmation'] ? 'Disiscriviti (Perdi Credito)' : 'Disiscriviti'),
+      child: Text(unsubscribeInfo['requiresConfirmation']
+          ? 'Disiscriviti (Perdi Credito)'
+          : 'Disiscriviti'),
     );
   }
 

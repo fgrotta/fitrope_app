@@ -31,7 +31,8 @@ Future<void> _connectToEmulators() async {
   // in produzione.
   FirebaseFunctions.instanceFor(region: 'europe-west8')
       .useFunctionsEmulator(emulatorHost, 5001);
-  debugPrint('⚠️ EMULATORE FIREBASE ATTIVO ($emulatorHost) — nessun dato reale');
+  debugPrint(
+      '⚠️ EMULATORE FIREBASE ATTIVO ($emulatorHost) — nessun dato reale');
 }
 
 void main() async {

@@ -52,28 +52,26 @@ class _ProtectedState extends State<Protected> {
     super.initState();
 
     getAllCourses().then((List<Course> response) {
-      if(mounted) {
+      if (mounted) {
         setState(() {
           store.dispatch(SetAllCoursesAction(response));
         });
       }
     });
-    
-    if(!isLogged()) {
+
+    if (!isLogged()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacementNamed(LOGIN_ROUTE);
       });
-    }
-    else {
-      if(user != null) {
+    } else {
+      if (user != null) {
         print("${user!.name} ${user!.lastName} logged");
         OneSignalService.login(user!.uid);
         if (user!.email.isNotEmpty) {
           OneSignalService.addEmail(user!.email);
         }
         OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
-      }
-      else {
+      } else {
         resetUser();
       }
     }
@@ -84,7 +82,7 @@ class _ProtectedState extends State<Protected> {
 
     Map<String, dynamic>? userData = await getUserData(uid);
 
-    if(userData != null) {
+    if (userData != null) {
       setState(() {
         store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
         user = store.state.user;
@@ -97,12 +95,11 @@ class _ProtectedState extends State<Protected> {
         }
         OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
       }
-    }
-    else {
+    } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         signOut().then((_) {
           logoutRedirect(context);
-        }); 
+        });
       });
     }
   }
@@ -136,78 +133,86 @@ class _ProtectedState extends State<Protected> {
     final effectiveIndex = currentIndex.clamp(0, maxIndex);
 
     return StoreConnector<AppState, bool>(
-      converter: (store) => store.state.isLoading,
-      builder: (context, isLoading) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            drawerTheme: DrawerThemeData(
-              width: 400,
-              elevation: 16,
+        converter: (store) => store.state.isLoading,
+        builder: (context, isLoading) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              drawerTheme: DrawerThemeData(
+                width: 400,
+                elevation: 16,
+              ),
             ),
-          ),
-          child: Scaffold(
-            key: _scaffoldKey,
-            endDrawer: _drawerTitle != null && _drawerUsers != null
-                ? UserListDrawer(
-                    title: _drawerTitle!,
-                    users: _drawerUsers!,
-                    onClose: () => setState(() {
-                      _drawerTitle = null;
-                      _drawerUsers = null;
-                    }),
-                  )
-                : null,
-            floatingActionButton: kDebugMode
-                ? FloatingActionButton.small(
-                    onPressed: () => Navigator.of(context).pushNamed(DEBUG_EMAIL_ROUTE),
-                    tooltip: 'Debug email',
-                    child: const Icon(Icons.bug_report_outlined),
-                  )
-                : null,
-            body: Stack(
-              children: [
-                AppShell(
-                  currentIndex: effectiveIndex,
-                  isAdmin: user?.role == 'Admin',
-                  onChangePage: (index) {
-                    setState(() {
-                      currentIndex = index;
-                    });
-                  },
-                  profileInitials: desktop ? _userProfileInitials(user) : null,
-                  onProfileTap: desktop && user != null
-                      ? () {
-                          final u = user!;
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => UserDetailPage(user: u),
-                            ),
-                          );
-                        }
-                      : null,
-                  onLogout: () {
-                    signOut().then((_) {
-                      logoutRedirect(context);
-                    });
-                  },
-                  child: user != null ? _getPageFor(effectiveIndex) : const SizedBox.shrink(),
-                ),
-                if (isLoading) const Loader(),
-              ],
+            child: Scaffold(
+              key: _scaffoldKey,
+              endDrawer: _drawerTitle != null && _drawerUsers != null
+                  ? UserListDrawer(
+                      title: _drawerTitle!,
+                      users: _drawerUsers!,
+                      onClose: () => setState(() {
+                        _drawerTitle = null;
+                        _drawerUsers = null;
+                      }),
+                    )
+                  : null,
+              floatingActionButton: kDebugMode
+                  ? FloatingActionButton.small(
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed(DEBUG_EMAIL_ROUTE),
+                      tooltip: 'Debug email',
+                      child: const Icon(Icons.bug_report_outlined),
+                    )
+                  : null,
+              body: Stack(
+                children: [
+                  AppShell(
+                    currentIndex: effectiveIndex,
+                    isAdmin: user?.role == 'Admin',
+                    onChangePage: (index) {
+                      setState(() {
+                        currentIndex = index;
+                      });
+                    },
+                    profileInitials:
+                        desktop ? _userProfileInitials(user) : null,
+                    onProfileTap: desktop && user != null
+                        ? () {
+                            final u = user!;
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => UserDetailPage(user: u),
+                              ),
+                            );
+                          }
+                        : null,
+                    onLogout: () {
+                      signOut().then((_) {
+                        logoutRedirect(context);
+                      });
+                    },
+                    child: user != null
+                        ? _getPageFor(effectiveIndex)
+                        : const SizedBox.shrink(),
+                  ),
+                  if (isLoading) const Loader(),
+                ],
+              ),
             ),
-          ),
-        );
-      }
-    );
+          );
+        });
   }
 
   Widget _getPageFor(int index) {
-    switch(index) {
-      case 0: return const HomePage();
-      case 1: return const CalendarPage();
-      case 2: return const AdminUsersPage();
-      case 3: return AdminDashboardPage(onOpenUserList: _openUserList);
-      default: return const HomePage();
+    switch (index) {
+      case 0:
+        return const HomePage();
+      case 1:
+        return const CalendarPage();
+      case 2:
+        return const AdminUsersPage();
+      case 3:
+        return AdminDashboardPage(onOpenUserList: _openUserList);
+      default:
+        return const HomePage();
     }
   }
 }
