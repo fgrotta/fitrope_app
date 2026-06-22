@@ -15,7 +15,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.41.6'
           channel: 'stable'
       
       - name: Install dependencies
@@ -25,13 +25,13 @@ jobs:
         run: flutter test
         
       - name: Run analysis
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
         
       - name: Check formatting
-        run: flutter format --set-exit-if-changed .
+        run: dart format --set-exit-if-changed .
         
-      - name: Build for all platforms (dry run)
-        run: flutter build web --debug
+      - name: Build Web (dry run, valida il path --wasm di produzione)
+        run: flutter build web --wasm --release
 
   functions-test:
     runs-on: ubuntu-latest

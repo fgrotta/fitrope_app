@@ -21,7 +21,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.41.6'
           channel: 'stable'
       
       - name: Install dependencies
@@ -64,14 +64,17 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.41.6'
           channel: 'stable'
       
       - name: Install dependencies
         run: flutter pub get
         
       - name: Build Web
-        run: flutter build web --release --base-href /fitrope_app/
+        # --wasm: i browser moderni scaricano il path WebAssembly (renderer
+        # skwasm, ~half di CanvasKit) con TTI migliore; i browser senza WasmGC
+        # cadono automaticamente sul fallback dart2js+CanvasKit incluso nella build.
+        run: flutter build web --wasm --release --base-href /fitrope_app/
         
       - name: Upload Web build
         uses: actions/upload-artifact@v4
