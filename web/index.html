@@ -21,6 +21,14 @@
   <meta name="title" content="Fit House">
   <meta name="description" content="App per la gestione dei corsi di fitness">
 
+  <!-- Resource hints: anticipa i download critici e gli handshake verso gli host terzi -->
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
+  <link rel="preload" href="main.dart.js" as="script">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.onesignal.com">
+
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -51,7 +59,7 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      color: white;
+      color: #2563EB;
     }
     
     .logo-container {
@@ -68,9 +76,9 @@
     .loader {
       width: 50px;
       height: 50px;
-      border: 5px solid rgba(255,255,255,0.3);
+      border: 5px solid rgba(37,99,235,0.25);
       border-radius: 50%;
-      border-top-color: white;
+      border-top-color: #2563EB;
       animation: spin 1s ease-in-out infinite;
     }
     

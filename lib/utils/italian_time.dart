@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:timezone/data/latest.dart' as tzdata;
+// latest_10y: tutte le zone ma solo ±10 anni di transizioni (254 KB vs 1.1 MB
+// del DB completo). Sufficiente per la pianificazione corsi; riduce main.dart.js.
+import 'package:timezone/data/latest_10y.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 /// Fuso orario di riferimento dell'app: l'orario mostrato e salvato è SEMPRE

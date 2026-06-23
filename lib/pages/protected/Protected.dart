@@ -3,14 +3,18 @@ import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/logout.dart';
+import 'package:fitrope_app/components/deferred_page.dart';
 import 'package:fitrope_app/components/loader.dart';
+import 'package:fitrope_app/components/user_list_drawer.dart';
 import 'package:fitrope_app/layout/app_shell.dart';
 import 'package:fitrope_app/pages/protected/CalendarPage.dart';
 import 'package:fitrope_app/pages/protected/HomePage.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
-import 'package:fitrope_app/pages/protected/AdminDashboardPage.dart';
-import 'package:fitrope_app/pages/protected/AdminUsersPage.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
+// Pagine solo-admin: caricate on-demand (deferred). Un utente non-admin non
+// scarica mai questi chunk. Prewarm in background nell'initState per gli admin.
+import 'package:fitrope_app/pages/protected/AdminDashboardPage.dart' deferred as admin_dashboard;
+import 'package:fitrope_app/pages/protected/AdminUsersPage.dart' deferred as admin_users;
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
@@ -32,6 +36,48 @@ class Protected extends StatefulWidget {
 class _ProtectedState extends State<Protected> {
   late FitropeUser? user = store.state.user;
   int currentIndex = 0;
+
+  // Librerie delle pagine solo-admin, caricate on-demand (deferred). Il `??=`
+  // deduplica il caricamento; un utente non-admin non le scarica mai. In caso di
+  // errore (fetch del chunk fallito) il campo viene azzerato così il caricamento
+  // è ri-tentabile. I flag `_*Loaded` permettono a DeferredPage di costruire la
+  // pagina senza spinner quando la tab viene riaperta (chunk già in cache).
+  Future<void>? _adminUsersLib;
+  Future<void>? _adminDashboardLib;
+  bool _adminUsersLoaded = false;
+  bool _adminDashboardLoaded = false;
+
+  Future<void> _loadAdminUsers() => _adminUsersLib ??= admin_users
+      .loadLibrary()
+      .then((_) {
+        if (mounted) setState(() => _adminUsersLoaded = true);
+      })
+      .catchError((Object e) {
+        _adminUsersLib = null;
+        throw e;
+      });
+
+  Future<void> _loadAdminDashboard() => _adminDashboardLib ??= admin_dashboard
+      .loadLibrary()
+      .then((_) {
+        if (mounted) setState(() => _adminDashboardLoaded = true);
+      })
+      .catchError((Object e) {
+        _adminDashboardLib = null;
+        throw e;
+      });
+
+  // Pre-carica in background i chunk admin (dopo il primo frame) così, quando
+  // l'admin apre la relativa tab, sono già pronti senza spinner. `.catchError`
+  // evita unhandled rejection se il prewarm fallisce (il reset on-error avviene
+  // comunque dentro il loader, quindi l'apertura della tab ritenterà).
+  void _prewarmAdminLibs() {
+    if (user?.role != 'Admin') return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAdminUsers().catchError((_) {});
+      _loadAdminDashboard().catchError((_) {});
+    });
+  }
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String? _drawerTitle;
@@ -72,6 +118,7 @@ class _ProtectedState extends State<Protected> {
           OneSignalService.addEmail(user!.email);
         }
         OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
+        _prewarmAdminLibs();
       }
       else {
         resetUser();
@@ -96,13 +143,14 @@ class _ProtectedState extends State<Protected> {
           OneSignalService.addEmail(user!.email);
         }
         OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
+        _prewarmAdminLibs();
       }
     }
     else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         signOut().then((_) {
           logoutRedirect(context);
-        }); 
+        });
       });
     }
   }
@@ -205,8 +253,16 @@ class _ProtectedState extends State<Protected> {
     switch(index) {
       case 0: return const HomePage();
       case 1: return const CalendarPage();
-      case 2: return const AdminUsersPage();
-      case 3: return AdminDashboardPage(onOpenUserList: _openUserList);
+      case 2: return DeferredPage(
+        loader: _loadAdminUsers,
+        alreadyLoaded: _adminUsersLoaded,
+        builder: (_) => admin_users.AdminUsersPage(),
+      );
+      case 3: return DeferredPage(
+        loader: _loadAdminDashboard,
+        alreadyLoaded: _adminDashboardLoaded,
+        builder: (_) => admin_dashboard.AdminDashboardPage(onOpenUserList: _openUserList),
+      );
       default: return const HomePage();
     }
   }

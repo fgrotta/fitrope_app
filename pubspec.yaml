@@ -11,7 +11,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
@@ -41,8 +40,12 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # Solo gli asset effettivamente caricati a runtime: evita di bundlare nel build web
+  # i logo vecchi e i sorgenti delle icone launcher (logo_only_square*.png), che restano
+  # nel repo per flutter_launcher_icons ma non servono all'app.
   assets:
-    - assets/
+    - assets/new_logo.png
+    - assets/new_logo_only.png
     - assets/course_images/
 
 flutter_launcher_icons:
