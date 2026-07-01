@@ -100,3 +100,14 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 - Layout responsive: `lib/layout/` (breakpoints + AppShell)
 - Servizi esterni: `lib/services/` (OneSignal mobile + web, notifiche, email templates)
 - Cloud Functions: `functions/src/` (TypeScript, proxy OneSignal)
+
+## TODO / Da aggiornare
+
+Punti aperti da affrontare in un secondo momento (non ancora fatti):
+
+- **`CourseType.label` deprecato** (`lib/types/course_type.dart`): sostituire gli usi con il nuovo meccanismo di etichettatura della tipologia.
+  - Uso attuale da migrare: `lib/components/course_preview_card.dart` (`widget.course.courseType.label`).
+- **Tipologia corso: doppio binario `tags` + `courseType`**: il modello `Course` mantiene sia `tags` (legacy, accesso per tag) sia `courseType` (enum `open` / `personal_trainer`). Consolidare sul solo `courseType` e valutare la deprecazione/rimozione di `tags` dove non più usato.
+- **Test E2E da riallineare al nuovo modello** (`integration_test/`, attualmente in `skip: true`):
+  - `helpers/seed.dart` genera i corsi di test usando ancora `tags` per la tipologia (`buildTestCourseName` / `createFerragostoTestCourse`): passare a `courseType`.
+  - Rivalidare `subscribe_to_course_test.dart` e `waitlist_swap_test.dart` con `getCourseState` aggiornato dopo il merge di `main`.
