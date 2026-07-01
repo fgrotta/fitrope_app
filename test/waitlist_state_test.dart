@@ -256,6 +256,7 @@ void main() {
           courses: [],
           tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
           entrateDisponibili: 0,
+          fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
           role: 'User',
           createdAt: now,
         );
@@ -282,6 +283,7 @@ void main() {
           lastName: 'User',
           courses: [],
           tipologiaIscrizione: null,
+          fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
           role: 'User',
           createdAt: now,
         );
