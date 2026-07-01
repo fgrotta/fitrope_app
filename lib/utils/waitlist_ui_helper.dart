@@ -20,12 +20,13 @@ class WaitlistUiHelper {
         backgroundColor: backgroundColor,
         title: const Text('Lista d\'attesa'),
         content: Text(
-          'Vuoi iscriverti alla lista d\'attesa per "${course.name}"?\n\nRiceverai una notifica se si libera un posto.',
+          'Vuoi iscriverti alla lista d\'attesa per "${course.name}"?\n\nRiceverai una email se si libera un posto.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+            child:
+                const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
           ),
           TextButton(
             onPressed: () {
@@ -33,15 +34,18 @@ class WaitlistUiHelper {
               joinWaitlist(course.uid, userId).then((_) {
                 onRefresh();
                 if (isMounted()) {
-                  SnackBarUtils.showSuccessSnackBar(context, 'Iscritto alla lista d\'attesa');
+                  SnackBarUtils.showSuccessSnackBar(
+                      context, 'Iscritto alla lista d\'attesa');
                 }
               }).catchError((e) {
                 if (isMounted()) {
-                  SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
+                  SnackBarUtils.showErrorSnackBar(
+                      context, 'Errore: ${e.toString()}');
                 }
               });
             },
-            child: const Text('Conferma', style: TextStyle(color: Colors.orange)),
+            child:
+                const Text('Conferma', style: TextStyle(color: Colors.orange)),
           ),
         ],
       ),
@@ -59,7 +63,8 @@ class WaitlistUiHelper {
     leaveWaitlist(course.uid, userId).then((_) {
       onRefresh();
       if (isMounted()) {
-        SnackBarUtils.showSuccessSnackBar(context, 'Rimosso dalla lista d\'attesa');
+        SnackBarUtils.showSuccessSnackBar(
+            context, 'Rimosso dalla lista d\'attesa');
       }
     }).catchError((e) {
       if (isMounted()) {
