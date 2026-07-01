@@ -38,7 +38,10 @@ void main() {
       tipologiaIscrizione: tipologia,
       entrateDisponibili: entrateDisponibili,
       entrateSettimanali: entrateSettimanali,
-      fineIscrizione: fineIscrizione,
+      // Ogni iscrizione deve avere una data di fine: se non specificata nel
+      // test, usa un default molto futuro così non scatta lo stato EXPIRED.
+      fineIscrizione:
+          fineIscrizione ?? Timestamp.fromDate(now.add(const Duration(days: 3650))),
       role: 'User',
       createdAt: now,
       tipologiaCorsoTags: tipologiaCorsoTags,
@@ -87,6 +90,44 @@ void main() {
       final user = makeUser(tipologia: null);
 
       expect(getCourseState(course, user), CourseState.NULL);
+    });
+  });
+
+  group('getCourseState - fineIscrizione mancante', () {
+    setUp(() => store.dispatch(SetAllCoursesAction([])));
+
+    test('fineIscrizione null -> EXPIRED (iscrizione non attiva)', () {
+      final course = makeCourse();
+      store.dispatch(SetAllCoursesAction([course]));
+      // Utente con crediti ma SENZA data di fine: deve risultare EXPIRED,
+      // non CAN_SUBSCRIBE (regola: ogni iscrizione deve avere una scadenza).
+      final user = FitropeUser(
+        uid: 'user-no-date',
+        email: 'test@example.com',
+        name: 'Test',
+        lastName: 'User',
+        courses: const [],
+        tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
+        entrateDisponibili: 5,
+        fineIscrizione: null,
+        role: 'User',
+        createdAt: now,
+        tipologiaCorsoTags: const ['Tutti i corsi'],
+      );
+
+      expect(getCourseState(course, user), CourseState.EXPIRED);
+    });
+
+    test('fineIscrizione passata -> EXPIRED', () {
+      final course = makeCourse();
+      store.dispatch(SetAllCoursesAction([course]));
+      final user = makeUser(
+        tipologia: TipologiaIscrizione.PACCHETTO_ENTRATE,
+        entrateDisponibili: 5,
+        fineIscrizione: Timestamp.fromDate(DateTime(2000)),
+      );
+
+      expect(getCourseState(course, user), CourseState.EXPIRED);
     });
   });
 

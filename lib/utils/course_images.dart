@@ -22,6 +22,7 @@ class CourseImages {
       'assets/course_images/open_1.webp',
       'assets/course_images/open_2.webp',
       'assets/course_images/open_3.webp',
+      'assets/course_images/open_tabata.webp',
     ],
     CourseType.personal_trainer: [
       'assets/course_images/pt_personal_trainer.webp',

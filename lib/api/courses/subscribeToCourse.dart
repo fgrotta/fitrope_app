@@ -56,14 +56,20 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
       List<dynamic> userCourses = userData['courses'] ?? [];
 
       if (userCourses.contains(courseId)) {
-        throw Exception('User is already subscribed to this course');
+        throw Exception('L\'utente è già iscritto a questo corso.');
       }
 
-      if (userData['fineIscrizione'] != null) {
+      // I controlli su data di fine iscrizione valgono solo per l'iscrizione
+      // self-service. Admin/Trainer (force) bypassano sia la data mancante sia
+      // la scadenza, per poter aggiungere manualmente l'utente.
+      if (!force) {
+        if (userData['fineIscrizione'] == null) {
+          throw Exception('Data di fine iscrizione non impostata. Contatta lo staff per attivare l\'abbonamento.');
+        }
         DateTime subscriptionEnd = (userData['fineIscrizione'] as Timestamp).toDate();
         DateTime courseDate = (courseData['startDate'] as Timestamp).toDate();
         if (courseDate.isAfter(subscriptionEnd)) {
-          throw Exception('Subscription has expired. Cannot subscribe to this course.');
+          throw Exception('Abbonamento scaduto: impossibile iscriversi a un corso successivo alla fine dell\'abbonamento.');
         }
       }
 
@@ -94,7 +100,7 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
 
         transaction.update(userRef, userUpdate);
       } else {
-        throw Exception('Course is full');
+        throw Exception('Il corso è al completo.');
       }
     });
 

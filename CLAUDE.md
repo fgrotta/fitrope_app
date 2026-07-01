@@ -11,9 +11,21 @@ flutter pub get          # installa dipendenze
 flutter test             # esegui tutti i test
 flutter analyze          # analisi statica
 flutter format --set-exit-if-changed .  # check formattazione
-flutter build web --debug               # build web
+flutter build web --debug               # build web (debug, senza cache-busting)
 flutter run -d chrome                   # avvio locale
 ```
+
+**Build web di produzione — usa `tool/build_web.sh`, non `flutter build web` diretto.**
+Lo script esegue il build e timbra la versione (`version.json` + placeholder in `index.html`)
+per il cache-busting della PWA. Senza questo passo i client non rilevano i nuovi rilasci.
+
+```bash
+bash tool/build_web.sh                 # base-href = /fitrope_app/
+bash tool/build_web.sh /altro-base/    # base-href custom
+```
+
+> **Deploy:** il workflow GitHub `.github/workflows/release.yml` è **DEPRECATO** e non
+> più usato. Il deploy è manuale: si esegue `tool/build_web.sh` e si pubblica `build/web`.
 
 ### Cloud Functions (functions/)
 
