@@ -110,7 +110,7 @@ void main() {
     });
 
     group('Waitlist with subscription limits', () {
-      test('should return limit state instead of CAN_WAITLIST when user has no entries', () {
+      test('should return CAN_WAITLIST when pacchetto entrate user has no entries but course is full (waitlist illimitata)', () {
         final userNoEntries = FitropeUser(
           uid: 'user-no-entries',
           email: 'test@example.com',
@@ -124,8 +124,9 @@ void main() {
           createdAt: DateTime.now(),
         );
 
+        // La lista d'attesa è illimitata: l'assenza di crediti NON deve bloccarla.
         final state = getCourseState(fullCourse, userNoEntries);
-        expect(state, CourseState.SUBSCRIBE_LIMIT);
+        expect(state, CourseState.CAN_WAITLIST);
       });
 
       test('should return CAN_WAITLIST when pacchetto entrate user has entries and course is full', () {
@@ -146,7 +147,7 @@ void main() {
         expect(state, CourseState.CAN_WAITLIST);
       });
 
-      test('should return LIMIT when weekly limit reached even if course is full', () {
+      test('should return CAN_WAITLIST when weekly limit reached and course is full (waitlist illimitata)', () {
         final now = DateTime.now();
         // Crea 3 corsi nella stessa settimana futura
         final mondayNextWeek = now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
@@ -185,8 +186,110 @@ void main() {
           createdAt: now,
         );
 
+        // La lista d'attesa è illimitata: il limite settimanale raggiunto NON deve bloccarla.
         final state = getCourseState(fullCourseNextWeek, userAtLimit);
+        expect(state, CourseState.CAN_WAITLIST);
+      });
+    });
+
+    group('Waitlist ignora limiti settimanali/crediti', () {
+      test('corso CON POSTI + limite settimanale raggiunto -> LIMIT (la sottoscrizione diretta resta bloccata)', () {
+        final now = DateTime.now();
+        final mondayNextWeek =
+            now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
+
+        final course1 = Course(
+          id: 'c1', uid: 'c1', name: 'Corso 1',
+          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
+          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
+          capacity: 20, subscribed: 5,
+        );
+        final course2 = Course(
+          id: 'c2', uid: 'c2', name: 'Corso 2',
+          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 10))),
+          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 11))),
+          capacity: 20, subscribed: 5,
+        );
+        // Corso con posti disponibili (subscribed < capacity)
+        final availableCourseNextWeek = Course(
+          id: 'c-available', uid: 'c-available', name: 'Corso Disponibile',
+          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 10))),
+          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 11))),
+          capacity: 10, subscribed: 3,
+        );
+
+        store.dispatch(SetAllCoursesAction([course1, course2, availableCourseNextWeek]));
+
+        final userAtLimit = FitropeUser(
+          uid: 'user-limit',
+          email: 'test@example.com',
+          name: 'Test',
+          lastName: 'User',
+          courses: ['c1', 'c2'], // 2 corsi = limite raggiunto
+          tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
+          entrateSettimanali: 2,
+          fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
+          role: 'User',
+          createdAt: now,
+        );
+
+        final state = getCourseState(availableCourseNextWeek, userAtLimit);
         expect(state, CourseState.LIMIT);
+      });
+
+      test('corso CON POSTI + pacchetto entrate senza crediti -> SUBSCRIBE_LIMIT (la sottoscrizione diretta resta bloccata)', () {
+        final now = DateTime.now();
+        final availableCourse = Course(
+          id: 'c-available', uid: 'c-available', name: 'Corso Disponibile',
+          startDate: Timestamp.fromDate(now.add(const Duration(days: 3))),
+          endDate: Timestamp.fromDate(now.add(const Duration(days: 3, hours: 1))),
+          capacity: 10, subscribed: 3,
+        );
+
+        store.dispatch(SetAllCoursesAction([availableCourse]));
+
+        final userNoEntries = FitropeUser(
+          uid: 'user-no-entries',
+          email: 'test@example.com',
+          name: 'Test',
+          lastName: 'User',
+          courses: [],
+          tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
+          entrateDisponibili: 0,
+          role: 'User',
+          createdAt: now,
+        );
+
+        final state = getCourseState(availableCourse, userNoEntries);
+        expect(state, CourseState.SUBSCRIBE_LIMIT);
+      });
+
+      test('corso pieno + tipologiaIscrizione non valida -> NULL (la waitlist resta gated dall\'idoneità)', () {
+        final now = DateTime.now();
+        final fullCourseNoType = Course(
+          id: 'c-notype', uid: 'c-notype', name: 'Corso Pieno',
+          startDate: Timestamp.fromDate(now.add(const Duration(days: 3))),
+          endDate: Timestamp.fromDate(now.add(const Duration(days: 3, hours: 1))),
+          capacity: 10, subscribed: 10,
+        );
+
+        store.dispatch(SetAllCoursesAction([fullCourseNoType]));
+
+        final userNoType = FitropeUser(
+          uid: 'user-no-type',
+          email: 'test@example.com',
+          name: 'Test',
+          lastName: 'User',
+          courses: [],
+          tipologiaIscrizione: null,
+          role: 'User',
+          createdAt: now,
+        );
+
+        // La lista d'attesa è illimitata sui limiti settimanali/crediti, ma un
+        // utente senza abbonamento valido (NULL) resta comunque non idoneo.
+        final state = getCourseState(fullCourseNoType, userNoType);
+        expect(state, CourseState.NULL);
       });
     });
 

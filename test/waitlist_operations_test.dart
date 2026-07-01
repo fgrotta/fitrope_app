@@ -85,7 +85,7 @@ void main() {
       expect(state, CourseState.EXPIRED);
     });
 
-    test('utente pacchetto entrate senza crediti non può entrare in waitlist', () {
+    test('utente pacchetto entrate senza crediti PUÒ entrare in waitlist (lista d\'attesa illimitata)', () {
       final course = Course(
         id: 'c1', uid: 'c1', name: 'Corso',
         startDate: Timestamp.fromDate(now.add(const Duration(days: 2))),
@@ -106,8 +106,9 @@ void main() {
         createdAt: now,
       );
 
+      // La lista d'attesa è illimitata: l'assenza di crediti NON deve bloccarla.
       final state = getCourseState(course, userNoEntries);
-      expect(state, CourseState.SUBSCRIBE_LIMIT);
+      expect(state, CourseState.CAN_WAITLIST);
     });
 
     test('utente già in waitlist vede IN_WAITLIST', () {
