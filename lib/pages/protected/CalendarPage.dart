@@ -131,6 +131,13 @@ class _CalendarPageState extends State<CalendarPage> {
       setState(() {
         updateCourses();
       });
+    }).catchError((error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
     });
   }
 

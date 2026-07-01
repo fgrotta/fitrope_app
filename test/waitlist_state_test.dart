@@ -119,6 +119,7 @@ void main() {
           courses: [],
           tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
           entrateDisponibili: 0,
+          fineIscrizione: Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
           role: 'User',
           createdAt: DateTime.now(),
         );
@@ -136,6 +137,7 @@ void main() {
           courses: [],
           tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
           entrateDisponibili: 5,
+          fineIscrizione: Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
           role: 'User',
           createdAt: DateTime.now(),
         );

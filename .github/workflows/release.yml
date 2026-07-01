@@ -1,3 +1,9 @@
+# =============================================================================
+# DEPRECATO — questo workflow NON è più usato per il deploy.
+# Il build web di produzione si fa con `tool/build_web.sh`, che genera
+# `version.json` e timbra `index.html` per il cache-busting della PWA.
+# File mantenuto solo per riferimento storico. Vedi CLAUDE.md / AGENTS.md.
+# =============================================================================
 name: Release Build & Deploy
 
 on:

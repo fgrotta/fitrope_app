@@ -93,82 +93,118 @@
   <div class="loader"></div>
   
   <script>
-    // Version checking logic
-    let currentVersion = null;
+    // ID build "timbrato" in fase di build da tool/build_web.sh (sostituisce
+    // il placeholder). Su un nuovo deploy index.html cambia, quindi una shell
+    // appena caricata ottiene il nuovo numero; una shell VECCHIA in cache
+    // mantiene il numero precedente e farà mismatch con version.json -> update.
+    window.APP_BUILD_VERSION = "__APP_BUILD_VERSION__";
+
+    // Si parte dall'id timbrato, NON dal primo fetch di rete: così una shell
+    // obsoleta sa subito di essere indietro rispetto al server.
+    let currentVersion = window.APP_BUILD_VERSION;
     let checkInterval = null;
-    
-    async function getCurrentVersion() {
+    const RELOAD_GUARD_KEY = 'fh_update_attempts';
+    const MAX_RELOAD_ATTEMPTS = 2;
+
+    // Sentinella costruita a runtime (concatenata) così il build NON la
+    // sostituisce. Se currentVersion è ancora il placeholder, significa che
+    // la shell NON è stata timbrata (dev/debug, oppure build senza
+    // tool/build_web.sh): in quel caso l'auto-update va disattivato del tutto
+    // per evitare falsi positivi contro il version.json generato da Flutter.
+    const UNSTAMPED_VERSION = '__APP_BUILD' + '_VERSION__';
+    const updatesEnabled = !!currentVersion && currentVersion !== UNSTAMPED_VERSION;
+    if (!updatesEnabled) {
+      console.info('[update] Auto-update disabilitato: build non timbrata (dev/debug).');
+    }
+
+    async function getServerVersion() {
       try {
-        const response = await fetch('version.json?t=' + Date.now());
+        const response = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!response.ok) return null;
         const data = await response.json();
-        
-        return data.build_number || data.version;
+        return String(data.build_number || data.version);
       } catch (error) {
         console.error('Errore nel recupero della versione:', error);
         return null;
       }
     }
-    
+
     async function checkForUpdates() {
-      try {
-        const serverVersion = await getCurrentVersion();
-        
-        if (currentVersion === null) {
-          // Prima chiamata: salva la versione corrente
-          currentVersion = serverVersion;
-          console.log('Versione corrente:', currentVersion);
-          return;
-        }
-        
-        if (serverVersion && serverVersion !== currentVersion) {
-          console.log('Nuova versione rilevata:', serverVersion, 'vs', currentVersion);
-          console.log('Eseguendo aggiornamento automatico...');
-          forceUpdate();
-        }
-      } catch (error) {
-        console.error('Errore nel controllo aggiornamenti:', error);
+      if (!updatesEnabled) return; // build non timbrata: nessun controllo
+      const serverVersion = await getServerVersion();
+      if (!serverVersion) return; // offline / version.json assente: non fare nulla
+      if (serverVersion === currentVersion) {
+        // Allineati: azzera il guard anti-loop.
+        try { sessionStorage.removeItem(RELOAD_GUARD_KEY); } catch (e) {}
+        return;
       }
+      console.log('Nuova versione rilevata:', serverVersion, 'vs', currentVersion);
+      forceUpdate(serverVersion);
     }
-    
-    async function forceUpdate() {
+
+    async function forceUpdate(serverVersion) {
+      // Guard anti-loop: se i reload non risolvono, mostra il banner.
+      let attempts = 0;
+      try { attempts = parseInt(sessionStorage.getItem(RELOAD_GUARD_KEY) || '0', 10); } catch (e) {}
+      if (attempts >= MAX_RELOAD_ATTEMPTS) {
+        showUpdateBanner(serverVersion);
+        return;
+      }
+      try { sessionStorage.setItem(RELOAD_GUARD_KEY, String(attempts + 1)); } catch (e) {}
+
       try {
-        // Registra il service worker se disponibile
+        // 1. Deregistra TUTTI i service worker (Flutter + OneSignal).
         if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          
-          // Invia messaggio al service worker per forzare l'aggiornamento
-          if (registration.active) {
-            registration.active.postMessage('skipWaiting');
-          }
-          
-          // Forza il reload della pagina
-          window.location.reload(true);
-        } else {
-          // Fallback: semplice reload
-          window.location.reload(true);
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+        // 2. Svuota TUTTE le CacheStorage (app-shell Flutter, ecc.).
+        if (window.caches && caches.keys) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
         }
       } catch (error) {
-        console.error('Errore nell\'aggiornamento:', error);
-        // Fallback: semplice reload
-        window.location.reload(true);
+        console.error('Errore nel teardown cache/service worker:', error);
+      }
+
+      // 3. Navigazione cache-busted: Safari non può servire la HTML dalla
+      //    cache HTTP se l'URL cambia.
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('v', serverVersion);
+        window.location.replace(url.toString());
+      } catch (error) {
+        window.location.reload();
       }
     }
-    
-    // Inizia il controllo periodico dopo 30 secondi dall'avvio
-    setTimeout(() => {
-      checkForUpdates();
-      
-      // Controlla aggiornamenti ogni 5 minuti (300000 ms)
-      checkInterval = setInterval(checkForUpdates, 300000);
-    }, 30000);
-    
-    // Controlla aggiornamenti al focus della finestra
+
+    function showUpdateBanner(serverVersion) {
+      if (document.getElementById('fh-update-banner')) return;
+      const bar = document.createElement('div');
+      bar.id = 'fh-update-banner';
+      bar.style.cssText =
+        'position:fixed;left:0;right:0;bottom:0;z-index:999999;background:#111;' +
+        'color:#fff;padding:14px;text-align:center;font-size:15px;';
+      bar.innerHTML =
+        'È disponibile una nuova versione. ' +
+        '<button id="fh-update-btn" style="margin-left:10px;padding:6px 14px;' +
+        'border:0;border-radius:6px;background:#fff;color:#111;font-weight:600;">' +
+        'Aggiorna</button>';
+      document.body.appendChild(bar);
+      document.getElementById('fh-update-btn').addEventListener('click', function () {
+        try { sessionStorage.removeItem(RELOAD_GUARD_KEY); } catch (e) {}
+        forceUpdate(serverVersion);
+      });
+    }
+
+    // Controlla all'avvio, al focus e quando la pagina torna visibile (PWA).
+    window.addEventListener('load', () => setTimeout(checkForUpdates, 1500));
     window.addEventListener('focus', checkForUpdates);
-    
-    // Controlla aggiornamenti al caricamento
-    window.addEventListener('load', () => {
-      setTimeout(checkForUpdates, 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkForUpdates();
     });
+    // Poll periodico ogni 5 minuti.
+    setTimeout(() => { checkInterval = setInterval(checkForUpdates, 300000); }, 30000);
   </script>
   
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
