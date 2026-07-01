@@ -69,6 +69,7 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 - Stato globale Redux minimale: non aggiungere campi a `AppState` senza necessita reale.
 - Dopo mutazioni su corsi/utenti, invalida la cache (`refresh_manager`, `user_cache_manager`).
 - Usa transazioni Firestore per operazioni che toccano contemporaneamente utente e corso.
+- **Pull request**: apri sempre le PR nel fork `fgrotta/fitrope_app` con base `main`, mai verso l'upstream `dellarosamarco/fitrope_app`. Questo repo è un fork, quindi `gh pr create` di default punterebbe al parent: usa `gh pr create --repo fgrotta/fitrope_app --base main`.
 
 ## Aree sensibili
 
