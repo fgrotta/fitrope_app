@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/utils/abbonamento_helper.dart';
 
 class CreateUserResponse {
   final FitropeUser? user;
@@ -36,6 +37,13 @@ Future<CreateUserResponse> createUser({
     var newID = postsRef.doc().id;
     // Crea il documento utente in Firestore
 
+    // Ogni iscrizione deve avere sempre una data di fine: se non passata
+    // esplicitamente, usa il default in base alla tipologia.
+    final resolvedTipologia =
+        tipologiaIscrizione ?? TipologiaIscrizione.ABBONAMENTO_PROVA;
+    final DateTime resolvedFineIscrizione = fineIscrizione ??
+        AbbonamentoHelper.defaultFineIscrizione(resolvedTipologia);
+
     final userData = {
       'uid': newID,
       'email': email ?? '-', // Email vuota se non fornita
@@ -46,7 +54,7 @@ Future<CreateUserResponse> createUser({
       'tipologiaIscrizione': tipologiaIscrizione?.toString().split('.').last ?? 'ABBONAMENTO_PROVA',
       'entrateDisponibili': entrateDisponibili ?? 1,
       'entrateSettimanali': entrateSettimanali ?? 0,
-      'fineIscrizione': null,
+      'fineIscrizione': Timestamp.fromDate(resolvedFineIscrizione),
       'isActive': true, // L'utente viene creato come attivo
       'isAnonymous': isAnonymous,
       'createdAt': FieldValue.serverTimestamp(),
@@ -68,10 +76,10 @@ Future<CreateUserResponse> createUser({
       lastName: lastName,
       role: role,
       courses: [],
-      tipologiaIscrizione: tipologiaIscrizione ?? TipologiaIscrizione.ABBONAMENTO_PROVA,
+      tipologiaIscrizione: resolvedTipologia,
       entrateDisponibili: entrateDisponibili ?? 1,
       entrateSettimanali: entrateSettimanali ?? 0,
-      fineIscrizione: null,
+      fineIscrizione: Timestamp.fromDate(resolvedFineIscrizione),
       isActive: true,
       isAnonymous: isAnonymous,
       createdAt: DateTime.now(),

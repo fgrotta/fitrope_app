@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/utils/user_cache_manager.dart';
+import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:fitrope_app/authentication/isLogged.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/components/loader.dart';
@@ -29,7 +31,7 @@ class Protected extends StatefulWidget {
   State<Protected> createState() => _ProtectedState();
 }
 
-class _ProtectedState extends State<Protected> {
+class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   late FitropeUser? user = store.state.user;
   int currentIndex = 0;
 
@@ -50,6 +52,7 @@ class _ProtectedState extends State<Protected> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     getAllCourses().then((List<Course> response) {
       if(mounted) {
@@ -58,7 +61,7 @@ class _ProtectedState extends State<Protected> {
         });
       }
     });
-    
+
     if(!isLogged()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacementNamed(LOGIN_ROUTE);
@@ -77,6 +80,36 @@ class _ProtectedState extends State<Protected> {
         resetUser();
       }
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _onResumeRefresh();
+    }
+  }
+
+  /// Alla ripresa dell'app invalida le cache in-memory e ricarica i dati,
+  /// così la lista corsi/iscritti riflette lo stato corrente del server
+  /// (vale su tutti i dispositivi/browser).
+  Future<void> _onResumeRefresh() async {
+    invalidateCoursesCache();
+    invalidateAllUserCaches();
+
+    final courses = await getAllCourses(force: true);
+    if (!mounted) return;
+    setState(() {
+      store.dispatch(SetAllCoursesAction(courses));
+    });
+
+    // Propaga il refresh a HomePage / pagine admin e alle card iscritti.
+    RefreshManager().notifyRefresh();
   }
 
   Future<void> resetUser() async {

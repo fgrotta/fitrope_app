@@ -140,6 +140,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             const SizedBox(height: 24),
             _SectionAbbonamenti(
                 users: users, onOpenUserList: widget.onOpenUserList),
+            const SizedBox(height: 24),
+            _SectionAbbonamentiSenzaData(
+                users: users, onOpenUserList: widget.onOpenUserList),
           ],
         ),
       ),
@@ -681,6 +684,56 @@ class _SectionAbbonamenti extends StatelessWidget {
   String _labelTipologia(TipologiaIscrizione t) {
     final s = t.toString().split('.').last;
     return s.replaceAll('_', ' ');
+  }
+}
+
+/// Sezione che elenca gli abbonamenti con data di fine iscrizione nulla,
+/// così l'Admin può bonificare i record privi di scadenza. Esclude staff
+/// (Admin/Trainer) che non hanno un abbonamento.
+class _SectionAbbonamentiSenzaData extends StatelessWidget {
+  final List<FitropeUser> users;
+  final void Function(String title, List<FitropeUser> users) onOpenUserList;
+
+  const _SectionAbbonamentiSenzaData(
+      {required this.users, required this.onOpenUserList});
+
+  @override
+  Widget build(BuildContext context) {
+    final senzaData = users
+        .where((u) =>
+            u.fineIscrizione == null &&
+            u.role != 'Admin' &&
+            u.role != 'Trainer')
+        .toList()
+      ..sort((a, b) => ('${a.name} ${a.lastName}')
+          .toLowerCase()
+          .compareTo(('${b.name} ${b.lastName}').toLowerCase()));
+
+    return _DashboardCard(
+      title: 'Abbonamenti senza data di fine',
+      icon: Icons.event_busy,
+      children: [
+        _MetricRow(
+          'Iscrizioni con data nulla',
+          '${senzaData.length}',
+          onTap: senzaData.isEmpty
+              ? null
+              : () => onOpenUserList(
+                  'Abbonamenti senza data di fine', senzaData),
+        ),
+        const SizedBox(height: 8),
+        if (senzaData.isEmpty)
+          Text(
+            'Tutte le iscrizioni hanno una data di fine impostata.',
+            style: TextStyle(color: onSurfaceVariantColor, fontSize: 13),
+          )
+        else
+          Text(
+            'Tocca per aprire l\'elenco e impostare la data mancante dal dettaglio utente.',
+            style: TextStyle(color: onSurfaceVariantColor, fontSize: 13),
+          ),
+      ],
+    );
   }
 }
 

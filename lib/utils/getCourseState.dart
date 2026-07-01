@@ -13,9 +13,11 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   // Definisce courseDate per i controlli di scadenza
   DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
-  // Controlla prima se l'abbonamento è scaduto
-  if ((user.fineIscrizione != null &&
-      courseDate.isAfter(user.fineIscrizione!.toDate()))) {
+  // Controlla prima se l'abbonamento è scaduto o privo di data di fine.
+  // Una fineIscrizione nulla significa abbonamento non attivo: blocca
+  // l'iscrizione self-service (coerente con subscribeToCourse).
+  if (user.fineIscrizione == null ||
+      courseDate.isAfter(user.fineIscrizione!.toDate())) {
     return CourseState.EXPIRED;
   }
   // Verifica se l'utente può accedere al corso basandosi sui tag

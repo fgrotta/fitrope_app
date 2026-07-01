@@ -6,6 +6,7 @@ import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/user_display_utils.dart';
+import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -50,6 +51,22 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
   void initState() {
     super.initState();
     _courseUsersFuture = _getCourseUsers();
+    // Si aggancia al refresh globale (es. ripresa app) per rileggere
+    // la lista iscritti dal server anche se le prop del corso non cambiano.
+    RefreshManager().addListener(_refreshUsers);
+  }
+
+  @override
+  void dispose() {
+    RefreshManager().removeListener(_refreshUsers);
+    super.dispose();
+  }
+
+  void _refreshUsers() {
+    if (!mounted) return;
+    setState(() {
+      _courseUsersFuture = _getCourseUsers();
+    });
   }
 
   @override

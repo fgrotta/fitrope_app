@@ -6,7 +6,8 @@
       "Bash(git rebase:*)",
       "Bash(flutter test:*)",
       "Bash(export PATH=\"$PATH:/Users/Frank/fvm/default/bin:/Users/Frank/flutter/bin\")",
-      "Bash(/Users/Frank/Documents/Development/Project/flutter/bin/flutter test:*)"
+      "Bash(/Users/Frank/Documents/Development/Project/flutter/bin/flutter test:*)",
+      "Bash(git ls-remote *)"
     ]
   }
 }

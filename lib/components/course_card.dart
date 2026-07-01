@@ -1001,7 +1001,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
       //Navigator.pop(context, true); // Chiudi il dialog e indica che è stato aggiunto un utente
     } catch (e) {
       setState(() {
-        errorMessage = 'Errore nell\'aggiunta dell\'utente al corso';
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     }
   }
