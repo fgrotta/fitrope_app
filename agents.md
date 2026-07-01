@@ -424,15 +424,11 @@ L'handler e isolato in `functions/src/handler.ts` (senza `onCall`) per essere te
 flutter pub get → flutter test → flutter analyze → flutter format --set-exit-if-changed . → flutter build web --debug
 ```
 
-**release.yml** (branch `release`) — ⚠️ **DEPRECATO, non più usato per il deploy.**
+**release.yml** (branch `release`):
 
-- File mantenuto solo per riferimento storico.
-- Il build web di produzione si fa con `tool/build_web.sh`, che esegue
-  `flutter build web --release` e timbra la versione: genera `build/web/version.json`
-  e sostituisce il placeholder `__APP_BUILD_VERSION__` in `build/web/index.html`.
-  Questo abilita il **cache-busting della PWA** (vedi la logica di auto-update in
-  `web/index.html`): senza il timbro, i client non rilevano i nuovi rilasci.
-- Il deploy è **manuale**: eseguire `tool/build_web.sh` e pubblicare `build/web`.
+- Test completi + build web release
+- Creazione automatica GitHub Release
+- Deploy su GitHub Pages via branch `gh-pages`
 
 **URL produzione**: https://dellarosamarco.github.io/fitrope_app/
 
