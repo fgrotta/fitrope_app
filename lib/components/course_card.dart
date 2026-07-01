@@ -997,8 +997,10 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
   Future<void> _addSubscriber(String userId) async {
     try {
       await subscribeToCourse(widget.courseId, userId, force: true);
-      //Navigator.pop(context, true); // Chiudi il dialog e indica che è stato aggiunto un utente
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
