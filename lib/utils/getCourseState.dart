@@ -34,13 +34,21 @@ CourseState getCourseState(Course course, FitropeUser user) {
   CourseState? limitState = _getSubscriptionLimitState(user, courseDate);
 
   if (courseFull) {
-    // Se la waitlist è disabilitata per questo corso, non proporla
+    // Se la waitlist è disabilitata per questo corso, non proporla: se l'utente
+    // non è idoneo (crediti/limiti) prevale quello stato, altrimenti FULL.
     if (!course.waitlistEnabled) {
       if (limitState != null) return limitState;
       return CourseState.FULL;
     }
     if (isInWaitlist) return CourseState.IN_WAITLIST;
-    if (limitState != null) return limitState;
+    // La lista d'attesa è ILLIMITATA: i limiti di ingressi settimanali (LIMIT) e
+    // di crediti (SUBSCRIBE_LIMIT) NON devono bloccarla. Restano invece validi
+    // gli altri vincoli di idoneità (es. NULL = abbonamento non valido).
+    if (limitState != null &&
+        limitState != CourseState.LIMIT &&
+        limitState != CourseState.SUBSCRIBE_LIMIT) {
+      return limitState;
+    }
     return CourseState.CAN_WAITLIST;
   }
 
