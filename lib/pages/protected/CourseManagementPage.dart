@@ -6,7 +6,10 @@ import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/course_images.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -40,6 +43,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   String? errorMsg;
   bool isLoading = false;
   List<String> selectedTags = [];
+  CourseType selectedCourseType = CourseType.open;
+  String? selectedImageKey;
   bool reminderEnabled = true;
   bool waitlistEnabled = true;
 
@@ -104,10 +109,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   }
 
   void _initializeCourseData() {
-    // Inizializza startDate
-    startDate = widget.courseToEdit?.startDate.toDate() ?? 
-                widget.courseToDuplicate?.startDate.toDate() ?? 
-                DateTime.now();
+    // Inizializza startDate in orario italiano, così il picker mostra l'ora
+    // italiana e il salvataggio (italianTimestamp) è idempotente in modifica.
+    startDate = widget.courseToEdit != null
+        ? toItalianTime(widget.courseToEdit!.startDate.toDate())
+        : widget.courseToDuplicate != null
+            ? toItalianTime(widget.courseToDuplicate!.startDate.toDate())
+            : DateTime.now();
 
     // Per la creazione di nuovi corsi, non permettere date nel passato
     if (widget.mode == 'create' && startDate!.isBefore(DateTime.now())) {
@@ -150,6 +158,15 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     selectedTags = widget.courseToEdit?.tags ??
                    widget.courseToDuplicate?.tags ??
                    [];
+
+    // Inizializza tipologia corso
+    selectedCourseType = widget.courseToEdit?.courseType ??
+                         widget.courseToDuplicate?.courseType ??
+                         CourseType.open;
+
+    // Inizializza immagine
+    selectedImageKey = widget.courseToEdit?.imageKey ??
+                       widget.courseToDuplicate?.imageKey;
 
     // Inizializza i flag notifiche/waitlist
     reminderEnabled = widget.courseToEdit?.reminderEnabled ??
@@ -301,17 +318,19 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           uid: widget.courseToEdit!.uid,
           id: widget.courseToEdit!.uid,
           name: name,
-          startDate: Timestamp.fromDate(startDate!),
-          endDate: Timestamp.fromDate(endDate),
+          startDate: italianTimestamp(startDate!),
+          endDate: italianTimestamp(endDate),
           capacity: capacity,
           subscribed: widget.courseToEdit!.subscribed,
           trainerId: trainerId,
           tags: selectedTags,
+          courseType: selectedCourseType,
+          imageKey: selectedImageKey,
           waitlist: widget.courseToEdit!.waitlist,
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
         );
-        
+
         await updateCourse(updatedCourse);
         SnackBarUtils.showSuccessSnackBar(context, 'Corso modificato con successo');
       } else {
@@ -323,16 +342,18 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           uid: '',
           id: '',
           name: name,
-          startDate: Timestamp.fromDate(startDate!),
-          endDate: Timestamp.fromDate(endDate),
+          startDate: italianTimestamp(startDate!),
+          endDate: italianTimestamp(endDate),
           capacity: capacity,
           subscribed: 0,
           trainerId: trainerId,
           tags: selectedTags,
+          courseType: selectedCourseType,
+          imageKey: selectedImageKey,
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
         );
-        
+
         await createCourse(newCourse);
         
         final isDuplication = widget.mode == 'duplicate';
@@ -534,6 +555,131 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                   ),
                   const SizedBox(height: 20),
                 ],
+
+                // Selezione Tipologia Corso
+                Card(
+                  color: surfaceVariantColor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Tipologia Corso',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: CourseType.values.map((type) {
+                            final isSelected = selectedCourseType == type;
+                            return ChoiceChip(
+                              label: Text(type.label),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    selectedCourseType = type;
+                                    // Azzera l'immagine solo se non è valida per il
+                                    // nuovo tipo: così tornando al tipo originale in
+                                    // modifica non si perde l'immagine già scelta.
+                                    if (selectedImageKey != null &&
+                                        !CourseImages.forType(type)
+                                            .contains(selectedImageKey)) {
+                                      selectedImageKey = null;
+                                    }
+                                  });
+                                }
+                              },
+                              selectedColor: primaryColor.withValues(alpha: 0.3),
+                              checkmarkColor: primaryColor,
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Selezione Immagine Corso
+                if (CourseImages.forType(selectedCourseType).isNotEmpty)
+                  Card(
+                    color: surfaceVariantColor,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Immagine del Corso',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Seleziona un\'immagine per questo corso',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 100,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: CourseImages.forType(selectedCourseType).length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 10),
+                              itemBuilder: (context, index) {
+                                final imagePath = CourseImages.forType(selectedCourseType)[index];
+                                final isSelected = selectedImageKey == imagePath;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      selectedImageKey = imagePath;
+                                    });
+                                  },
+                                  child: Container(
+                                    width: 140,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isSelected ? primaryColor : Colors.transparent,
+                                        width: 3,
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.asset(
+                                        imagePath,
+                                        fit: BoxFit.cover,
+                                        cacheWidth: 300, // miniatura: niente decode a piena risoluzione
+                                        errorBuilder: (context, error, stackTrace) => Container(
+                                          color: primaryLightColor.withValues(alpha: 0.3),
+                                          child: const Center(
+                                            child: Icon(Icons.image_not_supported, color: Colors.grey),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (CourseImages.forType(selectedCourseType).isNotEmpty)
+                  const SizedBox(height: 20),
 
                 // Selezione Tag
                 Card(

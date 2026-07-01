@@ -14,6 +14,42 @@ export interface HandlerRequest {
 }
 
 /**
+ * Esegue la POST verso OneSignal e gestisce la risposta.
+ * Condivisa tra l'handler onCall e le funzioni schedulate (che non hanno auth).
+ * Il chiamante deve aver già iniettato `app_id` nel payload.
+ */
+export async function postToOneSignal(
+  payload: Record<string, unknown>,
+  apiKey: string
+): Promise<Record<string, unknown>> {
+  let response: Response;
+  try {
+    response = await fetch(ONESIGNAL_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        Authorization: `Key ${apiKey.trim()}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    logger.error("OneSignal fetch failed", err);
+    throw new HttpsError("unavailable", "Impossibile contattare OneSignal");
+  }
+
+  const data = (await response.json()) as Record<string, unknown>;
+
+  if (!response.ok) {
+    logger.error("OneSignal error", { status: response.status, data });
+    const errors = (data.errors as string[] | undefined)?.join(", ") ?? "Errore OneSignal";
+    throw new HttpsError("internal", errors);
+  }
+
+  logger.info("OneSignal response", { status: response.status, data });
+  return data;
+}
+
+/**
  * Logica di inoltro verso OneSignal REST API.
  * Esposta separatamente da `onCall` per poter essere testata senza dipendere
  * dall'infrastruttura Firebase Functions.
@@ -45,31 +81,7 @@ export async function sendOneSignalNotificationHandler(
     payload: logPayload,
   });
 
-  let response: Response;
-  try {
-    response = await fetch(ONESIGNAL_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Key ${apiKey.trim()}`,
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    logger.error("OneSignal fetch failed", err);
-    throw new HttpsError("unavailable", "Impossibile contattare OneSignal");
-  }
-
-  const data = (await response.json()) as Record<string, unknown>;
-
-  if (!response.ok) {
-    logger.error("OneSignal error", { status: response.status, data });
-    const errors = (data.errors as string[] | undefined)?.join(", ") ?? "Errore OneSignal";
-    throw new HttpsError("internal", errors);
-  }
-
-  logger.info("OneSignal response", { status: response.status, data });
-  return data;
+  return postToOneSignal(payload, apiKey);
 }
 
 /**
@@ -96,9 +108,25 @@ export async function ensureOneSignalUserHandler(
     throw new HttpsError("invalid-argument", "externalId obbligatorio");
   }
 
-  const externalId = payload.externalId;
-  const email = payload.email?.trim();
+  return ensureOneSignalEmailSubscription(
+    payload.externalId,
+    payload.email?.trim(),
+    apiKey
+  );
+}
 
+/**
+ * Crea/aggiorna la subscription email OneSignal per un external_id.
+ * Estratta dall'handler onCall per essere riusata dalla Cloud Function
+ * schedulata (che non ha contesto auth). Idempotente: se l'utente esiste già
+ * (409) aggiunge l'email; se l'email esiste ma è disabilitata, la riabilita.
+ * È la stessa logica usata al login.
+ */
+export async function ensureOneSignalEmailSubscription(
+  externalId: string,
+  email: string | undefined,
+  apiKey: string
+): Promise<Record<string, unknown>> {
   const body: Record<string, unknown> = {
     identity: { external_id: externalId },
   };
@@ -109,7 +137,6 @@ export async function ensureOneSignalUserHandler(
   }
 
   logger.info("OneSignal ensureUser request", {
-    uid: request.auth.uid,
     externalId,
     hasEmail: !!email,
   });

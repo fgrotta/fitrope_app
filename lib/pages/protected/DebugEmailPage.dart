@@ -13,6 +13,7 @@ class DebugEmailPage extends StatefulWidget {
 
 class _DebugEmailPageState extends State<DebugEmailPage> {
   final _recipientEmailCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
   final _courseNameCtrl = TextEditingController(text: 'Corso Test');
   final _courseDateCtrl = TextEditingController(text: 'Lunedì 28 Aprile 2025');
   final _courseTimeCtrl = TextEditingController(text: '10:00');
@@ -23,6 +24,8 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   bool _isLookingUp = false;
   bool _sendingWaitlist = false;
   bool _sendingReminder = false;
+  bool _sendingCert10 = false;
+  bool _sendingCertExpiry = false;
 
   @override
   void initState() {
@@ -35,6 +38,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   @override
   void dispose() {
     _recipientEmailCtrl.dispose();
+    _firstNameCtrl.dispose();
     _courseNameCtrl.dispose();
     _courseDateCtrl.dispose();
     _courseTimeCtrl.dispose();
@@ -64,9 +68,13 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
       if (snapshot.docs.isEmpty) {
         setState(() => _lookupError = 'Nessun utente trovato con questa email');
       } else {
-        final uid = snapshot.docs.first.data()['uid'] as String?
-            ?? snapshot.docs.first.id;
-        setState(() => _resolvedUid = uid);
+        final data = snapshot.docs.first.data();
+        final uid = data['uid'] as String? ?? snapshot.docs.first.id;
+        final name = data['name'] as String? ?? '';
+        setState(() {
+          _resolvedUid = uid;
+          if (name.isNotEmpty) _firstNameCtrl.text = name;
+        });
       }
     } catch (e) {
       if (mounted) setState(() => _lookupError = 'Errore: $e');
@@ -131,6 +139,48 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
       }
     } finally {
       if (mounted) setState(() => _sendingReminder = false);
+    }
+  }
+
+  Future<void> _sendCertificateEmail({required bool isExpiryDay}) async {
+    if (_resolvedUid == null) return;
+    setState(() {
+      if (isExpiryDay) {
+        _sendingCertExpiry = true;
+      } else {
+        _sendingCert10 = true;
+      }
+    });
+    try {
+      await sendTestCertificateExpiryEmail(
+        userId: _resolvedUid!,
+        firstName: _firstNameCtrl.text.trim(),
+        email: _recipientEmailCtrl.text.trim(),
+        isExpiryDay: isExpiryDay,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isExpiryDay
+                ? 'Email certificato (scadenza oggi) inviata'
+                : 'Email certificato (10 giorni) inviata'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _sendingCertExpiry = false;
+          _sendingCert10 = false;
+        });
+      }
     }
   }
 
@@ -204,6 +254,15 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                   ],
                 ),
               ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _firstNameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nome',
+                border: OutlineInputBorder(),
+                helperText: 'Usato solo per le email certificato',
+              ),
+            ),
             const SizedBox(height: 28),
 
             // --- Dati corso ---
@@ -274,6 +333,40 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                       )
                     : const Icon(Icons.alarm_outlined),
                 label: const Text('Invia promemoria prova'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: canSend && !_sendingCert10
+                    ? () => _sendCertificateEmail(isExpiryDay: false)
+                    : null,
+                icon: _sendingCert10
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.medical_information_outlined),
+                label: const Text('Certificato — 10 giorni'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: canSend && !_sendingCertExpiry
+                    ? () => _sendCertificateEmail(isExpiryDay: true)
+                    : null,
+                icon: _sendingCertExpiry
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.event_busy_outlined),
+                label: const Text('Certificato — scadenza oggi'),
               ),
             ),
           ],

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
 import 'firebase_options.dart';
 
@@ -20,6 +21,7 @@ void main() async {
   OneSignalService.initialize(oneSignalAppId);
 
   await initializeDateFormatting('it_IT', null);
+  initItalianTime(); // l'app mostra/salva sempre l'orario italiano (Europe/Rome)
 
   runApp(SafeArea(
     child: StoreProvider(store: store, child: const MyApp()),
