@@ -545,6 +545,7 @@ String getDisplayName(FitropeUser user) {
     }
 
     return ElevatedButton(
+      key: Key('course-action-button-${widget.course.uid}'),
       onPressed: canBeClicked && !_isProcessing ? () async {
         if(widget.onClickAction != null) {
           setState(() => _isProcessing = true);

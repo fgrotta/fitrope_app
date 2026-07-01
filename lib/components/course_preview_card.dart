@@ -128,6 +128,7 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
         final courseState = getCourseState(widget.course, widget.currentUser);
 
         return Container(
+          key: Key('course-card-${widget.course.uid}'),
           margin: const EdgeInsets.only(bottom: 10),
           child: CourseCard(
             courseId: widget.course.uid,

@@ -1,0 +1,15 @@
+{
+  "_comment": "Copia questo file in 'test_env.json' (gitignored) e compila i valori reali degli utenti di test in produzione. Esegui i test con: flutter test integration_test -d chrome --dart-define-from-file=integration_test/test_env.json",
+
+  "TEST_USER1_EMAIL": "test.user1@fitrope.local",
+  "TEST_USER1_PASSWORD": "",
+  "TEST_USER2_EMAIL": "test.user2@fitrope.local",
+  "TEST_USER2_PASSWORD": "",
+
+  "TEST_TRAINER_EMAIL": "francesco.trainer@fitrope.local",
+  "TEST_TRAINER_PASSWORD": "",
+  "TEST_TRAINER_NAME": "Francesco Trainer",
+
+  "TEST_ADMIN_EMAIL": "test.admin@fitrope.local",
+  "TEST_ADMIN_PASSWORD": ""
+}
