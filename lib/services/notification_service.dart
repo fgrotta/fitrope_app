@@ -15,6 +15,8 @@ const List<String> _monthNames = [
 
 String _testPrefix(String text) => kDebugMode ? 'TEST - $text' : text;
 
+bool _hasUsableEmail(String? email) => email != null && email.isNotEmpty && email != '-';
+
 /// Helper per inviare una richiesta a OneSignal tramite Cloud Function.
 /// La function tiene la REST API key server-side e gestisce CORS automaticamente.
 Future<void> _sendOneSignalRequest(String label, Map<String, dynamic> body) async {
@@ -143,6 +145,15 @@ Future<void> scheduleTrialReminder(String userId, String courseId) async {
     final bool emailEnabled = userData?['emailNotificationsEnabled'] as bool? ?? true;
     debugPrint('🔔 [scheduleTrialReminder] Preferenze utente — push: $pushEnabled, email: $emailEnabled');
 
+    // Un utente creato da Admin e mai loggato non ha ancora un alias su
+    // OneSignal: senza questo passaggio l'invio sotto risulterebbe "riuscito"
+    // ma con 0 destinatari. ensureOneSignalUser è idempotente, quindi va
+    // sempre ri-eseguita prima dell'invio, non solo se l'alias manca.
+    final String? userEmail = userData?['email'] as String?;
+    if (_hasUsableEmail(userEmail)) {
+      await ensureOneSignalUser(userId, userEmail!);
+    }
+
     await Future.wait([
       if (pushEnabled)
         _sendOneSignalRequest('Trial Push Reminder', {
@@ -235,6 +246,7 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
     final List<String> pushUserIds = [];
     final List<String> emailUserIds = [];
     final List<String> expiredUserIds = [];
+    final Map<String, String> emailsByUserId = {};
     for (final doc in usersSnapshot.docs) {
       final data = doc.data();
       final uid = data['uid'] as String;
@@ -253,6 +265,10 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
       }
       if (data['emailNotificationsEnabled'] as bool? ?? true) {
         emailUserIds.add(uid);
+        final String? email = data['email'] as String?;
+        if (_hasUsableEmail(email)) {
+          emailsByUserId[uid] = email!;
+        }
       }
     }
 
@@ -278,6 +294,16 @@ Future<void> notifyWaitlistUsers(String courseId, String courseName) async {
     final String courseDate = _formatCourseDate(startDate);
     final String courseTime = _formatCourseTime(startDate, endDate);
     final String name = courseData['name'] as String? ?? courseName;
+
+    // Come in scheduleTrialReminder: un utente in waitlist aggiunto da Admin
+    // e mai loggato non ha ancora un alias su OneSignal. Va sempre garantito
+    // prima dell'invio batch sotto, altrimenti l'email risulta "inviata" ma
+    // con 0 destinatari per quell'utente.
+    if (emailsByUserId.isNotEmpty) {
+      await Future.wait(
+        emailsByUserId.entries.map((entry) => ensureOneSignalUser(entry.key, entry.value)),
+      );
+    }
 
     await Future.wait([
       // if (pushUserIds.isNotEmpty)
