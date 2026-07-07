@@ -14,12 +14,14 @@ const oneSignalApiKey = (0, params_1.defineSecret)("ONESIGNAL_REST_API_KEY");
  * Proxy verso OneSignal REST API.
  * Il client invia il body OneSignal già formattato (include_aliases, headings,
  * contents, target_channel, send_after, email_subject, email_body, ...).
+ * Per gli invii email mirati garantisce server-side che ogni destinatario
+ * esista su OneSignal (ensure idempotente) prima della POST.
  */
 exports.sendOneSignalNotification = (0, https_1.onCall)({
     secrets: [oneSignalApiKey],
     region: "europe-west8",
     cors: true,
-}, (request) => (0, handler_1.sendOneSignalNotificationHandler)({ auth: request.auth ?? null, data: request.data }, oneSignalApiKey.value()));
+}, (request) => (0, handler_1.sendOneSignalNotificationHandler)({ auth: request.auth ?? null, data: request.data }, oneSignalApiKey.value(), { db: firebaseAdmin_1.db, ensure: handler_1.ensureOneSignalEmailSubscription }));
 /**
  * Crea o aggiorna l'utente OneSignal con la sua email subscription.
  * Va chiamata al login per garantire che l'utente esista sul backend OneSignal

@@ -349,7 +349,7 @@ In debug (`kDebugMode`) il promemoria viene inviato a **tutti** gli utenti, non 
 - **Web** (`lib/services/onesignal_web.dart`): **disabilitato**, tutti i metodi sono no-op. Il caricamento del Web SDK in `web/index.html` è commentato.
 - **Facade** (`lib/services/onesignal_service.dart`): `export ... if (dart.library.html)` per scelta automatica
 
-Su web le email passano via Cloud Function (`ensureOneSignalUser` crea l'utente server-side, poi `sendOneSignalNotification` invia). Il service worker `web/OneSignalSDKWorker.js` rimane nel progetto ma non viene mai caricato finché il blocco script in `web/index.html` è commentato.
+Su web le email passano via Cloud Function `sendOneSignalNotification`, che per gli invii email mirati garantisce da sola i destinatari su OneSignal (legge l'email da Firestore e chiama `ensureOneSignalEmailSubscription` prima della POST); `ensureOneSignalUser` resta chiamata al login. Il service worker `web/OneSignalSDKWorker.js` rimane nel progetto ma non viene mai caricato finché il blocco script in `web/index.html` è commentato.
 
 ### Flag per corso
 

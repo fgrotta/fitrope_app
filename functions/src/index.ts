@@ -22,6 +22,8 @@ const oneSignalApiKey = defineSecret("ONESIGNAL_REST_API_KEY");
  * Proxy verso OneSignal REST API.
  * Il client invia il body OneSignal già formattato (include_aliases, headings,
  * contents, target_channel, send_after, email_subject, email_body, ...).
+ * Per gli invii email mirati garantisce server-side che ogni destinatario
+ * esista su OneSignal (ensure idempotente) prima della POST.
  */
 export const sendOneSignalNotification = onCall(
   {
@@ -32,7 +34,8 @@ export const sendOneSignalNotification = onCall(
   (request) =>
     sendOneSignalNotificationHandler(
       { auth: request.auth ?? null, data: request.data },
-      oneSignalApiKey.value()
+      oneSignalApiKey.value(),
+      { db, ensure: ensureOneSignalEmailSubscription }
     )
 );
 

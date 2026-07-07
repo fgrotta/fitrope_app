@@ -22,6 +22,33 @@ jest.mock("firebase-functions", () => ({
 
 const API_KEY = "test-api-key";
 
+// Dipendenze finte per l'handler di invio: db Firestore minimale (users/{uid})
+// ed ensure mockata, senza inizializzare firebase-admin (stile fakeDbReturning
+// di certificateEmails.test.ts).
+function makeDeps(overrides?: {
+  users?: Record<string, Record<string, unknown> | undefined>;
+  ensure?: jest.Mock;
+  getError?: Error;
+}) {
+  const ensure = overrides?.ensure ?? jest.fn().mockResolvedValue({});
+  const requestedDocs: string[] = [];
+  const db = {
+    collection: () => ({
+      doc: (id: string) => ({
+        get: async () => {
+          requestedDocs.push(id);
+          if (overrides?.getError) {
+            throw overrides.getError;
+          }
+          const data = overrides?.users?.[id];
+          return { exists: data != null, data: () => data };
+        },
+      }),
+    }),
+  } as never;
+  return { db, ensure, requestedDocs };
+}
+
 describe("sendOneSignalNotificationHandler", () => {
   let fetchMock: jest.Mock;
 
@@ -58,10 +85,10 @@ describe("sendOneSignalNotificationHandler", () => {
       };
 
       await expect(
-        sendOneSignalNotificationHandler(request, API_KEY)
+        sendOneSignalNotificationHandler(request, API_KEY, makeDeps())
       ).rejects.toThrow(HttpsError);
       await expect(
-        sendOneSignalNotificationHandler(request, API_KEY)
+        sendOneSignalNotificationHandler(request, API_KEY, makeDeps())
       ).rejects.toMatchObject({ code: "unauthenticated" });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -73,7 +100,7 @@ describe("sendOneSignalNotificationHandler", () => {
         data: { include_aliases: { external_id: ["u1"] } },
       };
 
-      const result = await sendOneSignalNotificationHandler(request, API_KEY);
+      const result = await sendOneSignalNotificationHandler(request, API_KEY, makeDeps());
       expect(result).toEqual({ id: "notif-123" });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
@@ -87,7 +114,7 @@ describe("sendOneSignalNotificationHandler", () => {
       };
 
       await expect(
-        sendOneSignalNotificationHandler(request, API_KEY)
+        sendOneSignalNotificationHandler(request, API_KEY, makeDeps())
       ).rejects.toMatchObject({ code: "invalid-argument" });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -99,7 +126,7 @@ describe("sendOneSignalNotificationHandler", () => {
       };
 
       await expect(
-        sendOneSignalNotificationHandler(request, API_KEY)
+        sendOneSignalNotificationHandler(request, API_KEY, makeDeps())
       ).rejects.toMatchObject({ code: "invalid-argument" });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -111,7 +138,7 @@ describe("sendOneSignalNotificationHandler", () => {
         data: {},
       };
 
-      await sendOneSignalNotificationHandler(request, API_KEY);
+      await sendOneSignalNotificationHandler(request, API_KEY, makeDeps());
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
@@ -124,7 +151,7 @@ describe("sendOneSignalNotificationHandler", () => {
         data: { include_aliases: { external_id: ["u1"] } },
       };
 
-      await sendOneSignalNotificationHandler(request, API_KEY);
+      await sendOneSignalNotificationHandler(request, API_KEY, makeDeps());
 
       const sentBody = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(sentBody.app_id).toBe(ONESIGNAL_APP_ID);
@@ -137,7 +164,7 @@ describe("sendOneSignalNotificationHandler", () => {
         data: { app_id: "malicious-app-id", include_aliases: { external_id: ["u1"] } },
       };
 
-      await sendOneSignalNotificationHandler(request, API_KEY);
+      await sendOneSignalNotificationHandler(request, API_KEY, makeDeps());
 
       const sentBody = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(sentBody.app_id).toBe(ONESIGNAL_APP_ID);
@@ -150,7 +177,7 @@ describe("sendOneSignalNotificationHandler", () => {
         data: { include_aliases: { external_id: ["u1"] } },
       };
 
-      await sendOneSignalNotificationHandler(request, API_KEY);
+      await sendOneSignalNotificationHandler(request, API_KEY, makeDeps());
 
       const headers = fetchMock.mock.calls[0][1].headers;
       expect(headers.Authorization).toBe(`Key ${API_KEY}`);
@@ -163,7 +190,7 @@ describe("sendOneSignalNotificationHandler", () => {
         data: { include_aliases: { external_id: ["u1"] } },
       };
 
-      await sendOneSignalNotificationHandler(request, API_KEY);
+      await sendOneSignalNotificationHandler(request, API_KEY, makeDeps());
       expect(fetchMock).toHaveBeenCalledWith(
         ONESIGNAL_API_URL,
         expect.objectContaining({ method: "POST" })
@@ -183,7 +210,7 @@ describe("sendOneSignalNotificationHandler", () => {
         },
       };
 
-      await sendOneSignalNotificationHandler(request, API_KEY);
+      await sendOneSignalNotificationHandler(request, API_KEY, makeDeps());
 
       const sentBody = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(sentBody.include_aliases).toEqual({ external_id: ["u1", "u2"] });
@@ -202,7 +229,7 @@ describe("sendOneSignalNotificationHandler", () => {
         data: { include_aliases: { external_id: ["u1"] } },
       };
 
-      const result = await sendOneSignalNotificationHandler(request, API_KEY);
+      const result = await sendOneSignalNotificationHandler(request, API_KEY, makeDeps());
       expect(result).toEqual({ id: "abc-123", recipients: 5 });
     });
 
@@ -214,7 +241,7 @@ describe("sendOneSignalNotificationHandler", () => {
       };
 
       await expect(
-        sendOneSignalNotificationHandler(request, API_KEY)
+        sendOneSignalNotificationHandler(request, API_KEY, makeDeps())
       ).rejects.toMatchObject({
         code: "internal",
         message: expect.stringContaining("Invalid app_id"),
@@ -234,7 +261,7 @@ describe("sendOneSignalNotificationHandler", () => {
       };
 
       await expect(
-        sendOneSignalNotificationHandler(request, API_KEY)
+        sendOneSignalNotificationHandler(request, API_KEY, makeDeps())
       ).rejects.toMatchObject({
         code: "internal",
         message: "Errore OneSignal",
@@ -249,11 +276,196 @@ describe("sendOneSignalNotificationHandler", () => {
       };
 
       await expect(
-        sendOneSignalNotificationHandler(request, API_KEY)
+        sendOneSignalNotificationHandler(request, API_KEY, makeDeps())
       ).rejects.toMatchObject({
         code: "unavailable",
         message: "Impossibile contattare OneSignal",
       });
+    });
+  });
+
+  describe("Ensure destinatari email", () => {
+    const { logger } = jest.requireMock("firebase-functions");
+
+    function emailRequest(externalIds: string[]): HandlerRequest {
+      return {
+        auth: { uid: "user-1" },
+        data: {
+          include_aliases: { external_id: externalIds },
+          target_channel: "email",
+          email_subject: "Oggetto",
+          email_body: "<html>body</html>",
+        },
+      };
+    }
+
+    test("chiama ensure per ogni destinatario PRIMA della POST a OneSignal", async () => {
+      const order: string[] = [];
+      const ensure = jest.fn().mockImplementation(async () => {
+        order.push("ensure");
+      });
+      fetchMock.mockImplementation(async () => {
+        order.push("post");
+        return { ok: true, status: 200, json: async () => ({ id: "n1" }) } as Response;
+      });
+      const deps = makeDeps({
+        users: { u1: { email: "u1@x.it" }, u2: { email: "u2@x.it" } },
+        ensure,
+      });
+
+      await sendOneSignalNotificationHandler(emailRequest(["u1", "u2"]), API_KEY, deps);
+
+      expect(ensure).toHaveBeenCalledWith("u1", "u1@x.it", API_KEY);
+      expect(ensure).toHaveBeenCalledWith("u2", "u2@x.it", API_KEY);
+      expect(order).toEqual(["ensure", "ensure", "post"]);
+    });
+
+    test("legge l'email dal documento users/{uid}", async () => {
+      mockOneSignalSuccess();
+      const deps = makeDeps({ users: { u1: { email: "u1@x.it" } } });
+
+      await sendOneSignalNotificationHandler(emailRequest(["u1"]), API_KEY, deps);
+
+      expect(deps.requestedDocs).toEqual(["u1"]);
+    });
+
+    test("email non usabile ('-', vuota o assente): salta ensure ma invia comunque", async () => {
+      mockOneSignalSuccess();
+      const deps = makeDeps({ users: { u1: { email: "-" }, u2: { email: "" }, u3: {} } });
+
+      await sendOneSignalNotificationHandler(emailRequest(["u1", "u2", "u3"]), API_KEY, deps);
+
+      expect(deps.ensure).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("email non usabile"),
+        expect.objectContaining({ externalId: "u1" })
+      );
+    });
+
+    test("utente non trovato su Firestore: warn e invio procede", async () => {
+      mockOneSignalSuccess();
+      const deps = makeDeps();
+
+      await sendOneSignalNotificationHandler(emailRequest(["sconosciuto"]), API_KEY, deps);
+
+      expect(deps.ensure).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("utente non trovato"),
+        expect.objectContaining({ externalId: "sconosciuto" })
+      );
+    });
+
+    test("un ensure fallito non blocca gli altri destinatari né l'invio", async () => {
+      mockOneSignalSuccess();
+      const ensure = jest.fn().mockImplementation((id: string) =>
+        id === "u1" ? Promise.reject(new Error("boom")) : Promise.resolve({})
+      );
+      const deps = makeDeps({
+        users: { u1: { email: "u1@x.it" }, u2: { email: "u2@x.it" } },
+        ensure,
+      });
+
+      await sendOneSignalNotificationHandler(emailRequest(["u1", "u2"]), API_KEY, deps);
+
+      expect(ensure).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Ensure destinatario fallito, invio comunque",
+        expect.objectContaining({ externalId: "u1" })
+      );
+    });
+
+    test("un errore del db non blocca l'invio", async () => {
+      mockOneSignalSuccess();
+      const deps = makeDeps({ getError: new Error("firestore down") });
+
+      await sendOneSignalNotificationHandler(emailRequest(["u1"]), API_KEY, deps);
+
+      expect(deps.ensure).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    test("canale push: non tocca né db né ensure", async () => {
+      mockOneSignalSuccess();
+      const deps = makeDeps({ users: { u1: { email: "u1@x.it" } } });
+      const request: HandlerRequest = {
+        auth: { uid: "user-1" },
+        data: {
+          include_aliases: { external_id: ["u1"] },
+          target_channel: "push",
+          contents: { it: "ciao" },
+        },
+      };
+
+      await sendOneSignalNotificationHandler(request, API_KEY, deps);
+
+      expect(deps.requestedDocs).toEqual([]);
+      expect(deps.ensure).not.toHaveBeenCalled();
+    });
+
+    test("email senza include_aliases o con external_id vuoto: nessun ensure", async () => {
+      mockOneSignalSuccess();
+      const deps = makeDeps();
+
+      await sendOneSignalNotificationHandler(
+        { auth: { uid: "user-1" }, data: { target_channel: "email", email_subject: "x" } },
+        API_KEY,
+        deps
+      );
+      await sendOneSignalNotificationHandler(emailRequest([]), API_KEY, deps);
+
+      expect(deps.ensure).not.toHaveBeenCalled();
+      expect(deps.requestedDocs).toEqual([]);
+    });
+
+    test("deduplica gli external_id ripetuti", async () => {
+      mockOneSignalSuccess();
+      const deps = makeDeps({ users: { u1: { email: "u1@x.it" } } });
+
+      await sendOneSignalNotificationHandler(emailRequest(["u1", "u1"]), API_KEY, deps);
+
+      expect(deps.ensure).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Silent failure su 200", () => {
+    const { logger } = jest.requireMock("firebase-functions");
+
+    const request = (): HandlerRequest => ({
+      auth: { uid: "user-1" },
+      data: { include_aliases: { external_id: ["u1"] } },
+    });
+
+    test("logga warning su 200 con errors nel body", async () => {
+      mockOneSignalSuccess({ id: "", errors: { invalid_aliases: { external_id: ["u1"] } } });
+
+      await sendOneSignalNotificationHandler(request(), API_KEY, makeDeps());
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("errors nel body"),
+        expect.anything()
+      );
+    });
+
+    test("logga warning su 200 con recipients: 0", async () => {
+      mockOneSignalSuccess({ id: "n1", recipients: 0 });
+
+      await sendOneSignalNotificationHandler(request(), API_KEY, makeDeps());
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("recipients: 0"),
+        expect.anything()
+      );
+    });
+
+    test("nessun warning su 200 con recipients positivi", async () => {
+      mockOneSignalSuccess({ id: "n1", recipients: 3 });
+
+      await sendOneSignalNotificationHandler(request(), API_KEY, makeDeps());
+
+      expect(logger.warn).not.toHaveBeenCalled();
     });
   });
 });
