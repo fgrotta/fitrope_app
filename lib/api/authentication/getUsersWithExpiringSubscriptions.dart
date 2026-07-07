@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
@@ -19,7 +20,7 @@ Future<List<FitropeUser>> getUsersWithExpiringSubscriptions() async {
     }
 
     final oggi = DateTime.now();
-    final dataLimite = oggi.add(Duration(days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
+    final dataLimite = oggi.add(const Duration(days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
     
     // Query ottimizzata: cerca solo utenti con abbonamento in scadenza
     final querySnapshot = await FirebaseFirestore.instance
@@ -37,7 +38,7 @@ Future<List<FitropeUser>> getUsersWithExpiringSubscriptions() async {
 
     return _cachedUsersWithExpiringSubscriptions!;
   } catch (e) {
-    print('Errore nel caricamento utenti con abbonamenti in scadenza: $e');
+    debugPrint('Errore nel caricamento utenti con abbonamenti in scadenza: $e');
     return [];
   }
 }
@@ -54,7 +55,7 @@ Future<int> getCountUsersWithExpiringSubscriptions() async {
 
   try {
     final oggi = DateTime.now();
-    final dataLimite = oggi.add(Duration(days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
+    final dataLimite = oggi.add(const Duration(days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
     
     final querySnapshot = await FirebaseFirestore.instance
         .collection('users')
@@ -70,7 +71,7 @@ Future<int> getCountUsersWithExpiringSubscriptions() async {
 
     return _cachedUsersWithExpiringSubscriptions!.length;
   } catch (e) {
-    print('Errore nel conteggio utenti con abbonamenti in scadenza: $e');
+    debugPrint('Errore nel conteggio utenti con abbonamenti in scadenza: $e');
     return 0;
   }
 }

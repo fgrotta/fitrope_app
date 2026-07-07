@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
@@ -19,7 +20,7 @@ Future<List<FitropeUser>> getUsersWithExpiringCertificates() async {
     }
 
     final oggi = DateTime.now();
-    final dataLimite = oggi.add(Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
+    final dataLimite = oggi.add(const Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
     
     // Query ottimizzata: cerca solo utenti con certificato in scadenza
     final querySnapshot = await FirebaseFirestore.instance
@@ -37,7 +38,7 @@ Future<List<FitropeUser>> getUsersWithExpiringCertificates() async {
 
     return _cachedUsersWithExpiringCertificates!;
   } catch (e) {
-    print('Errore nel caricamento utenti con certificati in scadenza: $e');
+    debugPrint('Errore nel caricamento utenti con certificati in scadenza: $e');
     return [];
   }
 }
@@ -54,7 +55,7 @@ Future<int> getCountUsersWithExpiringCertificates() async {
 
   try {
     final oggi = DateTime.now();
-    final dataLimite = oggi.add(Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
+    final dataLimite = oggi.add(const Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
     
     final querySnapshot = await FirebaseFirestore.instance
         .collection('users')
@@ -70,7 +71,7 @@ Future<int> getCountUsersWithExpiringCertificates() async {
 
     return _cachedUsersWithExpiringCertificates!.length;
   } catch (e) {
-    print('Errore nel conteggio utenti con certificati in scadenza: $e');
+    debugPrint('Errore nel conteggio utenti con certificati in scadenza: $e');
     return 0;
   }
  

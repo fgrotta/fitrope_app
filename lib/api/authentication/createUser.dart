@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
@@ -87,7 +88,7 @@ Future<CreateUserResponse> createUser({
       tipologiaCorsoTags: tipologiaCorsoTags ?? CourseTags.defaultUserTags,
     );
 
-    print('User created successfully: ${email ?? 'no-email'} with role $role');
+    debugPrint('User created successfully: ${email ?? 'no-email'} with role $role');
     return CreateUserResponse(user: fitropeUser);
 
   } on FirebaseAuthException catch (e) {
@@ -107,7 +108,7 @@ Future<CreateUserResponse> createUser({
     }
     return CreateUserResponse(error: errorMessage);
   } catch (e) {
-    print('Error creating user: $e');
+    debugPrint('Error creating user: $e');
     return CreateUserResponse(error: 'Errore durante la creazione dell\'utente');
   }
 }

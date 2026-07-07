@@ -34,7 +34,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
   int? _entrateSettimanali = 0;
   bool _isAnonymous = false;
   bool _isLoading = false;
-  List<String> _selectedTipologiaCorsoTags = CourseTags.defaultUserTags;
+  final List<String> _selectedTipologiaCorsoTags = CourseTags.defaultUserTags;
 
   @override
   void initState() {
@@ -76,6 +76,8 @@ class _CreateUserPageState extends State<CreateUserPage> {
         tipologiaCorsoTags: _selectedTipologiaCorsoTags,
       );
 
+      if (!mounted) return;
+
       if (response.user != null) {
         Navigator.pop(context, true); // Ritorna true per indicare successo
         SnackBarUtils.showSuccessSnackBar(
@@ -89,6 +91,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante la creazione dell\'utente',
@@ -263,7 +266,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
               // Ruolo (solo per Admin)
               if (widget.currentUserRole == 'Admin') ...[
                 DropdownButtonFormField<String>(
-                  value: _selectedRole,
+                  initialValue: _selectedRole,
                   decoration: const InputDecoration(
                     labelText: 'Ruolo *',
                     border: OutlineInputBorder(),
@@ -286,7 +289,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Tipologia Iscrizione
               DropdownButtonFormField<TipologiaIscrizione?>(
-                value: _selectedTipologia,
+                initialValue: _selectedTipologia,
                 decoration: const InputDecoration(
                   labelText: 'Tipologia Iscrizione',
                   border: OutlineInputBorder(),
@@ -424,7 +427,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                                 }
                               });
                             },
-                            selectedColor: primaryColor.withOpacity(0.3),
+                            selectedColor: primaryColor.withValues(alpha: 0.3),
                             checkmarkColor: primaryColor,
                           );
                         }).toList(),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
 
@@ -10,7 +11,7 @@ Future<void> acceptRegolamento(String uid) async {
     });
     invalidateAllUserCaches();
   } catch (e) {
-    print('Error saving regolamento acceptance: $e');
+    debugPrint('Error saving regolamento acceptance: $e');
     rethrow;
   }
 }

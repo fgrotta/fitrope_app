@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
@@ -14,9 +15,9 @@ Future<void> deleteUser(String uid) async {
     // Invalida tutte le cache degli utenti dopo l'eliminazione
     invalidateAllUserCaches();
     
-    print('User deleted successfully: $uid');
+    debugPrint('User deleted successfully: $uid');
   } catch (e) {
-    print('Error deleting user: $e');
-    throw e;
+    debugPrint('Error deleting user: $e');
+    rethrow;
   }
 } 

@@ -74,7 +74,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     if (widget.openInEditMode && _canEditUser()) {
       isEditing = true;
     }
-    // print(widget.user.isAnonymous);
+    // debugPrint(widget.user.isAnonymous);
     loadCourses();
   }
 
@@ -85,7 +85,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         allCourses = courses;
       });
     } catch (e) {
-      print('Error loading courses: $e');
+      debugPrint('Error loading courses: $e');
     }
   }
 
@@ -441,9 +441,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
               onPressed: () async {
                 try {
                   await signOut();
+                  if (!context.mounted) return;
                   Navigator.pop(context); // Chiudi la modale
                   logoutRedirect(context); // Reindirizza al login
                 } catch (e) {
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   SnackBarUtils.showErrorSnackBar(
                     context,
@@ -482,14 +484,15 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 try {
                   // Disattiva l'account dell'utente
                   await toggleUserStatus(widget.user.uid, false);
+                  if (!context.mounted) return;
                   Navigator.pop(context); // Chiudi la modale
-                  
+
                   // Mostra messaggio di conferma
                   SnackBarUtils.showSuccessSnackBar(
                     context,
                     'Account disattivato con successo. Sei stato sloggato.',
                   );
-                  
+
                   // Effettua il logout immediatamente
                   await signOut();
                   // Verifica se il context è ancora valido prima di navigare
@@ -497,6 +500,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     logoutRedirect(context);
                   }
                 } catch (e) {
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   SnackBarUtils.showErrorSnackBar(
                     context,
@@ -562,13 +566,15 @@ class _UserDetailPageState extends State<UserDetailPage> {
               onPressed: () async {
                 try {
                   await resetPassword(widget.user.email);
+                  if (!context.mounted) return;
                   Navigator.pop(context); // Chiudi la modale
-                  
+
                   SnackBarUtils.showSuccessSnackBar(
                     context,
                     'Email di reset password inviata con successo a ${widget.user.email}',
                   );
                 } catch (e) {
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   SnackBarUtils.showErrorSnackBar(
                     context,
@@ -766,7 +772,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          widget.user.name + ' ' + widget.user.lastName,
+                          '${widget.user.name} ${widget.user.lastName}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -822,7 +828,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 // Pulsante per inviare email di reset password (solo per Admin)
                 if (isAdmin) ...[
                   const SizedBox(height: 16),
-                  Container(
+                  SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: showResetPasswordConfirmation,
@@ -942,7 +948,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                           context,
                           widget.user,
                         );
-                        if (accepted && mounted) {
+                        if (accepted && context.mounted) {
                           SnackBarUtils.showSuccessSnackBar(
                             context,
                             'Regolamento accettato con successo',
@@ -1038,7 +1044,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       const SizedBox(height: 24),
                     ],
                   );
-                }).toList(),
+                }),
             ],
             
             // Sezione disiscrizioni (solo per Admin)
@@ -1073,7 +1079,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     const SizedBox(height: 24),
                   ],
                 );
-              }).toList(),
+              }),
             ],
             //TODO aggiungere corsi fatti nel caso sia Trainer
             if (errorMsg != null)
@@ -1082,7 +1088,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.red),
                   ),
@@ -1096,7 +1102,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             // Pulsante Logout (solo per il proprio profilo)
             if (store.state.user?.uid == widget.user.uid) ...[
               const SizedBox(height: 32),
-              Container(
+              SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: showLogoutConfirmation,
@@ -1136,7 +1142,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -1179,7 +1185,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
           Switch(
             value: value,
             onChanged: enabled ? onChanged : null,
-            activeColor: primaryLightColor,
+            activeThumbColor: primaryLightColor,
           ),
         ],
       ),
@@ -1221,23 +1227,23 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   )
                 : isEditable && isDropdown
                     ? DropdownButtonFormField<String>(
-                        value: _getValidRoleForDropdown(),
+                        initialValue: _getValidRoleForDropdown(),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
                         items: [
-                          DropdownMenuItem(
+                          const DropdownMenuItem(
                             value: 'User',
                             child: Text('User'),
                           ),
                           // Solo gli admin possono assegnare il ruolo Trainer
                           if (isAdmin)
-                            DropdownMenuItem(
+                            const DropdownMenuItem(
                               value: 'Trainer',
                               child: Text('Trainer'),
                             ),
-                          DropdownMenuItem(
+                          const DropdownMenuItem(
                             value: 'Admin',
                             child: Text('Admin'),
                           ),
@@ -1250,7 +1256,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       )
                     : isEditable && isTipologiaDropdown
                         ? DropdownButtonFormField<String>(
-                            value: selectedTipologiaIscrizione?.toString().split('.').last,
+                            initialValue: selectedTipologiaIscrizione?.toString().split('.').last,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1315,12 +1321,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               )
                             : isEditable && isStatusDropdown
                             ? DropdownButtonFormField<bool>(
-                                value: selectedIsActive,
+                                initialValue: selectedIsActive,
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 ),
-                                items: [
+                                items: const [
                                   DropdownMenuItem(
                                     value: true,
                                     child: Row(
@@ -1350,12 +1356,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               )
                             : isEditable && isAnonymousDropdown
                             ? DropdownButtonFormField<bool>(
-                                value: selectedIsAnonymous,
+                                initialValue: selectedIsAnonymous,
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 ),
-                                items: [
+                                items: const [
                                   DropdownMenuItem(
                                     value: false,
                                     child: Row(
@@ -1442,7 +1448,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                         }
                                       });
                                     },
-                                    selectedColor: primaryColor.withOpacity(0.3),
+                                    selectedColor: primaryColor.withValues(alpha: 0.3),
                                     checkmarkColor: primaryColor,
                                   );
                                 }).toList(),

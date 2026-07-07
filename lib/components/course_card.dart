@@ -204,17 +204,21 @@ class _CourseCardState extends State<CourseCard> {
     if (confirmed == true) {
       try {
         await removeUserFromCourse(widget.courseId, user.uid);
-        SnackBarUtils.showSuccessSnackBar(
-          context,
-          'Utente rimosso con successo dal corso',
-        );
+        if (context.mounted) {
+          SnackBarUtils.showSuccessSnackBar(
+            context,
+            'Utente rimosso con successo dal corso',
+          );
+        }
         // Aggiorna la lista
         widget.onRefresh();
       } catch (e) {
-        SnackBarUtils.showErrorSnackBar(
-          context,
-          'Errore durante la rimozione: ${e.toString()}',
-        );
+        if (context.mounted) {
+          SnackBarUtils.showErrorSnackBar(
+            context,
+            'Errore durante la rimozione: ${e.toString()}',
+          );
+        }
       }
     }
   }
@@ -306,15 +310,19 @@ class _CourseCardState extends State<CourseCard> {
       });
 
       // Mostra messaggio di successo
-      SnackBarUtils.showSuccessSnackBar(
-        context,
-        'Conteggio iscritti aggiornato con successo!',
-      );
+      if (context.mounted) {
+        SnackBarUtils.showSuccessSnackBar(
+          context,
+          'Conteggio iscritti aggiornato con successo!',
+        );
+      }
     } catch (e) {
-      SnackBarUtils.showErrorSnackBar(
-        context,
-        'Errore durante l\'aggiornamento: ${e.toString()}',
-      );
+      if (context.mounted) {
+        SnackBarUtils.showErrorSnackBar(
+          context,
+          'Errore durante l\'aggiornamento: ${e.toString()}',
+        );
+      }
     }
   }
 
@@ -526,13 +534,13 @@ class _CourseCardState extends State<CourseCard> {
       ),
     );
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (confirmed == true) {
       try {
         await leaveWaitlist(widget.courseId, user.uid);
 
-        if (!mounted) return;
+        if (!context.mounted) return;
 
         SnackBarUtils.showSuccessSnackBar(
           context,
@@ -540,7 +548,7 @@ class _CourseCardState extends State<CourseCard> {
         );
         widget.onRefresh();
       } catch (e) {
-        if (!mounted) return;
+        if (!context.mounted) return;
 
         SnackBarUtils.showErrorSnackBar(
           context,
@@ -1035,7 +1043,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

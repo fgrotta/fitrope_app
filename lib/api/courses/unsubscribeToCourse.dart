@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
@@ -12,9 +13,9 @@ FirebaseFirestore firestore = FirebaseFirestore.instance;
 // Funzione per la disiscrizione normale (sempre rimborsa il credito se applicabile)
 Future<void> unsubscribeToCourse(String courseId, String userId) async {
   try {
-    print('=== INIZIO unsubscribeToCourse ===');
-    print('courseId: $courseId');
-    print('userId: $userId');
+    debugPrint('=== INIZIO unsubscribeToCourse ===');
+    debugPrint('courseId: $courseId');
+    debugPrint('userId: $userId');
     
     QuerySnapshot querySnapshot = await firestore
         .collection('courses')
@@ -23,7 +24,7 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
         .get();
 
     if (querySnapshot.docs.isEmpty) {
-      print('❌ Corso non trovato: $courseId');
+      debugPrint('❌ Corso non trovato: $courseId');
       throw Exception('Course does not exist');
     }
 
@@ -69,7 +70,7 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
             
             if (isPacchettoEntrate || isAbbonamentoProva) {
               int nuoveEntrate = (entrateDisponibili ?? 0) + 1;
-              print('💳 Nuove entrate disponibili: $nuoveEntrate');
+              debugPrint('💳 Nuove entrate disponibili: $nuoveEntrate');
             }
             
             // Prepara l'aggiornamento per cancelledEnrollments (solo per abbonamenti temporali)
@@ -91,7 +92,7 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
               };
               cancelledEnrollments.add(cancelledEnrollment);
               updateData['cancelledEnrollments'] = cancelledEnrollments;
-              print('📝 Tracciata disiscrizione per abbonamento temporale (entryLost: false)');
+              debugPrint('📝 Tracciata disiscrizione per abbonamento temporale (entryLost: false)');
             }
             
             // Aggiorna l'utente
@@ -99,18 +100,18 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
             
               
           } else {
-            print('❌ Utente non iscritto al corso');
+            debugPrint('❌ Utente non iscritto al corso');
             throw Exception('User is not subscribed to this course');
           }
         } else {
-          print('❌ Nessun utente iscritto al corso');
+          debugPrint('❌ Nessun utente iscritto al corso');
           throw Exception('No users subscribed to this course');
         }
         
       } catch (e, stackTrace) {
-        print('❌ Errore durante la transazione:');
-        print('Errore: $e');
-        print('Stack trace: $stackTrace');
+        debugPrint('❌ Errore durante la transazione:');
+        debugPrint('Errore: $e');
+        debugPrint('Stack trace: $stackTrace');
         rethrow;
       }
     }).then((_) async {
@@ -129,25 +130,25 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
       // chiude la scheda subito dopo la disiscrizione (email waitlist mai inviate).
       await notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
     }).catchError((error, stackTrace) {
-      print('❌ Errore nella gestione post-transazione:');
-      print('Errore: $error');
-      print('Stack trace: $stackTrace');
+      debugPrint('❌ Errore nella gestione post-transazione:');
+      debugPrint('Errore: $error');
+      debugPrint('Stack trace: $stackTrace');
       store.dispatch(FinishLoadingAction());
-      print("Failed to unsubscribe: $error");
+      debugPrint("Failed to unsubscribe: $error");
       throw error;
     });
     
   } catch (e, stackTrace) {
-    print('❌ Errore generale in unsubscribeToCourse:');
-    print('Errore: $e');
-    print('Stack trace: $stackTrace');
-    print('Tipo di errore: ${e.runtimeType}');
+    debugPrint('❌ Errore generale in unsubscribeToCourse:');
+    debugPrint('Errore: $e');
+    debugPrint('Stack trace: $stackTrace');
+    debugPrint('Tipo di errore: ${e.runtimeType}');
     
     // Se è un'eccezione Firestore, mostra più dettagli
     if (e is FirebaseException) {
-      print('🔥 Firebase Exception Details:');
-      print('  Code: ${e.code}');
-      print('  Message: ${e.message}');
+      debugPrint('🔥 Firebase Exception Details:');
+      debugPrint('  Code: ${e.code}');
+      debugPrint('  Message: ${e.message}');
     }
     
     rethrow;
@@ -165,7 +166,7 @@ Future<void> forceUnsubscribeWithNoRefund(String courseId, String userId) async 
         .get();
 
     if (querySnapshot.docs.isEmpty) {
-      print('❌ Corso non trovato: $courseId');
+      debugPrint('❌ Corso non trovato: $courseId');
       throw Exception('Course does not exist');
     }
 
@@ -222,7 +223,7 @@ Future<void> forceUnsubscribeWithNoRefund(String courseId, String userId) async 
               };
               cancelledEnrollments.add(cancelledEnrollment);
               updateData['cancelledEnrollments'] = cancelledEnrollments;
-              print('📝 Tracciata disiscrizione persa per abbonamento temporale (entryLost: true)');
+              debugPrint('📝 Tracciata disiscrizione persa per abbonamento temporale (entryLost: true)');
             }
             
             // Per la disiscrizione forzata, non viene mai rimborsato il credito
@@ -231,18 +232,18 @@ Future<void> forceUnsubscribeWithNoRefund(String courseId, String userId) async 
             
             
           } else {
-            print('❌ Utente non iscritto al corso');
+            debugPrint('❌ Utente non iscritto al corso');
             throw Exception('User is not subscribed to this course');
           }
         } else {
-          print('❌ Nessun utente iscritto al corso');
+          debugPrint('❌ Nessun utente iscritto al corso');
           throw Exception('No users subscribed to this course');
         }
         
       } catch (e, stackTrace) {
-        print('❌ Errore durante la transazione (no refund):');
-        print('Errore: $e');
-        print('Stack trace: $stackTrace');
+        debugPrint('❌ Errore durante la transazione (no refund):');
+        debugPrint('Errore: $e');
+        debugPrint('Stack trace: $stackTrace');
         rethrow;
       }
     }).then((_) async {
@@ -260,18 +261,18 @@ Future<void> forceUnsubscribeWithNoRefund(String courseId, String userId) async 
       // chiude la scheda subito dopo la disiscrizione (email waitlist mai inviate).
       await notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
     }).catchError((error, stackTrace) {
-      print('❌ Errore nella gestione post-transazione (no refund):');
-      print('Errore: $error');
-      print('Stack trace: $stackTrace');
+      debugPrint('❌ Errore nella gestione post-transazione (no refund):');
+      debugPrint('Errore: $error');
+      debugPrint('Stack trace: $stackTrace');
       store.dispatch(FinishLoadingAction());
-      print("Failed to force unsubscribe with no refund: $error");
+      debugPrint("Failed to force unsubscribe with no refund: $error");
       throw error;
     });
     
   } catch (e, stackTrace) {
-    print('❌ Errore generale in forceUnsubscribeWithNoRefund:');
-    print('Errore: $e');
-    print('Stack trace: $stackTrace');
+    debugPrint('❌ Errore generale in forceUnsubscribeWithNoRefund:');
+    debugPrint('Errore: $e');
+    debugPrint('Stack trace: $stackTrace');
     rethrow;
   }
 }

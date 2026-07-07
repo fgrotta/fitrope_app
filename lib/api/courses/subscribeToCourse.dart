@@ -107,8 +107,8 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
     invalidateUsersCache();
     invalidateCoursesCache();
     final user = store.state.user;
-    print('🔔 [subscribeToCourse] Iscrizione completata — userId: $userId, courseId: $courseId');
-    print('🔔 [subscribeToCourse] Utente corrente nello store: uid=${user?.uid}, role=${user?.role}');
+    debugPrint('🔔 [subscribeToCourse] Iscrizione completata — userId: $userId, courseId: $courseId');
+    debugPrint('🔔 [subscribeToCourse] Utente corrente nello store: uid=${user?.uid}, role=${user?.role}');
 
     if (user != null && user.role != 'Admin' && user.role != 'Trainer') {
       Map<String, dynamic>? userData = await getUserData(userId);
@@ -116,35 +116,35 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
         final updatedUser = FitropeUser.fromJson(userData);
         store.dispatch(SetUserAction(updatedUser));
 
-        print('🔔 [subscribeToCourse] tipologiaIscrizione: ${updatedUser.tipologiaIscrizione}');
+        debugPrint('🔔 [subscribeToCourse] tipologiaIscrizione: ${updatedUser.tipologiaIscrizione}');
         if (kDebugMode || updatedUser.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
-          print('🔔 [subscribeToCourse] ${kDebugMode ? "[DEBUG] Invio sempre" : "Utente PROVA"} → scheduleTrialReminder');
+          debugPrint('🔔 [subscribeToCourse] ${kDebugMode ? "[DEBUG] Invio sempre" : "Utente PROVA"} → scheduleTrialReminder');
           scheduleTrialReminder(userId, courseId);
         } else {
-          print('🔔 [subscribeToCourse] Non è ABBONAMENTO_PROVA, skip promemoria');
+          debugPrint('🔔 [subscribeToCourse] Non è ABBONAMENTO_PROVA, skip promemoria');
         }
       } else {
-        print('🔔 [subscribeToCourse] userData null per userId: $userId');
+        debugPrint('🔔 [subscribeToCourse] userData null per userId: $userId');
       }
     } else {
-      print('🔔 [subscribeToCourse] Branch admin/trainer — controlla utente iscritto');
+      debugPrint('🔔 [subscribeToCourse] Branch admin/trainer — controlla utente iscritto');
       Map<String, dynamic>? subscribedUserData = await getUserData(userId);
       if (subscribedUserData != null) {
         final subscribedUser = FitropeUser.fromJson(subscribedUserData);
-        print('🔔 [subscribeToCourse] tipologiaIscrizione utente iscritto: ${subscribedUser.tipologiaIscrizione}');
+        debugPrint('🔔 [subscribeToCourse] tipologiaIscrizione utente iscritto: ${subscribedUser.tipologiaIscrizione}');
         if (kDebugMode || subscribedUser.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
-          print('🔔 [subscribeToCourse] ${kDebugMode ? "[DEBUG] Invio sempre" : "Utente PROVA"} → scheduleTrialReminder');
+          debugPrint('🔔 [subscribeToCourse] ${kDebugMode ? "[DEBUG] Invio sempre" : "Utente PROVA"} → scheduleTrialReminder');
           scheduleTrialReminder(userId, courseId);
         } else {
-          print('🔔 [subscribeToCourse] Non è ABBONAMENTO_PROVA, skip promemoria');
+          debugPrint('🔔 [subscribeToCourse] Non è ABBONAMENTO_PROVA, skip promemoria');
         }
       } else {
-        print('🔔 [subscribeToCourse] subscribedUserData null per userId: $userId');
+        debugPrint('🔔 [subscribeToCourse] subscribedUserData null per userId: $userId');
       }
     }
   } catch (error, stackTrace) {
-    print("Failed to subscribe to course: $error");
-    print("Stack trace: $stackTrace");
+    debugPrint("Failed to subscribe to course: $error");
+    debugPrint("Stack trace: $stackTrace");
     rethrow;
   } finally {
     store.dispatch(FinishLoadingAction());

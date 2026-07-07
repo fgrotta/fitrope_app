@@ -12,7 +12,6 @@ import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class CourseManagementPage extends StatefulWidget {
@@ -100,7 +99,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       // Inizializza i dati del corso
       _initializeCourseData();
     } catch (e) {
-      SnackBarUtils.showErrorSnackBar(context, 'Errore nel caricamento dei dati');
+      if (mounted) {
+        SnackBarUtils.showErrorSnackBar(context, 'Errore nel caricamento dei dati');
+      }
     } finally {
       setState(() {
         isLoading = false;
@@ -332,6 +333,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         );
 
         await updateCourse(updatedCourse);
+        if (!mounted) return;
         SnackBarUtils.showSuccessSnackBar(context, 'Corso modificato con successo');
       } else {
         // Crea nuovo corso (creazione o duplicazione)
@@ -355,7 +357,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         );
 
         await createCourse(newCourse);
-        
+        if (!mounted) return;
+
         final isDuplication = widget.mode == 'duplicate';
         SnackBarUtils.showSuccessSnackBar(
           context,
@@ -364,10 +367,12 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       }
 
       // Torna alla pagina precedente
+      if (!mounted) return;
       Navigator.pop(context, true); // true indica che è stato fatto un salvataggio
     } catch (e) {
-      final action = widget.mode == 'edit' ? 'modifica' : 
+      final action = widget.mode == 'edit' ? 'modifica' :
                     widget.mode == 'duplicate' ? 'duplicazione' : 'creazione';
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante la $action del corso',
@@ -524,7 +529,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: selectedTrainerId,
+                            initialValue: selectedTrainerId,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               filled: true,
@@ -541,7 +546,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                   value: trainer.uid,
                                   child: Text('${trainer.name} ${trainer.lastName}'),
                                 );
-                              }).toList(),
+                              }),
                             ],
                             onChanged: (newValue) {
                               setState(() {
@@ -722,7 +727,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                   }
                                 });
                               },
-                              selectedColor: primaryColor.withOpacity(0.3),
+                              selectedColor: primaryColor.withValues(alpha: 0.3),
                               checkmarkColor: primaryColor,
                             );
                           }).toList(),
@@ -757,7 +762,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           onChanged: (value) {
                             setState(() => reminderEnabled = value);
                           },
-                          activeColor: primaryLightColor,
+                          activeThumbColor: primaryLightColor,
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
@@ -770,7 +775,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           onChanged: (value) {
                             setState(() => waitlistEnabled = value);
                           },
-                          activeColor: primaryLightColor,
+                          activeThumbColor: primaryLightColor,
                         ),
                       ],
                     ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
@@ -74,8 +75,8 @@ Future<List<FitropeUser>> getUsers() async {
 
     return usersList;
   } catch (e) {
-    print('Error loading users: $e');
-    throw e;
+    debugPrint('Error loading users: $e');
+    rethrow;
   }
 }
 
@@ -108,7 +109,7 @@ Future<List<FitropeUser>> getTrainers() async {
 
     return trainersList;
   } catch (e) {
-    print('Error loading trainers: $e');
-    throw e;
+    debugPrint('Error loading trainers: $e');
+    rethrow;
   }
 }

@@ -19,14 +19,14 @@ class CourseUnsubscribeHelper {
     FitropeUser user, 
     BuildContext context
   ) async {
-    print('🔍 CourseUnsubscribeHelper.handleUnsubscribe chiamato');
-    print('📅 Corso: ${course.name} (${course.uid})');
-    print('👤 Utente: ${user.name} ${user.lastName}');
-    print('💳 Tipo abbonamento: ${user.tipologiaIscrizione}');
+    debugPrint('🔍 CourseUnsubscribeHelper.handleUnsubscribe chiamato');
+    debugPrint('📅 Corso: ${course.name} (${course.uid})');
+    debugPrint('👤 Utente: ${user.name} ${user.lastName}');
+    debugPrint('💳 Tipo abbonamento: ${user.tipologiaIscrizione}');
     
     // Prima verifica se serve conferma
     final unsubscribeInfo = canUnsubscribe(course, user);
-    print('📊 Info disiscrizione: $unsubscribeInfo');
+    debugPrint('📊 Info disiscrizione: $unsubscribeInfo');
     
     if (unsubscribeInfo['requiresConfirmation']) {
       // Mostra dialog di conferma per perdita credito/ingresso settimanale
@@ -37,30 +37,32 @@ class CourseUnsubscribeHelper {
       );   
       
       if (!confirmed) {
-        print('❌ Disiscrizione annullata dall\'utente');
+        debugPrint('❌ Disiscrizione annullata dall\'utente');
         return false; // L'utente ha annullato
       }
       
       // L'utente conferma di voler perdere il credito/ingresso settimanale
-      print('🔥 Esecuzione disiscrizione forzata (credito/ingresso perso)');
+      debugPrint('🔥 Esecuzione disiscrizione forzata (credito/ingresso perso)');
       try {
         await forceUnsubscribeWithNoRefund(course.uid, user.uid);
-        print('✅ Disiscrizione forzata completata');
+        debugPrint('✅ Disiscrizione forzata completata');
         return true;
       } catch (e) {
-        print('❌ Errore durante disiscrizione forzata: $e');
+        debugPrint('❌ Errore durante disiscrizione forzata: $e');
+        if (!context.mounted) return false;
         _showErrorDialog(context, 'Errore durante la disiscrizione: $e');
         return false;
       }
     } else {
-      print('✅ Disiscrizione normale con rimborso');
+      debugPrint('✅ Disiscrizione normale con rimborso');
       // Disiscrizione normale con rimborso
       try {
         await unsubscribeToCourse(course.uid, user.uid);
-        
+
         return true;
       } catch (e) {
-        print('❌ Errore durante disiscrizione normale: $e');
+        debugPrint('❌ Errore durante disiscrizione normale: $e');
+        if (!context.mounted) return false;
         _showErrorDialog(context, 'Errore durante la disiscrizione: $e');
         return false;
       }
@@ -97,7 +99,7 @@ class CourseUnsubscribeHelper {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Stai per disiscriverti dal corso "${course.name}" del ${courseDate} alle ${courseTime}'),
+              Text('Stai per disiscriverti dal corso "${course.name}" del $courseDate alle $courseTime'),
               const SizedBox(height: 8),
               Text(
                 warningMessage,
@@ -158,12 +160,12 @@ class CourseUnsubscribeHelper {
   /// - Se richiede conferma
   /// - Il messaggio da mostrare
   static Map<String, dynamic> canUnsubscribe(Course course, FitropeUser user) {
-    print('🔍 canUnsubscribe chiamato per corso: ${course.name}');
-    print('👤 Utente iscritto ai corsi: ${user.courses}');
-    print('🎯 Corso da verificare: ${course.uid}');
+    debugPrint('🔍 canUnsubscribe chiamato per corso: ${course.name}');
+    debugPrint('👤 Utente iscritto ai corsi: ${user.courses}');
+    debugPrint('🎯 Corso da verificare: ${course.uid}');
     
     if (!user.courses.contains(course.uid)) {
-      print('❌ Utente non iscritto al corso');
+      debugPrint('❌ Utente non iscritto al corso');
       return {
         'canUnsubscribe': false,
         'requiresConfirmation': false,
@@ -178,9 +180,9 @@ class CourseUnsubscribeHelper {
     int minutesDifference = difference.inMinutes;
     int hoursDifference = difference.inHours;
 
-    print('📅 Inizio corso: $courseStart');
-    print('🕐 Ora attuale: $now');
-    print('⏰ Differenza ore: $hoursDifference');
+    debugPrint('📅 Inizio corso: $courseStart');
+    debugPrint('🕐 Ora attuale: $now');
+    debugPrint('⏰ Differenza ore: $hoursDifference');
 
     bool isPacchettoEntrate = user.tipologiaIscrizione == TipologiaIscrizione.PACCHETTO_ENTRATE;
     bool isAbbonamentoProva = user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA;
@@ -198,9 +200,9 @@ class CourseUnsubscribeHelper {
       requiresConfirmation = minutesDifference <= 4 * 60;
     }
     
-    print('💳 È pacchetto entrate: $isPacchettoEntrate');
-    print('📅 È abbonamento temporale: $isTemporalSubscription');
-    print('⚠️ Richiede conferma: $requiresConfirmation');
+    debugPrint('💳 È pacchetto entrate: $isPacchettoEntrate');
+    debugPrint('📅 È abbonamento temporale: $isTemporalSubscription');
+    debugPrint('⚠️ Richiede conferma: $requiresConfirmation');
     
     String message = '';
     if (requiresConfirmation) {
@@ -215,7 +217,7 @@ class CourseUnsubscribeHelper {
       message = 'Disiscrizione: liberi il posto nel corso';
     }
     
-    print('📝 Messaggio: $message');
+    debugPrint('📝 Messaggio: $message');
     
     return {
       'canUnsubscribe': true,

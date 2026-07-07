@@ -143,7 +143,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void onUnsubscribe(Course course) async {
     try {
-      print('🔄 Inizio disiscrizione per corso: ${course.name}');
+      debugPrint('🔄 Inizio disiscrizione per corso: ${course.name}');
 
       // Usa il nuovo sistema di disiscrizione intelligente
       bool success = await CourseUnsubscribeHelper.handleUnsubscribe(
@@ -153,19 +153,19 @@ class _CalendarPageState extends State<CalendarPage> {
       );
 
       if (success) {
-        print('✅ Disiscrizione completata con successo');
+        debugPrint('✅ Disiscrizione completata con successo');
 
         // Aggiorna lo stato dell'utente corrente
         if (store.state.user != null && store.state.user!.uid == user.uid) {
           // Ricarica i dati utente per aggiornare entrateDisponibili e courses
           try {
-            print('🔄 Aggiornamento stato utente nello store');
+            debugPrint('🔄 Aggiornamento stato utente nello store');
             final userData = await getUserData(user.uid);
             if (userData != null) {
               store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
             }
           } catch (e) {
-            print('⚠️ Errore nell\'aggiornamento stato utente: $e');
+            debugPrint('⚠️ Errore nell\'aggiornamento stato utente: $e');
           }
         }
         updateCourses();
@@ -179,15 +179,17 @@ class _CalendarPageState extends State<CalendarPage> {
           );
         }
       } else {
-        print('❌ Disiscrizione annullata dall\'utente');
+        debugPrint('❌ Disiscrizione annullata dall\'utente');
         // L'utente ha annullato la disiscrizione, non fare nulla
       }
     } catch (e) {
-      print('❌ Errore durante la disiscrizione: $e');
-      SnackBarUtils.showErrorSnackBar(
-        context,
-        'Errore durante la disiscrizione: ${e.toString()}',
-      );
+      debugPrint('❌ Errore durante la disiscrizione: $e');
+      if (mounted) {
+        SnackBarUtils.showErrorSnackBar(
+          context,
+          'Errore durante la disiscrizione: ${e.toString()}',
+        );
+      }
     }
   }
 
@@ -278,16 +280,20 @@ class _CalendarPageState extends State<CalendarPage> {
       updateCourses();
 
       // Mostra SnackBar di successo
-      SnackBarUtils.showSuccessSnackBar(
-        context,
-        'Corso cancellato con successo',
-      );
+      if (mounted) {
+        SnackBarUtils.showSuccessSnackBar(
+          context,
+          'Corso cancellato con successo',
+        );
+      }
     } catch (e) {
       // Mostra SnackBar di errore
-      SnackBarUtils.showErrorSnackBar(
-        context,
-        'Errore durante la cancellazione del corso',
-      );
+      if (mounted) {
+        SnackBarUtils.showErrorSnackBar(
+          context,
+          'Errore durante la cancellazione del corso',
+        );
+      }
     }
   }
 
@@ -296,11 +302,11 @@ class _CalendarPageState extends State<CalendarPage> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Image(image: AssetImage('assets/new_logo_only.png'), width: 30),
-        Expanded(
+        const Expanded(
           child: Text(
             'Calendario corsi',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 26,
               color: onPrimaryColor,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
@@ -48,9 +49,9 @@ Future<void> updateUser({
         .update(updateData);
 
     invalidateAllUserCaches(); // Invalida tutte le cache degli utenti dopo l'aggiornamento
-    print('User updated successfully: $uid ');
+    debugPrint('User updated successfully: $uid ');
   } catch (e) {
-    print('Error updating user: $e');
-    throw e;
+    debugPrint('Error updating user: $e');
+    rethrow;
   }
 } 

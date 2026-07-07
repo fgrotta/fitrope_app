@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 Future<void> deleteUser() async {
@@ -6,11 +7,11 @@ Future<void> deleteUser() async {
 
     if (user != null) {
       await user.delete();
-      print("Utente eliminato con successo.");
+      debugPrint("Utente eliminato con successo.");
     } else {
-      print("Nessun utente autenticato.");
+      debugPrint("Nessun utente autenticato.");
     }
   } catch (e) {
-    print("Errore durante l'eliminazione dell'utente: $e");
+    debugPrint("Errore durante l'eliminazione dell'utente: $e");
   }
 }

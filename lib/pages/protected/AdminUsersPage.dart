@@ -14,7 +14,6 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show FixedColumnWidth;
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:intl/intl.dart';
 
@@ -119,7 +118,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       
       _applyFilters();
     } catch (e) {
-      print('Error loading users: $e');
+      debugPrint('Error loading users: $e');
       setState(() {
         isLoading = false;
       }); 
@@ -134,7 +133,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     });
 
     // Simula un piccolo delay per evitare troppe chiamate
-    Future.delayed(Duration(milliseconds: 100), () {
+    Future.delayed(const Duration(milliseconds: 100), () {
       if (!mounted) return;
       
       final currentLength = displayedUsers.length;
@@ -315,18 +314,22 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               onPressed: () async {
                 try {
                   await toggleUserStatus(user.uid, !isCurrentlyActive);
-                  Navigator.pop(context);
+                  if (context.mounted) Navigator.pop(context);
                   loadUsers(); // Ricarica la lista
-                  SnackBarUtils.showSuccessSnackBar(
-                    context,
-                    'Utente $actionPast con successo',
-                  );
+                  if (context.mounted) {
+                    SnackBarUtils.showSuccessSnackBar(
+                      context,
+                      'Utente $actionPast con successo',
+                    );
+                  }
                 } catch (e) {
-                  Navigator.pop(context);
-                  SnackBarUtils.showErrorSnackBar(
-                    context,
-                    'Errore durante l\'operazione',
-                  );
+                  if (context.mounted) Navigator.pop(context);
+                  if (context.mounted) {
+                    SnackBarUtils.showErrorSnackBar(
+                      context,
+                      'Errore durante l\'operazione',
+                    );
+                  }
                 }
               },
               style: TextButton.styleFrom(
@@ -347,7 +350,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     final bool isAdmin = user.role == 'Admin';
 
     final tagDropdown = DropdownButtonFormField<String?>(
-      value: selectedTagFilter,
+      initialValue: selectedTagFilter,
       decoration: const InputDecoration(
         labelText: 'Tag',
         border: OutlineInputBorder(),
@@ -365,7 +368,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
 
     final tipologiaDropdown = DropdownButtonFormField<TipologiaIscrizione?>(
-      value: selectedTipologiaFilter,
+      initialValue: selectedTipologiaFilter,
       decoration: const InputDecoration(
         labelText: 'Tipologia abbonamento',
         border: OutlineInputBorder(),
@@ -386,7 +389,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
 
     final statoDropdown = DropdownButtonFormField<bool?>(
-      value: activeFilter,
+      initialValue: activeFilter,
       decoration: const InputDecoration(
         labelText: 'Stato',
         border: OutlineInputBorder(),
@@ -406,7 +409,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
     final Widget? scadenzaAbbonamentoFilterDropdown = isAdmin
         ? DropdownButtonFormField<AbbonamentoScadenzaListFilter>(
-            value: _abbonamentoScadenzaFilter,
+            initialValue: _abbonamentoScadenzaFilter,
             decoration: const InputDecoration(
               labelText: 'Scadenza abbonamento',
               border: OutlineInputBorder(),
@@ -542,12 +545,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     ],
                     DataColumn(
                       columnWidth:
-                          FixedColumnWidth(_userTableNarrowColumnWidth),
+                          const FixedColumnWidth(_userTableNarrowColumnWidth),
                       label: _userTableEllipsisText('Ruolo'),
                     ),
                     DataColumn(
                       columnWidth:
-                          FixedColumnWidth(_userTableNarrowColumnWidth),
+                          const FixedColumnWidth(_userTableNarrowColumnWidth),
                       label: _userTableEllipsisText('Stato'),
                     ),
                     const DataColumn(label: Text('Azioni')),
@@ -669,11 +672,11 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Image(image: AssetImage('assets/new_logo_only.png'), width: 30),
-                      Expanded(
+                      const Expanded(
                         child: Text(
                           'Gestione Utenti',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 30,
                             color: onPrimaryColor,

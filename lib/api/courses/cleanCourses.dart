@@ -1,4 +1,5 @@
 // import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 
 Future<void> cleanCourses() async {
@@ -14,8 +15,8 @@ Future<void> cleanCourses() async {
     // await coursesRef.doc('placeholder').set({'info': 'This is a placeholder document'});
     invalidateCoursesCache(); // Invalida la cache dopo la pulizia
 
-    print('Courses collection cleaned successfully, placeholder added!');
+    debugPrint('Courses collection cleaned successfully, placeholder added!');
   } catch (e) {
-    print('Error cleaning courses collection: $e');
+    debugPrint('Error cleaning courses collection: $e');
   }
 }

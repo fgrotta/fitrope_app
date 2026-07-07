@@ -33,12 +33,12 @@ class WaitlistUiHelper {
               Navigator.pop(dialogContext);
               joinWaitlist(course.uid, userId).then((_) {
                 onRefresh();
-                if (isMounted()) {
+                if (isMounted() && context.mounted) {
                   SnackBarUtils.showSuccessSnackBar(
                       context, 'Iscritto alla lista d\'attesa');
                 }
               }).catchError((e) {
-                if (isMounted()) {
+                if (isMounted() && context.mounted) {
                   SnackBarUtils.showErrorSnackBar(
                       context, 'Errore: ${e.toString()}');
                 }
@@ -62,12 +62,12 @@ class WaitlistUiHelper {
   }) {
     leaveWaitlist(course.uid, userId).then((_) {
       onRefresh();
-      if (isMounted()) {
+      if (isMounted() && context.mounted) {
         SnackBarUtils.showSuccessSnackBar(
             context, 'Rimosso dalla lista d\'attesa');
       }
     }).catchError((e) {
-      if (isMounted()) {
+      if (isMounted() && context.mounted) {
         SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
       }
     });

@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
@@ -46,7 +46,7 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
     invalidateAllUserCaches();
 
     await userCredential.user!.sendEmailVerification();
-    print("Email di verifica inviata a $email");
+    debugPrint("Email di verifica inviata a $email");
 
     Map<String, dynamic>? userData = await getUserData(uid);
 
@@ -56,7 +56,7 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
       );
     }
 
-    print("User registered: ${userCredential.user!.email}");
+    debugPrint("User registered: ${userCredential.user!.email}");
   } 
   on FirebaseAuthException catch (e) {
     if (e.code == 'weak-password') {
@@ -76,7 +76,7 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
     }
   } 
   catch (e) {
-    print(e);
+    debugPrint(e.toString());
   }
   
   return SignUpResponse(

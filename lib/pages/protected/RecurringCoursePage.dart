@@ -97,6 +97,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       // Inizializza i dati
       _initializeCourseData();
     } catch (e) {
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
           context, 'Errore nel caricamento dei dati');
     } finally {
@@ -398,6 +399,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
         createdCount++;
       }
 
+      if (!mounted) return;
+
       SnackBarUtils.showSuccessSnackBar(
         context,
         'Creati $createdCount corsi ricorrenti con successo',
@@ -406,6 +409,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       // Torna alla pagina precedente
       Navigator.pop(context, true);
     } catch (e) {
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante la creazione dei corsi ricorrenti',
@@ -592,7 +596,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                             },
                             controlAffinity: ListTileControlAffinity.leading,
                           );
-                        }).toList(),
+                        }),
                       ],
                     ),
                   ),
@@ -833,7 +837,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: selectedTrainerId,
+                            initialValue: selectedTrainerId,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               filled: true,
@@ -851,7 +855,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                                   child: Text(
                                       '${trainer.name} ${trainer.lastName}'),
                                 );
-                              }).toList(),
+                              }),
                             ],
                             onChanged: (newValue) {
                               setState(() {
@@ -891,7 +895,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                           onChanged: (value) {
                             setState(() => reminderEnabled = value);
                           },
-                          activeColor: primaryLightColor,
+                          activeThumbColor: primaryLightColor,
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
@@ -904,7 +908,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                           onChanged: (value) {
                             setState(() => waitlistEnabled = value);
                           },
-                          activeColor: primaryLightColor,
+                          activeThumbColor: primaryLightColor,
                         ),
                       ],
                     ),

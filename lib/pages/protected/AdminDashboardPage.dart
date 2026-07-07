@@ -56,7 +56,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         });
       }
     } catch (e) {
-      print('Error loading users: $e');
+      debugPrint('Error loading users: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -69,9 +69,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   @override
   Widget build(BuildContext context) {
     if (!isDesktop(context)) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(pagePadding * 2),
+          padding: EdgeInsets.all(pagePadding * 2),
           child: Text(
             'Dashboard disponibile solo su desktop',
             style: TextStyle(
@@ -95,7 +95,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Errore: $_error', style: TextStyle(color: errorColor)),
+              Text('Errore: $_error', style: const TextStyle(color: errorColor)),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _loadData,
@@ -230,7 +230,7 @@ class _UserListDrawerState extends State<UserListDrawer> {
           ),
           Text(
             '${filtered.length} utenti',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               color: onSurfaceVariantColor,
             ),
@@ -275,7 +275,7 @@ class _UserListDrawerState extends State<UserListDrawer> {
                               u.email,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: onSurfaceVariantColor,
                               ),
@@ -292,7 +292,7 @@ class _UserListDrawerState extends State<UserListDrawer> {
                               hasPhone ? phone : '—',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: onSurfaceVariantColor,
                               ),
@@ -305,7 +305,7 @@ class _UserListDrawerState extends State<UserListDrawer> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.end,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: onSurfaceVariantColor,
                               ),
@@ -529,9 +529,9 @@ class _TipologieCorsiChart extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(e.key,
-                      style: TextStyle(color: onSurfaceColor, fontSize: 14)),
+                      style: const TextStyle(color: onSurfaceColor, fontSize: 14)),
                   Text('${e.value}',
-                      style: TextStyle(
+                      style: const TextStyle(
                           color: onSurfaceColor,
                           fontWeight: FontWeight.w600,
                           fontSize: 14)),
@@ -723,12 +723,12 @@ class _SectionAbbonamentiSenzaData extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (senzaData.isEmpty)
-          Text(
+          const Text(
             'Tutte le iscrizioni hanno una data di fine impostata.',
             style: TextStyle(color: onSurfaceVariantColor, fontSize: 13),
           )
         else
-          Text(
+          const Text(
             'Tocca per aprire l\'elenco e impostare la data mancante dal dettaglio utente.',
             style: TextStyle(color: onSurfaceVariantColor, fontSize: 13),
           ),
@@ -738,7 +738,7 @@ class _SectionAbbonamentiSenzaData extends StatelessWidget {
 }
 
 TextStyle _sectionLabelStyle(BuildContext context) {
-  return TextStyle(
+  return const TextStyle(
     fontWeight: FontWeight.w600,
     color: onSurfaceVariantColor,
     fontSize: 14,
@@ -763,7 +763,7 @@ class _DashboardCard extends StatelessWidget {
       color: surfaceColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: outlineVariantColor),
+        side: const BorderSide(color: outlineVariantColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(pagePadding),
@@ -806,10 +806,10 @@ class _MetricRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: onSurfaceColor)),
+          Text(label, style: const TextStyle(color: onSurfaceColor)),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: onSurfaceColor,
               fontWeight: FontWeight.w600,
             ),

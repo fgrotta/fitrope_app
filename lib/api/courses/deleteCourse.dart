@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 import 'package:fitrope_app/api/getUserData.dart';
@@ -63,7 +64,7 @@ Future<void> removeUserFromCourse(String courseId, String userId) async {
         });
       }
     } else {
-      print('No users subscribed to this course');
+      debugPrint('No users subscribed to this course');
       throw Exception('No users subscribed to this course');
     }
   }).then((_) async {
@@ -81,7 +82,7 @@ Future<void> removeUserFromCourse(String courseId, String userId) async {
     await notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
-    print("Failed to remove user from course: $error");
+    debugPrint("Failed to remove user from course: $error");
     throw error;
   });
 }
@@ -131,7 +132,7 @@ Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
         });
       }
     } else {
-      print('No users subscribed to this course');
+      debugPrint('No users subscribed to this course');
       throw Exception('No users subscribed to this course');
     }
   }).then((_) async {
@@ -149,7 +150,7 @@ Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
     await notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
-    print("Failed to force unsubscribe: $error");
+    debugPrint("Failed to force unsubscribe: $error");
     throw error;
   });
 }
@@ -162,7 +163,7 @@ Future<List<String>> getWaitlistUsers(String courseId) async {
 
 Future<void> deleteCourse(String courseId) async {
   try {
-    print('Deleting course $courseId');
+    debugPrint('Deleting course $courseId');
     // Rimuovi il corso da tutti gli utenti iscritti
     List<String> subscribers = await getSubscribers(courseId);
     for (String userId in subscribers) {
@@ -187,8 +188,8 @@ Future<void> deleteCourse(String courseId) async {
     invalidateCoursesCache();
     invalidateUsersCache();
 
-    print('Course $courseId and all subscriptions/waitlists deleted successfully!');
+    debugPrint('Course $courseId and all subscriptions/waitlists deleted successfully!');
   } catch (e) {
-    print('Error deleting course: $e');
+    debugPrint('Error deleting course: $e');
   }
 }

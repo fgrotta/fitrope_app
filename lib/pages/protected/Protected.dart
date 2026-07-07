@@ -69,7 +69,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     }
     else {
       if(user != null) {
-        print("${user!.name} ${user!.lastName} logged");
+        debugPrint("${user!.name} ${user!.lastName} logged");
         OneSignalService.login(user!.uid);
         if (user!.email.isNotEmpty) {
           OneSignalService.addEmail(user!.email);
@@ -121,7 +121,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
       setState(() {
         store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
         user = store.state.user;
-        print("${user!.name} ${user!.lastName} logged");
+        debugPrint("${user!.name} ${user!.lastName} logged");
       });
       if (user != null) {
         OneSignalService.login(user!.uid);
@@ -134,8 +134,9 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         signOut().then((_) {
+          if (!mounted) return;
           logoutRedirect(context);
-        }); 
+        });
       });
     }
   }
@@ -173,7 +174,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
       builder: (context, isLoading) {
         return Theme(
           data: Theme.of(context).copyWith(
-            drawerTheme: DrawerThemeData(
+            drawerTheme: const DrawerThemeData(
               width: 400,
               elevation: 16,
             ),
@@ -220,6 +221,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                       : null,
                   onLogout: () {
                     signOut().then((_) {
+                      if (!context.mounted) return;
                       logoutRedirect(context);
                     });
                   },

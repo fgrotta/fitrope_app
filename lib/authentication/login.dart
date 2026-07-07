@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/getUserData.dart';
@@ -34,11 +34,11 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
     if (user != null) {
       if (!user.emailVerified) {
         store.dispatch(FinishLoadingAction());
-        print('Email non verificata.');
+        debugPrint('Email non verificata.');
         return SignInResponse(error: "Email non verificata. Controlla la tua casella di posta per il link di verifica.", emailNotVerified: true);
       }
 
-      print("User signed in: ${user.email}");
+      debugPrint("User signed in: ${user.email}");
 
       String uid = user.uid;
       Map<String, dynamic>? userData = await getUserData(uid);
@@ -59,12 +59,12 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
         unawaited(
           getUsers().catchError((error) {
             // Gestione silenziosa degli errori - non blocca il processo di login
-            print('Background cache population failed: $error');
+            debugPrint('Background cache population failed: $error');
             return <FitropeUser>[];
           })
         );
         
-        print('🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
+        debugPrint('🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
         // Client SDK (per push future): identifica l'utente se abbiamo un permesso push
         OneSignalService.login(fitropeUser.uid);
         if (fitropeUser.email.isNotEmpty) {
@@ -84,14 +84,14 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
     }
   } on FirebaseAuthException catch (e) {
     if (e.code == 'user-not-found') {
-      print('No user found for that email.');
+      debugPrint('No user found for that email.');
     } else if (e.code == 'wrong-password') {
-      print('Wrong password provided.');
+      debugPrint('Wrong password provided.');
     } else {
-      print(e.message);
+      debugPrint(e.message);
     }
   } catch (e) {
-    print(e);
+    debugPrint(e.toString());
   }
 
   store.dispatch(FinishLoadingAction());

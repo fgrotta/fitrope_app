@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
@@ -18,14 +19,14 @@ Future<Course?> createCourse(Course course) async {
       await postsRef.doc(newID).set(data);
       invalidateCoursesCache(); // Invalida la cache dopo la creazione
 
-      print('Course created successfully with ID: $newID');
+      debugPrint('Course created successfully with ID: $newID');
       return Course.fromJson(data);
     } else {
-      print('Course already exists');
+      debugPrint('Course already exists');
       return null;
     }  
   } catch (e) {
-    print('Error creating course: $e');
+    debugPrint('Error creating course: $e');
     return null;
   }
 }

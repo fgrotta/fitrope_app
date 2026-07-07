@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 
 class UserDisplayUtils {
@@ -47,7 +48,7 @@ class UserDisplayUtils {
         return 'Trainer non trovato';
       }
     } catch (e) {
-      print('Error getting trainer name: $e');
+      debugPrint('Error getting trainer name: $e');
       return 'Errore nel caricamento trainer';
     }
   }

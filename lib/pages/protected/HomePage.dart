@@ -115,7 +115,7 @@ class _HomePageState extends State<HomePage> {
         isLoadingCertificati = false;
       });
     } catch (e) {
-      print('Errore nel caricamento utenti con certificati in scadenza: $e');
+      debugPrint('Errore nel caricamento utenti con certificati in scadenza: $e');
       if (!mounted) return;
       setState(() {
         isLoadingCertificati = false;
@@ -141,7 +141,7 @@ class _HomePageState extends State<HomePage> {
         isLoadingAbbonamenti = false;
       });
     } catch (e) {
-      print('Errore nel caricamento utenti con abbonamenti in scadenza: $e');
+      debugPrint('Errore nel caricamento utenti con abbonamenti in scadenza: $e');
       if (!mounted) return;
       setState(() {
         isLoadingAbbonamenti = false;
@@ -240,12 +240,12 @@ class _HomePageState extends State<HomePage> {
     bool accepted = await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted) return;
 
-    print('🔄 Iscrizione al corso: ${course.name}');
+    debugPrint('🔄 Iscrizione al corso: ${course.name}');
     subscribeToCourse(course.uid, user.uid).then((_) {
-      print('✅ Iscrizione completata');
+      debugPrint('✅ Iscrizione completata');
       refreshCourses();
     }).catchError((e) {
-      print('❌ Errore durante l\'iscrizione: $e');
+      debugPrint('❌ Errore durante l\'iscrizione: $e');
       // Mostra snackbar di errore
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -260,12 +260,12 @@ class _HomePageState extends State<HomePage> {
 
   // Callback per la disiscrizione
   void onUnsubscribe(Course course) {
-    print('🔄 Disiscrizione dal corso: ${course.name}');
+    debugPrint('🔄 Disiscrizione dal corso: ${course.name}');
     // Usa il nuovo sistema di disiscrizione intelligente
     CourseUnsubscribeHelper.handleUnsubscribe(course, user, context)
         .then((success) {
       if (success) {
-        print('✅ Disiscrizione completata');
+        debugPrint('✅ Disiscrizione completata');
         refreshCourses();
 
         // Mostra messaggio di successo
@@ -278,10 +278,10 @@ class _HomePageState extends State<HomePage> {
           );
         }
       } else {
-        print('❌ Disiscrizione annullata dall\'utente');
+        debugPrint('❌ Disiscrizione annullata dall\'utente');
       }
     }).catchError((e) {
-      print('❌ Errore durante la disiscrizione: $e');
+      debugPrint('❌ Errore durante la disiscrizione: $e');
       // Mostra snackbar di errore
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -427,7 +427,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Certificato in scadenza: $dataScadenza (${giorniRimanenti} giorni)',
+              'Certificato in scadenza: $dataScadenza ($giorniRimanenti giorni)',
               style: TextStyle(
                 color: giorniRimanenti <= 3
                     ? Colors.red.shade700
@@ -483,7 +483,7 @@ class _HomePageState extends State<HomePage> {
         border: Border.all(color: Colors.red.shade300, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withOpacity(0.1),
+            color: Colors.red.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -599,7 +599,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -647,7 +647,7 @@ class _HomePageState extends State<HomePage> {
         border: Border.all(color: Colors.orange.shade300, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.1),
+            color: Colors.orange.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -761,7 +761,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -789,7 +789,7 @@ class _HomePageState extends State<HomePage> {
         border: Border.all(color: borderColor, width: 2),
         boxShadow: [
           BoxShadow(
-            color: borderColor.withOpacity(0.15),
+            color: borderColor.withValues(alpha: 0.15),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -834,7 +834,7 @@ class _HomePageState extends State<HomePage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor.withOpacity(0.5)),
+                  border: Border.all(color: borderColor.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -864,7 +864,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                           Text(
                             utente.email,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
                               color: onSurfaceVariantColor,
                             ),
@@ -888,7 +888,7 @@ class _HomePageState extends State<HomePage> {
                                       children: [
                                         Text(
                                           c.name,
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
                                             color: onSurfaceColor,
@@ -896,14 +896,14 @@ class _HomePageState extends State<HomePage> {
                                         ),
                                         Text(
                                           '${dateFmt.format(start)}  ${timeFmt.format(start)} – ${timeFmt.format(end)}',
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 12,
                                             color: onSurfaceVariantColor,
                                           ),
                                         ),
                                         Text(
                                           'Posti: ${c.subscribed}/${c.capacity}',
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 12,
                                             color: onSurfaceVariantColor,
                                           ),
@@ -1386,11 +1386,11 @@ class _HomePageState extends State<HomePage> {
                 image: AssetImage('assets/new_logo_only.png'),
                 width: 30,
               ),
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Home',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 30,
                       color: onPrimaryColor),

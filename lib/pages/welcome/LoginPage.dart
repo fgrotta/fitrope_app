@@ -32,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     if(isLogged()){
-      print("User is logged");
+      debugPrint("User is logged");
       loggedRedirect(context);
     }
   }

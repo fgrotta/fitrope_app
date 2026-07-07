@@ -88,15 +88,15 @@ void main() {
 
     test('should handle null subscribersUsers gracefully', () {
       // Test con subscribersUsers null
-      List<FitropeUser>? nullUsers = null;
-      expect(nullUsers == null, true);
+      List<FitropeUser>? nullUsers;
+      expect(nullUsers, isNull);
       // La funzione dovrebbe restituire false quando subscribersUsers è null
     });
 
     test('should handle null subscribed value gracefully', () {
       // Test con subscribed null
-      int? nullSubscribed = null;
-      expect(nullSubscribed == null, true);
+      int? nullSubscribed;
+      expect(nullSubscribed, isNull);
       // La funzione dovrebbe restituire false quando subscribed è null
     });
   });

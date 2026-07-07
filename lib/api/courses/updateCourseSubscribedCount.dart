@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
 
@@ -25,10 +26,10 @@ Future<void> updateCourseSubscribedCount(String courseId, int newSubscribedCount
       'subscribed': newSubscribedCount,
     });
     invalidateCoursesCache(); // Invalida la cache dopo l'aggiornamento
-    print('✅ Conteggio iscritti aggiornato per il corso $courseId: $newSubscribedCount');
+    debugPrint('✅ Conteggio iscritti aggiornato per il corso $courseId: $newSubscribedCount');
     
   } catch (e) {
-    print('❌ Errore durante l\'aggiornamento del conteggio iscritti: $e');
+    debugPrint('❌ Errore durante l\'aggiornamento del conteggio iscritti: $e');
     throw Exception('Errore durante l\'aggiornamento: ${e.toString()}');
   }
 }

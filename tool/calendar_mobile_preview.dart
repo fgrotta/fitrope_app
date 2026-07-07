@@ -46,11 +46,11 @@ class PreviewApp extends StatelessWidget {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        body: const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               _SectionTitle('Filtro corsi del giorno'),
               SizedBox(height: 16),
               Wrap(

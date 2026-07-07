@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/getUserData.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -119,8 +120,8 @@ Future<void> leaveWaitlist(String courseId, String userId) async {
       }
     }
   } catch (error, stackTrace) {
-    print("Failed to leave waitlist: $error");
-    print("Stack trace: $stackTrace");
+    debugPrint("Failed to leave waitlist: $error");
+    debugPrint("Stack trace: $stackTrace");
     rethrow;
   } finally {
     store.dispatch(FinishLoadingAction());

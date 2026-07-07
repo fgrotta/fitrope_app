@@ -59,12 +59,12 @@ class PreviewApp extends StatelessWidget {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        body: const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
           child: Wrap(
             spacing: 24,
             runSpacing: 24,
-            children: const [
+            children: [
               _Phone('A — Collassabile + navigazione giorno',
                   'Icona calendario per chiudere/aprire. Da chiuso, l\'header giorno ha le frecce ‹ › per cambiare giorno senza riaprire.',
                   VariantA()),
@@ -295,7 +295,7 @@ Widget dayHeader(int day, {List<Widget> trailing = const []}) {
               color: primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20)),
           child: Text('$n cors${n == 1 ? 'o' : 'i'}',
-              style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600, fontSize: 12)),
+              style: const TextStyle(color: primaryColor, fontWeight: FontWeight.w600, fontSize: 12)),
         ),
         ...trailing,
       ],

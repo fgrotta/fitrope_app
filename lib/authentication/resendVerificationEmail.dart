@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 Future<void> resendVerificationEmail() async {
@@ -6,11 +7,11 @@ Future<void> resendVerificationEmail() async {
 
     if (user != null && !user.emailVerified) {
       await user.sendEmailVerification();
-      print("Email di verifica inviata con successo.");
+      debugPrint("Email di verifica inviata con successo.");
     } else {
-      print("L'utente è già verificato o non è autenticato.");
+      debugPrint("L'utente è già verificato o non è autenticato.");
     }
   } catch (e) {
-    print("Errore durante l'invio dell'email di verifica: $e");
+    debugPrint("Errore durante l'invio dell'email di verifica: $e");
   }
 }
