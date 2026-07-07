@@ -10,7 +10,9 @@
       "Bash(git ls-remote *)",
       "Bash(lsof -tiTCP:8090 -sTCP:LISTEN)",
       "Bash(xargs -r kill -9)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git fetch *)",
+      "Bash(git push *)"
     ]
   }
 }

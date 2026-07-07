@@ -25,7 +25,7 @@ L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit H
 | Design system | `flutter_design_system` (Git dep da GitHub, branch main) |
 | Localizzazione | `intl`, `flutter_localizations` (italiano primario) |
 | Lint | `flutter_lints` v4.0.0 |
-| Versione app | `1.1.2` |
+| Versione app | vedi `version:` in `pubspec.yaml` (bump patch automatico ad ogni merge su `main`, vedi sezione CI/CD) |
 
 Prima di modificare dipendenze o CI, verifica la compatibilita tra SDK dichiarato e versione usata nei workflow.
 
@@ -418,19 +418,17 @@ L'handler e isolato in `functions/src/handler.ts` (senza `onCall`) per essere te
 
 ### GitHub Actions
 
-**ci.yml** (branch `main`, `develop`):
+**ci.yml** (push/pull_request su `main`, `develop`):
 
-```
-flutter pub get → flutter test → flutter analyze → flutter format --set-exit-if-changed . → flutter build web --debug
-```
+- Job `test`: `flutter pub get` → `flutter test` (analyze/format/build web sono temporaneamente disabilitati nel workflow)
+- Job `functions-test`: `npm install` → `npm test` in `functions/`
 
-**release.yml** (branch `release`):
+**version-bump.yml** (PR mergiate su `main`):
 
-- Test completi + build web release
-- Creazione automatica GitHub Release
-- Deploy su GitHub Pages via branch `gh-pages`
+- Ad ogni merge di una PR su `main` incrementa in automatico la patch di `version` in `pubspec.yaml` (es. `1.2.5` → `1.2.6`) e pusha il commit direttamente su `main` (`chore: bump version to X.Y.Z [skip ci]`)
+- Nessuna logica su label/conventional commit: il bump e sempre di tipo patch; minor/major restano manuali
 
-**URL produzione**: https://dellarosamarco.github.io/fitrope_app/
+**Deploy**: manuale (`flutter build web` → pubblicazione di `build/web`). Il vecchio `release.yml` (deploy automatico su GitHub Pages dal branch `release`) e stato rimosso.
 
 ### Dependabot
 

@@ -1,0 +1,51 @@
+name: Version Bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [ main ]
+
+concurrency:
+  group: version-bump-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    if: >
+      github.event.pull_request.merged == true &&
+      !contains(github.event.pull_request.title, 'chore: bump version') &&
+      !contains(github.event.pull_request.title, '[skip ci]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Bump patch version in pubspec.yaml
+        run: |
+          set -euo pipefail
+
+          current_version=$(grep -m1 '^version:' pubspec.yaml | sed 's/^version:[[:space:]]*//')
+          major=$(echo "$current_version" | cut -d. -f1)
+          minor=$(echo "$current_version" | cut -d. -f2)
+          patch=$(echo "$current_version" | cut -d. -f3)
+          new_patch=$((patch + 1))
+          new_version="${major}.${minor}.${new_patch}"
+
+          sed -i "s/^version:.*/version: ${new_version}/" pubspec.yaml
+
+          echo "NEW_VERSION=${new_version}" >> "$GITHUB_ENV"
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
+          git pull --rebase origin main
+          git push origin main
