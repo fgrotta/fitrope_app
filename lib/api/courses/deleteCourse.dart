@@ -76,7 +76,9 @@ Future<void> removeUserFromCourse(String courseId, String userId) async {
     }   
     store.dispatch(FinishLoadingAction());
 
-    notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
+    // Await deliberato: su web un flusso fire-and-forget muore se l'utente
+    // chiude la scheda subito dopo la disiscrizione (email waitlist mai inviate).
+    await notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
     print("Failed to remove user from course: $error");
@@ -142,7 +144,9 @@ Future<void> forceUnsubscribeFromCourse(String courseId, String userId) async {
     }   
     store.dispatch(FinishLoadingAction());
 
-    notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
+    // Await deliberato: su web un flusso fire-and-forget muore se l'utente
+    // chiude la scheda subito dopo la disiscrizione (email waitlist mai inviate).
+    await notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
   }).catchError((error) {
     store.dispatch(FinishLoadingAction());
     print("Failed to force unsubscribe: $error");
