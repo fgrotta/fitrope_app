@@ -9,7 +9,12 @@
 import { logger } from "firebase-functions";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { ONESIGNAL_APP_ID, ONESIGNAL_API_URL } from "../handler";
+import {
+  ONESIGNAL_APP_ID,
+  ONESIGNAL_API_URL,
+  ensureEmailRecipientsFromFirestore,
+  ensureOneSignalEmailSubscription,
+} from "../handler";
 import {
   trialReminderSubject,
   trialReminderBody,
@@ -224,6 +229,17 @@ export async function scheduleTrialReminder(
   const pushEnabled = userData.pushNotificationsEnabled !== false;
   const emailEnabled = userData.emailNotificationsEnabled !== false;
 
+  // Un utente creato da Admin e mai loggato non ha ancora un alias email su
+  // OneSignal: senza questo passaggio l'invio sotto risulterebbe "riuscito"
+  // ma con 0 destinatari (stesso bug fixato in sendOneSignalNotificationHandler).
+  if (emailEnabled) {
+    await ensureEmailRecipientsFromFirestore(
+      [userId],
+      { db, ensure: ensureOneSignalEmailSubscription },
+      apiKey
+    );
+  }
+
   const tasks: Promise<void>[] = [];
   if (pushEnabled) {
     tasks.push(
@@ -337,6 +353,14 @@ export async function notifyWaitlistUsers(
   }
 
   if (emailUserIds.length === 0) return;
+
+  // Come in scheduleTrialReminder: un utente in waitlist aggiunto da Admin e
+  // mai loggato non ha ancora un alias email su OneSignal.
+  await ensureEmailRecipientsFromFirestore(
+    emailUserIds,
+    { db, ensure: ensureOneSignalEmailSubscription },
+    apiKey
+  );
 
   const courseDate = formatCourseDate(startMillis);
   const courseTime = formatCourseTime(startMillis, endMillis);

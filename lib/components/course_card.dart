@@ -1,5 +1,7 @@
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/utils/capacity_color.dart';
+import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
@@ -79,6 +81,12 @@ class CourseCard extends StatefulWidget {
 
 class _CourseCardState extends State<CourseCard> {
   bool _isProcessing = false;
+  bool _subscribersExpanded = false; // lista iscritti collassata di default
+
+  // Colore della lista d'attesa: blu accento (come i marker del calendario)
+  // invece dell'arancione, per restare leggibile anche sopra le immagini di
+  // sfondo dal tono caldo, dove l'arancione si confondeva.
+  static const Color _waitlistColor = Color.fromARGB(255, 37, 99, 235);
 
   void showSubscribersDialog() {
     showDialog(
@@ -314,75 +322,137 @@ class _CourseCardState extends State<CourseCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-                'Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):',
-                style: const TextStyle(
-                    color: surfaceVariantColor, fontWeight: FontWeight.bold)),
-            // Icona + per aggiungere iscritti (solo per Admin)
-            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-              if (widget.isAdmin)
-                IconButton(
-                  icon: const Icon(Icons.add,
-                      color: surfaceVariantColor, size: 20),
-                  onPressed: () => _showAddSubscriberDialog(context),
-                  tooltip: 'Aggiungi iscritto',
-                ),
-              if (_hasEnrollmentMismatch())
-                IconButton(
-                  icon: const Icon(Icons.sync_problem,
-                      color: Colors.red, size: 20),
-                  onPressed: () => _showCorrectCountDialog(context),
-                  tooltip: 'Correggi conteggio iscritti',
-                ),
-            ])
-          ],
-        ),
-        const SizedBox(height: 4),
-        ...widget.subscribersUsers!.map((user) {
-          String displayName = getDisplayName(user);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 2),
+        // Header tappabile: espande/collassa la lista degli iscritti.
+        Semantics(
+          button: true,
+          expanded: _subscribersExpanded,
+          label:
+              'Iscritti ${widget.subscribersUsers!.length} di ${widget.capacity}',
+          hint: _subscribersExpanded
+              ? 'Tocca per nascondere la lista iscritti'
+              : 'Tocca per mostrare la lista iscritti',
+          child: InkWell(
+            onTap: () =>
+                setState(() => _subscribersExpanded = !_subscribersExpanded),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _showUserDetails(context, user),
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Text(
-                        '• $displayName',
-                        style: const TextStyle(
-                          color: surfaceVariantColor,
-                          decoration: TextDecoration.none,
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                          'Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):',
+                          style: const TextStyle(
+                              color: onPrimaryColor,
+                              fontWeight: FontWeight.bold)),
+                      Icon(
+                        _subscribersExpanded
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        color: onPrimaryColor,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+                // Icona + per aggiungere iscritti (solo per Admin)
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  if (widget.capacity != null && widget.capacity! > 0)
+                    _capacityPill(
+                        widget.subscribersUsers!.length, widget.capacity!),
+                  if (widget.isAdmin)
+                    IconButton(
+                      icon: const Icon(Icons.add,
+                          color: onPrimaryColor, size: 20),
+                      onPressed: () => _showAddSubscriberDialog(context),
+                      tooltip: 'Aggiungi iscritto',
+                    ),
+                  if (_hasEnrollmentMismatch())
+                    IconButton(
+                      icon: const Icon(Icons.sync_problem,
+                          color: Colors.red, size: 20),
+                      onPressed: () => _showCorrectCountDialog(context),
+                      tooltip: 'Correggi conteggio iscritti',
+                    ),
+                ])
+              ],
+            ),
+          ),
+        ),
+        if (widget.capacity != null && widget.capacity! > 0) ...[
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (widget.subscribersUsers!.length / widget.capacity!)
+                  .clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: Colors.black12,
+              // Rende la barra leggibile dagli screen reader. Il valore
+              // resta quello percentuale di default (deve essere numerico);
+              // l'informazione sui posti liberi va nella label.
+              semanticsLabel:
+                  'Capienza corso, ${capacityPillLabel(widget.subscribersUsers!.length, widget.capacity!)}',
+              valueColor: AlwaysStoppedAnimation<Color>(
+                capacityColor(
+                    widget.subscribersUsers!.length, widget.capacity!),
+              ),
+            ),
+          ),
+        ],
+        // Lista nomi visibile solo quando espansa.
+        if (_subscribersExpanded) ...[
+          const SizedBox(height: 6),
+          if (widget.subscribersUsers!.isEmpty)
+            const Text('Nessun iscritto',
+                style: TextStyle(
+                    color: onPrimaryColor, fontStyle: FontStyle.italic)),
+          ...widget.subscribersUsers!.map((user) {
+            String displayName = getDisplayName(user);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _showUserDetails(context, user),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Text(
+                          '• $displayName',
+                          style: const TextStyle(
+                            color: onPrimaryColor,
+                            decoration: TextDecoration.none,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                // Pulsante di rimozione per admin/trainer
-                if (widget.isAdmin || widget.userRole == 'Trainer')
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline,
-                        color: Colors.red, size: 16),
-                    onPressed: () =>
-                        _showRemoveUserConfirmationDialog(context, user),
-                    tooltip: 'Rimuovi iscrizione',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-              ],
-            ),
-          );
-        }).toList(),
+                  // Pulsante di rimozione per admin/trainer
+                  if (widget.isAdmin || widget.userRole == 'Trainer')
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: Colors.red, size: 16),
+                      onPressed: () =>
+                          _showRemoveUserConfirmationDialog(context, user),
+                      tooltip: 'Rimuovi iscrizione',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
       ],
     );
   }
 
   Widget _buildWaitlistUsersList(BuildContext context) {
-    if (widget.waitlistUsers == null || widget.waitlistUsers!.isEmpty) {
+    if (!_subscribersExpanded ||
+        widget.waitlistUsers == null ||
+        widget.waitlistUsers!.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -393,7 +463,7 @@ class _CourseCardState extends State<CourseCard> {
         Text(
           'Lista d\'attesa (${widget.waitlistUsers!.length}):',
           style: const TextStyle(
-              color: Colors.orange, fontWeight: FontWeight.bold),
+              color: _waitlistColor, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         ...widget.waitlistUsers!.map((user) {
@@ -410,7 +480,7 @@ class _CourseCardState extends State<CourseCard> {
                       child: Text(
                         '• $displayName',
                         style: const TextStyle(
-                          color: Colors.orange,
+                          color: _waitlistColor,
                           decoration: TextDecoration.none,
                         ),
                       ),
@@ -497,16 +567,101 @@ class _CourseCardState extends State<CourseCard> {
   Widget renderTitle() {
     if (widget.titleStyle != null) {
       return Text(
-        "Corso: " + widget.title,
-        overflow: TextOverflow.visible,
+        widget.title,
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
         style: widget.titleStyle,
       );
     }
 
     return Text(
-      "Corso: " + widget.title,
+      widget.title,
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
       style: const TextStyle(
         color: Colors.white,
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+      ),
+    );
+  }
+
+  // Alternativa C: icona associata a ciascuna riga di metadati.
+  IconData _iconForMeta(String label) {
+    switch (label.toLowerCase()) {
+      case 'orario':
+        return Icons.schedule;
+      case 'trainer':
+        return Icons.person_outline;
+      case 'tipologia':
+        return Icons.fitness_center;
+      case 'iscritti':
+        return Icons.groups_outlined;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
+  // Converte la description ("Label: valore" per riga) in righe con icona.
+  Widget _buildMetadata() {
+    final lines = widget.description
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lines.map((line) {
+          final idx = line.indexOf(':');
+          final IconData icon;
+          final String value;
+          if (idx > 0) {
+            icon = _iconForMeta(line.substring(0, idx).trim());
+            value = line.substring(idx + 1).trim();
+          } else {
+            icon = Icons.info_outline;
+            value = line.trim();
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 16, color: Colors.white, shadows: const [
+                  Shadow(blurRadius: 4, color: Colors.black54),
+                ]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(value,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                      )),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Pill che mostra i posti liberi, colorata in base alla capienza.
+  Widget _capacityPill(int subscribed, int capacity) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: capacityColor(subscribed, capacity),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        capacityPillLabel(subscribed, capacity),
+        style: const TextStyle(
+            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -604,78 +759,135 @@ class _CourseCardState extends State<CourseCard> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.all(10),
         decoration: const BoxDecoration(
           color: primaryLightColor,
           borderRadius: BorderRadius.all(Radius.circular(10)),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
           children: [
-            // Riga 1: Titolo + pulsanti User/Admin allineati a sinistra
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                renderTitle(),
-                if (widget.capacity != null &&
-                    widget.subscribed != null &&
-                    !widget.isAdmin)
-                  renderUserButtons(),
-                if (widget.isAdmin) renderAdminButtons(),
-              ],
+            // Immagine come sfondo dell'intera card (usa imageKey o il default per tipologia)
+            Positioned.fill(
+              child: Image.asset(
+                CourseImages.getCourseImage(widget.course),
+                fit: BoxFit.cover,
+                cacheWidth:
+                    700, // evita di decodificare l'asset a piena risoluzione
+                // Se l'asset non carica, ricadi sull'immagine di default del tipo;
+                // se manca anche quella, mostra un fondo scuro coerente (no card "vuota").
+                errorBuilder: (context, error, stackTrace) => Image.asset(
+                  CourseImages.getDefaultImage(widget.course.courseType),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const ColoredBox(color: primaryDarkColor),
+                ),
+              ),
             ),
-            // Riga 2: Descrizione
-            if (widget.description != "")
-              Text(
-                widget.description,
-                style: const TextStyle(
-                  color: Colors.white,
+            // Scrim scuro per garantire la leggibilità del testo sopra l'immagine
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x8C000000),
+                      Color(0x59000000),
+                      Color(0xB8000000),
+                    ],
+                    stops: [0.0, 0.4, 1.0],
+                  ),
                 ),
               ),
-            // Riga 2b: Sala
-            if (widget.course.sala != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.meeting_room,
-                        size: 16, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(widget.course.sala!,
-                        style: const TextStyle(color: Colors.white)),
-                  ],
-                ),
-              ),
-            // Riga 3: Bottoni iscrizione
-            if (!widget.isAdmin)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  renderButtonSubscribe(),
+                  // Riga 1: Titolo + pulsanti User/Admin allineati a sinistra
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(child: renderTitle()),
+                      if (widget.capacity != null &&
+                          widget.subscribed != null &&
+                          !widget.isAdmin)
+                        renderUserButtons(),
+                      if (widget.isAdmin) renderAdminButtons(),
+                    ],
+                  ),
+                  // Riga 2: Metadati con icone (orario, trainer, tipologia)
+                  if (widget.description.trim() != "") _buildMetadata(),
+                  // Riga 2b: Sala
+                  if (widget.course.sala != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.meeting_room,
+                              size: 16,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(blurRadius: 4, color: Colors.black54),
+                              ]),
+                          const SizedBox(width: 8),
+                          Text(widget.course.sala!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(blurRadius: 4, color: Colors.black54)
+                                ],
+                              )),
+                        ],
+                      ),
+                    ),
+                  // Riga 3: Bottoni iscrizione
+                  if (!widget.isAdmin)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        renderButtonSubscribe(),
+                      ],
+                    ),
+                  // Mostra la lista cliccabile degli iscritti se richiesto
+                  if (widget.showClickableSubscribers)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _hasEnrollmentMismatch()
+                            ? Colors.orange.withValues(alpha: 0.92)
+                            : Colors.white.withValues(alpha: 0.70),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            (widget.capacity != null && widget.capacity! > 0)
+                                ? Border(
+                                    left: BorderSide(
+                                      color: capacityColor(
+                                          widget.subscribersUsers?.length ??
+                                              widget.subscribed ??
+                                              0,
+                                          widget.capacity!),
+                                      width: 4,
+                                    ),
+                                  )
+                                : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildClickableSubscribersList(context),
+                          _buildWaitlistUsersList(context),
+                        ],
+                      ),
+                    ),
                 ],
               ),
-            // Mostra la lista cliccabile degli iscritti se richiesto
-            if (widget.showClickableSubscribers)
-              Container(
-                margin: const EdgeInsets.only(top: 0),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _hasEnrollmentMismatch()
-                      ? Colors.orange
-                      : primaryDarkColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildClickableSubscribersList(context),
-                    _buildWaitlistUsersList(context),
-                  ],
-                ),
-              ),
+            ),
           ],
         ),
       ),
@@ -686,8 +898,11 @@ class _CourseCardState extends State<CourseCard> {
     int waitlistCount = widget.course.waitlist.length;
     return Row(
       children: [
-        Text("${widget.subscribed}/${widget.capacity}",
-            style: const TextStyle(color: onPrimaryColor)),
+        if (widget.capacity != null && widget.capacity! > 0)
+          _capacityPill(widget.subscribed ?? 0, widget.capacity!)
+        else
+          Text("${widget.subscribed}/${widget.capacity}",
+              style: const TextStyle(color: Colors.white)),
         if (waitlistCount > 0)
           Text(" +$waitlistCount",
               style: const TextStyle(color: Colors.orange, fontSize: 12)),
@@ -696,7 +911,7 @@ class _CourseCardState extends State<CourseCard> {
           icon: const Icon(Icons.people),
           tooltip: 'Vedi iscritti',
           onPressed: showSubscribersDialog,
-          color: onPrimaryColor,
+          color: Colors.white,
           iconSize: 20,
         ),
       ],
@@ -704,30 +919,37 @@ class _CourseCardState extends State<CourseCard> {
   }
 
   Widget renderAdminButtons() {
-    return Wrap(
-      alignment: WrapAlignment.start,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
-      children: [
-        if (widget.onEdit != null)
-          IconButton(
-            icon: const Icon(Icons.edit, color: onPrimaryColor),
-            tooltip: 'Modifica corso',
-            onPressed: widget.onEdit,
-          ),
-        if (widget.onDuplicate != null)
-          IconButton(
-            icon: const Icon(Icons.copy, color: tertiaryColor),
-            tooltip: 'Duplica corso',
-            onPressed: widget.onDuplicate,
-          ),
-        if (widget.onDelete != null && widget.userRole == 'Admin')
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
-            tooltip: 'Elimina corso',
-            onPressed: showDeleteConfirmationDialog,
-          ),
-      ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Wrap(
+        alignment: WrapAlignment.start,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        children: [
+          if (widget.onEdit != null)
+            IconButton(
+              icon: const Icon(Icons.edit, color: tertiaryColor),
+              tooltip: 'Modifica corso',
+              onPressed: widget.onEdit,
+            ),
+          if (widget.onDuplicate != null)
+            IconButton(
+              icon: const Icon(Icons.copy, color: tertiaryColor),
+              tooltip: 'Duplica corso',
+              onPressed: widget.onDuplicate,
+            ),
+          if (widget.onDelete != null && widget.userRole == 'Admin')
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              tooltip: 'Elimina corso',
+              onPressed: showDeleteConfirmationDialog,
+            ),
+        ],
+      ),
     );
   }
 }
@@ -799,10 +1021,12 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
   Future<void> _addSubscriber(String userId) async {
     try {
       await subscribeToCourse(widget.courseId, userId, force: true);
-      //Navigator.pop(context, true); // Chiudi il dialog e indica che è stato aggiunto un utente
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        errorMessage = 'Errore nell\'aggiunta dell\'utente al corso';
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     }
   }

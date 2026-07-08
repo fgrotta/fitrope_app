@@ -5,6 +5,7 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/userSubscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 
 /// Helper per gestire la disiscrizione ai corsi con controlli specifici per il Pacchetto Entrate
 class CourseUnsubscribeHelper {
@@ -70,7 +71,7 @@ class CourseUnsubscribeHelper {
   static Future<bool> _showConfirmationDialog(
       BuildContext context, Course course,
       {required bool isTemporalSubscription}) async {
-    DateTime courseStart = course.startDate.toDate();
+    final courseStart = toItalianTime(course.startDate.toDate());
     String courseTime =
         '${courseStart.hour.toString().padLeft(2, '0')}:${courseStart.minute.toString().padLeft(2, '0')}';
     String courseDate =

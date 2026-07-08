@@ -1,10 +1,13 @@
 import { onCall } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import {
   sendOneSignalNotificationHandler,
   ensureOneSignalUserHandler,
   removeOneSignalEmailHandler,
+  postToOneSignal,
+  ensureOneSignalEmailSubscription,
 } from "./handler";
 import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
 import {
@@ -21,6 +24,11 @@ import {
   scheduleTrialReminder,
   notifyWaitlistUsers,
 } from "./enrollment/notify";
+import {
+  sendTestCertificateEmailHandler,
+  runCertificateEmails,
+} from "./certificateEmails";
+import { db } from "./firebaseAdmin";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -34,6 +42,8 @@ const oneSignalApiKey = defineSecret("ONESIGNAL_REST_API_KEY");
  * Proxy verso OneSignal REST API.
  * Il client invia il body OneSignal già formattato (include_aliases, headings,
  * contents, target_channel, send_after, email_subject, email_body, ...).
+ * Per gli invii email mirati garantisce server-side che ogni destinatario
+ * esista su OneSignal (ensure idempotente) prima della POST.
  */
 export const sendOneSignalNotification = onCall(
   {
@@ -44,7 +54,8 @@ export const sendOneSignalNotification = onCall(
   (request) =>
     sendOneSignalNotificationHandler(
       { auth: request.auth ?? null, data: request.data },
-      oneSignalApiKey.value()
+      oneSignalApiKey.value(),
+      { db, ensure: ensureOneSignalEmailSubscription }
     )
 );
 
@@ -101,6 +112,25 @@ export const assignSubscription = onCall(
     assignSubscriptionHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore()
+    )
+);
+
+/**
+ * Invia un'email di test sulla scadenza del certificato medico a un singolo
+ * utente (usata dalla DebugEmailPage). Renderizza il template server-side.
+ *
+ * Payload atteso: { externalId: string, firstName?: string, kind?: "reminder10" | "expiryToday" }
+ */
+export const sendTestCertificateEmail = onCall(
+  {
+    secrets: [oneSignalApiKey],
+    region: "europe-west8",
+    cors: true,
+  },
+  (request) =>
+    sendTestCertificateEmailHandler(
+      { auth: request.auth ?? null, data: request.data },
+      oneSignalApiKey.value()
     )
 );
 
@@ -205,4 +235,33 @@ export const recountCourseSubscribed = onCall(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore()
     )
+);
+
+/**
+ * Cloud Function schedulata: ogni giorno alle 09:00 (ora di Roma) invia le email
+ * sulla scadenza del certificato medico — promemoria a chi scade tra 10 giorni e
+ * avviso a chi scade oggi. Rilegge lo stato attuale di Firestore (gestisce
+ * rinnovi e certificati già esistenti senza scheduling futuro su OneSignal).
+ */
+export const sendCertificateExpiryEmails = onSchedule(
+  {
+    schedule: "0 9 * * *",
+    timeZone: "Europe/Rome",
+    // NB: Cloud Scheduler non supporta europe-west8 (Milano), a differenza di
+    // Cloud Functions. La funzione schedulata sta quindi in europe-west1; la
+    // region qui è ininfluente (query Firestore + OneSignal via HTTPS) e il
+    // timeZone garantisce comunque lo scatto alle 09:00 ora di Roma.
+    region: "europe-west1",
+    secrets: [oneSignalApiKey],
+    timeoutSeconds: 300,
+  },
+  async () => {
+    await runCertificateEmails({
+      db,
+      apiKey: oneSignalApiKey.value(),
+      post: postToOneSignal,
+      ensure: ensureOneSignalEmailSubscription,
+      now: new Date(),
+    });
+  }
 );

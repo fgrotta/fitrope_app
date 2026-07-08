@@ -886,8 +886,15 @@ export async function joinWaitlistHandler(
     });
 
     if (!decision.allowed) {
-      const e = REASON_TO_HTTP[decision.reason as Exclude<SubscribeReason, "OK">];
-      throw new HttpsError(e.code, e.msg);
+      // La waitlist è ILLIMITATA sui crediti/limite settimanale (mirror
+      // client di getCourseState, vedi fix "waitlist non vincolata dai
+      // limiti"): solo questi due motivi vengono bypassati qui. Gli altri
+      // (accesso, scadenza, nessun abbonamento coprente) restano bloccanti.
+      const waitlistBypassable = new Set<SubscribeReason>(["NO_ENTRIES", "WEEKLY_LIMIT"]);
+      if (!waitlistBypassable.has(decision.reason)) {
+        const e = REASON_TO_HTTP[decision.reason as Exclude<SubscribeReason, "OK">];
+        throw new HttpsError(e.code, e.msg);
+      }
     }
 
     const waitlistCourses: string[] = Array.isArray(user.waitlistCourses)

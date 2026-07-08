@@ -10,6 +10,9 @@
 analyzer:
   errors:
     constant_identifier_names: ignore
+  exclude:
+    # Widget vendored da flutter_design_system: non soggetto ai nostri lint.
+    - lib/components/calendar.dart
 include: package:flutter_lints/flutter.yaml
 
 linter:

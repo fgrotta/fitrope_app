@@ -9,6 +9,10 @@ import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/state/actions.dart';
 
+/// Sentinella per distinguere "parametro non passato" da "passato null"
+/// nell'helper [user] di questo file.
+const Object _unsetFineIscrizione = Object();
+
 /// getCourseState nel modello multi-abbonamento (activeSubscriptions non vuoto):
 /// frequenza Open (2x/3x/illimitato), ingressi Hyrox/PT, scoping per famiglia,
 /// scadenza per-abbonamento, copertura, e fallback al modello legacy.
@@ -67,6 +71,11 @@ void main() {
     List<String> tags = const ['Tutti i corsi'],
     List<UserSubscription> subs = const [],
     List<CancelledEnrollment> cancelled = const [],
+    // Ogni iscrizione ha sempre una fineIscrizione (regola confermata): il
+    // default qui è una data futura per non far scattare EXPIRED nel fallback
+    // legacy quando il test non riguarda la scadenza. Passare null esplicito
+    // per i test che verificano proprio quel caso.
+    Object? fineIscrizione = _unsetFineIscrizione,
   }) {
     return FitropeUser(
       uid: 'u1',
@@ -79,6 +88,9 @@ void main() {
       tipologiaCorsoTags: tags,
       activeSubscriptions: subs,
       cancelledEnrollments: cancelled,
+      fineIscrizione: identical(fineIscrizione, _unsetFineIscrizione)
+          ? Timestamp.fromDate(now.add(const Duration(days: 365)))
+          : fineIscrizione as Timestamp?,
     );
   }
 
@@ -261,6 +273,7 @@ void main() {
         tipologiaCorsoTags: const ['Tutti i corsi'],
         tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
         entrateDisponibili: 0,
+        fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 365))),
       );
       expect(getCourseState(target, u), CourseState.SUBSCRIBE_LIMIT);
     });
@@ -723,6 +736,7 @@ void main() {
         tipologiaCorsoTags: const [CourseTags.OPEN],
         tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
         entrateDisponibili: 3,
+        fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 365))),
         activeSubscriptions: [
           sub(
               family: SubscriptionFamily.HYROX,

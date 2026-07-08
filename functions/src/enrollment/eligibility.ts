@@ -305,9 +305,11 @@ function evaluateCoveringLimit(
 
 /** Ritorna il motivo del blocco, o null se idoneo (modello legacy mono-abbonamento). */
 function evaluateLegacyLimit(input: SubscribeInput): SubscribeReason | null {
-  // Scadenza (solo legacy): se il corso è dopo fineIscrizione → scaduto.
+  // Scadenza (solo legacy): fineIscrizione nulla = abbonamento non attivo
+  // (regola "ogni iscrizione ha una fineIscrizione"), oppure corso dopo la
+  // scadenza → scaduto.
   if (
-    input.fineIscrizioneMillis !== null &&
+    input.fineIscrizioneMillis === null ||
     input.courseStartMillis > input.fineIscrizioneMillis
   ) {
     return "EXPIRED";

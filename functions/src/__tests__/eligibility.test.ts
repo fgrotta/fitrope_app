@@ -46,7 +46,10 @@ function input(over: Partial<SubscribeInput> = {}): SubscribeInput {
     tipologia: null,
     entrateDisponibili: null,
     entrateSettimanali: null,
-    fineIscrizioneMillis: null,
+    // Ogni iscrizione ha sempre una fineIscrizione (regola confermata): il
+    // default qui è una data futura per non far scattare EXPIRED nei test che
+    // non riguardano la scadenza. I test su EXPIRED/null la sovrascrivono.
+    fineIscrizioneMillis: Date.UTC(2027, 0, 1),
     weeklyUsed: 0,
     ...over,
   };
@@ -195,6 +198,17 @@ describe("evaluateSubscribe — legacy (snapshot vuoto)", () => {
         tipologia: "ABBONAMENTO_MENSILE",
         entrateSettimanali: 3,
         fineIscrizioneMillis: COURSE_AT - 1000,
+      })
+    );
+    expect(d.reason).toBe("EXPIRED");
+  });
+
+  test("fineIscrizione nulla (mai impostata) → EXPIRED (ogni iscrizione deve averla)", () => {
+    const d = evaluateSubscribe(
+      input({
+        tipologia: "ABBONAMENTO_MENSILE",
+        entrateSettimanali: 3,
+        fineIscrizioneMillis: null,
       })
     );
     expect(d.reason).toBe("EXPIRED");

@@ -20,7 +20,7 @@ class WaitlistUiHelper {
         backgroundColor: backgroundColor,
         title: const Text('Lista d\'attesa'),
         content: Text(
-          'Vuoi iscriverti alla lista d\'attesa per "${course.name}"?\n\nRiceverai una notifica se si libera un posto.',
+          'Vuoi iscriverti alla lista d\'attesa per "${course.name}"?\n\nRiceverai una email se si libera un posto.',
         ),
         actions: [
           TextButton(

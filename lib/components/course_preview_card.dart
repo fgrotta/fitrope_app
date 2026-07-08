@@ -4,7 +4,9 @@ import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/utils/formatDate.dart';
 import 'package:fitrope_app/utils/getCourseState.dart';
 import 'package:fitrope_app/utils/getCourseTimeRange.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/user_display_utils.dart';
+import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -49,6 +51,22 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
   void initState() {
     super.initState();
     _courseUsersFuture = _getCourseUsers();
+    // Si aggancia al refresh globale (es. ripresa app) per rileggere
+    // la lista iscritti dal server anche se le prop del corso non cambiano.
+    RefreshManager().addListener(_refreshUsers);
+  }
+
+  @override
+  void dispose() {
+    RefreshManager().removeListener(_refreshUsers);
+    super.dispose();
+  }
+
+  void _refreshUsers() {
+    if (!mounted) return;
+    setState(() {
+      _courseUsersFuture = _getCourseUsers();
+    });
   }
 
   @override
@@ -103,12 +121,13 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
     final trainer =
         "Trainer: ${UserDisplayUtils.getTrainerName(widget.course.trainerId, widget.trainers)}";
 
+    final tipologia = widget.course.courseType.label;
+
     if (widget.showDate) {
-      final courseDate = DateTime.fromMillisecondsSinceEpoch(
-          widget.course.startDate.millisecondsSinceEpoch);
-      return "Orario: ${formatDate(courseDate)}, ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: ${widget.course.tags.join(', ')}";
+      final courseDate = toItalianTime(widget.course.startDate.toDate());
+      return "Orario: ${formatDate(courseDate)}, ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: $tipologia";
     } else {
-      return "Orario: ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: ${widget.course.tags.join(', ')}";
+      return "Orario: ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: $tipologia";
     }
   }
 
@@ -117,14 +136,11 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
     return FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
       future: _courseUsersFuture,
       builder: (context, snapshot) {
-        String iscritti = "";
         List<String> names = [];
         List<FitropeUser> users = [];
         List<FitropeUser> waitlistUsers = [];
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          iscritti = "Iscritti: Caricamento iscritti...";
-        } else if (snapshot.hasData) {
+        if (snapshot.hasData) {
           names = snapshot.data!['subscribers']!
               .map((s) => s['displayName'] as String)
               .toList();
@@ -135,11 +151,14 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
                   ?.map((s) => s['user'] as FitropeUser)
                   .toList() ??
               [];
-        } else {
-          iscritti = "Iscritti: Nessun iscritto";
         }
 
-        final description = "${_buildDescription()}\n$iscritti";
+        // La lista iscritti non compare nei metadati: il conteggio è già nella
+        // pill in alto, i nomi nel dialog "Vedi iscritti" (utente) o nel box
+        // dedicato (admin/trainer). Evita così il "salto" di altezza della card
+        // quando termina il caricamento degli iscritti (riga transitoria che
+        // appariva e poi spariva a ogni cambio giorno).
+        final description = _buildDescription();
         final courseState = getCourseState(widget.course, widget.currentUser);
 
         return Container(

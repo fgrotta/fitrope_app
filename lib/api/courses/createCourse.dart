@@ -13,9 +13,10 @@ Future<Course?> createCourse(Course course,
     // Se l'id non è presente, genera un id univoco
     if (course.uid.isEmpty) {
       var newID = postsRef.doc().id;
-      // copyWith preserva tutti i campi del corso (incl. reminderEnabled,
-      // waitlistEnabled, sala) e sovrascrive solo l'id generato: evita il bug
-      // della copia manuale che in passato scartava silenziosamente dei campi.
+      // copyWith preserva tutti i campi del corso (incl. courseType,
+      // imageKey, reminderEnabled, waitlistEnabled, sala) e sovrascrive solo
+      // l'id generato: evita il bug della copia manuale che in passato
+      // scartava silenziosamente dei campi.
       Course newCourse = course.copyWith(uid: newID, id: newID);
       await postsRef.doc(newCourse.id).set(newCourse.toJson());
       invalidateCoursesCache(); // Invalida la cache dopo la creazione

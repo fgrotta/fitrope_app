@@ -27,11 +27,13 @@ CourseState getCourseState(Course course, FitropeUser user) {
       .toList();
   final bool useSubscriptions = liveSubscriptions.isNotEmpty;
 
-  // Scadenza: solo legacy. Nel modello a abbonamenti è per-abbonamento ed è
-  // valutata in _subscriptionGateState.
+  // Scadenza: solo legacy (nel modello a abbonamenti è per-abbonamento ed è
+  // valutata in _evaluateCovering). Una fineIscrizione nulla significa
+  // abbonamento non attivo (regola: ogni iscrizione ha sempre una
+  // fineIscrizione) e blocca l'iscrizione self-service come una scadenza.
   if (!useSubscriptions &&
-      user.fineIscrizione != null &&
-      courseDate.isAfter(user.fineIscrizione!.toDate())) {
+      (user.fineIscrizione == null ||
+          courseDate.isAfter(user.fineIscrizione!.toDate()))) {
     return CourseState.EXPIRED;
   }
 
@@ -78,13 +80,21 @@ CourseState getCourseState(Course course, FitropeUser user) {
   }
 
   if (courseFull) {
-    // Se la waitlist è disabilitata per questo corso, non proporla.
+    // Se la waitlist è disabilitata per questo corso, non proporla: se l'utente
+    // non è idoneo (crediti/limiti) prevale quello stato, altrimenti FULL.
     if (!course.waitlistEnabled) {
       if (limitState != null) return limitState;
       return CourseState.FULL;
     }
     if (isInWaitlist) return CourseState.IN_WAITLIST;
-    if (limitState != null) return limitState;
+    // La lista d'attesa è ILLIMITATA: i limiti di ingressi settimanali (LIMIT) e
+    // di crediti (SUBSCRIBE_LIMIT) NON devono bloccarla. Restano invece validi
+    // gli altri vincoli di idoneità (es. NULL = abbonamento non valido).
+    if (limitState != null &&
+        limitState != CourseState.LIMIT &&
+        limitState != CourseState.SUBSCRIBE_LIMIT) {
+      return limitState;
+    }
     return CourseState.CAN_WAITLIST;
   }
 

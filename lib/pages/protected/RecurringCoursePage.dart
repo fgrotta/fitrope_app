@@ -1,15 +1,17 @@
 import 'package:fitrope_app/api/courses/createCourse.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/course_images.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/components/sala_selector_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class RecurringCoursePage extends StatefulWidget {
@@ -32,6 +34,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   String? errorMsg;
   bool isLoading = false;
   List<String> selectedTags = [];
+  CourseType selectedCourseType = CourseType.open;
+  String? selectedImageKey;
   bool reminderEnabled = true;
   bool waitlistEnabled = true;
   String? selectedSala;
@@ -146,6 +150,10 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     // Inizializza la sala
     selectedSala = null;
 
+    // Inizializza tipologia corso e immagine
+    selectedCourseType = CourseType.open;
+    selectedImageKey = null;
+
     // Se è un Trainer, assegna automaticamente se stesso
     if (user.role == 'Trainer') {
       selectedTrainerId = user.uid;
@@ -170,17 +178,40 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
             picked.day,
             startDate?.hour ?? defaultTimeOfDay.hour,
             startDate?.minute ?? defaultTimeOfDay.minute);
+        // Se la fine programmazione è precedente al nuovo inizio, spostala
+        // avanti (inizio + 30 giorni, limitata al massimo consentito): evita
+        // lo stato incoerente che mandava in crash il picker di fine.
+        final startDay = DateTime(picked.year, picked.month, picked.day);
+        final maxDay =
+            DateUtils.dateOnly(DateTime.now().add(const Duration(days: 150)));
+        if (endDate == null ||
+            DateUtils.dateOnly(endDate!).isBefore(startDay)) {
+          final shifted = startDay.add(const Duration(days: 30));
+          endDate = shifted.isAfter(maxDay) ? maxDay : shifted;
+        }
       });
     }
   }
 
   Future<void> _selectEndDate() async {
+    // showDatePicker confronta le date a livello di giorno e richiede
+    // firstDate <= initialDate <= lastDate: normalizzo e clampo per non far
+    // mai cadere l'assertion (es. inizio spostato oltre la fine corrente).
+    final firstDay = DateUtils.dateOnly(startDate ?? DateTime.now());
+    final lastDay =
+        DateUtils.dateOnly(DateTime.now().add(const Duration(days: 150)));
+    var initialDay = endDate != null
+        ? DateUtils.dateOnly(endDate!)
+        : firstDay.add(const Duration(days: 30));
+    if (initialDay.isBefore(firstDay)) initialDay = firstDay;
+    if (initialDay.isAfter(lastDay)) initialDay = lastDay;
+
     final picked = await showDatePicker(
       context: context,
       initialEntryMode: DatePickerEntryMode.calendar,
-      initialDate: endDate ?? DateTime.now().add(const Duration(days: 30)),
-      firstDate: startDate ?? DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 150)), // 5 mesi
+      initialDate: initialDay,
+      firstDate: firstDay,
+      lastDate: lastDay,
       locale: const Locale('it', 'IT'),
     );
 
@@ -357,12 +388,14 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
           uid: '',
           id: '',
           name: name,
-          startDate: Timestamp.fromDate(courseDate),
-          endDate: Timestamp.fromDate(endDate),
+          startDate: italianTimestamp(courseDate),
+          endDate: italianTimestamp(endDate),
           capacity: capacity,
           subscribed: 0,
           trainerId: trainerId,
           tags: List.from(selectedTags),
+          courseType: selectedCourseType,
+          imageKey: selectedImageKey,
           reminderEnabled: reminderEnabled,
           waitlistEnabled: waitlistEnabled,
           sala: selectedSala,
@@ -606,7 +639,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                 ),
                 const SizedBox(height: 20),
 
-                // Selezione Tipo di corso
+                // Selezione Tipologia Corso
                 Card(
                   color: surfaceVariantColor,
                   child: Padding(
@@ -615,7 +648,144 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Tipo di corso',
+                          'Tipologia Corso',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: CourseType.values.map((type) {
+                            final isSelected = selectedCourseType == type;
+                            return ChoiceChip(
+                              label: Text(type.label),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    selectedCourseType = type;
+                                    // Azzera l'immagine solo se non valida per il nuovo tipo.
+                                    if (selectedImageKey != null &&
+                                        !CourseImages.forType(type)
+                                            .contains(selectedImageKey)) {
+                                      selectedImageKey = null;
+                                    }
+                                  });
+                                }
+                              },
+                              selectedColor:
+                                  primaryColor.withValues(alpha: 0.3),
+                              checkmarkColor: primaryColor,
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Selezione Immagine Corso
+                if (CourseImages.forType(selectedCourseType).isNotEmpty)
+                  Card(
+                    color: surfaceVariantColor,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Immagine del Corso',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Seleziona un\'immagine per questo corso',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 100,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount:
+                                  CourseImages.forType(selectedCourseType)
+                                      .length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 10),
+                              itemBuilder: (context, index) {
+                                final imagePath = CourseImages.forType(
+                                    selectedCourseType)[index];
+                                final isSelected =
+                                    selectedImageKey == imagePath;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      selectedImageKey = imagePath;
+                                    });
+                                  },
+                                  child: Container(
+                                    width: 140,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? primaryColor
+                                            : Colors.transparent,
+                                        width: 3,
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.asset(
+                                        imagePath,
+                                        fit: BoxFit.cover,
+                                        cacheWidth:
+                                            300, // miniatura: niente decode a piena risoluzione
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                          color: primaryLightColor.withValues(
+                                              alpha: 0.3),
+                                          child: const Center(
+                                            child: Icon(
+                                                Icons.image_not_supported,
+                                                color: Colors.grey),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (CourseImages.forType(selectedCourseType).isNotEmpty)
+                  const SizedBox(height: 20),
+
+                // Selezione Tipo di corso (Tag accesso)
+                Card(
+                  color: surfaceVariantColor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Tag di Accesso',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -647,7 +817,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                                   }
                                 });
                               },
-                              selectedColor: primaryColor.withOpacity(0.3),
+                              selectedColor:
+                                  primaryColor.withValues(alpha: 0.3),
                               checkmarkColor: primaryColor,
                             );
                           }).toList(),

@@ -1,11 +1,36 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:fitrope_app/types/fitropeUser.dart';
 
 /// Helper per la gestione degli abbonamenti
 class AbbonamentoHelper {
   /// Finestra giorni per KPI dashboard / filtro lista utenti «in scadenza»
   static const int giorniFinestraScadenzaKpi = 30;
+
+  /// Data di fine iscrizione di default in base alla tipologia di abbonamento.
+  /// Garantisce che ogni iscrizione abbia sempre una scadenza impostata.
+  /// - Prova: 30 giorni
+  /// - Pacchetto ingressi: 3 mesi
+  /// - Abbonamenti temporali: durata naturale del tipo
+  static DateTime defaultFineIscrizione(TipologiaIscrizione tipo,
+      {DateTime? from}) {
+    final base = from ?? DateTime.now();
+    switch (tipo) {
+      case TipologiaIscrizione.ABBONAMENTO_PROVA:
+        return base.add(const Duration(days: 30));
+      case TipologiaIscrizione.PACCHETTO_ENTRATE:
+        return DateTime(base.year, base.month + 3, base.day);
+      case TipologiaIscrizione.ABBONAMENTO_MENSILE:
+        return DateTime(base.year, base.month + 1, base.day);
+      case TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE:
+        return DateTime(base.year, base.month + 3, base.day);
+      case TipologiaIscrizione.ABBONAMENTO_SEMESTRALE:
+        return DateTime(base.year, base.month + 6, base.day);
+      case TipologiaIscrizione.ABBONAMENTO_ANNUALE:
+        return DateTime(base.year + 1, base.month, base.day);
+    }
+  }
 
   /// Soglia di giorni per considerare un abbonamento in scadenza
   static const int GIORNI_SOGLIA_SCADENZA_ABBONAMENTO = 15;

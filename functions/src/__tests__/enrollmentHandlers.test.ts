@@ -42,6 +42,9 @@ function packUser(over: Data = {}): Data {
     courses: [],
     tipologiaIscrizione: "PACCHETTO_ENTRATE",
     entrateDisponibili: 5,
+    // Ogni iscrizione ha sempre una fineIscrizione (regola confermata):
+    // senza, evaluateLegacyLimit ritorna EXPIRED.
+    fineIscrizione: Timestamp.fromMillis(Date.UTC(2026, 11, 31)),
     tipologiaCorsoTags: ["Open"],
     ...over,
   };
@@ -1121,16 +1124,19 @@ describe("joinWaitlistHandler", () => {
     );
   });
 
-  test("utente senza crediti → failed-precondition", async () => {
-    const db = makeDb({
+  test("utente senza crediti → PUÒ entrare in waitlist (illimitata)", async () => {
+    const store: FakeStore = {
       users: { u1: packUser({ entrateDisponibili: 0 }) },
       courses: { c1: course({ subscribed: 10 }) },
       subs: {},
-    });
-    await expectCode(
-      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
-      "failed-precondition"
+    };
+    const db = makeDb(store);
+    const res = await joinWaitlistHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      db,
+      NOW
     );
+    expect(res.ok).toBe(true);
   });
 
   test("utente con abbonamento scaduto prima del corso → failed-precondition", async () => {
@@ -1147,19 +1153,22 @@ describe("joinWaitlistHandler", () => {
     );
   });
 
-  test("utente al limite settimanale → failed-precondition", async () => {
-    const db = makeDb({
+  test("utente al limite settimanale → PUÒ entrare in waitlist (illimitata)", async () => {
+    const store: FakeStore = {
       users: { u1: tempUser({ entrateSettimanali: 1, courses: ["used"] }) },
       courses: {
         c1: course({ subscribed: 10 }),
         used: course({ uid: "used", subscribed: 1 }),
       },
       subs: {},
-    });
-    await expectCode(
-      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
-      "failed-precondition"
+    };
+    const db = makeDb(store);
+    const res = await joinWaitlistHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      db,
+      NOW
     );
+    expect(res.ok).toBe(true);
   });
 
   test("già in waitlist → already-exists; già iscritto → already-exists", async () => {
