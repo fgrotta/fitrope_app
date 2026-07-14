@@ -2,7 +2,7 @@ name: fitrope_app
 description: "Fitrope App"
 publish_to: 'none'
 
-version: 1.2.5
+version: 1.2.6
 
 environment:
   sdk: '>=3.5.0-180.3.beta <4.0.0'
@@ -22,11 +22,10 @@ dependencies:
   redux_thunk: ^0.4.0
   redux: ^5.0.0
   flutter_redux: ^0.10.0
-  url_launcher: ^6.2.6
+  url_launcher: ^6.3.2
   intl: ^0.20.2
   timezone: ^0.9.4
   onesignal_flutter: ^5.2.7
-  http: ^1.2.2
   flutter_localizations:
     sdk: flutter
 

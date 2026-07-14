@@ -19,6 +19,20 @@ String _emailHeader(String title) {
           </tr>''';
 }
 
+String _emailCta(String label) {
+  return '''
+              <table cellpadding="0" cellspacing="0" style="margin: 20px 0;">
+                <tr>
+                  <td style="background-color: #6077F6; border-radius: 8px;">
+                    <a href="https://app.fithousemonza.it/" target="_blank"
+                       style="display: inline-block; padding: 12px 24px; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none;">
+                      $label
+                    </a>
+                  </td>
+                </tr>
+              </table>''';
+}
+
 String _emailFooter() {
   return '''
           <!-- Footer -->
@@ -80,6 +94,8 @@ ${_emailHeader('Promemoria lezione di prova')}
               <p style="color: #333333; font-size: 16px; line-height: 1.6;">
                 Ricordati di portare abbigliamento comodo e una bottiglietta d'acqua.
               </p>
+
+${_emailCta('Apri Fit House')}
 
             </td>
           </tr>
@@ -149,8 +165,10 @@ ${_emailHeader('Posto disponibile!')}
               </table>
 
               <p style="color: #333333; font-size: 16px; line-height: 1.6;">
-                Iscriviti subito prima che il posto venga occupato!
+                Il posto rimane disponibile per un tempo limitato: apri l'app per iscriverti.
               </p>
+
+${_emailCta('Apri Fit House')}
 
             </td>
           </tr>
