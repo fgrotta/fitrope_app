@@ -30,8 +30,8 @@ CourseState getCourseState(Course course, FitropeUser user) {
   // Scadenza: solo legacy. Nel modello a abbonamenti è per-abbonamento ed è
   // valutata in _subscriptionGateState.
   if (!useSubscriptions &&
-      user.fineIscrizione != null &&
-      courseDate.isAfter(user.fineIscrizione!.toDate())) {
+      (user.fineIscrizione == null ||
+          courseDate.isAfter(user.fineIscrizione!.toDate()))) {
     return CourseState.EXPIRED;
   }
 
@@ -39,8 +39,9 @@ CourseState getCourseState(Course course, FitropeUser user) {
       CourseTags.canUserAccessCourse(user.tipologiaCorsoTags, course.tags);
 
   // Abbonamenti che coprono la tipologia del corso (solo modello multi-abbonamento).
-  final List<UserSubscription> covering =
-      useSubscriptions ? _coveringSubscriptions(course, liveSubscriptions) : const [];
+  final List<UserSubscription> covering = useSubscriptions
+      ? _coveringSubscriptions(course, liveSubscriptions)
+      : const [];
 
   // Accesso: legacy = solo tag; multi-abbonamento = tag OPPURE copertura
   // abbonamento (un abbonamento valido sblocca il corso anche se i tag legacy
@@ -84,6 +85,7 @@ CourseState getCourseState(Course course, FitropeUser user) {
     }
     if (isInWaitlist) return CourseState.IN_WAITLIST;
     if (limitState != null) return limitState;
+
     return CourseState.CAN_WAITLIST;
   }
 

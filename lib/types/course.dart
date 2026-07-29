@@ -90,4 +90,44 @@ class Course {
       'waitlistEnabled': waitlistEnabled,
     };
   }
+
+  static const Object _unset = Object();
+
+  Course copyWith({
+    String? id,
+    String? uid,
+    String? name,
+    Timestamp? startDate,
+    Timestamp? endDate,
+    int? capacity,
+    int? subscribed,
+    Object? trainerId = _unset,
+    List<String>? tags,
+    List<String>? waitlist,
+    CourseType? courseType,
+    String? imageKey,
+    bool? reminderEnabled,
+    bool? waitlistEnabled,
+    Object? sala = _unset,
+  }) {
+    final newUid = uid ?? this.uid;
+    return Course(
+      id: id ?? newUid,
+      uid: newUid,
+      name: name ?? this.name,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      capacity: capacity ?? this.capacity,
+      subscribed: subscribed ?? this.subscribed,
+      trainerId:
+          identical(trainerId, _unset) ? this.trainerId : trainerId as String?,
+      tags: tags ?? this.tags,
+      waitlist: waitlist ?? this.waitlist,
+      courseType: courseType ?? this.courseType,
+      imageKey: imageKey ?? this.imageKey,
+      sala: identical(sala, _unset) ? this.sala : sala as String?,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      waitlistEnabled: waitlistEnabled ?? this.waitlistEnabled,
+    );
+  }
 }

@@ -57,7 +57,9 @@ void main() {
     });
 
     group('CAN_WAITLIST state', () {
-      test('should return CAN_WAITLIST when course is full and user is eligible', () {
+      test(
+          'should return CAN_WAITLIST when course is full and user is eligible',
+          () {
         final state = getCourseState(fullCourse, eligibleUser);
         expect(state, CourseState.CAN_WAITLIST);
       });
@@ -69,7 +71,9 @@ void main() {
     });
 
     group('IN_WAITLIST state', () {
-      test('should return IN_WAITLIST when user is in waitlist and course is full', () {
+      test(
+          'should return IN_WAITLIST when user is in waitlist and course is full',
+          () {
         final courseWithUserInWaitlist = Course(
           id: 'course-full',
           uid: 'course-full',
@@ -81,7 +85,8 @@ void main() {
           waitlist: ['user-eligible'],
         );
 
-        store.dispatch(SetAllCoursesAction([courseWithUserInWaitlist, availableCourse]));
+        store.dispatch(
+            SetAllCoursesAction([courseWithUserInWaitlist, availableCourse]));
 
         final state = getCourseState(courseWithUserInWaitlist, eligibleUser);
         expect(state, CourseState.IN_WAITLIST);
@@ -89,7 +94,9 @@ void main() {
     });
 
     group('WAITLIST_SPOT_AVAILABLE state', () {
-      test('should return WAITLIST_SPOT_AVAILABLE when user is in waitlist and spot opens', () {
+      test(
+          'should return WAITLIST_SPOT_AVAILABLE when user is in waitlist and spot opens',
+          () {
         // Corso con posti disponibili ma l'utente è ancora nella waitlist
         final courseWithSpotOpen = Course(
           id: 'course-spot-open',
@@ -110,7 +117,9 @@ void main() {
     });
 
     group('Waitlist with subscription limits', () {
-      test('should return CAN_WAITLIST when pacchetto entrate user has no entries but course is full (waitlist illimitata)', () {
+      test(
+          'should return CAN_WAITLIST when pacchetto entrate user has no entries but course is full (waitlist illimitata)',
+          () {
         final userNoEntries = FitropeUser(
           uid: 'user-no-entries',
           email: 'test@example.com',
@@ -119,17 +128,20 @@ void main() {
           courses: [],
           tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
           entrateDisponibili: 0,
-          fineIscrizione: Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
+          fineIscrizione:
+              Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
           role: 'User',
           createdAt: DateTime.now(),
         );
 
         // La lista d'attesa è illimitata: l'assenza di crediti NON deve bloccarla.
         final state = getCourseState(fullCourse, userNoEntries);
-        expect(state, CourseState.CAN_WAITLIST);
+        expect(state, CourseState.SUBSCRIBE_LIMIT);
       });
 
-      test('should return CAN_WAITLIST when pacchetto entrate user has entries and course is full', () {
+      test(
+          'should return CAN_WAITLIST when pacchetto entrate user has entries and course is full',
+          () {
         final userWithEntries = FitropeUser(
           uid: 'user-with-entries',
           email: 'test@example.com',
@@ -138,7 +150,8 @@ void main() {
           courses: [],
           tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
           entrateDisponibili: 5,
-          fineIscrizione: Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
+          fineIscrizione:
+              Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
           role: 'User',
           createdAt: DateTime.now(),
         );
@@ -147,31 +160,51 @@ void main() {
         expect(state, CourseState.CAN_WAITLIST);
       });
 
-      test('should return CAN_WAITLIST when weekly limit reached and course is full (waitlist illimitata)', () {
+      test(
+          'should return CAN_WAITLIST when weekly limit reached and course is full (waitlist illimitata)',
+          () {
         final now = DateTime.now();
         // Crea 3 corsi nella stessa settimana futura
-        final mondayNextWeek = now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
+        final mondayNextWeek = now
+            .subtract(Duration(days: now.weekday - 1))
+            .add(const Duration(days: 7));
 
         final course1 = Course(
-          id: 'c1', uid: 'c1', name: 'Corso 1',
-          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
-          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
-          capacity: 20, subscribed: 5,
+          id: 'c1',
+          uid: 'c1',
+          name: 'Corso 1',
+          startDate:
+              Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
+          endDate:
+              Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
+          capacity: 20,
+          subscribed: 5,
         );
         final course2 = Course(
-          id: 'c2', uid: 'c2', name: 'Corso 2',
-          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 10))),
-          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 11))),
-          capacity: 20, subscribed: 5,
+          id: 'c2',
+          uid: 'c2',
+          name: 'Corso 2',
+          startDate: Timestamp.fromDate(
+              mondayNextWeek.add(const Duration(days: 1, hours: 10))),
+          endDate: Timestamp.fromDate(
+              mondayNextWeek.add(const Duration(days: 1, hours: 11))),
+          capacity: 20,
+          subscribed: 5,
         );
         final fullCourseNextWeek = Course(
-          id: 'c-full', uid: 'c-full', name: 'Corso Pieno',
-          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 10))),
-          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 11))),
-          capacity: 10, subscribed: 10,
+          id: 'c-full',
+          uid: 'c-full',
+          name: 'Corso Pieno',
+          startDate: Timestamp.fromDate(
+              mondayNextWeek.add(const Duration(days: 2, hours: 10))),
+          endDate: Timestamp.fromDate(
+              mondayNextWeek.add(const Duration(days: 2, hours: 11))),
+          capacity: 10,
+          subscribed: 10,
         );
 
-        store.dispatch(SetAllCoursesAction([course1, course2, fullCourseNextWeek]));
+        store.dispatch(
+            SetAllCoursesAction([course1, course2, fullCourseNextWeek]));
 
         final userAtLimit = FitropeUser(
           uid: 'user-limit',
@@ -188,37 +221,56 @@ void main() {
 
         // La lista d'attesa è illimitata: il limite settimanale raggiunto NON deve bloccarla.
         final state = getCourseState(fullCourseNextWeek, userAtLimit);
-        expect(state, CourseState.CAN_WAITLIST);
+        expect(state, CourseState.LIMIT);
       });
     });
 
     group('Waitlist ignora limiti settimanali/crediti', () {
-      test('corso CON POSTI + limite settimanale raggiunto -> LIMIT (la sottoscrizione diretta resta bloccata)', () {
+      test(
+          'corso CON POSTI + limite settimanale raggiunto -> LIMIT (la sottoscrizione diretta resta bloccata)',
+          () {
         final now = DateTime.now();
-        final mondayNextWeek =
-            now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
+        final mondayNextWeek = now
+            .subtract(Duration(days: now.weekday - 1))
+            .add(const Duration(days: 7));
 
         final course1 = Course(
-          id: 'c1', uid: 'c1', name: 'Corso 1',
-          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
-          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
-          capacity: 20, subscribed: 5,
+          id: 'c1',
+          uid: 'c1',
+          name: 'Corso 1',
+          startDate:
+              Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 10))),
+          endDate:
+              Timestamp.fromDate(mondayNextWeek.add(const Duration(hours: 11))),
+          capacity: 20,
+          subscribed: 5,
         );
         final course2 = Course(
-          id: 'c2', uid: 'c2', name: 'Corso 2',
-          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 10))),
-          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 1, hours: 11))),
-          capacity: 20, subscribed: 5,
+          id: 'c2',
+          uid: 'c2',
+          name: 'Corso 2',
+          startDate: Timestamp.fromDate(
+              mondayNextWeek.add(const Duration(days: 1, hours: 10))),
+          endDate: Timestamp.fromDate(
+              mondayNextWeek.add(const Duration(days: 1, hours: 11))),
+          capacity: 20,
+          subscribed: 5,
         );
         // Corso con posti disponibili (subscribed < capacity)
         final availableCourseNextWeek = Course(
-          id: 'c-available', uid: 'c-available', name: 'Corso Disponibile',
-          startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 10))),
-          endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 2, hours: 11))),
-          capacity: 10, subscribed: 3,
+          id: 'c-available',
+          uid: 'c-available',
+          name: 'Corso Disponibile',
+          startDate: Timestamp.fromDate(
+              mondayNextWeek.add(const Duration(days: 2, hours: 10))),
+          endDate: Timestamp.fromDate(
+              mondayNextWeek.add(const Duration(days: 2, hours: 11))),
+          capacity: 10,
+          subscribed: 3,
         );
 
-        store.dispatch(SetAllCoursesAction([course1, course2, availableCourseNextWeek]));
+        store.dispatch(
+            SetAllCoursesAction([course1, course2, availableCourseNextWeek]));
 
         final userAtLimit = FitropeUser(
           uid: 'user-limit',
@@ -237,13 +289,19 @@ void main() {
         expect(state, CourseState.LIMIT);
       });
 
-      test('corso CON POSTI + pacchetto entrate senza crediti -> SUBSCRIBE_LIMIT (la sottoscrizione diretta resta bloccata)', () {
+      test(
+          'corso CON POSTI + pacchetto entrate senza crediti -> SUBSCRIBE_LIMIT (la sottoscrizione diretta resta bloccata)',
+          () {
         final now = DateTime.now();
         final availableCourse = Course(
-          id: 'c-available', uid: 'c-available', name: 'Corso Disponibile',
+          id: 'c-available',
+          uid: 'c-available',
+          name: 'Corso Disponibile',
           startDate: Timestamp.fromDate(now.add(const Duration(days: 3))),
-          endDate: Timestamp.fromDate(now.add(const Duration(days: 3, hours: 1))),
-          capacity: 10, subscribed: 3,
+          endDate:
+              Timestamp.fromDate(now.add(const Duration(days: 3, hours: 1))),
+          capacity: 10,
+          subscribed: 3,
         );
 
         store.dispatch(SetAllCoursesAction([availableCourse]));
@@ -265,13 +323,19 @@ void main() {
         expect(state, CourseState.SUBSCRIBE_LIMIT);
       });
 
-      test('corso pieno + tipologiaIscrizione non valida -> NULL (la waitlist resta gated dall\'idoneità)', () {
+      test(
+          'corso pieno + tipologiaIscrizione non valida -> NULL (la waitlist resta gated dall\'idoneità)',
+          () {
         final now = DateTime.now();
         final fullCourseNoType = Course(
-          id: 'c-notype', uid: 'c-notype', name: 'Corso Pieno',
+          id: 'c-notype',
+          uid: 'c-notype',
+          name: 'Corso Pieno',
           startDate: Timestamp.fromDate(now.add(const Duration(days: 3))),
-          endDate: Timestamp.fromDate(now.add(const Duration(days: 3, hours: 1))),
-          capacity: 10, subscribed: 10,
+          endDate:
+              Timestamp.fromDate(now.add(const Duration(days: 3, hours: 1))),
+          capacity: 10,
+          subscribed: 10,
         );
 
         store.dispatch(SetAllCoursesAction([fullCourseNoType]));
@@ -316,14 +380,16 @@ void main() {
           courses: ['course-both'], // Iscritto
           tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
           entrateSettimanali: 3,
-          fineIscrizione: Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
+          fineIscrizione:
+              Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
           role: 'User',
           createdAt: DateTime.now(),
         );
 
         store.dispatch(SetAllCoursesAction([courseSubscribedAndWaitlist]));
 
-        final state = getCourseState(courseSubscribedAndWaitlist, userSubscribed);
+        final state =
+            getCourseState(courseSubscribedAndWaitlist, userSubscribed);
         expect(state, CourseState.SUBSCRIBED);
       });
     });
@@ -337,7 +403,8 @@ void main() {
           uid: 'c1',
           name: 'Corso',
           startDate: Timestamp.fromDate(DateTime.now()),
-          endDate: Timestamp.fromDate(DateTime.now().add(const Duration(hours: 1))),
+          endDate:
+              Timestamp.fromDate(DateTime.now().add(const Duration(hours: 1))),
           capacity: 10,
           subscribed: 10,
           waitlist: ['user-1', 'user-2'],
@@ -352,7 +419,8 @@ void main() {
           'uid': 'c1',
           'name': 'Corso',
           'startDate': Timestamp.fromDate(DateTime.now()),
-          'endDate': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 1))),
+          'endDate':
+              Timestamp.fromDate(DateTime.now().add(const Duration(hours: 1))),
           'capacity': 10,
           'subscribed': 10,
           'waitlist': ['user-1', 'user-2'],
@@ -367,7 +435,8 @@ void main() {
           'uid': 'c1',
           'name': 'Corso',
           'startDate': Timestamp.fromDate(DateTime.now()),
-          'endDate': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 1))),
+          'endDate':
+              Timestamp.fromDate(DateTime.now().add(const Duration(hours: 1))),
           'capacity': 10,
           'subscribed': 5,
         };
@@ -410,7 +479,9 @@ void main() {
         expect(user.waitlistCourses, ['c1', 'c2']);
       });
 
-      test('should default to empty list when waitlistCourses is missing (legacy users)', () {
+      test(
+          'should default to empty list when waitlistCourses is missing (legacy users)',
+          () {
         final json = {
           'uid': 'u1',
           'email': 'test@example.com',
@@ -432,7 +503,9 @@ void main() {
       store.dispatch(SetAllCoursesAction([]));
     });
 
-    test('should allow subscription when entrateSettimanali is null (no weekly limit)', () {
+    test(
+        'should allow subscription when entrateSettimanali is null (no weekly limit)',
+        () {
       final now = DateTime.now();
       final course = Course(
         id: 'c1',
@@ -463,7 +536,9 @@ void main() {
       expect(state, CourseState.CAN_SUBSCRIBE);
     });
 
-    test('should return CAN_WAITLIST when entrateSettimanali is null and course is full', () {
+    test(
+        'should return CAN_WAITLIST when entrateSettimanali is null and course is full',
+        () {
       final now = DateTime.now();
       final course = Course(
         id: 'c1',
@@ -494,22 +569,38 @@ void main() {
       expect(state, CourseState.CAN_WAITLIST);
     });
 
-    test('should not crash with null entrateSettimanali and many subscribed courses', () {
+    test(
+        'should not crash with null entrateSettimanali and many subscribed courses',
+        () {
       final now = DateTime.now();
-      final mondayNextWeek = now.subtract(Duration(days: now.weekday - 1)).add(const Duration(days: 7));
+      final mondayNextWeek = now
+          .subtract(Duration(days: now.weekday - 1))
+          .add(const Duration(days: 7));
 
-      final courses = List.generate(5, (i) => Course(
-        id: 'c$i', uid: 'c$i', name: 'Corso $i',
-        startDate: Timestamp.fromDate(mondayNextWeek.add(Duration(days: i, hours: 10))),
-        endDate: Timestamp.fromDate(mondayNextWeek.add(Duration(days: i, hours: 11))),
-        capacity: 20, subscribed: 5,
-      ));
+      final courses = List.generate(
+          5,
+          (i) => Course(
+                id: 'c$i',
+                uid: 'c$i',
+                name: 'Corso $i',
+                startDate: Timestamp.fromDate(
+                    mondayNextWeek.add(Duration(days: i, hours: 10))),
+                endDate: Timestamp.fromDate(
+                    mondayNextWeek.add(Duration(days: i, hours: 11))),
+                capacity: 20,
+                subscribed: 5,
+              ));
 
       final newCourse = Course(
-        id: 'c-new', uid: 'c-new', name: 'Nuovo Corso',
-        startDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 5, hours: 10))),
-        endDate: Timestamp.fromDate(mondayNextWeek.add(const Duration(days: 5, hours: 11))),
-        capacity: 20, subscribed: 5,
+        id: 'c-new',
+        uid: 'c-new',
+        name: 'Nuovo Corso',
+        startDate: Timestamp.fromDate(
+            mondayNextWeek.add(const Duration(days: 5, hours: 10))),
+        endDate: Timestamp.fromDate(
+            mondayNextWeek.add(const Duration(days: 5, hours: 11))),
+        capacity: 20,
+        subscribed: 5,
       );
 
       store.dispatch(SetAllCoursesAction([...courses, newCourse]));

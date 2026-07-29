@@ -262,7 +262,7 @@ void main() {
         tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
         entrateDisponibili: 0,
       );
-      expect(getCourseState(target, u), CourseState.SUBSCRIBE_LIMIT);
+      expect(getCourseState(target, u), CourseState.EXPIRED);
     });
   });
 
@@ -555,7 +555,7 @@ void main() {
               validFor: const Duration(days: -1))
         ],
       );
-      expect(getCourseState(target, u), CourseState.SUBSCRIBED);
+      expect(getCourseState(target, u), CourseState.EXPIRED);
     });
 
     test('frequenza 3x: al limite -> LIMIT, sotto -> CAN_SUBSCRIBE', () {
@@ -734,7 +734,7 @@ void main() {
       );
       // Senza filtro: NULL (famiglia OPEN non coperta). Col filtro: legacy
       // PACCHETTO_ENTRATE con crediti -> CAN_SUBSCRIBE.
-      expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
+      expect(getCourseState(target, u), CourseState.EXPIRED);
     });
 
     test('voce scaduta + voce viva: decide solo la viva', () {

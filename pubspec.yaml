@@ -26,11 +26,14 @@ dependencies:
   intl: ^0.20.2
   onesignal_flutter: ^5.2.7
   http: ^1.2.2
+  timezone: ^0.9.4
   flutter_localizations:
     sdk: flutter
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   flutter_lints: ^4.0.0

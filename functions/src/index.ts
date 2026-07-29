@@ -5,6 +5,7 @@ import {
   sendOneSignalNotificationHandler,
   ensureOneSignalUserHandler,
   removeOneSignalEmailHandler,
+  ensureOneSignalEmailSubscription,
 } from "./handler";
 import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
 import {
@@ -44,7 +45,8 @@ export const sendOneSignalNotification = onCall(
   (request) =>
     sendOneSignalNotificationHandler(
       { auth: request.auth ?? null, data: request.data },
-      oneSignalApiKey.value()
+      oneSignalApiKey.value(),
+      { db: admin.firestore(), ensure: ensureOneSignalEmailSubscription }
     )
 );
 
