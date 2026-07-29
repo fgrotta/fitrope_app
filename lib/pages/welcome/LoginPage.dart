@@ -131,11 +131,11 @@ class _LoginPageState extends State<LoginPage> {
                       children: [
                         const Text('Email test'),
                         const SizedBox(height: 10,),
-                        CustomTextField(controller: _emailController, hintText: 'Inserisci la tua email',),
+                        CustomTextField(key: const Key('login-email-field'), controller: _emailController, hintText: 'Inserisci la tua email',),
                         const SizedBox(height: 20,),
                         const Text('Password'),
                         const SizedBox(height: 10,),
-                        CustomTextField(controller: _passwordController, hintText: 'Inserisci la tua password', obscureText: true,),
+                        CustomTextField(key: const Key('login-password-field'), controller: _passwordController, hintText: 'Inserisci la tua password', obscureText: true,),
                         const SizedBox(height: 10,),
                         if(loginError != null) Text(loginError!, style: const TextStyle(color: dangerColor),),
                         const SizedBox(height: 10,),
@@ -158,6 +158,7 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
+                        key: const Key('login-submit-button'),
                         onPressed: () {
                           onLogin();
                         },

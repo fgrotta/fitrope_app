@@ -54,3 +54,6 @@ app.*.map.json
 ios/Podfile
 macos/Podfile
 .cursor/environment.json
+
+# Credenziali test E2E (NON committare)
+integration_test/test_env.json

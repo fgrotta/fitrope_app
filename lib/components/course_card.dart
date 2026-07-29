@@ -722,6 +722,7 @@ class _CourseCardState extends State<CourseCard> {
     }
 
     return ElevatedButton(
+      key: Key('course-action-button-${widget.course.uid}'),
       onPressed: canBeClicked && !_isProcessing
           ? () async {
               if (widget.onClickAction != null) {
