@@ -7,7 +7,12 @@
       "Bash(flutter test:*)",
       "Bash(export PATH=\"$PATH:/Users/Frank/fvm/default/bin:/Users/Frank/flutter/bin\")",
       "Bash(/Users/Frank/Documents/Development/Project/flutter/bin/flutter test:*)",
-      "Bash(git ls-remote *)"
+      "Bash(git ls-remote *)",
+      "Bash(lsof -tiTCP:8090 -sTCP:LISTEN)",
+      "Bash(xargs -r kill -9)",
+      "Bash(git commit -m ' *)",
+      "Bash(git fetch *)",
+      "Bash(git push *)"
     ]
   }
 }

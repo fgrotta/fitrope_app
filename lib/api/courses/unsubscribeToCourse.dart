@@ -125,7 +125,9 @@ Future<void> unsubscribeToCourse(String courseId, String userId) async {
       }
       store.dispatch(FinishLoadingAction());
 
-      notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
+      // Await deliberato: su web un flusso fire-and-forget muore se l'utente
+      // chiude la scheda subito dopo la disiscrizione (email waitlist mai inviate).
+      await notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
     }).catchError((error, stackTrace) {
       print('❌ Errore nella gestione post-transazione:');
       print('Errore: $error');
@@ -254,7 +256,9 @@ Future<void> forceUnsubscribeWithNoRefund(String courseId, String userId) async 
       }
       store.dispatch(FinishLoadingAction());
 
-      notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
+      // Await deliberato: su web un flusso fire-and-forget muore se l'utente
+      // chiude la scheda subito dopo la disiscrizione (email waitlist mai inviate).
+      await notifyWaitlistUsers(courseId, querySnapshot.docs.first['name'] ?? '');
     }).catchError((error, stackTrace) {
       print('❌ Errore nella gestione post-transazione (no refund):');
       print('Errore: $error');

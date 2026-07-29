@@ -1,5 +1,6 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
+import type { Firestore } from "firebase-admin/firestore";
 
 export const ONESIGNAL_APP_ID = "154fc17b-3ef8-4421-a1e6-466172fa48db";
 export const ONESIGNAL_API_URL = "https://api.onesignal.com/notifications";
@@ -45,8 +46,74 @@ export async function postToOneSignal(
     throw new HttpsError("internal", errors);
   }
 
+  // OneSignal può rispondere 200 con errori nel body (es. invalid_aliases) o
+  // con recipients: 0 (nessun destinatario raggiunto): sono fallimenti
+  // silenziosi da rendere visibili nei log.
+  if (data.errors) {
+    logger.warn("OneSignal 200 ma con errors nel body (possibile invio parziale)", { data });
+  }
+  if (data.recipients === 0) {
+    logger.warn("OneSignal 200 ma recipients: 0 (nessun destinatario raggiunto)", { data });
+  }
+
   logger.info("OneSignal response", { status: response.status, data });
   return data;
+}
+
+/**
+ * Dipendenze iniettate nell'handler di invio (pattern come RunDeps in
+ * certificateEmails.ts): permettono ai test di usare un db/ensure finti
+ * senza inizializzare firebase-admin.
+ */
+export interface SendNotificationDeps {
+  db: Firestore;
+  ensure: (
+    externalId: string,
+    email: string | undefined,
+    apiKey: string
+  ) => Promise<unknown>;
+}
+
+/**
+ * Garantisce che ogni destinatario email esista su OneSignal prima dell'invio:
+ * legge l'email da Firestore (users/{uid}, doc-id == uid) e chiama l'ensure
+ * idempotente. Un external_id mai creato su OneSignal produrrebbe un invio
+ * "riuscito" (200) ma con recipients: 0 per quell'utente.
+ *
+ * Best-effort: nessun errore per-utente blocca gli altri destinatari o
+ * l'invio; ogni anomalia viene loggata (visibile con `firebase functions:log`).
+ */
+export async function ensureEmailRecipientsFromFirestore(
+  externalIds: string[],
+  deps: SendNotificationDeps,
+  apiKey: string
+): Promise<void> {
+  const uniqueIds = [...new Set(externalIds)];
+  await Promise.all(
+    uniqueIds.map(async (externalId) => {
+      try {
+        const snapshot = await deps.db.collection("users").doc(externalId).get();
+        if (!snapshot.exists) {
+          logger.warn("Ensure destinatario: utente non trovato su Firestore, invio comunque", {
+            externalId,
+          });
+          return;
+        }
+        // Stessa semantica di _hasUsableEmail lato Dart: '-' è il placeholder
+        // per gli utenti senza email.
+        const email = (snapshot.data()?.email as string | undefined)?.trim();
+        if (!email || email === "-") {
+          logger.warn("Ensure destinatario: email non usabile su Firestore, invio comunque", {
+            externalId,
+          });
+          return;
+        }
+        await deps.ensure(externalId, email, apiKey);
+      } catch (err) {
+        logger.warn("Ensure destinatario fallito, invio comunque", { externalId, err });
+      }
+    })
+  );
 }
 
 /**
@@ -57,11 +124,13 @@ export async function postToOneSignal(
  * - Verifica autenticazione
  * - Verifica payload
  * - Inietta app_id server-side
+ * - Per gli invii email mirati, garantisce i destinatari su OneSignal
  * - Chiama OneSignal con la REST API key (passata come parametro)
  */
 export async function sendOneSignalNotificationHandler(
   request: HandlerRequest,
-  apiKey: string
+  apiKey: string,
+  deps: SendNotificationDeps
 ): Promise<Record<string, unknown>> {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Login richiesto");
@@ -73,6 +142,16 @@ export async function sendOneSignalNotificationHandler(
   }
 
   payload.app_id = ONESIGNAL_APP_ID;
+
+  const aliases = payload.include_aliases as { external_id?: unknown } | undefined;
+  const externalIds = Array.isArray(aliases?.external_id)
+    ? aliases.external_id.filter(
+        (id): id is string => typeof id === "string" && id.length > 0
+      )
+    : [];
+  if (payload.target_channel === "email" && externalIds.length > 0) {
+    await ensureEmailRecipientsFromFirestore(externalIds, deps, apiKey);
+  }
 
   const logPayload = { ...payload };
   delete logPayload.email_body;
