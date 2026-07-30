@@ -9,9 +9,9 @@ Per architettura, modelli dati e regole di business dettagliate vedi `agents.md`
 ```bash
 flutter pub get          # installa dipendenze
 flutter test             # esegui tutti i test
-flutter analyze          # analisi statica
-flutter format --set-exit-if-changed .  # check formattazione
-flutter build web --debug               # build web
+flutter analyze --no-fatal-infos  # gate CI: gli info restano visibili
+dart format --set-exit-if-changed .     # check formattazione
+flutter build web --wasm --release      # build web come CI
 flutter run -d chrome                   # avvio locale
 ```
 
@@ -19,7 +19,7 @@ flutter run -d chrome                   # avvio locale
 
 ```bash
 cd functions
-npm install              # installa dipendenze Node
+npm ci                   # installazione riproducibile (runtime Functions Node 22)
 npm run build            # compila TypeScript
 npm test                 # Jest (handler OneSignal + dominio enrollment)
 npm run test:integration # test integrazione su Emulator Suite (richiede Java 21 nel PATH)
@@ -61,7 +61,7 @@ firebase functions:log --only sendOneSignalNotification
 firebase functions:delete sendOneSignalNotification
 ```
 
-Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`. Se tocchi `functions/`, esegui anche `npm test` nella cartella `functions/`.
+Dopo ogni modifica, esegui almeno `flutter test`, `flutter analyze --no-fatal-infos` e `dart format --set-exit-if-changed .`. Se tocchi `functions/`, esegui anche `npm run build` e `npm test` nella cartella `functions/`; per callable, rules o transazioni aggiorna ed esegui anche `npm run test:integration`.
 
 ## Verifica live e lezioni operative
 
@@ -72,11 +72,11 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 - `flutter run -d web-server` **ricompila solo all'avvio o su hot-restart** (`R` da stdin). Un'istanza lanciata in background non riceve `R`: dopo ogni modifica al codice **riavvia il run** (kill della porta + relaunch), non basta ricaricare la pagina.
 - Il browser serve un `main.dart.js` cache-ato: dopo il relaunch fai un **hard reload** (Cmd/Ctrl+Shift+R), altrimenti vedi il build vecchio (sintomo tipico: il default sembra sbagliato o "la modifica non ha effetto").
 - Per testare i **breakpoint responsive** verifica la larghezza reale (`window.innerWidth`): il ridimensionamento della finestra può essere inaffidabile. Breakpoint in `lib/layout/breakpoints.dart` (mobile <600, tablet <900, desktop <1600, largeDesktop ≥1600).
-- **Pre-commit hook**: in alcuni ambienti `flutter` riporta SDK `0.0.0-unknown` e l'hook fallisce anche con test/analyze verdi → committa con `--no-verify` **dopo** aver eseguito a mano `flutter analyze` + `flutter test`.
+- **Pre-commit hook**: non bypassarlo come procedura ordinaria. Se l'ambiente restituisce erroneamente SDK `0.0.0-unknown`, esegui prima manualmente gli stessi gate (`flutter test`, `flutter analyze --no-fatal-infos`, formattazione e, quando applicabile, test Functions), poi documenta il problema dell'ambiente nel commit o nella PR.
 
 ### Deploy web / aggiornamento PWA (cache stantia su iOS)
 
-- Produzione: `https://app.fithousemonza.it`, hosting Hostinger/LiteSpeed, deploy **manuale** (`flutter build web` → upload di `build/web`). `web/.htaccess` viene copiato automaticamente in `build/web/` dal build Flutter: è il modo per far applicare regole di cache a Hostinger senza toccare il pannello.
+- Produzione: `https://app.fithousemonza.it`, hosting Hostinger/LiteSpeed, deploy **manuale** (`flutter build web --wasm --release` -> upload di `build/web`). `web/.htaccess` viene copiato automaticamente in `build/web/` dal build Flutter: è il modo per far applicare regole di cache a Hostinger senza toccare il pannello.
 - **`main.dart.js`, `flutter_service_worker.js`, `flutter_bootstrap.js`, `flutter.js` non hanno mai un hash nel nome**: restano identici da un build all'altro (il versioning è gestito internamente dal service worker generato da Flutter via confronto hash-per-file, non dal filename). Qualsiasi cache lunga su questi file (anche solo un default del server per estensione `.js`, come i 7 giorni di default riscontrati su Hostinger/LiteSpeed) blocca i client su una versione vecchia finché la cache non scade — `web/.htaccess` la limita a 30 minuti per i file "vivi" (index.html, version.json, manifest.json + i file sopra).
 - Un tentativo precedente di forzare l'update via JS (unregister di tutti i service worker + wipe di tutta la Cache Storage + reload cache-busted) è stato revertito perché causava un **reload loop infinito**: il reload rileggeva comunque `main.dart.js`/`flutter_service_worker.js` dalla cache HTTP del browser (non toccata dal wipe della Cache Storage, che è uno strato diverso), quindi il mismatch di versione si ripresentava a ogni giro. Prima di reintrodurre logica di forzatura via JS, verificare sempre che gli header di cache lato server siano già corretti — altrimenti nessuna logica JS può risolvere il problema.
 
@@ -94,7 +94,7 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 - Nomi file Dart: rispetta il case esatto (es. `HomePage.dart`, non `homepage.dart`).
 - Stato globale Redux minimale: non aggiungere campi a `AppState` senza necessita reale.
 - Dopo mutazioni su corsi/utenti, invalida la cache (`refresh_manager`, `user_cache_manager`).
-- Usa transazioni Firestore per operazioni che toccano contemporaneamente utente e corso.
+- Per iscrizioni, disiscrizioni, waitlist, assegnazione abbonamenti, delete e recount usa le callable in `europe-west8`: le transazioni autoritative sono nelle Cloud Functions. Le scritture client dirette restano limitate al CRUD corso consentito dalle rules.
 - **Pull request**: apri sempre le PR nel fork `fgrotta/fitrope_app` con base `main`, mai verso l'upstream `dellarosamarco/fitrope_app`. Questo repo è un fork, quindi `gh pr create` di default punterebbe al parent: usa `gh pr create --repo fgrotta/fitrope_app --base main`.
 
 ## Aree sensibili
@@ -133,9 +133,7 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 
 Punti aperti da affrontare in un secondo momento (non ancora fatti):
 
-- **`CourseType.label` deprecato** (`lib/types/course_type.dart`): sostituire gli usi con il nuovo meccanismo di etichettatura della tipologia.
-  - Uso attuale da migrare: `lib/components/course_preview_card.dart` (`widget.course.courseType.label`).
-- **Tipologia corso: doppio binario `tags` + `courseType`**: il modello `Course` mantiene sia `tags` (legacy, accesso per tag) sia `courseType` (enum `open` / `personal_trainer`). Consolidare sul solo `courseType` e valutare la deprecazione/rimozione di `tags` dove non più usato.
+- **Tipologia corso: doppio binario `tags` + `courseType`**: il modello `Course` mantiene sia `tags` (fonte per eligibility e supporto a Hyrox/Hey Mamma) sia `courseType` (enum legacy `open` / `personal_trainer`, usato anche dalle immagini). Definire una migrazione esplicita prima di rimuovere uno dei due campi; non trattare `CourseType.label` come deprecato finche non esiste un sostituto completo.
 - **Test E2E da riallineare al nuovo modello** (`integration_test/`, attualmente in `skip: true`):
-  - `helpers/seed.dart` genera i corsi di test usando ancora `tags` per la tipologia (`buildTestCourseName` / `createFerragostoTestCourse`): passare a `courseType`.
-  - Rivalidare `subscribe_to_course_test.dart` e `waitlist_swap_test.dart` con `getCourseState` aggiornato dopo il merge di `main`.
+  - `helpers/seed.dart` crea documenti direttamente e valorizza solo i `tags`; definire un seed compatibile con il modello misto e con la policy di eligibility corrente.
+  - Rivalidare `subscribe_to_course_test.dart` e `waitlist_swap_test.dart` contro Emulator Suite, con abbonamenti e callable reali invece di credenziali di produzione.

@@ -60,6 +60,11 @@ export async function assignSubscriptionHandler(
   const newRef = subColl.doc();
 
   await db.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "Utente inesistente");
+    }
+
     const existing = await tx.get(subColl.where("userId", "==", userId));
     const records = existing.docs.map((d) => recordFromDoc(d.id, d.data()));
     const active = computeActiveSnapshot(records, Date.now());

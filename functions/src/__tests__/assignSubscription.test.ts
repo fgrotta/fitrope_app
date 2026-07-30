@@ -6,12 +6,16 @@ const ADMIN_UID = "admin-uid";
 interface FakeOpts {
   callerRole?: string | null; // ruolo del chiamante (ADMIN_UID); undefined = doc inesistente
   existingSubs?: Array<Record<string, unknown>>; // doc esistenti in `subscriptions`
+  targetUserExists?: boolean;
 }
 
 function makeFakeDb(opts: FakeOpts) {
   const users: Record<string, Record<string, unknown>> = {};
   if (opts.callerRole !== undefined && opts.callerRole !== null) {
     users[ADMIN_UID] = { role: opts.callerRole };
+  }
+  if (opts.targetUserExists !== false) {
+    users.u1 = { uid: "u1", role: "User" };
   }
   const subs: Record<string, Record<string, unknown>> = {};
   (opts.existingSubs ?? []).forEach((s, i) => (subs[`existing-${i}`] = s));
@@ -53,6 +57,12 @@ function makeFakeDb(opts: FakeOpts) {
     runTransaction: async (fn: (tx: unknown) => Promise<void>) => {
       const tx = {
         get: async (q: any) => {
+          if (q._kind === "userDoc") {
+            return {
+              exists: users[q._id] !== undefined,
+              data: () => users[q._id],
+            };
+          }
           if (q._kind === "subQuery") {
             const docs = Object.entries(subs)
               .filter(([, v]) => v.userId === q._userId)
@@ -123,6 +133,22 @@ describe("assignSubscriptionHandler", () => {
       assignSubscriptionHandler({ auth, data: { userId: "u1", planKey: "inesistente" } }, db),
       "invalid-argument"
     );
+  });
+
+  test("utente target inesistente -> not-found senza scritture", async () => {
+    const { db, writes } = makeFakeDb({
+      callerRole: "Admin",
+      targetUserExists: false,
+    });
+    await expectCode(
+      assignSubscriptionHandler(
+        { auth, data: { userId: "u1", planKey: "open_2x_1m" } },
+        db
+      ),
+      "not-found"
+    );
+    expect(writes.subs).toEqual({});
+    expect(writes.users).toEqual({});
   });
 
   test("famiglia già attiva -> already-exists", async () => {

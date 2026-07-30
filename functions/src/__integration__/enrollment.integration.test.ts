@@ -39,6 +39,7 @@ async function createUser(
     lastName: "Test",
     role: "User",
     courses: [],
+    fineIscrizione: Timestamp.fromMillis(Date.now() + 365 * 86400 * 1000),
     tipologiaCorsoTags: ["Open"],
     emailNotificationsEnabled: false,
     pushNotificationsEnabled: false,

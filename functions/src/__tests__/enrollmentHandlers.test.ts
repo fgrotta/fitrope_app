@@ -42,6 +42,7 @@ function packUser(over: Data = {}): Data {
     courses: [],
     tipologiaIscrizione: "PACCHETTO_ENTRATE",
     entrateDisponibili: 5,
+    fineIscrizione: Timestamp.fromMillis(Date.UTC(2026, 11, 31)),
     tipologiaCorsoTags: ["Open"],
     ...over,
   };
@@ -1090,6 +1091,73 @@ describe("joinWaitlistHandler", () => {
       joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
       "failed-precondition"
     );
+  });
+
+  test("rifiuta chi non ha accesso al corso", async () => {
+    const db = makeDb({
+      users: { u1: packUser() },
+      courses: { c1: course({ subscribed: 10, tags: ["Hyrox"] }) },
+      subs: {},
+    });
+    await expectCode(
+      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
+      "permission-denied"
+    );
+  });
+
+  test("rifiuta chi non ha ingressi residui o ha abbonamento scaduto", async () => {
+    const noEntries = makeDb({
+      users: { u1: packUser({ entrateDisponibili: 0 }) },
+      courses: { c1: course({ subscribed: 10 }) },
+      subs: {},
+    });
+    await expectCode(
+      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, noEntries, NOW),
+      "failed-precondition"
+    );
+
+    const expired = makeDb({
+      users: { u1: packUser({ fineIscrizione: null }) },
+      courses: { c1: course({ subscribed: 10 }) },
+      subs: {},
+    });
+    await expectCode(
+      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, expired, NOW),
+      "failed-precondition"
+    );
+  });
+
+  test("rifiuta chi ha raggiunto il limite settimanale", async () => {
+    const db = makeDb({
+      users: { u1: tempUser({ entrateSettimanali: 1, courses: ["c2"] }) },
+      courses: {
+        c1: course({ subscribed: 10 }),
+        c2: course({ uid: "c2", subscribed: 1 }),
+      },
+      subs: {},
+    });
+    await expectCode(
+      joinWaitlistHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, NOW),
+      "failed-precondition"
+    );
+  });
+
+  test("Admin e Trainer non possono auto-aggiungersi alla waitlist", async () => {
+    for (const role of ["Admin", "Trainer"]) {
+      const db = makeDb({
+        users: { boss: packUser({ uid: "boss", role }) },
+        courses: { c1: course({ subscribed: 10 }) },
+        subs: {},
+      });
+      await expectCode(
+        joinWaitlistHandler(
+          { ...auth("boss"), data: { courseId: "c1", userId: "boss" } },
+          db,
+          NOW
+        ),
+        "permission-denied"
+      );
+    }
   });
 
   test("happy path: aggiunge a waitlist corso + waitlistCourses utente", async () => {

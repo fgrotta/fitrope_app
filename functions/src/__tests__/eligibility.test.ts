@@ -46,7 +46,7 @@ function input(over: Partial<SubscribeInput> = {}): SubscribeInput {
     tipologia: null,
     entrateDisponibili: null,
     entrateSettimanali: null,
-    fineIscrizioneMillis: null,
+    fineIscrizioneMillis: Date.UTC(2026, 11, 31),
     weeklyUsed: 0,
     ...over,
   };
@@ -196,6 +196,13 @@ describe("evaluateSubscribe — legacy (snapshot vuoto)", () => {
         entrateSettimanali: 3,
         fineIscrizioneMillis: COURSE_AT - 1000,
       })
+    );
+    expect(d.reason).toBe("EXPIRED");
+  });
+
+  test("fineIscrizione assente → EXPIRED", () => {
+    const d = evaluateSubscribe(
+      input({ tipologia: "PACCHETTO_ENTRATE", entrateDisponibili: 1, fineIscrizioneMillis: null })
     );
     expect(d.reason).toBe("EXPIRED");
   });

@@ -740,6 +740,21 @@ export async function joinWaitlistHandler(
   const courseId = requireString(data.courseId, "courseId");
   const targetUserId = requireString(data.userId, "userId");
 
+  // Stessa pre-lettura del subscribe: il catalogo serve esclusivamente al
+  // calcolo dei limiti settimanali; stato utente e corso restano transazionali.
+  const coursePreSnap = await db
+    .collection("courses")
+    .where("uid", "==", courseId)
+    .limit(1)
+    .get();
+  if (coursePreSnap.empty) {
+    throw new HttpsError("not-found", "Corso " + courseId + " inesistente");
+  }
+  const weekCatalog = await fetchWeekCatalog(
+    db,
+    toMillis(coursePreSnap.docs[0].data().startDate)
+  );
+
   await db.runTransaction(async (tx) => {
     const course = await getCourseDoc(tx, db, courseId);
     const userRef = db.collection("users").doc(targetUserId);
@@ -747,41 +762,118 @@ export async function joinWaitlistHandler(
     if (!userTxSnap.exists) throw new HttpsError("not-found", "Utente inesistente");
     const user = userTxSnap.data() as FsData;
 
-    if (targetUserId !== actor) {
-      const actorRole = await getRole(tx, db, actor);
-      if (actorRole === null || !ADMIN_ROLES.has(actorRole)) {
-        throw new HttpsError("permission-denied", "Non puoi gestire la waitlist di un altro utente");
-      }
+    const actorTxSnap =
+      targetUserId === actor
+        ? userTxSnap
+        : await tx.get(db.collection("users").doc(actor));
+    const actorRole = actorTxSnap.exists
+      ? ((actorTxSnap.data() as FsData)?.role as string | null) ?? null
+      : null;
+    const isPrivileged = actorRole !== null && ADMIN_ROLES.has(actorRole);
+    if (targetUserId === actor && isPrivileged) {
+      throw new HttpsError("permission-denied", "Admin e Trainer non possono iscriversi alla lista di attesa");
+    }
+    if (targetUserId !== actor && !isPrivileged) {
+      throw new HttpsError("permission-denied", "Non puoi gestire la waitlist di un altro utente");
     }
 
-    // Mirror di getCourseState: con waitlist disabilitata lo stato è FULL,
-    // mai CAN_WAITLIST → il server non accetta iscrizioni in lista.
     if (course.data.waitlistEnabled === false) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Lista d'attesa non disponibile per questo corso"
-      );
-    }
-    // Corso già iniziato → CLOSED (simmetrico a subscribeToCourse).
-    if (toMillis(course.data.startDate) <= nowMillis) {
-      throw new HttpsError("failed-precondition", "Il corso è già iniziato");
+      throw new HttpsError("failed-precondition", "Lista di attesa non disponibile per questo corso");
     }
 
-    const subscribed = (course.data.subscribed as number) ?? 0;
-    const capacity = (course.data.capacity as number) ?? 0;
-    if (subscribed < capacity) {
-      throw new HttpsError("failed-precondition", "Il corso non è pieno: iscriviti direttamente");
+    const courseStartMillis = toMillis(course.data.startDate);
+    if (courseStartMillis <= nowMillis) {
+      throw new HttpsError("failed-precondition", "Il corso e gia iniziato");
+    }
+    if (courseStartMillis < weekCatalog.weekStart || courseStartMillis > weekCatalog.weekEnd) {
+      throw new HttpsError("aborted", "Il corso e stato riprogrammato: riprova l iscrizione");
     }
 
     const waitlist: string[] = Array.isArray(course.data.waitlist)
       ? (course.data.waitlist as string[])
       : [];
     if (waitlist.includes(targetUserId)) {
-      throw new HttpsError("already-exists", "Sei già in lista d'attesa");
+      throw new HttpsError("already-exists", "Sei gia in lista di attesa");
     }
-    const courses: string[] = Array.isArray(user.courses) ? (user.courses as string[]) : [];
-    if (courses.includes(courseId)) {
-      throw new HttpsError("already-exists", "Sei già iscritto a questo corso");
+    const userCourses: string[] = Array.isArray(user.courses) ? (user.courses as string[]) : [];
+    if (userCourses.includes(courseId)) {
+      throw new HttpsError("already-exists", "Sei gia iscritto a questo corso");
+    }
+
+    const courseTags = Array.isArray(course.data.tags) ? (course.data.tags as string[]) : [];
+    const coursePrimaryTag = primaryTypeTagForTags(courseTags);
+    const records = snapshotRecords(user);
+    const liveRecords = records.filter((r) => r.endDateMillis >= nowMillis);
+    const cancelledRaw: FsData[] = Array.isArray(user.cancelledEnrollments)
+      ? (user.cancelledEnrollments as FsData[])
+      : [];
+
+    let weeklyUsed = 0;
+    if (liveRecords.length > 0) {
+      const valid = validAtDate(
+        coveringSubsByType(liveRecords, coursePrimaryTag),
+        courseStartMillis
+      );
+      const freqSub = valid.find(
+        (s) => s.billingMode === "FREQUENCY" && s.weeklyFrequency !== null
+      );
+      if (freqSub) {
+        const tags = new Set<string>();
+        valid
+          .filter((s) => s.billingMode === "FREQUENCY")
+          .forEach((s) => s.courseTypeTags.forEach((t) => tags.add(t)));
+        weeklyUsed = weeklyUsedFromCatalog(
+          weekCatalog,
+          courseStartMillis,
+          userCourses,
+          cancelledRaw,
+          tags
+        );
+      }
+    } else {
+      const tip = (user.tipologiaIscrizione as string | null) ?? null;
+      const temporal =
+        tip !== null && tip.startsWith("ABBONAMENTO_") && tip !== "ABBONAMENTO_PROVA";
+      if (temporal && user.entrateSettimanali != null) {
+        weeklyUsed = weeklyUsedFromCatalog(
+          weekCatalog,
+          courseStartMillis,
+          userCourses,
+          cancelledRaw,
+          null
+        );
+      }
+    }
+
+    // Il corso pieno e il prerequisito della waitlist; validiamo qui la sola
+    // idoneita, senza consumare crediti e senza trattare FULL come errore.
+    const decision = evaluateSubscribe({
+      force: false,
+      alreadySubscribed: false,
+      courseFull: false,
+      userTags: Array.isArray(user.tipologiaCorsoTags)
+        ? (user.tipologiaCorsoTags as string[])
+        : [],
+      courseTags,
+      coursePrimaryTag,
+      courseStartMillis,
+      nowMillis,
+      activeSubscriptions: records,
+      tipologia: (user.tipologiaIscrizione as string | null) ?? null,
+      entrateDisponibili: (user.entrateDisponibili as number | null) ?? null,
+      entrateSettimanali: (user.entrateSettimanali as number | null) ?? null,
+      fineIscrizioneMillis: user.fineIscrizione ? toMillis(user.fineIscrizione) : null,
+      weeklyUsed,
+    });
+    if (!decision.allowed) {
+      const error = REASON_TO_HTTP[decision.reason as Exclude<SubscribeReason, "OK">];
+      throw new HttpsError(error.code, error.msg);
+    }
+
+    const subscribed = (course.data.subscribed as number) ?? 0;
+    const capacity = (course.data.capacity as number) ?? 0;
+    if (subscribed < capacity) {
+      throw new HttpsError("failed-precondition", "Il corso non e pieno: iscriviti direttamente");
     }
 
     const waitlistCourses: string[] = Array.isArray(user.waitlistCourses)

@@ -367,7 +367,7 @@ class _CourseCardState extends State<CourseCard> {
                       onPressed: () => _showAddSubscriberDialog(context),
                       tooltip: 'Aggiungi iscritto',
                     ),
-                  if (_hasEnrollmentMismatch())
+                  if (widget.userRole == 'Admin' && _hasEnrollmentMismatch())
                     IconButton(
                       icon: const Icon(Icons.sync_problem,
                           color: Colors.red, size: 20),

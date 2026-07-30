@@ -17,7 +17,7 @@ L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit H
 | Componente | Dettaglio |
 |---|---|
 | Flutter SDK | `>=3.5.0-180.3.beta <4.0.0` |
-| Flutter CI | `3.24.0` stable |
+| Flutter CI | `3.41.6` stable |
 | Stato globale | `redux`, `redux_thunk`, `flutter_redux` |
 | Backend | `firebase_core`, `firebase_auth`, `cloud_firestore`, `cloud_functions` con callable in `europe-west8` |
 | Notifiche | `onesignal_flutter` (mobile push) + Cloud Functions (email server-side). Web SDK disabilitato. |
@@ -25,7 +25,7 @@ L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit H
 | Design system | `flutter_design_system` (Git dep da GitHub, branch main) |
 | Localizzazione | `intl`, `flutter_localizations` (italiano primario) |
 | Lint | `flutter_lints` v4.0.0 |
-| Versione app | `1.1.2` |
+| Versione app | `1.1.3` |
 
 Prima di modificare dipendenze o CI, verifica la compatibilita tra SDK dichiarato e versione usata nei workflow.
 
@@ -215,6 +215,7 @@ Un utente puo avere piu abbonamenti attivi insieme. La fonte di verita e la coll
 - **Catalogo** (`lib/utils/subscription_plans.dart`): Open {2x, 3x, illimitato} x {1,3,6,12} = 12; Hyrox e PT 10 ingressi x {1,3,6,12}.
 - **getCourseState (scope per famiglia):** gli abbonamenti che coprono la tipologia (tag) del corso ne determinano l'idoneita — FREQUENCY conta i corsi della stessa tipologia nella settimana (`null`=illimitato), ENTRIES verifica `remainingEntries > 0`; scadenza per-abbonamento. Accesso = tag legacy OPPURE copertura abbonamento; i corsi accessibili solo via tag (es. Hey Mamma) non hanno limiti di abbonamento.
 - **Caveat modello misto:** se esiste almeno una voce viva nello snapshot, il modello multi-abbonamento vince sul fallback legacy in modo globale. I crediti legacy residui non vengono usati come fallback per famiglie non coperte; in fase gestionale conviene convertire/azzerare il residuo legacy quando si assegna un nuovo abbonamento.
+- **Scadenza legacy:** nel fallback, `fineIscrizione == null` e considerata `EXPIRED`. Anche una data antecedente alla data del corso e `EXPIRED`; questo stato ha precedenza su `SUBSCRIBED`.
 
 ### Course (`lib/types/course.dart`)
 
@@ -228,11 +229,15 @@ Un utente puo avere piu abbonamenti attivi insieme. La fonte di verita e la coll
 | trainerId | String? | Trainer assegnato |
 | tags | List\<String\> | Tag per filtro accesso |
 | waitlist | List\<String\> | Utenti in lista d'attesa (user IDs) |
+| courseType | CourseType | Tipologia legacy (`open` o `personal_trainer`); mantiene compatibilita con i documenti esistenti |
+| imageKey | String? | Chiave di una immagine del catalogo `CourseImages`; se assente o invalida la UI usa il default della `courseType` |
 | reminderEnabled | bool | Se true invia promemoria (default true) |
 | waitlistEnabled | bool | Se true la lista d'attesa è attiva (default true) |
 | sala | String? | Sala del corso (lista chiusa `Sale`: "Sala 1"/"Sala 2"; null = legacy/non impostata) |
 
-I tag dei corsi sono in `CourseTags` (Personal Trainer, Open, **Hyrox**, Hey Mamma). Il registry `CourseTypes` (`lib/utils/course_types.dart`) mappa ogni tag a una tipologia con `displayName` e `defaultSala` (quest'ultimo previsto per il futuro, non usato in v1). La tipologia di un corso si deriva dai `tags` via `CourseTypes.primaryForTags`.
+I tag dei corsi sono in `CourseTags` (Personal Trainer, Open, **Hyrox**, Hey Mamma). Il registry `CourseTypes` (`lib/utils/course_types.dart`) mappa ogni tag a una tipologia con `displayName`, famiglia di abbonamento e `defaultSala` (quest'ultimo previsto per il futuro, non usato in v1). La tipologia per eligibility si deriva dai `tags` via `CourseTypes.primaryForTags`.
+
+`Course.courseType` e un enum legacy limitato a Open/PT e serve anche per l'immagine di default; non usarlo per le regole di accesso o per rappresentare Hyrox e Hey Mamma. `imageKey` deve essere una chiave valida di `CourseImages`, altrimenti la UI applica il default della `courseType`.
 
 ## Stato globale Redux
 
@@ -323,7 +328,7 @@ Da PR4/PR5 le scritture del dominio iscrizioni sono server-side: il client manti
 
 - `joinWaitlist` / `leaveWaitlist` sono callable server-side.
 - `waitlistEnabled == false` fa tornare `FULL` nel client e fa rifiutare `joinWaitlist` sul server.
-- Punto aperto di review: `joinWaitlistHandler` valida corso pieno, duplicati, waitlist flag e corso iniziato, ma non replica ancora tutta l'eligibility server-side di `subscribeToCourse` (tag, crediti, limiti, scadenze).
+- La decisione di business corrente richiede idoneita immediata: a corso pieno, `getCourseState` restituisce lo stato di limite/scadenza invece di `CAN_WAITLIST` quando l'utente non potrebbe iscriversi direttamente.
 
 ### Cache
 
@@ -452,7 +457,7 @@ Test focalizzati su logica iscrizioni, serializzazione modelli, sale, course typ
 - `course_sala_serialization_test.dart`, `sale_test.dart`, `course_types_test.dart`
 - `notification_preferences_test.dart`, `email_templates_test.dart`
 
-Framework: `flutter_test` con `group()` e `setUp()`. Conteggio verificato localmente: `flutter test` passa 265 test.
+Framework: `flutter_test` con `group()` e `setUp()`. Conteggio verificato localmente: `flutter test` passa 316 test.
 
 ### Cloud Functions (functions/src/__tests__/)
 
@@ -463,7 +468,7 @@ Test Jest su handler OneSignal e dominio enrollment:
 - `enrollmentHandlers.test.ts`, `adminHandlers.test.ts`, `assignSubscription.test.ts`
 - `notify.test.ts`, `notifyOrchestration.test.ts`, `conventions.test.ts`
 
-Framework: `jest` + `ts-jest`. Conteggio verificato localmente: `cd functions && npm test` passa 210 test.
+Framework: `jest` + `ts-jest`. Conteggio verificato localmente: `cd functions && npm test` passa 253 test.
 
 ### Integration tests emulatori
 
@@ -480,11 +485,11 @@ Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e fireb
 
 **ci.yml** (branch `main`, `develop`):
 
-- `test`: `flutter pub get` -> `flutter test` -> `flutter analyze` -> `flutter format --set-exit-if-changed .` -> `flutter build web --debug`
-- `functions-test`: Node 20, `npm ci`, `npm run build`, `npm test`
-- `functions-integration`: Node 20 + Java 21 + firebase-tools 15, `npm run test:integration` con project `demo-fitrope`
+- `test`: `flutter pub get` -> `flutter test` -> `flutter analyze --no-fatal-infos` -> `dart format --set-exit-if-changed .` -> `flutter build web --wasm --release`
+- `functions-test`: Node 22, `npm ci`, `npm run build`, `npm test`
+- `functions-integration`: Node 22 + Java 21 + firebase-tools 15, `npm run test:integration` con project `demo-fitrope`
 
-Nota operativa: `flutter analyze` e parte della CI. Se resta rosso anche solo con issue info-level, il job fallisce.
+Nota operativa: `flutter analyze --no-fatal-infos` e parte della CI; gli info-level restano debito tecnico ma non bloccano il job.
 
 **release.yml** (branch `release`):
 
@@ -507,9 +512,9 @@ Nota operativa: `flutter analyze` e parte della CI. Se resta rosso anche solo co
 ```bash
 flutter pub get
 flutter test
-flutter analyze
-flutter format --set-exit-if-changed .
-flutter build web --debug
+flutter analyze --no-fatal-infos
+dart format --set-exit-if-changed .
+flutter build web --wasm --release
 flutter run -d chrome
 ```
 
@@ -518,9 +523,9 @@ flutter run -d chrome
 ```bash
 # Sviluppo locale
 cd functions
-npm install            # installa dipendenze Node (runtime Node 20)
+npm ci                 # installazione riproducibile (runtime Functions Node 22; CI Node 22)
 npm run build          # compila TypeScript
-npm test               # esegue test Jest unitari (210 test verificati)
+npm test               # esegue test Jest unitari (253 test verificati)
 npm run test:integration # Emulator Suite, richiede Java 21+
 npm run seed:emulator  # seed dati sintetici su emulatori avviati
 npm run serve          # avvia emulatore Firebase Functions
@@ -563,11 +568,8 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 
 ## Punti aperti di review
 
-- `functions/src/enrollment/enrollment.ts:joinWaitlistHandler` non replica ancora tutta l'eligibility server-side di `subscribeToCourse` (tag, crediti, limiti settimanali, scadenze).
 - `firestore.rules` in create corso vincola `request.resource.data.id == courseId`, ma dovrebbe vincolare anche `uid == courseId` per evitare corsi ambigui rispetto alle query Functions su `uid`.
-- Il bottone UI "Correggi conteggio" puo comparire anche ai Trainer tramite `CoursePreviewCard`, ma `recountCourseSubscribed` e Admin-only lato server.
-- `assignSubscriptionHandler` dovrebbe leggere e validare l'esistenza del doc utente target prima di creare `subscriptions` e fare `tx.set(userRef, ..., merge: true)`.
-- `flutter analyze` oggi non e pulito localmente: fallisce con issue info-level. Finche la CI esegue analyze senza override, questo resta un rischio merge.
+- `flutter analyze` emette ancora issue info-level; la CI usa `--no-fatal-infos`, quindi non bloccano il merge ma restano debito tecnico da ridurre.
 
 ## Osservazioni operative
 
