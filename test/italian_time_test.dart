@@ -18,7 +18,8 @@ void main() {
       expect(rome.hour, 13); // 12:00 UTC -> 13:00 a Roma
     });
 
-    test('cambio giorno: un istante serale UTC resta lo stesso giorno a Roma', () {
+    test('cambio giorno: un istante serale UTC resta lo stesso giorno a Roma',
+        () {
       // 1 lug 23:30 a Roma = 21:30 UTC; un device a Tokyo (UTC+9) vedrebbe il 2.
       final rome = toItalianTime(DateTime.utc(2026, 7, 1, 21, 30));
       expect(rome.day, 1);
@@ -46,11 +47,14 @@ void main() {
       expect(back.day, 1);
     });
 
-    test('la differenza assoluta (soglia disiscrizione) è indipendente dal fuso', () {
+    test(
+        'la differenza assoluta (soglia disiscrizione) è indipendente dal fuso',
+        () {
       // Inizio corso 19:00 italiane, "ora" 14:00 italiane dello stesso giorno.
       final start = italianTimestamp(DateTime(2026, 7, 1, 19, 0)).toDate();
       final now = italianTimestamp(DateTime(2026, 7, 1, 14, 0)).toDate();
-      expect(start.difference(now).inHours, 5); // sempre 5h, qualunque sia il device
+      expect(start.difference(now).inHours,
+          5); // sempre 5h, qualunque sia il device
     });
   });
 }

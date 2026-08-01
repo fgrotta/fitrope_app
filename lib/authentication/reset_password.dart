@@ -6,4 +6,4 @@ Future<void> resetPassword(String email) async {
   } catch (e) {
     rethrow;
   }
-} 
+}

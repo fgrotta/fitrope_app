@@ -20,7 +20,8 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
     }
   }
 
-  CollectionReference collectionRef = FirebaseFirestore.instance.collection('courses');
+  CollectionReference collectionRef =
+      FirebaseFirestore.instance.collection('courses');
   // Filtra i corsi con startDate successiva a 45 giorni fa
   QuerySnapshot querySnapshot = await collectionRef
       .where('startDate', isGreaterThan: cutoffTimestamp)
@@ -29,7 +30,7 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
   List<Course> courses = [];
 
   for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-    if((doc.data() as Map<String, dynamic>)['id'] != null) {
+    if ((doc.data() as Map<String, dynamic>)['id'] != null) {
       Course course = Course.fromJson(doc.data() as Map<String, dynamic>);
       courses.add(course);
     }

@@ -7,10 +7,12 @@ String _testPrefix(String text) => kDebugMode ? 'TEST - $text' : text;
 
 /// Helper per inviare una richiesta a OneSignal tramite Cloud Function.
 /// La function tiene la REST API key server-side e gestisce CORS automaticamente.
-Future<void> _sendOneSignalRequest(String label, Map<String, dynamic> body) async {
+Future<void> _sendOneSignalRequest(
+    String label, Map<String, dynamic> body) async {
   final logBody = Map<String, dynamic>.from(body);
   logBody.remove('email_body');
-  debugPrint('🔔 [OneSignal API] $label — REQUEST body: ${jsonEncode(logBody)}');
+  debugPrint(
+      '🔔 [OneSignal API] $label — REQUEST body: ${jsonEncode(logBody)}');
 
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
@@ -28,7 +30,8 @@ Future<void> _sendOneSignalRequest(String label, Map<String, dynamic> body) asyn
 /// Va chiamata al login così le email possono essere inviate via
 /// `include_aliases.external_id` senza dipendere dal Web SDK.
 Future<void> ensureOneSignalUser(String externalId, String email) async {
-  debugPrint('🔔 [OneSignal API] ensureUser — externalId: $externalId, email: $email');
+  debugPrint(
+      '🔔 [OneSignal API] ensureUser — externalId: $externalId, email: $email');
 
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
@@ -58,7 +61,8 @@ Future<void> removeOneSignalEmail(String email) async {
     });
     debugPrint('🔔 [OneSignal API] removeEmail — RESPONSE: ${result.data}');
   } on FirebaseFunctionsException catch (e) {
-    debugPrint('🔔 [OneSignal API] removeEmail — ERROR ${e.code}: ${e.message}');
+    debugPrint(
+        '🔔 [OneSignal API] removeEmail — ERROR ${e.code}: ${e.message}');
   } catch (e) {
     debugPrint('🔔 [OneSignal API] removeEmail — ERROR: $e');
   }
@@ -81,7 +85,9 @@ Future<void> sendTestWaitlistEmail({
 }) {
   assert(kDebugMode);
   return _sendOneSignalRequest('Waitlist Email [TEST]', {
-    'include_aliases': {'external_id': [userId]},
+    'include_aliases': {
+      'external_id': [userId]
+    },
     'target_channel': 'email',
     'email_subject': _testPrefix(waitlistSpotAvailableSubject(courseName)),
     'email_body': waitlistSpotAvailableBody(
@@ -101,7 +107,9 @@ Future<void> sendTestTrialReminderEmail({
 }) {
   assert(kDebugMode);
   return _sendOneSignalRequest('Trial Email Reminder [TEST]', {
-    'include_aliases': {'external_id': [userId]},
+    'include_aliases': {
+      'external_id': [userId]
+    },
     'target_channel': 'email',
     'email_subject': _testPrefix(trialReminderSubject(courseName)),
     'email_body': trialReminderBody(
@@ -124,7 +132,8 @@ Future<void> sendTestCertificateExpiryEmail({
 }) async {
   assert(kDebugMode);
   final kind = isExpiryDay ? 'expiryToday' : 'reminder10';
-  debugPrint('🔔 [OneSignal API] Certificate Email [TEST] — userId: $userId, kind: $kind');
+  debugPrint(
+      '🔔 [OneSignal API] Certificate Email [TEST] — userId: $userId, kind: $kind');
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
         .httpsCallable('sendTestCertificateEmail');
@@ -134,9 +143,11 @@ Future<void> sendTestCertificateExpiryEmail({
       'email': email,
       'kind': kind,
     });
-    debugPrint('🔔 [OneSignal API] Certificate Email [TEST] — RESPONSE: ${result.data}');
+    debugPrint(
+        '🔔 [OneSignal API] Certificate Email [TEST] — RESPONSE: ${result.data}');
   } on FirebaseFunctionsException catch (e) {
-    debugPrint('🔔 [OneSignal API] Certificate Email [TEST] — ERROR ${e.code}: ${e.message}');
+    debugPrint(
+        '🔔 [OneSignal API] Certificate Email [TEST] — ERROR ${e.code}: ${e.message}');
     rethrow;
   } catch (e) {
     debugPrint('🔔 [OneSignal API] Certificate Email [TEST] — ERROR: $e');

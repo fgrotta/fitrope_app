@@ -1146,28 +1146,26 @@ class _UserDetailPageState extends State<UserDetailPage> {
                         );
                         // Torna indietro con utente aggiornato
                         final updatedUser = FitropeUser(
-                            uid: widget.user.uid,
-                            email: widget.user.email,
-                            name: widget.user.name,
-                            lastName: widget.user.lastName,
-                            role: widget.user.role,
-                            courses: widget.user.courses,
-                            tipologiaIscrizione:
-                                widget.user.tipologiaIscrizione,
-                            entrateDisponibili: widget.user.entrateDisponibili,
-                            entrateSettimanali: widget.user.entrateSettimanali,
-                            fineIscrizione: widget.user.fineIscrizione,
-                            isActive: widget.user.isActive,
-                            isAnonymous: widget.user.isAnonymous,
-                            createdAt: widget.user.createdAt,
-                            certificatoScadenza:
-                                widget.user.certificatoScadenza,
-                            numeroTelefono: widget.user.numeroTelefono,
-                            tipologiaCorsoTags: widget.user.tipologiaCorsoTags,
-                            cancelledEnrollments:
-                                widget.user.cancelledEnrollments,
-                            regolamentoAccettatoIl: Timestamp.now(),
-                          );
+                          uid: widget.user.uid,
+                          email: widget.user.email,
+                          name: widget.user.name,
+                          lastName: widget.user.lastName,
+                          role: widget.user.role,
+                          courses: widget.user.courses,
+                          tipologiaIscrizione: widget.user.tipologiaIscrizione,
+                          entrateDisponibili: widget.user.entrateDisponibili,
+                          entrateSettimanali: widget.user.entrateSettimanali,
+                          fineIscrizione: widget.user.fineIscrizione,
+                          isActive: widget.user.isActive,
+                          isAnonymous: widget.user.isAnonymous,
+                          createdAt: widget.user.createdAt,
+                          certificatoScadenza: widget.user.certificatoScadenza,
+                          numeroTelefono: widget.user.numeroTelefono,
+                          tipologiaCorsoTags: widget.user.tipologiaCorsoTags,
+                          cancelledEnrollments:
+                              widget.user.cancelledEnrollments,
+                          regolamentoAccettatoIl: Timestamp.now(),
+                        );
                         Navigator.pop(context, updatedUser);
                       },
                       icon: const Icon(Icons.check_circle, color: Colors.white),

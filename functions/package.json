@@ -7,7 +7,7 @@
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
-    "deploy": "firebase deploy --only functions",
+    "deploy": "cd .. && firebase deploy --project prod --only functions",
     "logs": "firebase functions:log",
     "test": "jest",
     "test:integration": "npm run build && cd .. && firebase emulators:exec --only auth,firestore,functions --project demo-fitrope \"cd functions && npx jest -c jest.integration.config.js\"",

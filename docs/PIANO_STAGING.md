@@ -102,9 +102,9 @@ Ordine dei job:
 3. test integrazione Emulator;
 4. autenticazione Google via OIDC e Workload Identity Federation;
 5. deploy Functions staging;
-6. deploy GitHub Pages;
-7. deploy Firestore Rules staging per ultime;
-8. seed idempotente di utenti e dati sintetici staging;
+6. seed idempotente di utenti e dati sintetici staging;
+7. deploy GitHub Pages;
+8. deploy Firestore Rules staging per ultime;
 9. smoke test sito e callable staging.
 
 Il deploy dipende da tutti i job test. Aggiungere `concurrency` per annullare deploy staging obsoleti.
@@ -116,8 +116,9 @@ Usare `actions/upload-pages-artifact` e `actions/deploy-pages`. Il workflow `rel
 ## Ordine deploy
 
 1. Functions staging.
-2. Web staging GitHub Pages.
-3. Firestore Rules staging.
+2. Seed dati sintetici staging.
+3. Web staging GitHub Pages.
+4. Firestore Rules staging.
 
 ## Seed e smoke test
 

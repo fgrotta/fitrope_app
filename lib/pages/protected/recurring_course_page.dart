@@ -172,23 +172,22 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
 
     if (!mounted || picked == null) return;
     setState(() {
-        startDate = DateTime(
-            picked.year,
-            picked.month,
-            picked.day,
-            startDate?.hour ?? defaultTimeOfDay.hour,
-            startDate?.minute ?? defaultTimeOfDay.minute);
-        // Se la fine programmazione è precedente al nuovo inizio, spostala
-        // avanti (inizio + 30 giorni, limitata al massimo consentito): evita
-        // lo stato incoerente che mandava in crash il picker di fine.
-        final startDay = DateTime(picked.year, picked.month, picked.day);
-        final maxDay =
-            DateUtils.dateOnly(DateTime.now().add(const Duration(days: 150)));
-        if (endDate == null ||
-            DateUtils.dateOnly(endDate!).isBefore(startDay)) {
-          final shifted = startDay.add(const Duration(days: 30));
-          endDate = shifted.isAfter(maxDay) ? maxDay : shifted;
-        }
+      startDate = DateTime(
+          picked.year,
+          picked.month,
+          picked.day,
+          startDate?.hour ?? defaultTimeOfDay.hour,
+          startDate?.minute ?? defaultTimeOfDay.minute);
+      // Se la fine programmazione è precedente al nuovo inizio, spostala
+      // avanti (inizio + 30 giorni, limitata al massimo consentito): evita
+      // lo stato incoerente che mandava in crash il picker di fine.
+      final startDay = DateTime(picked.year, picked.month, picked.day);
+      final maxDay =
+          DateUtils.dateOnly(DateTime.now().add(const Duration(days: 150)));
+      if (endDate == null || DateUtils.dateOnly(endDate!).isBefore(startDay)) {
+        final shifted = startDay.add(const Duration(days: 30));
+        endDate = shifted.isAfter(maxDay) ? maxDay : shifted;
+      }
     });
   }
 
@@ -216,7 +215,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
 
     if (!mounted || picked == null) return;
     setState(() {
-        endDate = DateTime(picked.year, picked.month, picked.day);
+      endDate = DateTime(picked.year, picked.month, picked.day);
     });
   }
 
@@ -236,12 +235,12 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
 
     if (!mounted || pickedTime == null) return;
     setState(() {
-        startDate = DateTime(
-            startDate?.year ?? DateTime.now().year,
-            startDate?.month ?? DateTime.now().month,
-            startDate?.day ?? DateTime.now().day,
-            pickedTime.hour,
-            pickedTime.minute);
+      startDate = DateTime(
+          startDate?.year ?? DateTime.now().year,
+          startDate?.month ?? DateTime.now().month,
+          startDate?.day ?? DateTime.now().day,
+          pickedTime.hour,
+          pickedTime.minute);
     });
   }
 

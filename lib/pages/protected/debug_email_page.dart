@@ -196,7 +196,8 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- Destinatario ---
-            const Text('Destinatario', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Destinatario',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,23 +233,27 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             if (_lookupError != null)
               Text(
                 _lookupError!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.error, fontSize: 12),
               )
             else if (_resolvedUid != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                    const Icon(Icons.person_outline,
+                        size: 14, color: Colors.grey),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'UID: $_resolvedUid',
-                        style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                        style: const TextStyle(
+                            fontSize: 11, fontFamily: 'monospace'),
                       ),
                     ),
                   ],
@@ -266,7 +271,8 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             const SizedBox(height: 28),
 
             // --- Dati corso ---
-            const Text('Dati corso', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Dati corso',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             TextField(
               controller: _courseNameCtrl,
@@ -304,12 +310,14 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             const SizedBox(height: 32),
 
             // --- Invio ---
-            const Text('Tipo email', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Tipo email',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: canSend && !_sendingWaitlist ? _sendWaitlistEmail : null,
+                onPressed:
+                    canSend && !_sendingWaitlist ? _sendWaitlistEmail : null,
                 icon: _sendingWaitlist
                     ? const SizedBox(
                         width: 16,
@@ -324,7 +332,8 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: canSend && !_sendingReminder ? _sendReminderEmail : null,
+                onPressed:
+                    canSend && !_sendingReminder ? _sendReminderEmail : null,
                 icon: _sendingReminder
                     ? const SizedBox(
                         width: 16,

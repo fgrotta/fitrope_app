@@ -81,7 +81,8 @@ void main() {
       // bottone diventa "Rimuovi iscrizione".
       await pumpUntilFound(
         tester,
-        find.descendant(of: cardFinder, matching: find.text('Rimuovi iscrizione')),
+        find.descendant(
+            of: cardFinder, matching: find.text('Rimuovi iscrizione')),
       );
     },
     skip: true,
