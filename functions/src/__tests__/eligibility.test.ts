@@ -127,10 +127,29 @@ describe("coveringSubsByType / validAtDate", () => {
 });
 
 describe("evaluateSubscribe — legacy (snapshot vuoto)", () => {
-  test("già iscritto → ALREADY_SUBSCRIBED (precede tutto)", () => {
+  test("già iscritto non scaduto → ALREADY_SUBSCRIBED", () => {
     const d = evaluateSubscribe(input({ alreadySubscribed: true, courseFull: true }));
     expect(d.allowed).toBe(false);
     expect(d.reason).toBe("ALREADY_SUBSCRIBED");
+  });
+
+  test("già iscritto ma scaduto → EXPIRED", () => {
+    const d = evaluateSubscribe(
+      input({ alreadySubscribed: true, fineIscrizioneMillis: COURSE_AT - 1 })
+    );
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toBe("EXPIRED");
+  });
+
+  test("già iscritto con abbonamento multi non valido alla data corso → EXPIRED", () => {
+    const d = evaluateSubscribe(
+      input({
+        alreadySubscribed: true,
+        activeSubscriptions: [sub({ endDateMillis: COURSE_AT - 1 })],
+      })
+    );
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toBe("EXPIRED");
   });
 
   test("senza accesso tag → NO_ACCESS", () => {

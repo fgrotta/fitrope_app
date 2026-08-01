@@ -69,6 +69,10 @@ azzerare/convertire i crediti legacy residui dell'utente.
 
 ## Prossimi step (DA FARE)
 
+### Migrazione CRUD corsi
+
+Le rules vincolano ora sia `id` sia `uid` al document ID, così le callable possono risolvere il corso senza ambiguità. Resta aperta la migrazione di create/update corso a callable Admin SDK: ridurrà la duplicazione `id`/`uid` e centralizzerà validazione e autorizzazioni.
+
 ### Staging (opzione C — ⭐ target, prima del rilascio in prod)
 
 Da fare prima di rilasciare il blocco PR3–PR6 in produzione (vedi

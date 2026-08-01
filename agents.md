@@ -495,9 +495,11 @@ Nota operativa: `flutter analyze --no-fatal-infos` e parte della CI; gli info-le
 
 - Test completi + build web release
 - Creazione automatica GitHub Release
-- Deploy su GitHub Pages via branch `gh-pages`
+- Deploy su GitHub Pages via branch `gh-pages` come ambiente staging
 
-**URL produzione**: https://dellarosamarco.github.io/fitrope_app/
+**Produzione**: https://app.fithousemonza.it (Hostinger, deploy manuale).
+
+**Staging**: https://dellarosamarco.github.io/fitrope_app/ (GitHub Pages, pubblicato dal branch `release`)
 
 ### Dependabot
 
@@ -568,7 +570,7 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 
 ## Punti aperti di review
 
-- `firestore.rules` in create corso vincola `request.resource.data.id == courseId`, ma dovrebbe vincolare anche `uid == courseId` per evitare corsi ambigui rispetto alle query Functions su `uid`.
+- Il CRUD corsi resta client-side: migrare create/update a callable Admin SDK, eliminando la duplicazione `id`/`uid` e centralizzando validazione e autorizzazioni.
 - `flutter analyze` emette ancora issue info-level; la CI usa `--no-fatal-infos`, quindi non bloccano il merge ma restano debito tecnico da ridurre.
 
 ## Osservazioni operative

@@ -540,7 +540,7 @@ void main() {
       expect(getCourseState(target, u), CourseState.WAITLIST_SPOT_AVAILABLE);
     });
 
-    test('gia iscritto -> SUBSCRIBED anche con abbonamento scaduto', () {
+    test('gia iscritto con abbonamento scaduto -> EXPIRED', () {
       final target = course(uid: 'o1', tags: [CourseTags.OPEN]);
       store.dispatch(SetAllCoursesAction([target]));
       final u = user(

@@ -192,16 +192,12 @@ export interface SubscribeInput {
 /**
  * Decide se l'utente può iscriversi e come scalare il credito.
  *
- * Ordine (mirror getCourseState): già-iscritto → accesso → scadenza/limiti → pieno.
+ * Ordine (mirror getCourseState): scadenza → già-iscritto → accesso → limiti → pieno.
  * [force] (admin) bypassa capienza, accesso, scadenza e limiti, ma NON il
  * già-iscritto; consuma comunque il credito disponibile (senza andare negativo).
  */
 export function evaluateSubscribe(input: SubscribeInput): SubscribeDecision {
   const none: ConsumePlan = { kind: "NONE" };
-
-  if (input.alreadySubscribed) {
-    return { allowed: false, reason: "ALREADY_SUBSCRIBED", consume: none };
-  }
 
   // Selezione del modello: contano solo le voci NON scadute adesso. NB: una voce
   // scaduta a "adesso" non può comunque essere valida alla data del corso (i corsi
@@ -217,6 +213,17 @@ export function evaluateSubscribe(input: SubscribeInput): SubscribeDecision {
     ? coveringSubsByType(liveSubs, input.coursePrimaryTag)
     : [];
   const validCovering = validAtDate(coveringByType, input.courseStartMillis);
+
+  const expired = useSubscriptions
+    ? coveringByType.length > 0 && validCovering.length === 0
+    : input.fineIscrizioneMillis === null ||
+      input.courseStartMillis > input.fineIscrizioneMillis;
+  if (!input.force && expired) {
+    return { allowed: false, reason: "EXPIRED", consume: none };
+  }
+  if (input.alreadySubscribed) {
+    return { allowed: false, reason: "ALREADY_SUBSCRIBED", consume: none };
+  }
 
   const hasTagAccess = canUserAccessCourse(input.userTags, input.courseTags);
 

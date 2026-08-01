@@ -395,7 +395,7 @@ describe("rules: users — update Admin/Trainer", () => {
 });
 
 describe("rules: courses", () => {
-  test("create Admin/Trainer con contatori azzerati → OK; subscribed>0 / User / id-mismatch / trainerId altrui → NEGATA", async () => {
+  test("create Admin/Trainer con contatori azzerati → OK; subscribed>0 / User / id-mismatch / uid-mismatch / trainerId altrui → NEGATA", async () => {
     await assertSucceeds(as(ADMIN).doc("courses/nuovo").set(courseDoc({ uid: "nuovo", id: "nuovo", subscribed: 0 })));
     // Trainer può creare solo corsi PROPRI (trainerId == proprio uid).
     await assertSucceeds(as(TRAINER).doc("courses/nuovo2").set(courseDoc({ uid: "nuovo2", id: "nuovo2", subscribed: 0, trainerId: TRAINER })));
@@ -404,6 +404,8 @@ describe("rules: courses", () => {
     await assertFails(as(USER).doc("courses/abusivo").set(courseDoc({ uid: "abusivo", id: "abusivo", subscribed: 0 })));
     // id non coerente col documentId.
     await assertFails(as(ADMIN).doc("courses/mism").set(courseDoc({ uid: "mism", id: "altro", subscribed: 0 })));
+    // uid non coerente: le callable cercano il corso proprio tramite uid.
+    await assertFails(as(ADMIN).doc("courses/mism-uid").set(courseDoc({ uid: "altro", id: "mism-uid", subscribed: 0 })));
     // Trainer che crea un corso intestato a un ALTRO trainer.
     await assertFails(as(TRAINER).doc("courses/altrui").set(courseDoc({ uid: "altrui", id: "altrui", subscribed: 0, trainerId: "altro-trainer" })));
   });

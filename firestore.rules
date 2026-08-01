@@ -134,11 +134,12 @@ service cloud.firestore {
 
       // CRUD corso ancora client (TODO(server-migration)): Admin/Trainer.
       // I contatori server-owned nascono azzerati; il Trainer può creare solo
-      // corsi propri (la UI auto-assegna trainerId = uid); id coerente col doc.
+      // corsi propri (la UI auto-assegna trainerId = uid); id e uid coerenti col doc.
       allow create: if (isAdmin() || isTrainer())
         && request.resource.data.subscribed == 0
         && request.resource.data.waitlist == []
         && request.resource.data.id == courseId
+        && request.resource.data.uid == courseId
         && (isAdmin() || request.resource.data.trainerId == request.auth.uid);
 
       // Edit Admin: tutto tranne i campi server-owned/identità.

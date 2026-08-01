@@ -43,6 +43,14 @@ CourseState getCourseState(Course course, FitropeUser user) {
       ? _coveringSubscriptions(course, liveSubscriptions)
       : const [];
 
+  if (useSubscriptions &&
+      covering.isNotEmpty &&
+      !covering.any((s) =>
+          !courseDate.isBefore(s.startDate.toDate()) &&
+          !courseDate.isAfter(s.endDate.toDate()))) {
+    return CourseState.EXPIRED;
+  }
+
   // Accesso: legacy = solo tag; multi-abbonamento = tag OPPURE copertura
   // abbonamento (un abbonamento valido sblocca il corso anche se i tag legacy
   // non sono allineati, evitando falsi "Non disponibile").
@@ -52,7 +60,7 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.NULL;
   }
 
-  // Già iscritto (precede scadenza/limiti: se sei dentro, resti dentro).
+  // Già iscritto: EXPIRED ha già prevalso; per gli altri limiti resta iscritto.
   if (user.courses.contains(course.uid)) {
     return CourseState.SUBSCRIBED;
   }
