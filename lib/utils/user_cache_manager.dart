@@ -1,9 +1,9 @@
-import 'package:fitrope_app/api/authentication/getUsers.dart';
-import 'package:fitrope_app/api/authentication/getUsersWithExpiringCertificates.dart';
-import 'package:fitrope_app/api/authentication/getUsersWithExpiringSubscriptions.dart';
+import 'package:fitrope_app/api/authentication/get_users.dart';
+import 'package:fitrope_app/api/authentication/get_users_with_expiring_certificates.dart';
+import 'package:fitrope_app/api/authentication/get_users_with_expiring_subscriptions.dart';
 
 /// Invalida tutte le cache relative agli utenti
-/// 
+///
 /// Questa funzione centralizza la gestione dell'invalidazione delle cache
 /// quando viene creato, aggiornato o cancellato un utente.
 /// Invalida:
@@ -15,4 +15,3 @@ void invalidateAllUserCaches() {
   invalidateUsersWithExpiringCertificatesCache();
   invalidateUsersWithExpiringSubscriptionsCache();
 }
-

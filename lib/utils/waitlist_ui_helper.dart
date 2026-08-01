@@ -1,5 +1,5 @@
-import 'package:fitrope_app/api/courses/joinWaitlist.dart';
-import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
+import 'package:fitrope_app/api/courses/join_waitlist.dart';
+import 'package:fitrope_app/api/courses/leave_waitlist.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';

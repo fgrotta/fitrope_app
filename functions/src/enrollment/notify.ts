@@ -9,7 +9,11 @@
 import { logger } from "firebase-functions";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { ONESIGNAL_APP_ID, ONESIGNAL_API_URL } from "../handler";
+import {
+  ONESIGNAL_APP_ID,
+  isStagingIdentityAllowed,
+  postToOneSignal,
+} from "../handler";
 import {
   trialReminderSubject,
   trialReminderBody,
@@ -146,19 +150,7 @@ async function postOneSignal(
   payload: Record<string, unknown>
 ): Promise<void> {
   try {
-    const body = { ...payload, app_id: ONESIGNAL_APP_ID };
-    const response = await fetch(ONESIGNAL_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Key ${apiKey.trim()}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      logger.warn(`OneSignal ${label} non ok`, { status: response.status, data });
-    }
+    await postToOneSignal({ ...payload, app_id: ONESIGNAL_APP_ID }, apiKey);
   } catch (err) {
     logger.warn(`OneSignal ${label} errore`, err);
   }
@@ -222,7 +214,10 @@ export async function scheduleTrialReminder(
   const userSnap = await db.collection("users").doc(userId).get();
   const userData = userSnap.data() ?? {};
   const pushEnabled = userData.pushNotificationsEnabled !== false;
-  const emailEnabled = userData.emailNotificationsEnabled !== false;
+  const email = (userData.email as string | undefined)?.trim();
+  const emailEnabled =
+    userData.emailNotificationsEnabled !== false &&
+    isStagingIdentityAllowed(userId, email);
 
   const tasks: Promise<void>[] = [];
   if (pushEnabled) {
@@ -317,7 +312,10 @@ export async function notifyWaitlistUsers(
       expiredUserIds.push(uid);
       continue;
     }
-    if (data.emailNotificationsEnabled !== false) emailUserIds.push(uid);
+    const email = (data.email as string | undefined)?.trim();
+    if (data.emailNotificationsEnabled !== false && isStagingIdentityAllowed(uid, email)) {
+      emailUserIds.push(uid);
+    }
   }
 
   // Rimuovi gli utenti scaduti dalla waitlist (corso + waitlistCourses).

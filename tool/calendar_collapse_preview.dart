@@ -12,24 +12,33 @@ class MockCourse {
   final String tag;
   final int subscribed;
   final int capacity;
-  const MockCourse(this.name, this.time, this.tag, this.subscribed, this.capacity);
+  const MockCourse(
+      this.name, this.time, this.tag, this.subscribed, this.capacity);
 }
 
 // Giugno 2026: 1 giugno = lunedì.
 const monthCourses = <int, List<MockCourse>>{
   2: [MockCourse('PT Anna', '08:00 - 09:00', 'Personal Trainer', 1, 1)],
-  4: [MockCourse('Functional', '09:00 - 10:00', 'Open', 5, 12),
-      MockCourse('Cardio', '18:00 - 19:00', 'Open', 8, 12)],
+  4: [
+    MockCourse('Functional', '09:00 - 10:00', 'Open', 5, 12),
+    MockCourse('Cardio', '18:00 - 19:00', 'Open', 8, 12)
+  ],
   9: [MockCourse('Tabata', '12:30 - 13:30', 'Open', 11, 12)],
   11: [MockCourse('PT Marco', '10:00 - 11:00', 'Personal Trainer', 0, 1)],
-  16: [MockCourse('PT Sara', '17:00 - 18:00', 'Personal Trainer', 1, 1),
-       MockCourse('Functional', '09:00 - 10:00', 'Open', 5, 12)],
+  16: [
+    MockCourse('PT Sara', '17:00 - 18:00', 'Personal Trainer', 1, 1),
+    MockCourse('Functional', '09:00 - 10:00', 'Open', 5, 12)
+  ],
   18: [MockCourse('Tabata', '12:30 - 13:30', 'Open', 11, 12)],
-  19: [MockCourse('Power Yoga', '10:00 - 11:00', 'Open', 0, 12),
-       MockCourse('Stretching', '19:00 - 20:00', 'Open', 3, 12)],
-  20: [MockCourse('Power Yoga', '10:00 - 11:00', 'Open', 0, 1),
-       MockCourse('Pilates Matwork', '12:00 - 13:00', 'Open', 4, 9),
-       MockCourse('Jessica (PT)', '17:00 - 18:00', 'Personal Trainer', 0, 1)],
+  19: [
+    MockCourse('Power Yoga', '10:00 - 11:00', 'Open', 0, 12),
+    MockCourse('Stretching', '19:00 - 20:00', 'Open', 3, 12)
+  ],
+  20: [
+    MockCourse('Power Yoga', '10:00 - 11:00', 'Open', 0, 1),
+    MockCourse('Pilates Matwork', '12:00 - 13:00', 'Open', 4, 9),
+    MockCourse('Jessica (PT)', '17:00 - 18:00', 'Personal Trainer', 0, 1)
+  ],
   23: [MockCourse('PT Anna', '08:00 - 09:00', 'Personal Trainer', 1, 1)],
   25: [MockCourse('Functional', '09:00 - 10:00', 'Open', 4, 12)],
   26: [MockCourse('Cardio', '18:00 - 19:00', 'Open', 8, 12)],
@@ -37,7 +46,13 @@ const monthCourses = <int, List<MockCourse>>{
 
 const _weekdayShort = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const _weekdayFull = [
-  'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'
+  'Lunedì',
+  'Martedì',
+  'Mercoledì',
+  'Giovedì',
+  'Venerdì',
+  'Sabato',
+  'Domenica'
 ];
 
 String dayLabel(int day) {
@@ -59,19 +74,22 @@ class PreviewApp extends StatelessWidget {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        body: const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
           child: Wrap(
             spacing: 24,
             runSpacing: 24,
-            children: const [
-              _Phone('A — Collassabile + navigazione giorno',
+            children: [
+              _Phone(
+                  'A — Collassabile + navigazione giorno',
                   'Icona calendario per chiudere/aprire. Da chiuso, l\'header giorno ha le frecce ‹ › per cambiare giorno senza riaprire.',
                   VariantA()),
-              _Phone('B — Toggle semplice mostra/nascondi',
+              _Phone(
+                  'B — Toggle semplice mostra/nascondi',
                   'Chevron sull\'header del mese collassa la griglia. Da chiuso non si cambia giorno: bisogna riaprire.',
                   VariantB()),
-              _Phone('C — Striscia settimanale',
+              _Phone(
+                  'C — Striscia settimanale',
                   'Da compatto mostra solo la settimana corrente (una riga); espandi per il mese intero.',
                   VariantC()),
             ],
@@ -96,7 +114,9 @@ class _Phone extends StatelessWidget {
         children: [
           Text(title,
               style: const TextStyle(
-                  color: Color(0xFF1A1C1E), fontSize: 16, fontWeight: FontWeight.bold)),
+                  color: Color(0xFF1A1C1E),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 2),
           Text(subtitle,
               style: const TextStyle(color: Color(0xFF5F6368), fontSize: 12.5)),
@@ -117,7 +137,9 @@ class _Phone extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   child: const Text('Calendario corsi',
                       style: TextStyle(
-                          color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold)),
                 ),
                 Expanded(child: child),
               ],
@@ -141,7 +163,9 @@ Widget courseRow(MockCourse c) {
       color: Colors.white,
       borderRadius: BorderRadius.circular(10),
       border: Border(left: BorderSide(color: color, width: 4)),
-      boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 4, offset: Offset(0, 1))],
+      boxShadow: const [
+        BoxShadow(color: Color(0x11000000), blurRadius: 4, offset: Offset(0, 1))
+      ],
     ),
     child: Row(
       children: [
@@ -153,16 +177,23 @@ Widget courseRow(MockCourse c) {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(c.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
-              Text(c.time, style: const TextStyle(color: Color(0xFF5F6368), fontSize: 12)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
+              Text(c.time,
+                  style:
+                      const TextStyle(color: Color(0xFF5F6368), fontSize: 12)),
             ],
           ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(
+              color: color, borderRadius: BorderRadius.circular(20)),
           child: Text(free <= 0 ? 'Pieno' : '$free liberi',
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
         ),
       ],
     ),
@@ -218,7 +249,9 @@ Widget dayCell(int day, int selected, ValueChanged<int> onSelect) {
                         margin: const EdgeInsets.symmetric(horizontal: 1),
                         decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isSel ? Colors.white : capacityColor(c.subscribed, c.capacity)),
+                            color: isSel
+                                ? Colors.white
+                                : capacityColor(c.subscribed, c.capacity)),
                       ))
                   .toList(),
             ),
@@ -233,7 +266,9 @@ Widget weekdayRow() => Row(
       children: _weekdayShort
           .map((d) => Expanded(
               child: Center(
-                  child: Text(d, style: const TextStyle(fontSize: 11, color: Color(0xFF5F6368))))))
+                  child: Text(d,
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF5F6368))))))
           .toList(),
     );
 
@@ -273,7 +308,9 @@ Widget weekRow(int selected, ValueChanged<int> onSelect) {
   return Row(
     children: weekOf(selected)
         .map((d) => Expanded(
-            child: d == 0 ? const SizedBox(height: 44) : dayCell(d, selected, onSelect)))
+            child: d == 0
+                ? const SizedBox(height: 44)
+                : dayCell(d, selected, onSelect)))
         .toList(),
   );
 }
@@ -287,7 +324,9 @@ Widget dayHeader(int day, {List<Widget> trailing = const []}) {
         Expanded(
           child: Text(dayLabel(day),
               style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1C1E))),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -295,7 +334,10 @@ Widget dayHeader(int day, {List<Widget> trailing = const []}) {
               color: primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20)),
           child: Text('$n cors${n == 1 ? 'o' : 'i'}',
-              style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600, fontSize: 12)),
+              style: const TextStyle(
+                  color: primaryColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12)),
         ),
         ...trailing,
       ],
@@ -335,19 +377,23 @@ class _VariantAState extends State<VariantA> {
                 onPressed: () => setState(() => _open = !_open),
               ),
               const Text('Giugno 2026',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
               const Spacer(),
               // Da chiuso: frecce per cambiare giorno senza riaprire.
               if (!_open) ...[
                 IconButton(
-                    icon: const Icon(Icons.chevron_left, color: Color(0xFF5F6368)),
+                    icon: const Icon(Icons.chevron_left,
+                        color: Color(0xFF5F6368)),
                     onPressed: () => _shiftDay(-1)),
                 IconButton(
-                    icon: const Icon(Icons.chevron_right, color: Color(0xFF5F6368)),
+                    icon: const Icon(Icons.chevron_right,
+                        color: Color(0xFF5F6368)),
                     onPressed: () => _shiftDay(1)),
               ] else
                 IconButton(
-                    icon: const Icon(Icons.expand_less, color: Color(0xFF5F6368)),
+                    icon:
+                        const Icon(Icons.expand_less, color: Color(0xFF5F6368)),
                     tooltip: 'Nascondi calendario',
                     onPressed: () => setState(() => _open = false)),
             ],
@@ -394,11 +440,14 @@ class _VariantBState extends State<VariantB> {
             child: Row(
               children: [
                 const Text('Giugno 2026',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
-                Icon(_open ? Icons.expand_less : Icons.expand_more, color: const Color(0xFF5F6368)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
+                Icon(_open ? Icons.expand_less : Icons.expand_more,
+                    color: const Color(0xFF5F6368)),
                 const Spacer(),
                 Text(_open ? 'Nascondi' : 'Mostra calendario',
-                    style: const TextStyle(color: Color(0xFF5F6368), fontSize: 12)),
+                    style: const TextStyle(
+                        color: Color(0xFF5F6368), fontSize: 12)),
               ],
             ),
           ),
@@ -442,11 +491,15 @@ class _VariantCState extends State<VariantC> {
           child: Row(
             children: [
               const Text('Giugno 2026',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
               const Spacer(),
               TextButton.icon(
-                onPressed: () => setState(() => _monthExpanded = !_monthExpanded),
-                icon: Icon(_monthExpanded ? Icons.unfold_less : Icons.unfold_more, size: 18),
+                onPressed: () =>
+                    setState(() => _monthExpanded = !_monthExpanded),
+                icon: Icon(
+                    _monthExpanded ? Icons.unfold_less : Icons.unfold_more,
+                    size: 18),
                 label: Text(_monthExpanded ? 'Settimana' : 'Mese'),
               ),
             ],
@@ -468,10 +521,12 @@ class _VariantCState extends State<VariantC> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     childAspectRatio: 1.1,
-                    children: List.generate(DateTime(2026, 6, 1).weekday - 1 + 30, (i) {
+                    children: List.generate(
+                        DateTime(2026, 6, 1).weekday - 1 + 30, (i) {
                       final leading = DateTime(2026, 6, 1).weekday - 1;
                       if (i < leading) return const SizedBox();
-                      return dayCell(i - leading + 1, _sel, (d) => setState(() => _sel = d));
+                      return dayCell(i - leading + 1, _sel,
+                          (d) => setState(() => _sel = d));
                     }),
                   )
                 : weekRow(_sel, (d) => setState(() => _sel = d)),

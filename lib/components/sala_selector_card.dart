@@ -29,7 +29,7 @@ class SalaSelectorCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String?>(
-              value: value,
+              initialValue: value,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 filled: true,

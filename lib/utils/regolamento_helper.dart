@@ -1,5 +1,5 @@
-import 'package:fitrope_app/api/authentication/acceptRegolamento.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/api/authentication/accept_regolamento.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -31,7 +31,8 @@ class RegolamentoHelper {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Errore durante il salvataggio dell\'accettazione del regolamento'),
+            content: Text(
+                'Errore durante il salvataggio dell\'accettazione del regolamento'),
             backgroundColor: Colors.red,
           ),
         );

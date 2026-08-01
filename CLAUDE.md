@@ -43,8 +43,12 @@ Nel codice functions usare SEMPRE `import { Timestamp, FieldValue } from "fireba
 ### Deploy e gestione secret
 
 ```bash
-# Deploy (il predeploy compila automaticamente via tsc)
-firebase deploy --only functions
+# Produzione: il predeploy compila automaticamente via tsc
+firebase deploy --project prod --only functions
+
+# Staging manuale: configurare prima functions/.env.fit-rope-staging
+firebase deploy --project staging --only functions
+STAGING_PROJECT_ID=fit-rope-staging npm run seed:staging
 
 # Deploy delle firestore.rules — SEMPRE DOPO functions e web nuova
 # (bloccano le scritture dirette del client vecchio; vedi docs/AVANZAMENTO)
@@ -77,7 +81,7 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 ### Deploy web / aggiornamento PWA (cache stantia su iOS)
 
 - Produzione: `https://app.fithousemonza.it`, hosting Hostinger/LiteSpeed, deploy **manuale** (`flutter build web --wasm --release` -> upload di `build/web`).
-- Staging: `https://dellarosamarco.github.io/fitrope_app/`, pubblicato automaticamente su GitHub Pages dal branch `release`; non sostituisce il deploy Hostinger. `web/.htaccess` viene copiato automaticamente in `build/web/` dal build Flutter: è il modo per far applicare regole di cache a Hostinger senza toccare il pannello.
+- Staging: GitHub Pages del repository canonico, pubblicato automaticamente da `develop` tramite `.github/workflows/staging.yml`; non sostituisce il deploy Hostinger. La build usa `APP_ENV=staging` e Firebase separato. `web/.htaccess` viene copiato automaticamente in `build/web/` dal build Flutter: è il modo per far applicare regole di cache a Hostinger senza toccare il pannello.
 - **`main.dart.js`, `flutter_service_worker.js`, `flutter_bootstrap.js`, `flutter.js` non hanno mai un hash nel nome**: restano identici da un build all'altro (il versioning è gestito internamente dal service worker generato da Flutter via confronto hash-per-file, non dal filename). Qualsiasi cache lunga su questi file (anche solo un default del server per estensione `.js`, come i 7 giorni di default riscontrati su Hostinger/LiteSpeed) blocca i client su una versione vecchia finché la cache non scade — `web/.htaccess` la limita a 30 minuti per i file "vivi" (index.html, version.json, manifest.json + i file sopra).
 - Un tentativo precedente di forzare l'update via JS (unregister di tutti i service worker + wipe di tutta la Cache Storage + reload cache-busted) è stato revertito perché causava un **reload loop infinito**: il reload rileggeva comunque `main.dart.js`/`flutter_service_worker.js` dalla cache HTTP del browser (non toccata dal wipe della Cache Storage, che è uno strato diverso), quindi il mismatch di versione si ripresentava a ogni giro. Prima di reintrodurre logica di forzatura via JS, verificare sempre che gli header di cache lato server siano già corretti — altrimenti nessuna logica JS può risolvere il problema.
 
@@ -90,7 +94,7 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 ## Convenzioni
 
 - UI in italiano. Non tradurre stringhe UI in inglese salvo richiesta esplicita.
-- Localizzazione date: `it_IT` via `intl`. Usa `formatDate` da `lib/utils/formatDate.dart`.
+- Localizzazione date: `it_IT` via `intl`. Usa `formatDate` da `lib/utils/format_date.dart`.
 - Serializzazione manuale: se aggiungi/modifichi campi nei modelli, aggiorna sempre sia `toJson` sia `fromJson` in `lib/types/`.
 - Nomi file Dart: rispetta il case esatto (es. `HomePage.dart`, non `homepage.dart`).
 - Stato globale Redux minimale: non aggiungere campi a `AppState` senza necessita reale.
@@ -104,9 +108,11 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 
 1. Leggi `lib/api/courses/README_ISCRIZIONI.md`
 2. Esegui i test: `flutter test`
-3. File chiave: `lib/api/courses/subscribeToCourse.dart`, `unsubscribeToCourse.dart`, `lib/utils/course_unsubscribe_helper.dart`
+3. File chiave: `lib/api/courses/subscribe_to_course.dart`, `unsubscribeToCourse.dart`, `lib/utils/course_unsubscribe_helper.dart`
 
 ### Notifiche OneSignal
+
+- In staging (`APP_ENV=staging`) la Function invia email solo a UID `stg_` con email nella allowlist `STAGING_NOTIFICATION_EMAIL_ALLOWLIST`; i payload push e tutti gli altri destinatari sono soppressi.
 
 - REST API key **non** nel codice Flutter: sta in Google Secret Manager, usata solo dalla Cloud Function.
 - Se modifichi il payload inviato a OneSignal, non includere `app_id` — lo inietta la function server-side.
@@ -125,7 +131,7 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 - Stato: `lib/state/` (Redux con thunk)
 - Pagine: `lib/pages/welcome/` (auth) e `lib/pages/protected/` (area protetta)
 - API Firestore: `lib/api/` (authentication + courses)
-- Modelli: `lib/types/fitropeUser.dart`, `lib/types/course.dart`
+- Modelli: `lib/types/fitrope_user.dart`, `lib/types/course.dart`
 - Layout responsive: `lib/layout/` (breakpoints + AppShell)
 - Servizi esterni: `lib/services/` (OneSignal mobile + web, notifiche, email templates)
 - Cloud Functions: `functions/src/` (TypeScript, proxy OneSignal)

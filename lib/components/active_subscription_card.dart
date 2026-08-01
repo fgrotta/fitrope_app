@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/style.dart';
-import 'package:fitrope_app/types/userSubscription.dart';
+import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/subscription_labels.dart';
 

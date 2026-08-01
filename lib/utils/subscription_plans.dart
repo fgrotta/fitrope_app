@@ -1,4 +1,4 @@
-import 'package:fitrope_app/types/userSubscription.dart';
+import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 
 /// Piano di abbonamento acquistabile (catalogo in codice per la v1).

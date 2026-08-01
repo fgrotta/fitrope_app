@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/course_type.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 
 /// Primi widget test del progetto: rendering della CourseCard,
 /// pill capienza, viste utente/admin, stati del bottone iscrizione
@@ -95,8 +95,7 @@ void main() {
   });
 
   group('bottone iscrizione per stato', () {
-    Future<void> pumpWithState(
-        WidgetTester tester, CourseState state) async {
+    Future<void> pumpWithState(WidgetTester tester, CourseState state) async {
       await _pump(
         tester,
         CourseCard(
@@ -163,8 +162,7 @@ void main() {
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('lista vuota espansa mostra "Nessun iscritto"',
-        (tester) async {
+    testWidgets('lista vuota espansa mostra "Nessun iscritto"', (tester) async {
       await _pump(tester, adminCard(subscribers: const []));
       await tester.tap(find.byIcon(Icons.expand_more));
       await tester.pump();

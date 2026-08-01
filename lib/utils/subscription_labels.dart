@@ -1,5 +1,5 @@
-import 'package:fitrope_app/types/userSubscription.dart';
-import 'package:fitrope_app/utils/formatDate.dart';
+import 'package:fitrope_app/types/user_subscription.dart';
+import 'package:fitrope_app/utils/format_date.dart';
 import 'package:fitrope_app/utils/subscription_plans.dart';
 
 /// Etichette di sola lettura per il modello multi-abbonamento

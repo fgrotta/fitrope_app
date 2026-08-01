@@ -1,8 +1,8 @@
 // ignore_for_file: avoid_print
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fitrope_app/api/getUserData.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/api/get_user_data.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
 
@@ -16,9 +16,12 @@ class SignUpResponse {
   });
 }
 
-Future<SignUpResponse> registerWithEmailPassword(String email, String password, String name, String lastName, {String? numeroTelefono}) async {
+Future<SignUpResponse> registerWithEmailPassword(
+    String email, String password, String name, String lastName,
+    {String? numeroTelefono}) async {
   try {
-    UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+    UserCredential userCredential =
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
@@ -69,29 +72,18 @@ Future<SignUpResponse> registerWithEmailPassword(String email, String password, 
     }
 
     print("User registered: ${userCredential.user!.email}");
-  } 
-  on FirebaseAuthException catch (e) {
+  } on FirebaseAuthException catch (e) {
     if (e.code == 'weak-password') {
+      return SignUpResponse(error: 'The password is too weak');
+    } else if (e.code == 'email-already-in-use') {
       return SignUpResponse(
-        error: 'The password is too weak'
-      );
-    } 
-    else if (e.code == 'email-already-in-use') {
-      return SignUpResponse(
-        error: 'The account already exists for that email.'
-      );
-    } 
-    else {
-      return SignUpResponse(
-        error: e.message
-      );
+          error: 'The account already exists for that email.');
+    } else {
+      return SignUpResponse(error: e.message);
     }
-  } 
-  catch (e) {
+  } catch (e) {
     print(e);
   }
-  
-  return SignUpResponse(
-    error: 'Error'
-  );
+
+  return SignUpResponse(error: 'Error');
 }

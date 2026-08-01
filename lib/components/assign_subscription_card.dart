@@ -62,7 +62,7 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: selectedPlanKey,
+              initialValue: selectedPlanKey,
               isExpanded: true,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),

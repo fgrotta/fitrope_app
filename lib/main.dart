@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:fitrope_app/router.dart';
+import 'package:fitrope_app/app_environment.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -10,7 +11,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
-import 'firebase_options.dart';
+import 'firebase_options.dart' as prod;
+import 'firebase_options_staging.dart';
 
 // TODO: Sostituire con il tuo OneSignal App ID dalla dashboard
 const String oneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
@@ -32,13 +34,16 @@ Future<void> _connectToEmulators() async {
   // in produzione.
   FirebaseFunctions.instanceFor(region: 'europe-west8')
       .useFunctionsEmulator(emulatorHost, 5001);
-  debugPrint('⚠️ EMULATORE FIREBASE ATTIVO ($emulatorHost) — nessun dato reale');
+  debugPrint(
+      '⚠️ EMULATORE FIREBASE ATTIVO ($emulatorHost) — nessun dato reale');
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    options: isStaging
+        ? StagingFirebaseOptions.currentPlatform
+        : prod.DefaultFirebaseOptions.currentPlatform,
   );
 
   if (useEmulator) {
@@ -66,6 +71,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      builder: (context, child) => isStaging
+          ? Banner(
+              message: 'STAGING',
+              location: BannerLocation.topStart,
+              child: child ?? const SizedBox.shrink(),
+            )
+          : child ?? const SizedBox.shrink(),
       title: 'Fit House',
       theme: ThemeData.light(),
       locale: const Locale('it', 'IT'),

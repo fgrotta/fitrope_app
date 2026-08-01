@@ -1,13 +1,13 @@
 import 'package:fitrope_app/style.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/capacity_color.dart';
 import 'package:fitrope_app/utils/course_images.dart';
-import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
-import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
-import 'package:fitrope_app/api/courses/deleteCourse.dart';
-import 'package:fitrope_app/api/courses/recountCourseSubscribed.dart';
-import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
+import 'package:fitrope_app/pages/protected/user_detail_page.dart';
+import 'package:fitrope_app/api/authentication/get_users.dart';
+import 'package:fitrope_app/api/courses/subscribe_to_course.dart';
+import 'package:fitrope_app/api/courses/delete_course.dart';
+import 'package:fitrope_app/api/courses/recount_course_subscribed.dart';
+import 'package:fitrope_app/api/courses/leave_waitlist.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -1035,7 +1035,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

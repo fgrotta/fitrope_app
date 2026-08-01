@@ -25,7 +25,7 @@ class RefreshManager {
       try {
         listener();
       } catch (e) {
-        print('Errore nel notificare il refresh dei certificati: $e');
+        debugPrint('Errore nel notificare il refresh dei certificati: $e');
       }
     }
   }

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fitrope_app/types/userSubscription.dart';
+import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/subscription_plans.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 

@@ -5,22 +5,22 @@
 // navigazione o pre-caricate durante lo splash (vedi SplashScreen). Le welcome
 // page restano eager. Ogni prefisso = un chunk; il codice condiviso viene
 // deduplicato dal compilatore.
-import 'package:fitrope_app/pages/protected/Protected.dart'
+import 'package:fitrope_app/pages/protected/protected.dart'
     deferred as protected;
-import 'package:fitrope_app/pages/protected/CourseManagementPage.dart'
+import 'package:fitrope_app/pages/protected/course_management_page.dart'
     deferred as course_management;
-import 'package:fitrope_app/pages/protected/DebugEmailPage.dart'
+import 'package:fitrope_app/pages/protected/debug_email_page.dart'
     deferred as debug_email;
-import 'package:fitrope_app/pages/protected/RecurringCoursePage.dart'
+import 'package:fitrope_app/pages/protected/recurring_course_page.dart'
     deferred as recurring_course;
-import 'package:fitrope_app/pages/welcome/LoginPage.dart';
-import 'package:fitrope_app/pages/welcome/RegistrationPage.dart';
-import 'package:fitrope_app/pages/welcome/WelcomePage.dart';
+import 'package:fitrope_app/pages/welcome/login_page.dart';
+import 'package:fitrope_app/pages/welcome/registration_page.dart';
+import 'package:fitrope_app/pages/welcome/welcome_page.dart';
 import 'package:fitrope_app/components/deferred_page.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:fitrope_app/pages/welcome/SplashScreen.dart';
+import 'package:fitrope_app/pages/welcome/splash_screen.dart';
 
 const WELCOME_ROUTE = '/';
 const LOGIN_ROUTE = '/login';

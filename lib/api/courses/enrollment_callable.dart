@@ -1,10 +1,10 @@
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
-import 'package:fitrope_app/api/courses/getCourses.dart';
-import 'package:fitrope_app/api/getUserData.dart';
+import 'package:fitrope_app/api/authentication/get_users.dart';
+import 'package:fitrope_app/api/courses/get_courses.dart';
+import 'package:fitrope_app/api/get_user_data.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:flutter/foundation.dart';
 
 /// Errore di una callable enrollment, con messaggio leggibile per l'utente.

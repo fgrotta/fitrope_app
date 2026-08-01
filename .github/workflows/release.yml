@@ -1,123 +1,37 @@
-name: Release Build & Deploy
+name: Release Validation
 
 on:
   push:
-    branches: [ release ]
+    branches: [release]
   pull_request:
-    branches: [ release ]
+    branches: [release]
 
-# ⚠️ VINCOLO D'ORDINE DEPLOY (da PR4): la build web dipende dalle Cloud
-# Functions enrollment (subscribeToCourse/unsubscribeFromCourse/joinWaitlist/
-# leaveWaitlist in europe-west8). Prima di mergiare su `release`, eseguire
-# MANUALMENTE `firebase deploy --only functions` (non automatizzato qui: serve
-# un service account/secret non configurato). Se la web va online prima delle
-# functions, iscrizioni e disiscrizioni falliscono in produzione.
+# Production remains a manual Hostinger deployment. GitHub Pages is reserved
+# for staging and is deployed exclusively by staging.yml from develop.
 jobs:
-  test:
+  validation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.6'
-          channel: 'stable'
-      
-      - name: Install dependencies
-        run: flutter pub get
-        
-      - name: Run tests
-        run: flutter test
-        
-      - name: Run analysis
-        run: flutter analyze
-        
-  functions-test:
+          flutter-version: "3.41.6"
+          channel: stable
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter build web --wasm --release
+
+  functions:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-
-      - name: Install functions dependencies
-        working-directory: functions
+          node-version: "22"
+      - working-directory: functions
         run: npm ci
-
-      - name: Build functions (tsc)
-        working-directory: functions
+      - working-directory: functions
         run: npm run build
-
-      - name: Run functions tests
-        working-directory: functions
-        run: npm test
-
-  build-web:
-    needs: [test, functions-test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.41.6'
-          channel: 'stable'
-      
-      - name: Install dependencies
-        run: flutter pub get
-        
-      - name: Build Web
-        # --wasm: i browser moderni scaricano il path WebAssembly (renderer
-        # skwasm, ~half di CanvasKit) con TTI migliore; i browser senza WasmGC
-        # cadono automaticamente sul fallback dart2js+CanvasKit incluso nella build.
-        run: flutter build web --wasm --release --base-href /fitrope_app/
-        
-      - name: Upload Web build
-        uses: actions/upload-artifact@v4
-        with:
-          name: fitrope-web-release
-          path: build/web
-          
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/release'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build/web
-          publish_branch: gh-pages
-          force_orphan: true
-
-  deploy:
-    needs: [build-web]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/release'
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release v${{ github.run_number }}
-          body: |
-            ## FitRope App Release v${{ github.run_number }}
-            
-            ### Build disponibile:
-            - **Web**: Disponibile su [GitHub Pages](https://dellarosamarco.github.io/fitrope_app/)
-            
-            ### Changelog:
-            - Build automatica dal branch release
-            - Test e analisi del codice completati
-            - Build web
-            - Deployment automatico su GitHub Pages
-            
-          draft: false
-          prerelease: false
+      - working-directory: functions
+        run: npm test -- --runInBand

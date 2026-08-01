@@ -1,11 +1,11 @@
 // ignore_for_file: avoid_print
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fitrope_app/api/getUserData.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
+import 'package:fitrope_app/api/get_user_data.dart';
+import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
 import 'package:fitrope_app/services/notification_service.dart';
 
@@ -17,14 +17,16 @@ class SignInResponse {
   SignInResponse({
     this.user,
     required this.error,
-    this.emailNotVerified=false,
+    this.emailNotVerified = false,
   });
 }
 
-Future<SignInResponse> signInWithEmailPassword(String email, String password) async {
+Future<SignInResponse> signInWithEmailPassword(
+    String email, String password) async {
   store.dispatch(StartLoadingAction());
   try {
-    UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+    UserCredential userCredential =
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
@@ -35,7 +37,10 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
       if (!user.emailVerified) {
         store.dispatch(FinishLoadingAction());
         print('Email non verificata.');
-        return SignInResponse(error: "Email non verificata. Controlla la tua casella di posta per il link di verifica.", emailNotVerified: true);
+        return SignInResponse(
+            error:
+                "Email non verificata. Controlla la tua casella di posta per il link di verifica.",
+            emailNotVerified: true);
       }
 
       print("User signed in: ${user.email}");
@@ -47,30 +52,32 @@ Future<SignInResponse> signInWithEmailPassword(String email, String password) as
 
       if (userData != null) {
         final fitropeUser = FitropeUser.fromJson(userData);
-        
+
         // Controlla se l'utente è attivo
         if (!fitropeUser.isActive) {
           // Disconnetti l'utente da Firebase Auth
           await FirebaseAuth.instance.signOut();
-          return SignInResponse(error: "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
+          return SignInResponse(
+              error:
+                  "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
         }
-        
+
         // Popola la cache degli utenti in background
-        unawaited(
-          getUsers().catchError((error) {
-            // Gestione silenziosa degli errori - non blocca il processo di login
-            print('Background cache population failed: $error');
-            return <FitropeUser>[];
-          })
-        );
-        
-        print('🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
+        unawaited(getUsers().catchError((error) {
+          // Gestione silenziosa degli errori - non blocca il processo di login
+          print('Background cache population failed: $error');
+          return <FitropeUser>[];
+        }));
+
+        print(
+            '🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
         // Client SDK (per push future): identifica l'utente se abbiamo un permesso push
         OneSignalService.login(fitropeUser.uid);
         if (fitropeUser.email.isNotEmpty) {
           OneSignalService.addEmail(fitropeUser.email);
         }
-        unawaited(OneSignalService.syncPushPreference(fitropeUser.pushNotificationsEnabled));
+        unawaited(OneSignalService.syncPushPreference(
+            fitropeUser.pushNotificationsEnabled));
         // Server-side: garantisce che l'utente esista su OneSignal con la sua email,
         // indipendentemente dal permesso push del browser. Fire-and-forget.
         if (fitropeUser.email.isNotEmpty) {

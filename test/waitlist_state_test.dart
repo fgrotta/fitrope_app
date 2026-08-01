@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitrope_app/types/course.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/utils/getCourseState.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/utils/get_course_state.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/state/actions.dart';

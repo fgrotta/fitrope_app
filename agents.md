@@ -25,7 +25,7 @@ L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit H
 | Design system | `flutter_design_system` (Git dep da GitHub, branch main) |
 | Localizzazione | `intl`, `flutter_localizations` (italiano primario) |
 | Lint | `flutter_lints` v4.0.0 |
-| Versione app | `1.1.3` |
+| Versione app | `1.3.0` |
 
 Prima di modificare dipendenze o CI, verifica la compatibilita tra SDK dichiarato e versione usata nei workflow.
 
@@ -34,12 +34,12 @@ Prima di modificare dipendenze o CI, verifica la compatibilita tra SDK dichiarat
 - App bootstrap: `lib/main.dart`
 - Routing statico: `lib/router.dart`
 - Store Redux: `lib/state/store.dart`
-- Workflow protetto post-login: `lib/pages/protected/Protected.dart`
+- Workflow protetto post-login: `lib/pages/protected/protected.dart`
 
 Sequenza di avvio in `main.dart`:
 
 1. `WidgetsFlutterBinding.ensureInitialized()`
-2. `Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)`
+2. `Firebase.initializeApp` seleziona `DefaultFirebaseOptions` produzione o `StagingFirebaseOptions` con `--dart-define=APP_ENV=staging`
 3. Se `--dart-define=USE_EMULATOR=true`, connessione agli emulatori Auth/Firestore/Functions (`europe-west8`) tramite `EMULATOR_HOST` (default `localhost`)
 4. Se NON si usa l'emulatore, `OneSignalService.initialize(oneSignalAppId)`
 5. `initializeDateFormatting('it_IT', null)`
@@ -55,7 +55,9 @@ lib/
 ├── main.dart                        # Bootstrap Firebase, emulatori, OneSignal, MaterialApp
 ├── router.dart                      # Route statiche + debug-only in kDebugMode
 ├── style.dart                       # Costanti di stile globali
-├── firebase_options.dart            # Config Firebase per piattaforma
+├── firebase_options.dart            # Config Firebase produzione
+├── firebase_options_staging.dart    # Config Firebase staging da dart-define
+├── app_environment.dart             # Selezione ambiente prod/staging
 │
 ├── state/                           # Redux state management
 │   ├── store.dart                   # Store con thunk middleware
@@ -168,7 +170,7 @@ lib/
 
 ## Modelli dati
 
-### FitropeUser (`lib/types/fitropeUser.dart`)
+### FitropeUser (`lib/types/fitrope_user.dart`)
 
 | Campo | Tipo | Descrizione |
 |---|---|---|
@@ -211,7 +213,7 @@ Traccia le disiscrizioni con: `courseId`, `cancelledAt`, `entryLost` (se l'ingre
 
 Un utente puo avere piu abbonamenti attivi insieme. La fonte di verita e la collezione `subscriptions`; lo snapshot `FitropeUser.activeSubscriptions` (lista di `UserSubscription`) alimenta il calcolo client di `getCourseState` e viene scritto dalle Cloud Functions. Se `activeSubscriptions` non contiene voci vive, `getCourseState` usa il modello legacy (`tipologiaIscrizione`/`entrate*`/`fineIscrizione`).
 
-- **UserSubscription** (`lib/types/userSubscription.dart`): `id?`, `planKey`, `family` (`SubscriptionFamily`: OPEN/HYROX/PT), `billingMode` (`BillingMode`: FREQUENCY/ENTRIES), `courseTypeTags` (accesso), `weeklyFrequency` (2/3/`null`=illimitato), `remainingEntries`, `startDate`, `endDate`.
+- **UserSubscription** (`lib/types/user_subscription.dart`): `id?`, `planKey`, `family` (`SubscriptionFamily`: OPEN/HYROX/PT), `billingMode` (`BillingMode`: FREQUENCY/ENTRIES), `courseTypeTags` (accesso), `weeklyFrequency` (2/3/`null`=illimitato), `remainingEntries`, `startDate`, `endDate`.
 - **Catalogo** (`lib/utils/subscription_plans.dart`): Open {2x, 3x, illimitato} x {1,3,6,12} = 12; Hyrox e PT 10 ingressi x {1,3,6,12}.
 - **getCourseState (scope per famiglia):** gli abbonamenti che coprono la tipologia (tag) del corso ne determinano l'idoneita — FREQUENCY conta i corsi della stessa tipologia nella settimana (`null`=illimitato), ENTRIES verifica `remainingEntries > 0`; scadenza per-abbonamento. Accesso = tag legacy OPPURE copertura abbonamento; i corsi accessibili solo via tag (es. Hey Mamma) non hanno limiti di abbonamento.
 - **Caveat modello misto:** se esiste almeno una voce viva nello snapshot, il modello multi-abbonamento vince sul fallback legacy in modo globale. I crediti legacy residui non vengono usati come fallback per famiglie non coperte; in fase gestionale conviene convertire/azzerare il residuo legacy quando si assegna un nuovo abbonamento.
@@ -340,8 +342,8 @@ Riferimenti:
 
 - `lib/utils/course_unsubscribe_helper.dart`
 - `lib/api/courses/README_ISCRIZIONI.md`
-- `lib/api/courses/subscribeToCourse.dart`
-- `lib/api/courses/unsubscribeToCourse.dart`
+- `lib/api/courses/subscribe_to_course.dart`
+- `lib/api/courses/unsubscribe_to_course.dart`
 - `lib/api/courses/enrollment_callable.dart`
 - `functions/src/enrollment/`
 
@@ -437,7 +439,7 @@ Ogni utente ha in Firestore `emailNotificationsEnabled` e `pushNotificationsEnab
 
 ## Dashboard Admin
 
-`lib/pages/protected/AdminDashboardPage.dart` contiene:
+`lib/pages/protected/admin_dashboard_page.dart` contiene:
 
 - `AdminDashboardPage`: sezioni analisi utenti, corsi (ultimi 6 mesi) e abbonamenti con grafici a barre
 - `UserListDrawer`: drawer laterale con lista utenti ricercabile (nome, email, telefono), aperto dalla dashboard o dall'area admin
@@ -588,18 +590,18 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 | Area | File principali |
 |---|---|
 | Login, logout, verifica email, reset password | `lib/authentication/`, `lib/pages/welcome/` |
-| Sessione e loading overlay | `lib/state/`, `lib/pages/protected/Protected.dart` |
-| Gestione utenti admin | `lib/pages/protected/AdminUsersPage.dart`, `CreateUserPage.dart`, `UserDetailPage.dart`, `lib/api/authentication/` |
-| Gestione corsi | `lib/pages/protected/CourseManagementPage.dart`, `RecurringCoursePage.dart`, `lib/api/courses/` |
-| Regole iscrizione/disiscrizione | `functions/src/enrollment/`, `lib/api/courses/`, `lib/utils/getCourseState.dart`, `lib/utils/course_unsubscribe_helper.dart`, `test/` |
-| Waitlist corsi | `lib/api/courses/joinWaitlist.dart`, `leaveWaitlist.dart`, `lib/utils/waitlist_ui_helper.dart` |
-| Abbonamenti multi-famiglia | `lib/types/userSubscription.dart`, `lib/utils/subscription_plans.dart`, `lib/utils/subscription_labels.dart`, `lib/api/subscriptions/`, `functions/src/enrollment/subscription.ts` |
+| Sessione e loading overlay | `lib/state/`, `lib/pages/protected/protected.dart` |
+| Gestione utenti admin | `lib/pages/protected/admin_users_page.dart`, `CreateUserPage.dart`, `UserDetailPage.dart`, `lib/api/authentication/` |
+| Gestione corsi | `lib/pages/protected/course_management_page.dart`, `RecurringCoursePage.dart`, `lib/api/courses/` |
+| Regole iscrizione/disiscrizione | `functions/src/enrollment/`, `lib/api/courses/`, `lib/utils/get_course_state.dart`, `lib/utils/course_unsubscribe_helper.dart`, `test/` |
+| Waitlist corsi | `lib/api/courses/join_waitlist.dart`, `leaveWaitlist.dart`, `lib/utils/waitlist_ui_helper.dart` |
+| Abbonamenti multi-famiglia | `lib/types/user_subscription.dart`, `lib/utils/subscription_plans.dart`, `lib/utils/subscription_labels.dart`, `lib/api/subscriptions/`, `functions/src/enrollment/subscription.ts` |
 | Sale e tipologie corso | `lib/utils/sale.dart`, `lib/utils/course_types.dart`, `lib/utils/course_tags.dart`, `lib/components/sala_selector_card.dart` |
 | Firestore rules e emulatori | `firestore.rules`, `firebase.json`, `docs/AMBIENTI_DI_TEST.md`, `functions/src/__integration__/` |
 | Notifiche push/email | `lib/services/notification_service.dart`, `lib/services/email_templates.dart`, `functions/src/` |
-| Test email manuale (debug) | `lib/pages/protected/DebugEmailPage.dart`, `lib/services/notification_service.dart` (`sendTestWaitlistEmail`, `sendTestTrialReminderEmail`) |
+| Test email manuale (debug) | `lib/pages/protected/debug_email_page.dart`, `lib/services/notification_service.dart` (`sendTestWaitlistEmail`, `sendTestTrialReminderEmail`) |
 | OneSignal SDK | `lib/services/onesignal_*.dart`, `web/index.html` (web SDK commentato), `web/OneSignalSDKWorker.js` |
-| Dashboard e analisi | `lib/pages/protected/AdminDashboardPage.dart` |
+| Dashboard e analisi | `lib/pages/protected/admin_dashboard_page.dart` |
 | Layout e breakpoints | `lib/layout/` |
 | Stili globali | `lib/style.dart`, `lib/components/` |
 
