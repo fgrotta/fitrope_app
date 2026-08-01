@@ -89,6 +89,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   Future<void> loadCourses() async {
     try {
       final courses = await getAllCourses();
+      if (!mounted) return;
       setState(() {
         allCourses = courses;
       });
@@ -484,14 +485,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void showLogoutConfirmation() {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: backgroundColor,
           title: const Text('Conferma Logout'),
           content: const Text('Sei sicuro di voler effettuare il logout?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text(
                 'Annulla',
                 style: TextStyle(color: onPrimaryColor),
@@ -501,10 +502,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
               onPressed: () async {
                 try {
                   await signOut();
-                  Navigator.pop(context); // Chiudi la modale
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
                   logoutRedirect(context); // Reindirizza al login
                 } catch (e) {
-                  Navigator.pop(context);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
                   SnackBarUtils.showErrorSnackBar(
                     context,
                     'Errore durante il logout',
@@ -527,7 +534,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void showDeleteAccountConfirmation() {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: backgroundColor,
           title: const Text('Cancellazione Account'),
@@ -538,7 +545,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text(
                 'Annulla',
                 style: TextStyle(color: onPrimaryColor),
@@ -549,22 +556,28 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 try {
                   // Disattiva l'account dell'utente
                   await toggleUserStatus(widget.user.uid, false);
-                  Navigator.pop(context); // Chiudi la modale
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
 
                   // Mostra messaggio di conferma
-                  SnackBarUtils.showSuccessSnackBar(
-                    context,
-                    'Account disattivato con successo. Sei stato sloggato.',
-                  );
+                  if (mounted) {
+                    SnackBarUtils.showSuccessSnackBar(
+                      context,
+                      'Account disattivato con successo. Sei stato sloggato.',
+                    );
+                  }
 
                   // Effettua il logout immediatamente
                   await signOut();
-                  // Verifica se il context è ancora valido prima di navigare
-                  if (context.mounted) {
+                  if (mounted) {
                     logoutRedirect(context);
                   }
                 } catch (e) {
-                  Navigator.pop(context);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
                   SnackBarUtils.showErrorSnackBar(
                     context,
                     'Errore durante la cancellazione dell\'account',
@@ -618,7 +631,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void showResetPasswordConfirmation() {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: backgroundColor,
           title: const Text('Invia Email Reset Password'),
@@ -628,7 +641,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text(
                 'Annulla',
                 style: TextStyle(color: onPrimaryColor),
@@ -638,14 +651,20 @@ class _UserDetailPageState extends State<UserDetailPage> {
               onPressed: () async {
                 try {
                   await resetPassword(widget.user.email);
-                  Navigator.pop(context); // Chiudi la modale
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
 
                   SnackBarUtils.showSuccessSnackBar(
                     context,
                     'Email di reset password inviata con successo a ${widget.user.email}',
                   );
                 } catch (e) {
-                  Navigator.pop(context);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
                   SnackBarUtils.showErrorSnackBar(
                     context,
                     'Errore durante l\'invio dell\'email di reset password',
@@ -1120,13 +1139,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
                           context,
                           widget.user,
                         );
-                        if (accepted && mounted) {
-                          SnackBarUtils.showSuccessSnackBar(
-                            context,
-                            'Regolamento accettato con successo',
-                          );
-                          // Torna indietro con utente aggiornato
-                          final updatedUser = FitropeUser(
+                        if (!accepted || !context.mounted) return;
+                        SnackBarUtils.showSuccessSnackBar(
+                          context,
+                          'Regolamento accettato con successo',
+                        );
+                        // Torna indietro con utente aggiornato
+                        final updatedUser = FitropeUser(
                             uid: widget.user.uid,
                             email: widget.user.email,
                             name: widget.user.name,
@@ -1149,8 +1168,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                 widget.user.cancelledEnrollments,
                             regolamentoAccettatoIl: Timestamp.now(),
                           );
-                          Navigator.pop(context, updatedUser);
-                        }
+                        Navigator.pop(context, updatedUser);
                       },
                       icon: const Icon(Icons.check_circle, color: Colors.white),
                       label: const Text(
@@ -1552,11 +1570,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                               const Duration(days: 365 * 2)),
                                           locale: const Locale('it', 'IT'),
                                         );
-                                        if (picked != null) {
-                                          setState(() {
-                                            selectedFineIscrizione = picked;
-                                          });
-                                        }
+                                        if (!mounted || picked == null) return;
+                                        setState(() {
+                                          selectedFineIscrizione = picked;
+                                        });
                                       },
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
@@ -1698,12 +1715,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                                       locale: const Locale(
                                                           'it', 'IT'),
                                                     );
-                                                    if (picked != null) {
-                                                      setState(() {
-                                                        selectedCertificatoScadenza =
-                                                            picked;
-                                                      });
+                                                    if (!mounted ||
+                                                        picked == null) {
+                                                      return;
                                                     }
+                                                    setState(() {
+                                                      selectedCertificatoScadenza =
+                                                          picked;
+                                                    });
                                                   },
                                                   child: Container(
                                                     padding: const EdgeInsets

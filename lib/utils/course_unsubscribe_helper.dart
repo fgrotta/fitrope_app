@@ -49,7 +49,9 @@ class CourseUnsubscribeHelper {
         return true;
       } catch (e) {
         debugPrint('❌ Errore durante disiscrizione forzata: $e');
-        _showErrorDialog(context, 'Errore durante la disiscrizione: $e');
+        if (context.mounted) {
+          _showErrorDialog(context, 'Errore durante la disiscrizione: $e');
+        }
         return false;
       }
     } else {
@@ -61,7 +63,9 @@ class CourseUnsubscribeHelper {
         return true;
       } catch (e) {
         debugPrint('❌ Errore durante disiscrizione normale: $e');
-        _showErrorDialog(context, 'Errore durante la disiscrizione: $e');
+        if (context.mounted) {
+          _showErrorDialog(context, 'Errore durante la disiscrizione: $e');
+        }
         return false;
       }
     }

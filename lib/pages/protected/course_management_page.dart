@@ -95,6 +95,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     try {
       // Carica i trainer
       final trainersResponse = await getTrainers();
+      if (!mounted) return;
       setState(() {
         trainers = trainersResponse;
       });
@@ -102,12 +103,15 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       // Inizializza i dati del corso
       _initializeCourseData();
     } catch (e) {
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
           context, 'Errore nel caricamento dei dati');
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -356,6 +360,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         );
 
         await updateCourse(updatedCourse);
+        if (!mounted) return;
         SnackBarUtils.showSuccessSnackBar(
             context, 'Corso modificato con successo');
       } else {
@@ -381,6 +386,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         );
 
         await createCourse(newCourse);
+        if (!mounted) return;
 
         final isDuplication = widget.mode == 'duplicate';
         SnackBarUtils.showSuccessSnackBar(
@@ -391,10 +397,12 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         );
       }
 
+      if (!mounted) return;
       // Torna alla pagina precedente
       Navigator.pop(
           context, true); // true indica che è stato fatto un salvataggio
     } catch (e) {
+      if (!mounted) return;
       final action = widget.mode == 'edit'
           ? 'modifica'
           : widget.mode == 'duplicate'
@@ -405,9 +413,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         'Errore durante la $action del corso',
       );
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 

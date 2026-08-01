@@ -46,11 +46,13 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     user = store.state.user!;
     getTrainers().then((List<FitropeUser> response) {
+      if (!mounted) return;
       setState(() {
         trainers = response;
       });
     });
     getAllCourses().then((List<Course> response) {
+      if (!mounted) return;
       setState(() {
         refreshCourseMap(response);
         onSelectDate(DateTime.now());
@@ -114,12 +116,11 @@ class _CalendarPageState extends State<CalendarPage> {
   void onSubscribe(Course course) async {
     bool accepted =
         await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
-    if (!accepted) return;
+    if (!accepted || !mounted) return;
 
     subscribeToCourse(course.id, user.uid).then((_) {
-      setState(() {
-        updateCourses();
-      });
+      if (!mounted) return;
+      updateCourses();
     }).catchError((e) {
       // Da PR4 il server può rifiutare (idoneità/limiti/capienza/corso chiuso):
       // senza questo handler il fallimento sarebbe silenzioso.
@@ -143,6 +144,7 @@ class _CalendarPageState extends State<CalendarPage> {
         user,
         context,
       );
+      if (!mounted) return;
 
       if (success) {
         debugPrint('✅ Disiscrizione completata con successo');
@@ -176,6 +178,7 @@ class _CalendarPageState extends State<CalendarPage> {
       }
     } catch (e) {
       debugPrint('❌ Errore durante la disiscrizione: $e');
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante la disiscrizione: ${e.toString()}',
@@ -267,6 +270,7 @@ class _CalendarPageState extends State<CalendarPage> {
   void deleteCourseAndUpdate(Course course) async {
     try {
       await deleteCourse(course.uid);
+      if (!mounted) return;
       updateCourses();
 
       // Mostra SnackBar di successo
@@ -276,6 +280,7 @@ class _CalendarPageState extends State<CalendarPage> {
       );
     } catch (e) {
       // Mostra SnackBar di errore (col motivo del server, es. permessi)
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante la cancellazione del corso: $e',

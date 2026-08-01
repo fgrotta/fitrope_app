@@ -81,13 +81,14 @@ class _CreateUserPageState extends State<CreateUserPage> {
             : null,
         tipologiaCorsoTags: _selectedTipologiaCorsoTags,
       );
+      if (!mounted) return;
 
       if (response.user != null) {
-        Navigator.pop(context, true); // Ritorna true per indicare successo
         SnackBarUtils.showSuccessSnackBar(
           context,
           'Utente creato con successo!',
         );
+        Navigator.pop(context, true); // Ritorna true per indicare successo
       } else {
         SnackBarUtils.showErrorSnackBar(
           context,
@@ -95,14 +96,17 @@ class _CreateUserPageState extends State<CreateUserPage> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante la creazione dell\'utente',
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

@@ -204,6 +204,7 @@ class _CourseCardState extends State<CourseCard> {
     if (confirmed == true) {
       try {
         await removeUserFromCourse(widget.courseId, user.uid);
+        if (!mounted || !context.mounted) return;
         SnackBarUtils.showSuccessSnackBar(
           context,
           'Utente rimosso con successo dal corso',
@@ -211,6 +212,7 @@ class _CourseCardState extends State<CourseCard> {
         // Aggiorna la lista
         widget.onRefresh();
       } catch (e) {
+        if (!mounted || !context.mounted) return;
         SnackBarUtils.showErrorSnackBar(
           context,
           'Errore durante la rimozione: ${e.toString()}',
@@ -300,9 +302,9 @@ class _CourseCardState extends State<CourseCard> {
     try {
       Navigator.pop(context); // Chiudi il dialog
 
-      await recountCourseSubscribed(widget.courseId).then((_) {
-        widget.onRefresh();
-      });
+      await recountCourseSubscribed(widget.courseId);
+      if (!mounted || !context.mounted) return;
+      widget.onRefresh();
 
       // Mostra messaggio di successo
       SnackBarUtils.showSuccessSnackBar(
@@ -310,6 +312,7 @@ class _CourseCardState extends State<CourseCard> {
         'Conteggio iscritti aggiornato con successo!',
       );
     } catch (e) {
+      if (!mounted || !context.mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante l\'aggiornamento: ${e.toString()}',
@@ -525,13 +528,13 @@ class _CourseCardState extends State<CourseCard> {
       ),
     );
 
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
 
     if (confirmed == true) {
       try {
         await leaveWaitlist(widget.courseId, user.uid);
 
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
 
         SnackBarUtils.showSuccessSnackBar(
           context,
@@ -539,7 +542,7 @@ class _CourseCardState extends State<CourseCard> {
         );
         widget.onRefresh();
       } catch (e) {
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
 
         SnackBarUtils.showErrorSnackBar(
           context,
@@ -964,6 +967,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
   Future<void> _loadUsers() async {
     try {
       final users = await getUsers();
+      if (!mounted) return;
       setState(() {
         allUsers = users
             .where((user) =>
@@ -974,6 +978,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         errorMessage = 'Errore nel caricamento degli utenti';
         isLoading = false;

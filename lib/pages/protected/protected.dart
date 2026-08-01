@@ -114,6 +114,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     String uid = FirebaseAuth.instance.currentUser!.uid;
 
     Map<String, dynamic>? userData = await getUserData(uid);
+    if (!mounted) return;
 
     if (userData != null) {
       setState(() {
@@ -131,6 +132,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         signOut().then((_) {
+          if (!mounted) return;
           logoutRedirect(context);
         });
       });
@@ -217,10 +219,10 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                             );
                           }
                         : null,
-                    onLogout: () {
-                      signOut().then((_) {
-                        logoutRedirect(context);
-                      });
+                    onLogout: () async {
+                      await signOut();
+                      if (!context.mounted) return;
+                      logoutRedirect(context);
                     },
                     child: user != null
                         ? _getPageFor(effectiveIndex)

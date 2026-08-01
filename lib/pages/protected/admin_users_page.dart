@@ -116,6 +116,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
     try {
       final usersList = await getUsers();
+      if (!mounted) return;
 
       setState(() {
         users = usersList;
@@ -125,6 +126,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       _applyFilters();
     } catch (e) {
       debugPrint('Error loading users: $e');
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });
@@ -260,7 +262,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     }
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: backgroundColor,
           title: const Text('Invia Email Reset Password'),
@@ -270,7 +272,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Annulla',
                   style: TextStyle(color: onPrimaryColor)),
             ),
@@ -278,15 +280,19 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               onPressed: () async {
                 try {
                   await resetPassword(targetUser.email);
-                  if (!context.mounted) return;
-                  Navigator.pop(context);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
                   SnackBarUtils.showSuccessSnackBar(
                     context,
                     'Email di reset password inviata con successo a ${targetUser.email}',
                   );
                 } catch (e) {
-                  if (!context.mounted) return;
-                  Navigator.pop(context);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
                   SnackBarUtils.showErrorSnackBar(
                     context,
                     'Errore durante l\'invio dell\'email di reset password',
@@ -313,7 +319,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: backgroundColor,
           title: Text(isCurrentlyActive ? 'Disattiva Utente' : 'Attiva Utente'),
@@ -321,7 +327,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               'Sei sicuro di voler $action l\'utente ${user.name} ${user.lastName}?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text(
                 'Annulla',
                 style: TextStyle(color: onPrimaryColor),
@@ -331,14 +337,20 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               onPressed: () async {
                 try {
                   await toggleUserStatus(user.uid, !isCurrentlyActive);
-                  Navigator.pop(context);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
                   loadUsers(); // Ricarica la lista
                   SnackBarUtils.showSuccessSnackBar(
                     context,
                     'Utente $actionPast con successo',
                   );
                 } catch (e) {
-                  Navigator.pop(context);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
                   SnackBarUtils.showErrorSnackBar(
                     context,
                     'Errore durante l\'operazione',
@@ -525,6 +537,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
 
     // Se l'utente è stato creato con successo, ricarica la lista
+    if (!mounted) return;
     if (result == true) {
       loadUsers();
     }

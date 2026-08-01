@@ -91,6 +91,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     try {
       // Carica i trainer
       final trainersResponse = await getTrainers();
+      if (!mounted) return;
       setState(() {
         trainers = trainersResponse;
       });
@@ -98,12 +99,15 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       // Inizializza i dati
       _initializeCourseData();
     } catch (e) {
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
           context, 'Errore nel caricamento dei dati');
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -166,8 +170,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       locale: const Locale('it', 'IT'),
     );
 
-    if (picked != null) {
-      setState(() {
+    if (!mounted || picked == null) return;
+    setState(() {
         startDate = DateTime(
             picked.year,
             picked.month,
@@ -185,8 +189,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
           final shifted = startDay.add(const Duration(days: 30));
           endDate = shifted.isAfter(maxDay) ? maxDay : shifted;
         }
-      });
-    }
+    });
   }
 
   Future<void> _selectEndDate() async {
@@ -211,11 +214,10 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       locale: const Locale('it', 'IT'),
     );
 
-    if (picked != null) {
-      setState(() {
+    if (!mounted || picked == null) return;
+    setState(() {
         endDate = DateTime(picked.year, picked.month, picked.day);
-      });
-    }
+    });
   }
 
   Future<void> _selectTime() async {
@@ -232,16 +234,15 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       },
     );
 
-    if (pickedTime != null) {
-      setState(() {
+    if (!mounted || pickedTime == null) return;
+    setState(() {
         startDate = DateTime(
             startDate?.year ?? DateTime.now().year,
             startDate?.month ?? DateTime.now().month,
             startDate?.day ?? DateTime.now().day,
             pickedTime.hour,
             pickedTime.minute);
-      });
-    }
+    });
   }
 
   void _toggleDay(int day) {
@@ -401,6 +402,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
         createdCount++;
       }
 
+      if (!mounted) return;
       SnackBarUtils.showSuccessSnackBar(
         context,
         'Creati $createdCount corsi ricorrenti con successo',
@@ -409,14 +411,17 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       // Torna alla pagina precedente
       Navigator.pop(context, true);
     } catch (e) {
+      if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante la creazione dei corsi ricorrenti',
       );
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
