@@ -644,6 +644,24 @@ export async function unsubscribeFromCourseHandler(
           ? refund.subscriptionId
           : null;
 
+    // La PENALITÀ deve seguire la stessa fonte del rimborso, altrimenti si paga
+    // due volte. Caso concreto: prenotazione fatta col modello legacy (registro
+    // LEGACY_ENTRY), poi l'utente passa a un abbonamento FREQUENCY; alla
+    // disiscrizione entro finestra con conferma il creditMode risolto dal modello
+    // ATTUALE è FREQUENCY_SUB, quindi `refund.trackCancelled` è true → l'utente
+    // perdeva il credito legacy (non ripristinato perché `lost`) E si beccava una
+    // voce `entryLost: true` che pesa sul limite settimanale.
+    // Se il registro dice che è stato consumato un INGRESSO, la penalità è già
+    // "l'ingresso non torna": nessuna voce in cancelledEnrollments. La voce resta
+    // solo quando la fonte consumata era davvero uno slot settimanale
+    // (kind NONE sotto un modello a frequenza) o quando il registro è assente
+    // (prenotazione pre-registro → fallback al modello attuale, invariato).
+    const consumedAnEntry =
+      consumedRecord !== undefined &&
+      (consumedRecord.kind === "LEGACY_ENTRY" ||
+        consumedRecord.kind === "SUBSCRIPTION_ENTRY");
+    const trackCancelled = refund.trackCancelled && !consumedAnEntry;
+
     // Lettura aggiuntiva per il ripristino ingressi abbonamento (prima delle scritture).
     let txRecords: UserSubscriptionRecord[] = [];
     const subRefById = new Map<string, DocRef>();
@@ -694,7 +712,7 @@ export async function unsubscribeFromCourseHandler(
       }
     }
 
-    if (refund.trackCancelled) {
+    if (trackCancelled) {
       const existing: FsData[] = Array.isArray(user.cancelledEnrollments)
         ? (user.cancelledEnrollments as FsData[])
         : [];

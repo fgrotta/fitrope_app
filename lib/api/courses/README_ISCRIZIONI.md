@@ -16,11 +16,19 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 | Callable | Handler | Cosa fa |
 |---|---|---|
 | `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, promemoria prova |
-| `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, `entryLost` + `cancelledEnrollments`. **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
+| `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, `entryLost` + `cancelledEnrollments`. **La penalità segue la fonte realmente consumata** (registro `enrollmentConsumption`): se fu scalato un ingresso la penalità è "l'ingresso non torna" e NON si scrive `cancelledEnrollments`; la voce `entryLost` resta solo se la prenotazione consumò davvero uno slot settimanale (`kind: NONE` sotto un modello a frequenza). **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
 | `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze) |
 | `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot, max 1 attivo per famiglia |
 | `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Niente email waitlist |
 | `recountCourseSubscribed` *(SOLO Admin, da PR5)* | `admin.ts` | Ricalcola `subscribed` dalla fonte di verità (utenti con il corso in `courses[]`), in transazione |
+
+**Perché `unsubscribeFromCourse` admin rimborsa e `deleteCourse` su corso iniziato no.**
+Non è un'incoerenza: sono due situazioni opposte. Un admin che rimuove UN utente da un
+corso passato sta facendo una correzione a posteriori — quell'utente *non* ha
+frequentato, quindi il credito gli spetta. `deleteCourse` su un corso già iniziato è
+invece pulizia di calendario/storico: i partecipanti *hanno* frequentato, quindi non
+c'è nulla da rimborsare. Se una delle due regole cambia, aggiornare anche l'altra
+motivandola qui.
 
 La logica autoritativa è nei moduli puri (mirror di `getCourseState.dart` /
 `CourseUnsubscribeHelper`): `eligibility.ts`, `refund.ts`, `courseTypes.ts`,

@@ -875,6 +875,68 @@ describe("unsubscribeFromCourseHandler", () => {
     expect(store.subs["sub-open"].weeklyFrequency).toBe(2); // doc intatto
   });
 
+  test("misto legacy→FREQUENCY entro finestra: penalità UNA volta sola (no doppia)", async () => {
+    // Prenotazione fatta col modello legacy (registro LEGACY_ENTRY), poi l'utente
+    // passa a un abbonamento FREQUENCY. Disiscrizione entro 4h con conferma: il
+    // credito legacy è perso (penalità applicata), quindi NON va scritta anche una
+    // voce entryLost che peserebbe sul limite settimanale — sarebbe doppia.
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["c-soon"],
+          entrateDisponibili: 3,
+          enrollmentConsumption: { "c-soon": { kind: "LEGACY_ENTRY" } },
+          activeSubscriptions: [snapshotEntry("sub-open", openFreqSubDoc(2))],
+        }),
+      },
+      courses: {
+        "c-soon": course({ uid: "c-soon", startDate: Timestamp.fromMillis(SOON) }),
+      },
+      subs: { "sub-open": openFreqSubDoc(2) },
+    };
+    const db = makeDb(store);
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-soon", userId: "u1", confirmedNoRefund: true } },
+      db,
+      {},
+      NOW
+    );
+    // Penalità: il credito legacy NON torna.
+    expect(store.users.u1.entrateDisponibili).toBe(3);
+    // ...e non se ne aggiunge una seconda sul limite settimanale.
+    expect(store.users.u1.cancelledEnrollments).toBeUndefined();
+    expect(store.users.u1.courses).toEqual([]);
+  });
+
+  test("consumo NONE sotto FREQUENCY entro finestra: la voce entryLost resta (slot settimanale davvero consumato)", async () => {
+    // Caso di controllo del test precedente: qui la prenotazione NON ha scalato
+    // ingressi (kind NONE), quindi la penalità corretta è proprio la voce
+    // entryLost che pesa sul limite settimanale.
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["c-soon"],
+          enrollmentConsumption: { "c-soon": { kind: "NONE" } },
+          activeSubscriptions: [snapshotEntry("sub-open", openFreqSubDoc(2))],
+        }),
+      },
+      courses: {
+        "c-soon": course({ uid: "c-soon", startDate: Timestamp.fromMillis(SOON) }),
+      },
+      subs: { "sub-open": openFreqSubDoc(2) },
+    };
+    const db = makeDb(store);
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-soon", userId: "u1", confirmedNoRefund: true } },
+      db,
+      {},
+      NOW
+    );
+    const cancelled = store.users.u1.cancelledEnrollments as Data[];
+    expect(cancelled).toHaveLength(1);
+    expect(cancelled[0].entryLost).toBe(true);
+  });
+
   test("transizione legacy→abbonamento: il rimborso ripristina la fonte CONSUMATA (registro), non il modello attuale", async () => {
     // Prenotazione fatta da legacy (registro: LEGACY_ENTRY), poi l'admin assegna
     // un abbonamento ENTRIES. Alla disiscrizione: +1 a entrateDisponibili,
