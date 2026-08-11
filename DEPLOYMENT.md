@@ -6,21 +6,22 @@ Questo progetto utilizza GitHub Actions per automatizzare il processo di build e
 
 ### Branch e Workflow
 
-#### Branch `main` e `develop`
+#### Pull Request verso `main` e `develop`
 - **Workflow**: `ci.yml`
 - **Azioni**: Test, analisi del codice, controllo formattazione, build di test
-- **Trigger**: Push e Pull Request
+- **Trigger**: Pull Request e avvio manuale
 
-#### Branch `release`
-- **Workflow**: `release.yml`
-- **Azioni**: Test completi, build web e creazione release automatica
-- **Trigger**: Push e Pull Request
+#### Branch `develop`
+- **Workflow**: `staging.yml`
+- **Azioni**: Test completi, build web staging, deploy Functions, deploy GitHub Pages e Firestore Rules
+- **Trigger**: Push e avvio manuale
 
 ### Processo di Release
 
 1. **Sviluppo**: Il codice viene sviluppato sui branch `main` o `develop`
-2. **Test**: Ogni push attiva automaticamente i test CI
-3. **Release**: Quando il codice è pronto per la produzione:
+2. **Test PR**: ogni Pull Request verso `main` o `develop` attiva `ci.yml`
+3. **Staging**: ogni merge/push su `develop` attiva `staging.yml`
+4. **Release**: Quando il codice è pronto per la produzione:
    - Merge su branch `release`
    - Build automatica web
    - Creazione automatica di una GitHub Release

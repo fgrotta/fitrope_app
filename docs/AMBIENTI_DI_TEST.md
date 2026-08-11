@@ -79,7 +79,7 @@ deployate, dati sintetici, seconda app OneSignal.
 | Strato | Stato | Quando |
 |---|---|---|
 | **A. Emulatore locale** | ✅ implementata (PR4.5) | da subito, per sviluppo e QA manuale |
-| **B. Emulatore in CI (categoria C)** | ✅ consegnata (PR5) | gira in CI a ogni push |
+| **B. Emulatore in CI (categoria C)** | ✅ consegnata (PR5) | gira in CI sulle PR e nel deploy staging |
 | **C. Staging** | ⭐ target, decisa come opzione migliore | prima del rilascio in prod del blocco PR3–PR6 (serve creazione progetto/billing da parte di Francesco) |
 
 **Regola operativa**: niente arriva in produzione senza essere passato

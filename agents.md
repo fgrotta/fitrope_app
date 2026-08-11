@@ -485,7 +485,7 @@ Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e fireb
 
 ### GitHub Actions
 
-**ci.yml** (branch `main`, `develop`):
+**ci.yml** (Pull Request verso `main`/`develop` + avvio manuale):
 
 - `test`: `flutter pub get` -> `flutter test` -> `flutter analyze --no-fatal-infos` -> `dart format --set-exit-if-changed .` -> `flutter build web --wasm --release`
 - `functions-test`: Node 24 per compatibilita tooling CI, `npm ci`, `npm run build`, `npm test`

@@ -111,7 +111,7 @@ Il deploy dipende da tutti i job test. Aggiungere `concurrency` per annullare de
 
 Usare `actions/upload-pages-artifact` e `actions/deploy-pages`. Il workflow `release.yml` corrente va trasformato o sostituito: pubblica il sito ma non Functions/rules e tratta Pages come release.
 
-`ci.yml` resta dedicato a PR e `main`, senza credenziali cloud e senza deploy.
+`ci.yml` resta dedicato alle PR verso `main`/`develop` e all'avvio manuale, senza credenziali cloud e senza deploy. I push su `develop` sono validati dal workflow staging per evitare test e build doppi sullo stesso commit.
 
 ### Backlog ottimizzazione pipeline
 
