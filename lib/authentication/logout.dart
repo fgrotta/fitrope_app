@@ -12,7 +12,7 @@ Future<void> signOut() async {
   await OneSignalService.setPushEnabled(false);
   await OneSignalService.logout();
   await FirebaseAuth.instance.signOut();
-  print("User signed out");
+  debugPrint("User signed out");
 }
 
 void logoutRedirect(BuildContext context) {

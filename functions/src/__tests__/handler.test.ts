@@ -1,6 +1,7 @@
 import {
   sendOneSignalNotificationHandler,
   ensureOneSignalUserHandler,
+  ensureOneSignalEmailSubscription,
   removeOneSignalEmailHandler,
   ONESIGNAL_APP_ID,
   ONESIGNAL_API_URL,
@@ -862,5 +863,86 @@ describe("removeOneSignalEmailHandler", () => {
       subscriptionId: "sub-email-1",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Guardrail OneSignal staging", () => {
+  let fetchMock: jest.Mock;
+  const originalAppEnv = process.env.APP_ENV;
+  const originalAllowlist = process.env.STAGING_NOTIFICATION_EMAIL_ALLOWLIST;
+
+  beforeEach(() => {
+    fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+    process.env.APP_ENV = "staging";
+    process.env.STAGING_NOTIFICATION_EMAIL_ALLOWLIST = "test.staging@example.com";
+  });
+
+  afterEach(() => {
+    if (originalAppEnv === undefined) delete process.env.APP_ENV;
+    else process.env.APP_ENV = originalAppEnv;
+    if (originalAllowlist === undefined) delete process.env.STAGING_NOTIFICATION_EMAIL_ALLOWLIST;
+    else process.env.STAGING_NOTIFICATION_EMAIL_ALLOWLIST = originalAllowlist;
+    jest.clearAllMocks();
+  });
+
+  test("sopprime una notifica indirizzata a un UID non sintetico", async () => {
+    const result = await sendOneSignalNotificationHandler(
+      { auth: { uid: "stg_admin" }, data: { include_aliases: { external_id: ["user-production"] } } },
+      API_KEY,
+      makeDeps()
+    );
+
+    expect(result).toEqual({ suppressed: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("sopprime una email fuori allowlist", async () => {
+    const result = await sendOneSignalNotificationHandler(
+      {
+        auth: { uid: "stg_admin" },
+        data: {
+          include_aliases: { external_id: ["stg_user"] },
+          target_channel: "email",
+        },
+      },
+      API_KEY,
+      makeDeps({ users: { stg_user: { email: "not-allowed@example.com" } } })
+    );
+
+    expect(result).toEqual({ suppressed: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("marca e inoltra solo notifiche per UID sintetici", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ id: "staging-notification" }),
+    } as Response);
+
+    await sendOneSignalNotificationHandler(
+      {
+        auth: { uid: "stg_admin" },
+        data: {
+          include_aliases: { external_id: ["stg_user"] },
+          email_subject: "Avviso",
+          contents: { it: "Messaggio" },
+        },
+      },
+      API_KEY,
+      makeDeps()
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.email_subject).toBe("[STAGING] Avviso");
+    expect(body.contents.it).toBe("[STAGING] Messaggio");
+  });
+
+  test("non crea subscription fuori dalla email allowlist", async () => {
+    const result = await ensureOneSignalEmailSubscription(
+      "stg_user", "not-allowed@example.com", API_KEY
+    );
+
+    expect(result).toEqual({ suppressed: true });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

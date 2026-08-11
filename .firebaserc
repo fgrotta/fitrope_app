@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "prod": "fit-rope-app-1f575",
+    "staging": "fit-rope-staging"
+  }
+}

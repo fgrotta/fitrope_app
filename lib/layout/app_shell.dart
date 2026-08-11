@@ -8,6 +8,7 @@ class AppShell extends StatelessWidget {
   final bool isAdmin;
   final ValueChanged<int> onChangePage;
   final VoidCallback? onLogout;
+
   /// Desktop [NavigationRail]: iniziali utente sopra il logout (es. "MR").
   final String? profileInitials;
   final VoidCallback? onProfileTap;
@@ -34,9 +35,13 @@ class AppShell extends StatelessWidget {
         backgroundColor: backgroundColor,
         bottomNavigationBar: CustomBottomNavigationBar(
           items: [
-            const CustomBottomNavigationBarItem(icon: Icons.home, label: 'Home'),
-            const CustomBottomNavigationBarItem(icon: Icons.calendar_month, label: 'Calendario'),
-            if (isAdmin) const CustomBottomNavigationBarItem(icon: Icons.people, label: 'Utenti'),
+            const CustomBottomNavigationBarItem(
+                icon: Icons.home, label: 'Home'),
+            const CustomBottomNavigationBarItem(
+                icon: Icons.calendar_month, label: 'Calendario'),
+            if (isAdmin)
+              const CustomBottomNavigationBarItem(
+                  icon: Icons.people, label: 'Utenti'),
           ],
           colors: const CustomBottomNavigationBarColors(
             backgroundColor: primaryLightColor,
@@ -62,9 +67,11 @@ class AppShell extends StatelessWidget {
             onDestinationSelected: onChangePage,
             labelType: NavigationRailLabelType.all,
             selectedIconTheme: const IconThemeData(color: onPrimaryColor),
-            unselectedIconTheme: const IconThemeData(color: onSurfaceVariantColor),
+            unselectedIconTheme:
+                const IconThemeData(color: onSurfaceVariantColor),
             selectedLabelTextStyle: const TextStyle(color: onPrimaryColor),
-            unselectedLabelTextStyle: const TextStyle(color: onSurfaceVariantColor),
+            unselectedLabelTextStyle:
+                const TextStyle(color: onSurfaceVariantColor),
             trailing: Expanded(
               child: Align(
                 alignment: Alignment.bottomCenter,

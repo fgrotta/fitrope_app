@@ -1,0 +1,1829 @@
+import 'package:fitrope_app/api/authentication/update_user.dart';
+import 'package:fitrope_app/api/authentication/toggle_user_status.dart';
+import 'package:fitrope_app/authentication/logout.dart';
+import 'package:fitrope_app/authentication/reset_password.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
+import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/certificato_helper.dart';
+import 'package:fitrope_app/utils/regolamento_helper.dart';
+import 'package:fitrope_app/api/authentication/get_users.dart';
+import 'package:fitrope_app/api/courses/get_courses.dart';
+import 'package:fitrope_app/components/assign_subscription_card.dart';
+import 'package:fitrope_app/components/active_subscription_card.dart';
+import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
+import 'package:fitrope_app/state/actions.dart';
+import 'package:fitrope_app/state/store.dart';
+import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/services/onesignal_service.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
+
+class UserDetailPage extends StatefulWidget {
+  final FitropeUser user;
+
+  /// Se true e i permessi lo consentono, apre direttamente la modalità modifica.
+  final bool openInEditMode;
+
+  const UserDetailPage({
+    super.key,
+    required this.user,
+    this.openInEditMode = false,
+  });
+
+  @override
+  State<UserDetailPage> createState() => _UserDetailPageState();
+}
+
+class _UserDetailPageState extends State<UserDetailPage> {
+  bool isEditing = false;
+  late TextEditingController nameController;
+  late TextEditingController lastNameController;
+  late TextEditingController numeroTelefonoController;
+  late TextEditingController entrateDisponibiliController;
+  late TextEditingController entrateSettimanaliController;
+  late String selectedRole;
+  late TipologiaIscrizione? selectedTipologiaIscrizione;
+  late DateTime? selectedFineIscrizione;
+  late bool selectedIsActive;
+  late bool selectedIsAnonymous;
+  late DateTime? selectedCertificatoScadenza;
+  late List<String> selectedTipologiaCorsoTags;
+  late bool selectedEmailNotifications;
+  late bool selectedPushNotifications;
+  String? errorMsg;
+  List<Course> allCourses = [];
+  bool _showAllEnrollments12Months = false;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(text: widget.user.name);
+    lastNameController = TextEditingController(text: widget.user.lastName);
+    numeroTelefonoController =
+        TextEditingController(text: widget.user.numeroTelefono ?? '');
+    entrateDisponibiliController = TextEditingController(
+        text: widget.user.entrateDisponibili?.toString() ?? '');
+    entrateSettimanaliController = TextEditingController(
+        text: widget.user.entrateSettimanali?.toString() ?? '');
+    selectedRole = widget.user.role;
+    selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
+    selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
+    selectedIsActive = widget.user.isActive;
+    selectedIsAnonymous = widget.user.isAnonymous;
+    selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
+    selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
+    selectedEmailNotifications = widget.user.emailNotificationsEnabled;
+    selectedPushNotifications = widget.user.pushNotificationsEnabled;
+    if (widget.openInEditMode && _canEditUser()) {
+      isEditing = true;
+    }
+    // debugPrint(widget.user.isAnonymous);
+    loadCourses();
+  }
+
+  Future<void> loadCourses() async {
+    try {
+      final courses = await getAllCourses();
+      if (!mounted) return;
+      setState(() {
+        allCourses = courses;
+      });
+    } catch (e) {
+      debugPrint('Error loading courses: $e');
+    }
+  }
+
+  Future<bool> _showPushEnableSoftPrompt() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Attivare le notifiche push'),
+          content: const Text(
+            'Ti invieremo notifiche per promemoria corsi e posti disponibili in waitlist. '
+            'Alla conferma verrà mostrata la richiesta del browser o del sistema operativo.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Non ora',
+                  style: TextStyle(color: onPrimaryColor)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child:
+                  const Text('Continua', style: TextStyle(color: primaryColor)),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  Future<void> _showPushPermissionHelp() async {
+    if (!mounted) return;
+
+    final message = Theme.of(context).platform == TargetPlatform.iOS
+        ? 'Su iPhone e iPad, se usi la versione web, aggiungi prima l\'app alla schermata Home e poi abilita le notifiche dalle impostazioni del sito.'
+        : 'Se hai negato il permesso, riattivalo dalle impostazioni del browser o del sistema operativo e poi riprova.';
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Permesso notifiche non abilitato'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Ho capito',
+                  style: TextStyle(color: primaryColor)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    lastNameController.dispose();
+    numeroTelefonoController.dispose();
+    entrateDisponibiliController.dispose();
+    entrateSettimanaliController.dispose();
+    super.dispose();
+  }
+
+  void toggleEdit() {
+    setState(() {
+      isEditing = !isEditing;
+      if (!isEditing) {
+        // Reset to original values if canceling edit
+        nameController.text = widget.user.name;
+        lastNameController.text = widget.user.lastName;
+        numeroTelefonoController.text = widget.user.numeroTelefono ?? '';
+        entrateDisponibiliController.text =
+            widget.user.entrateDisponibili?.toString() ?? '';
+        entrateSettimanaliController.text =
+            widget.user.entrateSettimanali?.toString() ?? '';
+        selectedRole = widget.user.role;
+        selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
+        selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
+        selectedIsActive = widget.user.isActive;
+        selectedIsAnonymous = widget.user.isAnonymous;
+        selectedCertificatoScadenza = widget.user.certificatoScadenza?.toDate();
+        selectedTipologiaCorsoTags = List.from(widget.user.tipologiaCorsoTags);
+        selectedEmailNotifications = widget.user.emailNotificationsEnabled;
+        selectedPushNotifications = widget.user.pushNotificationsEnabled;
+        errorMsg = null;
+      }
+    });
+  }
+
+  List<Map<String, String>> getUserCourses({
+    int? maxCount,
+    bool last12MonthsOnly = false,
+  }) {
+    List<Map<String, String>> userCourses = [];
+    final twelveMonthsAgo = DateTime.now().subtract(const Duration(days: 365));
+
+    for (String courseId in widget.user.courses) {
+      Course? course = allCourses.where((c) => c.id == courseId).firstOrNull;
+      if (course != null) {
+        if (last12MonthsOnly) {
+          final startDate = course.startDate.toDate();
+          if (startDate.isBefore(twelveMonthsAgo)) continue;
+        }
+        String courseName = course.name;
+        String courseDate =
+            DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
+        String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
+        userCourses.add({
+          'name': courseName,
+          'date': courseDate,
+          'tipologia': tipologia,
+        });
+      }
+    }
+
+    // Ordina: se last12MonthsOnly, ordine cronologico (data crescente); altrimenti per titolo e data (più recenti prima)
+    if (last12MonthsOnly) {
+      userCourses.sort((a, b) => DateFormat('dd/MM/yyyy')
+          .parse(a['date']!)
+          .compareTo(DateFormat('dd/MM/yyyy').parse(b['date']!)));
+    } else {
+      userCourses.sort((a, b) {
+        int nameComparison =
+            a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase());
+        if (nameComparison != 0) {
+          return nameComparison;
+        }
+        return DateFormat('dd/MM/yyyy')
+            .parse(b['date']!)
+            .compareTo(DateFormat('dd/MM/yyyy').parse(a['date']!));
+      });
+    }
+
+    if (maxCount != null && userCourses.length > maxCount) {
+      userCourses = userCourses.sublist(0, maxCount);
+    }
+    return userCourses;
+  }
+
+  Map<String, List<Map<String, String>>> getUserCoursesByTipologia({
+    int? maxCount,
+    bool last12MonthsOnly = false,
+  }) {
+    List<Map<String, String>> allUserCourses = getUserCourses(
+      maxCount: maxCount,
+      last12MonthsOnly: last12MonthsOnly,
+    );
+    Map<String, List<Map<String, String>>> coursesByTipologia = {};
+
+    for (var courseInfo in allUserCourses) {
+      String tipologia = courseInfo['tipologia'] ?? 'Open';
+      if (!coursesByTipologia.containsKey(tipologia)) {
+        coursesByTipologia[tipologia] = [];
+      }
+      coursesByTipologia[tipologia]!.add(courseInfo);
+    }
+
+    return coursesByTipologia;
+  }
+
+  List<Map<String, String>> getUserCancelledEnrollments() {
+    List<Map<String, String>> cancelledEnrollments = [];
+
+    // Prendi le ultime 20 disiscrizioni (o tutte se sono meno di 20)
+    var cancelledList = widget.user.cancelledEnrollments.length > 20
+        ? widget.user.cancelledEnrollments
+            .sublist(widget.user.cancelledEnrollments.length - 20)
+        : widget.user.cancelledEnrollments;
+
+    for (var cancelled in cancelledList) {
+      Course? course =
+          allCourses.where((c) => c.id == cancelled.courseId).firstOrNull;
+      if (course != null) {
+        String courseName = course.name;
+        String cancelledDate = DateFormat('dd/MM/yyyy HH:mm')
+            .format(cancelled.cancelledAt.toDate());
+        String courseDate =
+            DateFormat('dd/MM/yyyy').format(cancelled.courseStartDate.toDate());
+        // Determina la tipologia del corso (usa il primo tag o 'Open' come default)
+        String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
+        String status =
+            cancelled.entryLost ? 'Ingresso perso' : 'Ingresso non perso';
+        cancelledEnrollments.add({
+          'name': courseName,
+          'cancelledDate': cancelledDate,
+          'courseDate': courseDate,
+          'tipologia': tipologia,
+          'status': status,
+        });
+      }
+    }
+
+    // Ordina per data di disiscrizione (più recenti prima)
+    cancelledEnrollments.sort((a, b) {
+      return DateFormat('dd/MM/yyyy HH:mm')
+          .parse(b['cancelledDate']!)
+          .compareTo(DateFormat('dd/MM/yyyy HH:mm').parse(a['cancelledDate']!));
+    });
+
+    return cancelledEnrollments;
+  }
+
+  Map<String, List<Map<String, String>>>
+      getUserCancelledEnrollmentsByTipologia() {
+    List<Map<String, String>> allCancelledEnrollments =
+        getUserCancelledEnrollments();
+    Map<String, List<Map<String, String>>> cancelledByTipologia = {};
+
+    // Raggruppa le disiscrizioni per tipologia
+    for (var cancelledInfo in allCancelledEnrollments) {
+      String tipologia = cancelledInfo['tipologia'] ?? 'Open';
+      if (!cancelledByTipologia.containsKey(tipologia)) {
+        cancelledByTipologia[tipologia] = [];
+      }
+      cancelledByTipologia[tipologia]!.add(cancelledInfo);
+    }
+
+    return cancelledByTipologia;
+  }
+
+  Future<void> saveChanges() async {
+    final name = nameController.text.trim();
+    final lastName = lastNameController.text.trim();
+    final numeroTelefono = numeroTelefonoController.text.trim();
+    final entrateDisponibili =
+        int.tryParse(entrateDisponibiliController.text.trim());
+    final entrateSettimanali =
+        int.tryParse(entrateSettimanaliController.text.trim());
+
+    if (name.isEmpty || lastName.isEmpty) {
+      setState(() {
+        errorMsg = 'Compila tutti i campi obbligatori';
+      });
+      return;
+    }
+
+    if (entrateSettimanali != null && entrateSettimanali < 0) {
+      setState(() {
+        errorMsg = 'Le entrate settimanali non possono essere negative';
+      });
+      return;
+    }
+
+    // Validazione numero di telefono
+    if (numeroTelefono.isNotEmpty) {
+      // Verifica che contenga solo numeri
+      if (!RegExp(r'^[0-9]+$').hasMatch(numeroTelefono)) {
+        setState(() {
+          errorMsg = 'Il numero di telefono deve contenere solo numeri';
+        });
+        return;
+      } else if (numeroTelefono.length != 10) {
+        setState(() {
+          errorMsg =
+              'Il numero di telefono deve contenere esattamente 10 cifre';
+        });
+        return;
+      }
+    }
+
+    final isCurrentUser = store.state.user?.uid == widget.user.uid;
+    final previousPushPreference = widget.user.pushNotificationsEnabled;
+    final pushPreferenceChanged =
+        isCurrentUser && selectedPushNotifications != previousPushPreference;
+    bool pushPreferenceApplied = false;
+
+    try {
+      if (pushPreferenceChanged) {
+        if (selectedPushNotifications) {
+          final confirmed = await _showPushEnableSoftPrompt();
+          if (!confirmed) {
+            selectedPushNotifications = previousPushPreference;
+          }
+        }
+
+        await OneSignalService.setPushEnabled(selectedPushNotifications);
+        pushPreferenceApplied = true;
+
+        if (selectedPushNotifications) {
+          final hasPermission = await OneSignalService.hasPushPermission();
+          if (!hasPermission) {
+            final canRequest =
+                await OneSignalService.canRequestPushPermission();
+            if (!canRequest) {
+              await _showPushPermissionHelp();
+            }
+            selectedPushNotifications = false;
+          }
+        }
+      }
+
+      await updateUser(
+        original: widget.user,
+        name: name,
+        lastName: lastName,
+        role: selectedRole,
+        tipologiaIscrizione: selectedTipologiaIscrizione,
+        entrateDisponibili: entrateDisponibili,
+        entrateSettimanali: entrateSettimanali,
+        fineIscrizione: selectedFineIscrizione,
+        isActive: selectedIsActive,
+        isAnonymous: selectedIsAnonymous,
+        certificatoScadenza: selectedCertificatoScadenza,
+        numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
+        tipologiaCorsoTags: selectedTipologiaCorsoTags,
+        emailNotificationsEnabled: selectedEmailNotifications,
+        pushNotificationsEnabled: selectedPushNotifications,
+      );
+
+      // Crea un nuovo oggetto utente con i dati aggiornati
+      final updatedUser = FitropeUser(
+        uid: widget.user.uid,
+        email: widget.user.email,
+        name: name,
+        lastName: lastName,
+        role: selectedRole,
+        courses: widget.user.courses,
+        tipologiaIscrizione: selectedTipologiaIscrizione,
+        entrateDisponibili: entrateDisponibili,
+        entrateSettimanali: entrateSettimanali,
+        fineIscrizione: selectedFineIscrizione != null
+            ? Timestamp.fromDate(DateTime(
+                selectedFineIscrizione!.year,
+                selectedFineIscrizione!.month,
+                selectedFineIscrizione!.day,
+                23,
+                59))
+            : null,
+        isActive: selectedIsActive,
+        isAnonymous: selectedIsAnonymous,
+        createdAt: widget.user.createdAt,
+        certificatoScadenza: selectedCertificatoScadenza != null
+            ? Timestamp.fromDate(DateTime(
+                selectedCertificatoScadenza!.year,
+                selectedCertificatoScadenza!.month,
+                selectedCertificatoScadenza!.day,
+                23,
+                59))
+            : null,
+        numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
+        tipologiaCorsoTags: selectedTipologiaCorsoTags,
+        cancelledEnrollments: widget.user.cancelledEnrollments,
+        emailNotificationsEnabled: selectedEmailNotifications,
+        pushNotificationsEnabled: selectedPushNotifications,
+        // Preserva i campi non gestiti da questa schermata (altrimenti andrebbero
+        // persi nell'oggetto in memoria propagato a store/liste).
+        waitlistCourses: widget.user.waitlistCourses,
+        regolamentoAccettatoIl: widget.user.regolamentoAccettatoIl,
+        activeSubscriptions: widget.user.activeSubscriptions,
+      );
+
+      // Aggiorna lo store Redux se l'utente ha modificato il proprio profilo
+      if (store.state.user?.uid == widget.user.uid) {
+        store.dispatch(SetUserAction(updatedUser));
+      }
+
+      if (!mounted) return;
+      setState(() {
+        isEditing = false;
+        errorMsg = null;
+      });
+
+      SnackBarUtils.showSuccessSnackBar(
+        context,
+        'Utente aggiornato con successo',
+      );
+
+      // Notifica la pagina precedente del cambiamento
+      Navigator.pop(context, updatedUser);
+    } catch (e) {
+      if (pushPreferenceChanged && pushPreferenceApplied) {
+        await OneSignalService.syncPushPreference(previousPushPreference);
+      }
+      if (mounted) {
+        setState(() {
+          errorMsg = 'Errore durante l\'aggiornamento';
+        });
+      }
+    }
+  }
+
+  void showLogoutConfirmation() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Conferma Logout'),
+          content: const Text('Sei sicuro di voler effettuare il logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text(
+                'Annulla',
+                style: TextStyle(color: onPrimaryColor),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await signOut();
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
+                  logoutRedirect(context); // Reindirizza al login
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
+                  SnackBarUtils.showErrorSnackBar(
+                    context,
+                    'Errore durante il logout',
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: warningColor),
+              child: const Text(
+                'Logout',
+                style:
+                    TextStyle(color: warningColor, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void showDeleteAccountConfirmation() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Cancellazione Account'),
+          content: const Text(
+            'Sei sicuro di voler Disattivare il tuo account?\n\n'
+            'I tuoi dati verranno mantenuti ma non sarai più in grado di utilizzare l\'applicazione.\n\n'
+            'Se cambi idea, contatta l\'amministratore per riattivare il tuo account.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text(
+                'Annulla',
+                style: TextStyle(color: onPrimaryColor),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  // Disattiva l'account dell'utente
+                  await toggleUserStatus(widget.user.uid, false);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+
+                  // Mostra messaggio di conferma
+                  if (mounted) {
+                    SnackBarUtils.showSuccessSnackBar(
+                      context,
+                      'Account disattivato con successo. Sei stato sloggato.',
+                    );
+                  }
+
+                  // Effettua il logout immediatamente
+                  await signOut();
+                  if (mounted) {
+                    logoutRedirect(context);
+                  }
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
+                  SnackBarUtils.showErrorSnackBar(
+                    context,
+                    'Errore durante la cancellazione dell\'account',
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text(
+                'Cancella Account',
+                style:
+                    TextStyle(color: errorColor, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void showCancelledEnrollmentInfo(String courseName, String courseDate,
+      String cancelledDate, String status) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: Text(courseName),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Data corso: $courseDate'),
+              const SizedBox(height: 8),
+              Text('Disiscritto il: $cancelledDate'),
+              const SizedBox(height: 8),
+              Text('Stato: $status'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child:
+                  const Text('Chiudi', style: TextStyle(color: onPrimaryColor)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void showResetPasswordConfirmation() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text('Invia Email Reset Password'),
+          content: Text(
+            'Sei sicuro di voler inviare un\'email di reset password a ${widget.user.email}?\n\n'
+            'L\'utente riceverà un\'email con le istruzioni per reimpostare la propria password.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text(
+                'Annulla',
+                style: TextStyle(color: onPrimaryColor),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await resetPassword(widget.user.email);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
+
+                  SnackBarUtils.showSuccessSnackBar(
+                    context,
+                    'Email di reset password inviata con successo a ${widget.user.email}',
+                  );
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (!mounted) return;
+                  SnackBarUtils.showErrorSnackBar(
+                    context,
+                    'Errore durante l\'invio dell\'email di reset password',
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: primaryColor),
+              child: const Text(
+                'Invia Email',
+                style:
+                    TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  bool _canViewUser() {
+    final currentUser = store.state.user;
+    if (currentUser == null) return false;
+
+    // L'utente può sempre vedere il suo profilo
+    if (currentUser.uid == widget.user.uid) {
+      return true;
+    }
+
+    // Admin può vedere tutti gli utenti
+    if (currentUser.role == 'Admin') {
+      return true;
+    }
+
+    // Trainer può vedere solo utenti con ruolo User
+    if (currentUser.role == 'Trainer') {
+      return widget.user.role == 'User';
+    }
+
+    // User può vedere solo il suo profilo (già controllato sopra)
+    return false;
+  }
+
+  bool _canEditUser() {
+    final currentUser = store.state.user;
+    if (currentUser == null) return false;
+    // L'utente può sempre modificare il suo profilo
+    if (currentUser.uid == widget.user.uid || currentUser.role == 'Admin') {
+      return true;
+    }
+    // Trainer può modificare solo Nome e Cognome di utenti con ruolo User
+    if (currentUser.role == 'Trainer') {
+      return widget.user.role == 'User';
+    }
+    // User può modificare solo il suo profilo (già controllato sopra)
+    return false;
+  }
+
+  bool _canEditSpecificField(String fieldName) {
+    final currentUser = store.state.user;
+
+    if (currentUser == null) return false;
+    // Admin può modificare tutti i campi
+    if (currentUser.role == 'Admin') {
+      return true;
+    }
+    // Trainer può modificare solo Nome, Cognome e Numero di Telefono di utenti con ruolo User
+    if (currentUser.role == 'Trainer' && widget.user.role == 'User') {
+      return fieldName == 'Nome' ||
+          fieldName == 'Cognome' ||
+          fieldName == 'Numero di Telefono' ||
+          fieldName == 'Anonimo';
+    }
+
+    // Il campo Stato,Tipologia, Entrate Disponibili, Entrate Settimanali, Ruolo, Fine Iscrizione, Certificato e Tipologia Corso sono gestiti solo dagli Admin
+    if (fieldName == 'Stato' ||
+        fieldName == 'Tipologia' ||
+        fieldName == 'Entrate Disponibili' ||
+        fieldName == 'Entrate Settimanali' ||
+        fieldName == 'Fine Iscrizione' ||
+        fieldName == 'Ruolo' ||
+        fieldName == 'Certificato' ||
+        fieldName == 'Tipologia Corso') {
+      return currentUser.role == 'Admin';
+    }
+    return true;
+  }
+
+  String _getValidRoleForDropdown() {
+    // Se l'utente corrente non è Admin e selectedRole è Trainer,
+    // restituisci 'User' come fallback
+    if (store.state.user?.role != 'Admin' && selectedRole == 'Trainer') {
+      return 'User';
+    }
+    return selectedRole;
+  }
+
+  String _getCertificatoText() {
+    if (widget.user.certificatoScadenza == null) {
+      return 'Non impostato';
+    }
+
+    final dataFormattata =
+        CertificatoHelper.formatDataScadenza(widget.user.certificatoScadenza);
+    final stato =
+        CertificatoHelper.getStatoCertificato(widget.user.certificatoScadenza);
+
+    return '$dataFormattata ($stato)';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Controlla se l'utente corrente può vedere questo utente
+    if (!_canViewUser()) {
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: AppBar(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          title: const Text('Accesso Negato'),
+        ),
+        body: const Center(
+          child: Text(
+            'Non hai i permessi per visualizzare i dettagli di questo utente.',
+            style: TextStyle(color: Colors.white, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final horizontalInset =
+        isDesktop(context) ? MediaQuery.sizeOf(context).width * 0.15 : 0.0;
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        backgroundColor: backgroundColor,
+        // leadingWidth: lo slot default (56) tagliava il BackButton spostato dal padding desktop.
+        leadingWidth: horizontalInset > 0 ? horizontalInset + 56 : null,
+        leading: horizontalInset > 0
+            ? Padding(
+                padding: EdgeInsetsDirectional.only(start: horizontalInset),
+                child: BackButton(
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+              )
+            : null,
+        title: Text(store.state.user?.uid == widget.user.uid
+            ? 'Il Mio Profilo'
+            : 'Dettagli Utente'),
+        actions: [
+          Padding(
+            padding: EdgeInsetsDirectional.only(end: horizontalInset),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isEditing && _canEditUser()) ...[
+                  if (store.state.user?.uid == widget.user.uid)
+                    IconButton(
+                      icon: const Icon(Icons.delete_forever, color: Colors.red),
+                      onPressed: showDeleteAccountConfirmation,
+                      tooltip: 'Cancella Account',
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: toggleEdit,
+                  ),
+                ],
+                if (isEditing) ...[
+                  IconButton(
+                    icon: const Icon(Icons.save),
+                    onPressed: saveChanges,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: toggleEdit,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop(context)
+              ? MediaQuery.of(context).size.width * 0.15
+              : pagePadding,
+          vertical: pagePadding,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Assegnazione abbonamento (Admin). Attiva da PR4: il write-path
+            // server-side (subscribe/unsubscribe) applica eligibility e
+            // decremento ingressi, quindi assegnare abbonamenti è sicuro.
+            if (store.state.user?.role == 'Admin') ...[
+              AssignSubscriptionCard(
+                userId: widget.user.uid,
+                onAssigned: () {
+                  // Lo snapshot dell'utente è cambiato server-side: invalida la
+                  // cache così liste e dettagli ricaricano dati freschi.
+                  invalidateUsersCache();
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
+            // Header con avatar e nome
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    '${widget.user.name} ${widget.user.lastName}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: primaryLightColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${widget.user.name} ${widget.user.lastName}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (!widget.user.isActive) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.block, color: Colors.white, size: 16),
+                              SizedBox(width: 4),
+                              Text(
+                                'Disattivato',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Sezione informazioni personali
+            _buildSection(
+              'Informazioni Personali',
+              [
+                _buildInfoRow('Nome', widget.user.name, nameController,
+                    _canEditSpecificField('Nome') && isEditing),
+                _buildInfoRow(
+                    'Cognome',
+                    widget.user.lastName,
+                    lastNameController,
+                    _canEditSpecificField('Cognome') && isEditing),
+                _buildInfoRow(
+                    'Numero di Telefono',
+                    widget.user.numeroTelefono ?? 'Non impostato',
+                    numeroTelefonoController,
+                    _canEditSpecificField('Numero di Telefono') && isEditing),
+                _buildInfoRow('Email', widget.user.email, null, false),
+                if (isAdmin)
+                  _buildInfoRow('Ruolo', widget.user.role, null,
+                      _canEditSpecificField('Ruolo') && isEditing,
+                      isDropdown: true),
+                _buildInfoRow('Certificato Medico', _getCertificatoText(), null,
+                    _canEditSpecificField('Certificato') && isEditing,
+                    isCertificatoDatePicker: true),
+                // Campo Stato visibile solo agli Admin
+                if (isAdmin)
+                  _buildInfoRow(
+                      'Stato',
+                      widget.user.isActive ? 'Attivo' : 'Disattivato',
+                      null,
+                      _canEditSpecificField('Stato') && isEditing,
+                      isStatusDropdown: true),
+                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No',
+                    null, _canEditSpecificField('Anonimo') && isEditing,
+                    isAnonymousDropdown: true),
+                // Pulsante per inviare email di reset password (solo per Admin)
+                if (isAdmin) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: showResetPasswordConfirmation,
+                      icon: const Icon(Icons.email, color: Colors.white),
+                      label: const Text(
+                        'Invia Email Reset Password',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Sezione piano di iscrizione
+            _buildSection(
+              'Piano di Iscrizione',
+              [
+                _buildInfoRow(
+                    'Tipologia',
+                    _getTipologiaLabel(widget.user.tipologiaIscrizione),
+                    null,
+                    _canEditSpecificField('Tipologia') && isEditing,
+                    isTipologiaDropdown: true),
+                _buildInfoRow(
+                    'Tipologia Corso',
+                    widget.user.tipologiaCorsoTags.join(', '),
+                    null,
+                    _canEditSpecificField('Tipologia Corso') && isEditing,
+                    isTagsMultiSelect: true),
+                if (widget.user.tipologiaIscrizione ==
+                        TipologiaIscrizione.PACCHETTO_ENTRATE ||
+                    isAdmin) ...[
+                  _buildInfoRow(
+                      'Entrate Disponibili',
+                      widget.user.entrateDisponibili?.toString() ?? '0',
+                      entrateDisponibiliController,
+                      _canEditSpecificField('Entrate Disponibili') &&
+                          isEditing),
+                ],
+                _buildInfoRow(
+                    'Entrate Settimanali',
+                    widget.user.entrateSettimanali?.toString() ?? '0',
+                    entrateSettimanaliController,
+                    _canEditSpecificField('Entrate Settimanali') && isEditing),
+                _buildInfoRow(
+                    'Fine Iscrizione',
+                    widget.user.fineIscrizione != null
+                        ? DateFormat('dd/MM/yyyy')
+                            .format(widget.user.fineIscrizione!.toDate())
+                        : 'Non impostata',
+                    null,
+                    _canEditSpecificField('Fine Iscrizione') && isEditing,
+                    isDatePicker: true),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Sezione abbonamenti del modello multi-abbonamento (sola lettura;
+            // l'assegnazione avviene server-side via AssignSubscriptionCard, in
+            // cima alla pagina per gli Admin).
+            _buildActiveSubscriptionsSection(),
+
+            // Sezione preferenze notifiche (solo per il proprio profilo)
+            if (store.state.user?.uid == widget.user.uid) ...[
+              const SizedBox(height: 24),
+              _buildSection(
+                'Preferenze Notifiche',
+                [
+                  _buildNotificationToggle(
+                    'Notifiche Push',
+                    Icons.notifications_active,
+                    selectedPushNotifications,
+                    (value) =>
+                        setState(() => selectedPushNotifications = value),
+                    enabled: isEditing,
+                  ),
+                  _buildNotificationToggle(
+                    'Notifiche Email',
+                    Icons.email,
+                    selectedEmailNotifications,
+                    (value) =>
+                        setState(() => selectedEmailNotifications = value),
+                    enabled: isEditing,
+                  ),
+                ],
+              ),
+            ],
+
+            const SizedBox(height: 24),
+
+            // Sezione informazioni account
+            _buildSection(
+              'Informazioni Account',
+              [
+                _buildInfoRow(
+                    'Data Registrazione',
+                    DateFormat('dd/MM/yyyy HH:mm')
+                        .format(widget.user.createdAt),
+                    null,
+                    false),
+                _buildInfoRow('Corsi Iscritti', '${widget.user.courses.length}',
+                    null, false),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Sezione regolamento
+            _buildSection(
+              'Regolamento della Palestra',
+              [
+                _buildInfoRow(
+                  'Accettato il',
+                  widget.user.regolamentoAccettatoIl != null
+                      ? DateFormat('dd/MM/yyyy HH:mm')
+                          .format(widget.user.regolamentoAccettatoIl!.toDate())
+                      : 'Non ancora accettato',
+                  null,
+                  false,
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => RegolamentoHelper.openRegolamento(),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.description,
+                          color: Colors.blueAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Visualizza regolamento completo',
+                        style: TextStyle(
+                          color: Colors.blueAccent,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Pulsante accettazione solo per il proprio profilo e se non ancora accettato
+                if (store.state.user?.uid == widget.user.uid &&
+                    widget.user.regolamentoAccettatoIl == null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final accepted =
+                            await RegolamentoHelper.checkAndAcceptRegolamento(
+                          context,
+                          widget.user,
+                        );
+                        if (!accepted || !context.mounted) return;
+                        SnackBarUtils.showSuccessSnackBar(
+                          context,
+                          'Regolamento accettato con successo',
+                        );
+                        // Torna indietro con utente aggiornato
+                        final updatedUser = FitropeUser(
+                          uid: widget.user.uid,
+                          email: widget.user.email,
+                          name: widget.user.name,
+                          lastName: widget.user.lastName,
+                          role: widget.user.role,
+                          courses: widget.user.courses,
+                          tipologiaIscrizione: widget.user.tipologiaIscrizione,
+                          entrateDisponibili: widget.user.entrateDisponibili,
+                          entrateSettimanali: widget.user.entrateSettimanali,
+                          fineIscrizione: widget.user.fineIscrizione,
+                          isActive: widget.user.isActive,
+                          isAnonymous: widget.user.isAnonymous,
+                          createdAt: widget.user.createdAt,
+                          certificatoScadenza: widget.user.certificatoScadenza,
+                          numeroTelefono: widget.user.numeroTelefono,
+                          tipologiaCorsoTags: widget.user.tipologiaCorsoTags,
+                          cancelledEnrollments:
+                              widget.user.cancelledEnrollments,
+                          regolamentoAccettatoIl: Timestamp.now(),
+                        );
+                        Navigator.pop(context, updatedUser);
+                      },
+                      icon: const Icon(Icons.check_circle, color: Colors.white),
+                      label: const Text(
+                        'Accetta il Regolamento',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+
+            if (widget.user.courses.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              if (isAdmin)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(() =>
+                        _showAllEnrollments12Months =
+                            !_showAllEnrollments12Months),
+                    icon: Icon(
+                      _showAllEnrollments12Months
+                          ? Icons.list
+                          : Icons.calendar_month,
+                      size: 18,
+                      color: primaryLightColor,
+                    ),
+                    label: Text(
+                      _showAllEnrollments12Months
+                          ? 'Vedi ultime 20'
+                          : 'Vedi tutte (ultimi 12 mesi)',
+                      style: const TextStyle(color: primaryLightColor),
+                    ),
+                  ),
+                ),
+              if (_showAllEnrollments12Months) ...[
+                _buildSection(
+                  'Tutte le iscrizioni (ultimi 12 mesi)',
+                  getUserCourses(maxCount: null, last12MonthsOnly: true)
+                      .map((courseInfo) => _buildInfoRow(courseInfo['name']!,
+                          courseInfo['date']!, null, false))
+                      .toList(),
+                ),
+                const SizedBox(height: 24),
+              ],
+              if (!_showAllEnrollments12Months)
+                ...getUserCoursesByTipologia(
+                  maxCount: isAdmin ? 20 : 10,
+                  last12MonthsOnly: false,
+                ).entries.map((entry) {
+                  String tipologia = entry.key;
+                  List<Map<String, String>> courses = entry.value;
+                  return Column(
+                    children: [
+                      _buildSection(
+                        'Ultime ${isAdmin ? 20 : 10} iscrizioni - $tipologia',
+                        courses
+                            .map((courseInfo) => _buildInfoRow(
+                                courseInfo['name']!,
+                                courseInfo['date']!,
+                                null,
+                                false))
+                            .toList(),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                }),
+            ],
+
+            // Sezione disiscrizioni (solo per Admin)
+            if (isAdmin && widget.user.cancelledEnrollments.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              ...getUserCancelledEnrollmentsByTipologia().entries.map((entry) {
+                String tipologia = entry.key;
+                List<Map<String, String>> cancelledEnrollments = entry.value;
+                return Column(
+                  children: [
+                    _buildSection(
+                      'Ultime 20 disiscrizioni - $tipologia',
+                      cancelledEnrollments
+                          .map((cancelledInfo) => _buildInfoRow(
+                                cancelledInfo['name']!,
+                                cancelledInfo['courseDate']!,
+                                null,
+                                false,
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.info_outline,
+                                      size: 20, color: primaryLightColor),
+                                  onPressed: () => showCancelledEnrollmentInfo(
+                                    cancelledInfo['name']!,
+                                    cancelledInfo['courseDate']!,
+                                    cancelledInfo['cancelledDate']!,
+                                    cancelledInfo['status']!,
+                                  ),
+                                  tooltip: 'Informazioni disiscrizione',
+                                ),
+                              ))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              }),
+            ],
+            //TODO aggiungere corsi fatti nel caso sia Trainer
+            if (errorMsg != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red),
+                  ),
+                  child: Text(
+                    errorMsg!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              ),
+
+            // Pulsante Logout (solo per il proprio profilo)
+            if (store.state.user?.uid == widget.user.uid) ...[
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: showLogoutConfirmation,
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool get isAdmin => store.state.user?.role == 'Admin';
+
+  Widget _buildSection(String title, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: outlineColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: primaryLightColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  /// Elenco (sola lettura) degli abbonamenti del modello multi-abbonamento.
+  /// Ordinati per scadenza decrescente (tie-break su planKey per ordine
+  /// deterministico tra rebuild): i più futuri in alto, gli eventuali scaduti
+  /// (snapshot stantio) in fondo, ognuno con colore di stato.
+  ///
+  /// NB: qui si mostrano DELIBERATAMENTE TUTTE le voci dello snapshot (anche le
+  /// scadute), perché è la vista gestionale/storica admin; la HomePage utente
+  /// filtra invece con `liveSubscriptions` e mostra solo quelle vive.
+  Widget _buildActiveSubscriptionsSection() {
+    final subs = [...widget.user.activeSubscriptions]..sort((a, b) {
+        final byEnd = b.endDate.compareTo(a.endDate);
+        return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
+      });
+    return _buildSection(
+      'Abbonamenti attivi',
+      subs.isEmpty
+          ? [
+              const Text(
+                'Nessun abbonamento attivo',
+                style: TextStyle(color: onSurfaceVariantColor),
+              ),
+            ]
+          : subs.map((s) => ActiveSubscriptionCard(subscription: s)).toList(),
+    );
+  }
+
+  Widget _buildNotificationToggle(
+      String label, IconData icon, bool value, ValueChanged<bool> onChanged,
+      {bool enabled = true}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: primaryLightColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: primaryLightColor,
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: enabled ? onChanged : null,
+            activeThumbColor: primaryLightColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value,
+      TextEditingController? controller, bool isEditable,
+      {bool isDropdown = false,
+      bool isTipologiaDropdown = false,
+      bool isDatePicker = false,
+      bool isStatusDropdown = false,
+      bool isAnonymousDropdown = false,
+      bool isCertificatoDatePicker = false,
+      bool isTagsMultiSelect = false,
+      Widget? trailing}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: primaryLightColor,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: isEditable && controller != null
+                      ? TextField(
+                          controller: controller,
+                          keyboardType:
+                              label == 'Numero di Telefono (opzionale)'
+                                  ? TextInputType.phone
+                                  : TextInputType.number,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
+                          inputFormatters: label == 'Numero di Telefono'
+                              ? [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(10),
+                                ]
+                              : null,
+                        )
+                      : isEditable && isDropdown
+                          ? DropdownButtonFormField<String>(
+                              initialValue: _getValidRoleForDropdown(),
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                              ),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: 'User',
+                                  child: Text('User'),
+                                ),
+                                // Solo gli admin possono assegnare il ruolo Trainer
+                                if (isAdmin)
+                                  const DropdownMenuItem(
+                                    value: 'Trainer',
+                                    child: Text('Trainer'),
+                                  ),
+                                const DropdownMenuItem(
+                                  value: 'Admin',
+                                  child: Text('Admin'),
+                                ),
+                              ],
+                              onChanged: (newValue) {
+                                setState(() {
+                                  selectedRole = newValue!;
+                                });
+                              },
+                            )
+                          : isEditable && isTipologiaDropdown
+                              ? DropdownButtonFormField<String>(
+                                  initialValue: selectedTipologiaIscrizione
+                                      ?.toString()
+                                      .split('.')
+                                      .last,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                  ),
+                                  items: [
+                                    DropdownMenuItem(
+                                        value: null,
+                                        child: Text(
+                                          _getTipologiaLabel(null),
+                                          style: const TextStyle(
+                                              color: onPrimaryColor),
+                                        )),
+                                    ...TipologiaIscrizione.values
+                                        .map((tipologia) {
+                                      return DropdownMenuItem(
+                                        value: tipologia
+                                            .toString()
+                                            .split('.')
+                                            .last,
+                                        child:
+                                            Text(_getTipologiaLabel(tipologia)),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (newValue) {
+                                    setState(() {
+                                      selectedTipologiaIscrizione = newValue !=
+                                              null
+                                          ? TipologiaIscrizione.values
+                                              .where((e) =>
+                                                  e
+                                                      .toString()
+                                                      .split('.')
+                                                      .last ==
+                                                  newValue)
+                                              .firstOrNull
+                                          : null;
+                                    });
+                                  },
+                                )
+                              : isEditable && isDatePicker
+                                  ? InkWell(
+                                      onTap: () async {
+                                        final DateTime now = DateTime.now();
+                                        final DateTime initialDate =
+                                            selectedFineIscrizione != null &&
+                                                    selectedFineIscrizione!
+                                                        .isAfter(now)
+                                                ? selectedFineIscrizione!
+                                                : now;
+
+                                        final DateTime? picked =
+                                            await showDatePicker(
+                                          context: context,
+                                          initialDate: initialDate,
+                                          firstDate: now,
+                                          lastDate: now.add(
+                                              const Duration(days: 365 * 2)),
+                                          locale: const Locale('it', 'IT'),
+                                        );
+                                        if (!mounted || picked == null) return;
+                                        setState(() {
+                                          selectedFineIscrizione = picked;
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          border:
+                                              Border.all(color: Colors.grey),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              selectedFineIscrizione != null
+                                                  ? DateFormat('dd/MM/yyyy')
+                                                      .format(
+                                                          selectedFineIscrizione!)
+                                                  : 'Seleziona data',
+                                              style:
+                                                  const TextStyle(fontSize: 16),
+                                            ),
+                                            const Icon(Icons.calendar_today),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : isEditable && isStatusDropdown
+                                      ? DropdownButtonFormField<bool>(
+                                          initialValue: selectedIsActive,
+                                          decoration: const InputDecoration(
+                                            border: OutlineInputBorder(),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8),
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: true,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.check_circle,
+                                                      color: Colors.green),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    'Attivo',
+                                                    style: TextStyle(
+                                                        color: onPrimaryColor),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: false,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.block,
+                                                      color: Colors.red),
+                                                  SizedBox(width: 8),
+                                                  Text('Disattivato'),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          onChanged: (newValue) {
+                                            setState(() {
+                                              selectedIsActive = newValue!;
+                                            });
+                                          },
+                                        )
+                                      : isEditable && isAnonymousDropdown
+                                          ? DropdownButtonFormField<bool>(
+                                              initialValue: selectedIsAnonymous,
+                                              decoration: const InputDecoration(
+                                                border: OutlineInputBorder(),
+                                                contentPadding:
+                                                    EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8),
+                                              ),
+                                              items: const [
+                                                DropdownMenuItem(
+                                                  value: false,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.person,
+                                                          color: Colors.green),
+                                                      SizedBox(width: 8),
+                                                      Text('No'),
+                                                    ],
+                                                  ),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: true,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.visibility_off,
+                                                          color: Colors.grey),
+                                                      SizedBox(width: 8),
+                                                      Text('Sì'),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  selectedIsAnonymous =
+                                                      newValue!;
+                                                });
+                                              },
+                                            )
+                                          : isEditable &&
+                                                  isCertificatoDatePicker
+                                              ? InkWell(
+                                                  onTap: () async {
+                                                    final DateTime now =
+                                                        DateTime.now();
+                                                    final DateTime initialDate =
+                                                        selectedCertificatoScadenza !=
+                                                                    null &&
+                                                                selectedCertificatoScadenza!
+                                                                    .isAfter(
+                                                                        now)
+                                                            ? selectedCertificatoScadenza!
+                                                            : now;
+
+                                                    final DateTime? picked =
+                                                        await showDatePicker(
+                                                      context: context,
+                                                      initialDate: initialDate,
+                                                      firstDate: now.subtract(
+                                                          const Duration(
+                                                              days: 180)),
+                                                      lastDate: now.add(
+                                                          const Duration(
+                                                              days: 400)),
+                                                      locale: const Locale(
+                                                          'it', 'IT'),
+                                                    );
+                                                    if (!mounted ||
+                                                        picked == null) {
+                                                      return;
+                                                    }
+                                                    setState(() {
+                                                      selectedCertificatoScadenza =
+                                                          picked;
+                                                    });
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8),
+                                                    decoration: BoxDecoration(
+                                                      border: Border.all(
+                                                          color: Colors.grey),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Text(
+                                                          selectedCertificatoScadenza !=
+                                                                  null
+                                                              ? DateFormat(
+                                                                      'dd/MM/yyyy')
+                                                                  .format(
+                                                                      selectedCertificatoScadenza!)
+                                                              : 'Seleziona data',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 16),
+                                                        ),
+                                                        const Icon(Icons
+                                                            .calendar_today),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                )
+                                              : isEditable && isTagsMultiSelect
+                                                  ? Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 8,
+                                                      children: CourseTags.all
+                                                          .map((tag) {
+                                                        final isSelected =
+                                                            selectedTipologiaCorsoTags
+                                                                .contains(tag);
+                                                        return FilterChip(
+                                                          label: Text(tag),
+                                                          selected: isSelected,
+                                                          onSelected:
+                                                              (selected) {
+                                                            setState(() {
+                                                              if (selected) {
+                                                                selectedTipologiaCorsoTags
+                                                                    .add(tag);
+                                                              } else {
+                                                                selectedTipologiaCorsoTags
+                                                                    .remove(
+                                                                        tag);
+                                                              }
+                                                            });
+                                                          },
+                                                          selectedColor:
+                                                              primaryColor
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.3),
+                                                          checkmarkColor:
+                                                              primaryColor,
+                                                        );
+                                                      }).toList(),
+                                                    )
+                                                  : Text(
+                                                      value,
+                                                      style: TextStyle(
+                                                        fontSize: 16,
+                                                        color: label ==
+                                                                    'Certificato Medico' &&
+                                                                widget.user
+                                                                        .certificatoScadenza !=
+                                                                    null
+                                                            ? CertificatoHelper
+                                                                .getColoreScadenza(
+                                                                    widget.user
+                                                                        .certificatoScadenza)
+                                                            : null,
+                                                      ),
+                                                    ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 8),
+                  trailing,
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Label tipologia legacy centralizzata (era una copia locale divergente):
+  // unica fonte in getTipologiaIscrizioneLabel, coerente con AdminUsersPage /
+  // AdminDashboardPage / HomePage.
+  String _getTipologiaLabel(TipologiaIscrizione? tipologia) =>
+      getTipologiaIscrizioneLabel(tipologia);
+}

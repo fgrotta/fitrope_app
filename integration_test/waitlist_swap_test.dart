@@ -41,7 +41,8 @@ void main() {
       await launchTestApp(tester);
       await login(tester, adminTest);
       final trainerId = await resolveUserIdByEmail(trainerTest.email);
-      corso = await createFerragostoTestCourse(trainerId: trainerId, capacity: 1);
+      corso =
+          await createFerragostoTestCourse(trainerId: trainerId, capacity: 1);
       addTearDown(() async {
         if (corso != null) await deleteTestCourse(corso.uid);
       });
@@ -66,7 +67,8 @@ void main() {
       await expectCourseAction(tester, uid, 'Lista d\'attesa'); // CAN_WAITLIST
       await tapCourseAction(tester, uid);
       await confirmDialog(tester, 'Conferma'); // dialog lista d'attesa
-      await expectCourseAction(tester, uid, 'Esci dalla lista d\'attesa'); // IN_WAITLIST
+      await expectCourseAction(
+          tester, uid, 'Esci dalla lista d\'attesa'); // IN_WAITLIST
 
       // === 4. Admin: Utente 1 iscritto, Utente 2 in lista d'attesa ======
       await logoutAndRestart(tester);
@@ -74,20 +76,26 @@ void main() {
       await openFerragostoCourses(tester);
       await pumpUntilFound(
         tester,
-        find.descendant(of: courseCard(uid), matching: find.textContaining('Iscritti (1/1)')),
+        find.descendant(
+            of: courseCard(uid),
+            matching: find.textContaining('Iscritti (1/1)')),
       );
       expect(
-        find.descendant(of: courseCard(uid), matching: find.textContaining(nomeUtente1)),
+        find.descendant(
+            of: courseCard(uid), matching: find.textContaining(nomeUtente1)),
         findsWidgets,
         reason: 'Admin deve vedere Utente 1 tra gli iscritti',
       );
       expect(
-        find.descendant(of: courseCard(uid), matching: find.textContaining('Lista d\'attesa (1)')),
+        find.descendant(
+            of: courseCard(uid),
+            matching: find.textContaining('Lista d\'attesa (1)')),
         findsOneWidget,
         reason: 'Admin deve vedere 1 utente in lista d\'attesa',
       );
       expect(
-        find.descendant(of: courseCard(uid), matching: find.textContaining(nomeUtente2)),
+        find.descendant(
+            of: courseCard(uid), matching: find.textContaining(nomeUtente2)),
         findsWidgets,
         reason: 'Admin deve vedere Utente 2 in lista d\'attesa',
       );
@@ -107,9 +115,11 @@ void main() {
       await login(tester, utenteBase2);
       await openFerragostoCourses(tester);
       // In lista d'attesa + posto disponibile → può iscriversi ora.
-      await expectCourseAction(tester, uid, 'Posto disponibile! Iscriviti ora'); // WAITLIST_SPOT_AVAILABLE
+      await expectCourseAction(tester, uid,
+          'Posto disponibile! Iscriviti ora'); // WAITLIST_SPOT_AVAILABLE
       await tapCourseAction(tester, uid);
-      await expectCourseAction(tester, uid, 'Rimuovi iscrizione'); // SUBSCRIBED (rimosso da waitlist)
+      await expectCourseAction(tester, uid,
+          'Rimuovi iscrizione'); // SUBSCRIBED (rimosso da waitlist)
 
       // === 7. Admin: Utente 2 iscritto, nessuno in lista d'attesa =======
       await logoutAndRestart(tester);
@@ -117,17 +127,23 @@ void main() {
       await openFerragostoCourses(tester);
       await pumpUntilFound(
         tester,
-        find.descendant(of: courseCard(uid), matching: find.textContaining(nomeUtente2)),
+        find.descendant(
+            of: courseCard(uid), matching: find.textContaining(nomeUtente2)),
       );
       expect(
-        find.descendant(of: courseCard(uid), matching: find.textContaining('Iscritti (1/1)')),
+        find.descendant(
+            of: courseCard(uid),
+            matching: find.textContaining('Iscritti (1/1)')),
         findsOneWidget,
         reason: 'Admin deve vedere Utente 2 iscritto',
       );
       expect(
-        find.descendant(of: courseCard(uid), matching: find.textContaining('Lista d\'attesa')),
+        find.descendant(
+            of: courseCard(uid),
+            matching: find.textContaining('Lista d\'attesa')),
         findsNothing,
-        reason: 'La lista d\'attesa deve essere vuota (nessuna sezione mostrata)',
+        reason:
+            'La lista d\'attesa deve essere vuota (nessuna sezione mostrata)',
       );
     },
     skip: true,

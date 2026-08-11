@@ -10,28 +10,28 @@ class CertificatoHelper {
   /// Verifica se un certificato è in scadenza (≤ 10 giorni)
   static bool isCertificatoInScadenza(Timestamp? scadenza) {
     if (scadenza == null) return false;
-    
+
     final oggi = DateTime.now();
     final dataScadenza = scadenza.toDate();
     final differenzaGiorni = dataScadenza.difference(oggi).inDays;
-    
+
     return differenzaGiorni <= GIORNI_SOGLIA_SCADENZA && differenzaGiorni >= 0;
   }
 
   /// Verifica se un certificato è scaduto
   static bool isCertificatoScaduto(Timestamp? scadenza) {
     if (scadenza == null) return false;
-    
+
     final oggi = DateTime.now();
     final dataScadenza = scadenza.toDate();
-    
+
     return dataScadenza.isBefore(oggi);
   }
 
   /// Formatta la data di scadenza del certificato
   static String formatDataScadenza(Timestamp? scadenza) {
     if (scadenza == null) return 'Non impostato';
-    
+
     final formatter = DateFormat('dd/MM/yyyy');
     return formatter.format(scadenza.toDate());
   }
@@ -39,7 +39,7 @@ class CertificatoHelper {
   /// Ottiene il colore appropriato per la data di scadenza
   static Color getColoreScadenza(Timestamp? scadenza) {
     if (scadenza == null) return Colors.grey;
-    
+
     if (isCertificatoScaduto(scadenza)) {
       return Colors.red;
     } else if (isCertificatoInScadenza(scadenza)) {
@@ -52,7 +52,7 @@ class CertificatoHelper {
   /// Ottiene il testo di stato del certificato
   static String getStatoCertificato(Timestamp? scadenza) {
     if (scadenza == null) return 'Non impostato';
-    
+
     if (isCertificatoScaduto(scadenza)) {
       return 'Scaduto';
     } else if (isCertificatoInScadenza(scadenza)) {
@@ -66,11 +66,11 @@ class CertificatoHelper {
   /// Calcola i giorni rimanenti alla scadenza
   static int getGiorniRimanenti(Timestamp? scadenza) {
     if (scadenza == null) return -1;
-    
+
     final oggi = DateTime.now();
     final dataScadenza = scadenza.toDate();
     final differenzaGiorni = dataScadenza.difference(oggi).inDays;
-    
+
     return differenzaGiorni;
   }
 }

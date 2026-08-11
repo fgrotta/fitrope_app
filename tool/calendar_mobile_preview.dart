@@ -13,7 +13,8 @@ class MockCourse {
   final CourseType type;
   final int subscribed;
   final int capacity;
-  const MockCourse(this.name, this.time, this.type, this.subscribed, this.capacity);
+  const MockCourse(
+      this.name, this.time, this.type, this.subscribed, this.capacity);
 }
 
 const day = <MockCourse>[
@@ -46,27 +47,31 @@ class PreviewApp extends StatelessWidget {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        body: const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               _SectionTitle('Filtro corsi del giorno'),
               SizedBox(height: 16),
               Wrap(
                 spacing: 24,
                 runSpacing: 24,
                 children: [
-                  _Phone('A — Filter chips (sticky)',
+                  _Phone(
+                      'A — Filter chips (sticky)',
                       'Chip Tutti/Open/PT con contatore; filtra la lista. Calendario sempre visibile.',
                       VariantChips()),
-                  _Phone('B — TabBar',
+                  _Phone(
+                      'B — TabBar',
                       'Una tab per tipologia, contenuto swipeabile. Più app-like ma nasconde le altre.',
                       VariantTabs()),
-                  _Phone('C — Sezioni collassabili',
+                  _Phone(
+                      'C — Sezioni collassabili',
                       'Sezioni comprimibili, chiuse di default con contatore: ideale nei giorni pieni.',
                       VariantExpansion()),
-                  _Phone('D — Segmented control',
+                  _Phone(
+                      'D — Segmented control',
                       'Toggle compatto in stile iOS che filtra la lista.',
                       VariantSegmented()),
                 ],
@@ -78,11 +83,13 @@ class PreviewApp extends StatelessWidget {
                 spacing: 24,
                 runSpacing: 24,
                 children: [
-                  _Phone('E — Griglia mensile con pallini',
+                  _Phone(
+                      'E — Griglia mensile con pallini',
                       'Griglia del mese con pallini colorati per i corsi; tocca un giorno per vederne i corsi sotto.',
                       VariantMonthGrid(),
                       showMiniCalendar: false),
-                  _Phone('F — Agenda mensile',
+                  _Phone(
+                      'F — Agenda mensile',
                       'Lista di tutti i corsi del mese, raggruppati per giorno e ordinati cronologicamente.',
                       VariantMonthAgenda(),
                       showMiniCalendar: false),
@@ -95,7 +102,8 @@ class PreviewApp extends StatelessWidget {
                 spacing: 24,
                 runSpacing: 24,
                 children: [
-                  _Phone('E + A — Griglia mensile + filtri tipologia',
+                  _Phone(
+                      'E + A — Griglia mensile + filtri tipologia',
                       'Calendario del mese (E): tocca un giorno; i chip Tutti/Open/PT (A) filtrano i corsi di quel giorno.',
                       VariantMonthFiltered(),
                       showMiniCalendar: false),
@@ -201,11 +209,13 @@ class _MiniCalendar extends StatelessWidget {
                 Text(['L', 'M', 'M', 'G', 'V', 'S', 'D'][i],
                     style: TextStyle(
                         fontSize: 11,
-                        color: selected ? Colors.white : const Color(0xFF5F6368))),
+                        color:
+                            selected ? Colors.white : const Color(0xFF5F6368))),
                 Text('${16 + i}',
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: selected ? Colors.white : const Color(0xFF1A1C1E))),
+                        color:
+                            selected ? Colors.white : const Color(0xFF1A1C1E))),
               ],
             ),
           );
@@ -232,12 +242,14 @@ class CourseRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border(left: BorderSide(color: color, width: 4)),
         boxShadow: const [
-          BoxShadow(color: Color(0x11000000), blurRadius: 4, offset: Offset(0, 1)),
+          BoxShadow(
+              color: Color(0x11000000), blurRadius: 4, offset: Offset(0, 1)),
         ],
       ),
       child: Row(
         children: [
-          Icon(isPt ? Icons.person : Icons.group, size: 20, color: primaryColor),
+          Icon(isPt ? Icons.person : Icons.group,
+              size: 20, color: primaryColor),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -247,7 +259,8 @@ class CourseRow extends StatelessWidget {
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
                 Text(c.time,
-                    style: const TextStyle(color: Color(0xFF5F6368), fontSize: 12)),
+                    style: const TextStyle(
+                        color: Color(0xFF5F6368), fontSize: 12)),
               ],
             ),
           ),
@@ -257,7 +270,9 @@ class CourseRow extends StatelessWidget {
                 color: color, borderRadius: BorderRadius.circular(20)),
             child: Text(capacityPillLabel(c.subscribed, c.capacity),
                 style: const TextStyle(
-                    color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -282,7 +297,8 @@ class _VariantChipsState extends State<VariantChips> {
 
   @override
   Widget build(BuildContext context) {
-    final items = _filter == null ? day : day.where((c) => c.type == _filter).toList();
+    final items =
+        _filter == null ? day : day.where((c) => c.type == _filter).toList();
     Widget chip(String label, CourseType? value) => Padding(
           padding: const EdgeInsets.only(right: 8),
           child: ChoiceChip(
@@ -327,7 +343,8 @@ class VariantTabs extends StatelessWidget {
               labelColor: primaryColor,
               unselectedLabelColor: const Color(0xFF5F6368),
               indicatorColor: primaryColor,
-              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              labelStyle:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               tabs: [
                 Tab(text: 'Tutti (${day.length})'),
                 Tab(text: 'Open (${_count(CourseType.open)})'),
@@ -400,7 +417,9 @@ class _VariantSegmentedState extends State<VariantSegmented> {
         : day
             .where((c) =>
                 c.type ==
-                (_sel == 'open' ? CourseType.open : CourseType.personal_trainer))
+                (_sel == 'open'
+                    ? CourseType.open
+                    : CourseType.personal_trainer))
             .toList();
     return Column(
       children: [
@@ -428,7 +447,9 @@ class _VariantSegmentedState extends State<VariantSegmented> {
 
 // Giugno 2026 con corsi distribuiti su più giorni (il giorno 19 riusa `day`).
 const monthCourses = <int, List<MockCourse>>{
-  2: [MockCourse('PT Anna', '08:00 - 09:00', CourseType.personal_trainer, 1, 1)],
+  2: [
+    MockCourse('PT Anna', '08:00 - 09:00', CourseType.personal_trainer, 1, 1)
+  ],
   4: [
     MockCourse('Functional', '09:00 - 10:00', CourseType.open, 5, 12),
     MockCourse('Cardio', '18:00 - 19:00', CourseType.open, 8, 12),
@@ -445,7 +466,9 @@ const monthCourses = <int, List<MockCourse>>{
   ],
   18: [MockCourse('Tabata', '12:30 - 13:30', CourseType.open, 11, 12)],
   19: day, // oggi, giornata piena
-  23: [MockCourse('PT Anna', '08:00 - 09:00', CourseType.personal_trainer, 1, 1)],
+  23: [
+    MockCourse('PT Anna', '08:00 - 09:00', CourseType.personal_trainer, 1, 1)
+  ],
   25: [MockCourse('Functional', '09:00 - 10:00', CourseType.open, 4, 12)],
   26: [
     MockCourse('Cardio', '18:00 - 19:00', CourseType.open, 8, 12),
@@ -583,7 +606,8 @@ class _VariantMonthGridState extends State<VariantMonthGrid> {
       children: [
         _monthNavHeader(),
         _MonthGridView(
-            selected: _selected, onSelect: (d) => setState(() => _selected = d)),
+            selected: _selected,
+            onSelect: (d) => setState(() => _selected = d)),
         const Divider(height: 1),
         Expanded(
           child: selectedCourses.isEmpty
@@ -614,8 +638,9 @@ class _VariantMonthFilteredState extends State<VariantMonthFiltered> {
     final filtered = _filter == null
         ? dayCourses
         : dayCourses.where((c) => c.type == _filter).toList();
-    int countOf(CourseType? t) =>
-        t == null ? dayCourses.length : dayCourses.where((c) => c.type == t).length;
+    int countOf(CourseType? t) => t == null
+        ? dayCourses.length
+        : dayCourses.where((c) => c.type == t).length;
 
     Widget chip(String label, CourseType? value) => Padding(
           padding: const EdgeInsets.only(right: 8),

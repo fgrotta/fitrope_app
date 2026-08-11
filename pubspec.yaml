@@ -2,7 +2,7 @@ name: fitrope_app
 description: "Fitrope App"
 publish_to: 'none'
 
-version: 1.2.7
+version: 1.3.0
 
 environment:
   sdk: '>=3.5.0-180.3.beta <4.0.0'
@@ -22,10 +22,11 @@ dependencies:
   redux_thunk: ^0.4.0
   redux: ^5.0.0
   flutter_redux: ^0.10.0
-  url_launcher: ^6.3.2
+  url_launcher: ^6.2.6
   intl: ^0.20.2
-  timezone: ^0.9.4
   onesignal_flutter: ^5.2.7
+  http: ^1.2.2
+  timezone: ^0.9.4
   flutter_localizations:
     sdk: flutter
 
@@ -37,12 +38,17 @@ dev_dependencies:
 
   flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.14.4
+  fake_cloud_firestore: ^3.1.0
 
 flutter:
   uses-material-design: true
 
+  # Elenco esplicito degli asset usati a runtime. Le immagini dei corsi sono
+  # caricate dinamicamente da CourseImages e devono quindi restare nel bundle;
+  # i logo legacy restano esclusi e sono solo input di flutter_launcher_icons.
   assets:
-    - assets/
+    - assets/new_logo_only.png
+    - assets/new_logo.png
     - assets/course_images/
 
 flutter_launcher_icons:

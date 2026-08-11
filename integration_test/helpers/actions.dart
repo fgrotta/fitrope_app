@@ -1,5 +1,5 @@
 import 'package:fitrope_app/authentication/logout.dart';
-import 'package:fitrope_app/pages/protected/Protected.dart';
+import 'package:fitrope_app/pages/protected/protected.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,8 +15,10 @@ Future<void> login(WidgetTester tester, TestUser user) async {
   await tester.tap(find.text('Entra'));
   await tester.pumpAndSettle();
 
-  await tester.enterText(find.byKey(const Key('login-email-field')), user.email);
-  await tester.enterText(find.byKey(const Key('login-password-field')), user.password);
+  await tester.enterText(
+      find.byKey(const Key('login-email-field')), user.email);
+  await tester.enterText(
+      find.byKey(const Key('login-password-field')), user.password);
   await tester.pumpAndSettle();
 
   await tester.tap(find.byKey(const Key('login-submit-button')));

@@ -1,0 +1,1533 @@
+import 'package:fitrope_app/api/courses/get_courses.dart';
+import 'package:fitrope_app/api/courses/subscribe_to_course.dart';
+import 'package:fitrope_app/api/get_user_data.dart';
+import 'package:fitrope_app/utils/waitlist_ui_helper.dart';
+import 'package:fitrope_app/components/active_subscription_card.dart';
+import 'package:fitrope_app/components/course_preview_card.dart';
+import 'package:fitrope_app/layout/breakpoints.dart';
+import 'package:fitrope_app/pages/protected/user_detail_page.dart';
+import 'package:fitrope_app/state/actions.dart';
+import 'package:fitrope_app/state/store.dart';
+import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/types/user_subscription.dart';
+import 'package:fitrope_app/api/authentication/get_users.dart';
+import 'package:fitrope_app/api/authentication/get_users_with_expiring_certificates.dart';
+import 'package:fitrope_app/api/authentication/get_users_with_expiring_subscriptions.dart';
+import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
+import 'package:fitrope_app/utils/subscription_labels.dart';
+import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
+import 'package:fitrope_app/utils/regolamento_helper.dart';
+import 'package:fitrope_app/utils/certificato_helper.dart';
+import 'package:fitrope_app/utils/abbonamento_helper.dart';
+import 'package:fitrope_app/utils/refresh_manager.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_design_system/components/custom_card.dart';
+import 'package:intl/intl.dart';
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late FitropeUser user;
+  List<Course> allCourses = [];
+  List<FitropeUser> trainers = [];
+  List<FitropeUser> utentiConCertificatoInScadenza = [];
+  bool isLoadingCertificati = false;
+  List<FitropeUser> utentiConAbbonamentoInScadenza = [];
+  bool isLoadingAbbonamenti = false;
+  List<FitropeUser> _utentiProva = [];
+  bool _isLoadingLezioniProva = false;
+  bool _scadenzeExpanded = true;
+  bool _lezioniProvaExpanded = true;
+  bool _regolamentoExpanded = true;
+  List<FitropeUser> _utentiSenzaRegolamento = [];
+  bool _isLoadingRegolamento = false;
+
+  @override
+  void initState() {
+    user = store.state.user!;
+    getTrainers().then((List<FitropeUser> response) {
+      if (!mounted) return;
+      setState(() {
+        trainers = response;
+      });
+    });
+    getAllCourses().then((List<Course> response) {
+      if (!mounted) return;
+      setState(() {
+        allCourses = response;
+        store.dispatch(SetAllCoursesAction(response));
+      });
+    });
+
+    // Carica utenti con certificati in scadenza se l'utente è Admin
+    if (user.role == 'Admin') {
+      _loadUtentiConCertificatoInScadenza();
+      _loadUtentiConAbbonamentoInScadenza();
+      _loadUtentiLezioneProva();
+      _loadUtentiSenzaRegolamento();
+
+      // Registra il listener per il refresh automatico
+      RefreshManager().addListener(_loadUtentiConCertificatoInScadenza);
+      RefreshManager().addListener(_loadUtentiConAbbonamentoInScadenza);
+      RefreshManager().addListener(_loadUtentiLezioneProva);
+      RefreshManager().addListener(_loadUtentiSenzaRegolamento);
+    }
+    if (user.role == 'User') {
+      RefreshManager().addListener(refreshCourses);
+    }
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    // Rimuove il listener per evitare memory leak
+    if (user.role == 'Admin') {
+      RefreshManager().removeListener(_loadUtentiConCertificatoInScadenza);
+      RefreshManager().removeListener(_loadUtentiConAbbonamentoInScadenza);
+      RefreshManager().removeListener(_loadUtentiLezioneProva);
+      RefreshManager().removeListener(_loadUtentiSenzaRegolamento);
+    }
+    if (user.role == 'User') {
+      RefreshManager().removeListener(refreshCourses);
+    }
+    super.dispose();
+  }
+
+  // Funzione ottimizzata per caricare solo gli utenti con certificati in scadenza
+  Future<void> _loadUtentiConCertificatoInScadenza() async {
+    if (user.role != 'Admin') return;
+    if (!mounted) return;
+
+    setState(() {
+      isLoadingCertificati = true;
+    });
+
+    try {
+      final utenti = await getUsersWithExpiringCertificates();
+      if (!mounted) return;
+
+      setState(() {
+        utentiConCertificatoInScadenza = utenti;
+        isLoadingCertificati = false;
+      });
+    } catch (e) {
+      debugPrint(
+          'Errore nel caricamento utenti con certificati in scadenza: $e');
+      if (!mounted) return;
+      setState(() {
+        isLoadingCertificati = false;
+      });
+    }
+  }
+
+  // Funzione ottimizzata per caricare solo gli utenti con abbonamenti in scadenza
+  Future<void> _loadUtentiConAbbonamentoInScadenza() async {
+    if (user.role != 'Admin') return;
+    if (!mounted) return;
+
+    setState(() {
+      isLoadingAbbonamenti = true;
+    });
+
+    try {
+      final utenti = await getUsersWithExpiringSubscriptions();
+      if (!mounted) return;
+
+      setState(() {
+        utentiConAbbonamentoInScadenza = utenti;
+        isLoadingAbbonamenti = false;
+      });
+    } catch (e) {
+      debugPrint(
+          'Errore nel caricamento utenti con abbonamenti in scadenza: $e');
+      if (!mounted) return;
+      setState(() {
+        isLoadingAbbonamenti = false;
+      });
+    }
+  }
+
+  Future<void> _loadUtentiLezioneProva() async {
+    if (user.role != 'Admin') return;
+    if (!mounted) return;
+    setState(() {
+      _isLoadingLezioniProva = true;
+    });
+    try {
+      final utenti = await getUsers();
+      if (mounted) {
+        setState(() {
+          _utentiProva = utenti
+              .where((u) =>
+                  u.tipologiaIscrizione ==
+                      TipologiaIscrizione.ABBONAMENTO_PROVA &&
+                  u.isActive)
+              .toList();
+          _isLoadingLezioniProva = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingLezioniProva = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadUtentiSenzaRegolamento() async {
+    if (user.role != 'Admin') return;
+    if (!mounted) return;
+    setState(() {
+      _isLoadingRegolamento = true;
+    });
+    try {
+      final utenti = await getUsers();
+      if (mounted) {
+        setState(() {
+          _utentiSenzaRegolamento = utenti
+              .where((u) =>
+                  u.regolamentoAccettatoIl == null &&
+                  u.isActive &&
+                  u.role == 'User')
+              .toList();
+          _isLoadingRegolamento = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRegolamento = false;
+        });
+      }
+    }
+  }
+
+  // Funzione per aggiornare i corsi e lo stato utente
+  void refreshCourses() {
+    getAllCourses().then((List<Course> response) {
+      if (mounted) {
+        setState(() {
+          allCourses = response;
+          store.dispatch(SetAllCoursesAction(response));
+        });
+      }
+    });
+
+    // Aggiorna anche lo stato utente per riflettere le modifiche
+    if (store.state.user != null) {
+      getUserData(user.uid).then((userData) {
+        if (userData != null && mounted) {
+          setState(() {
+            user = FitropeUser.fromJson(userData);
+          });
+          store.dispatch(SetUserAction(user));
+        }
+      });
+    }
+
+    // Ricarica anche i certificati in scadenza se l'utente è Admin
+    if (user.role == 'Admin') {
+      _loadUtentiConCertificatoInScadenza();
+      _loadUtentiConAbbonamentoInScadenza();
+    }
+  }
+
+  // Callback per l'iscrizione
+  void onSubscribe(Course course) async {
+    bool accepted =
+        await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
+    if (!accepted) return;
+
+    debugPrint('🔄 Iscrizione al corso: ${course.name}');
+    subscribeToCourse(course.uid, user.uid).then((_) {
+      debugPrint('✅ Iscrizione completata');
+      refreshCourses();
+    }).catchError((e) {
+      debugPrint('❌ Errore durante l\'iscrizione: $e');
+      // Mostra snackbar di errore
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    });
+  }
+
+  // Callback per la disiscrizione
+  void onUnsubscribe(Course course) {
+    debugPrint('🔄 Disiscrizione dal corso: ${course.name}');
+    // Usa il nuovo sistema di disiscrizione intelligente
+    CourseUnsubscribeHelper.handleUnsubscribe(course, user, context)
+        .then((success) {
+      if (success) {
+        debugPrint('✅ Disiscrizione completata');
+        refreshCourses();
+
+        // Mostra messaggio di successo
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Disiscrizione completata con successo'),
+              backgroundColor: successColor,
+            ),
+          );
+        }
+      } else {
+        debugPrint('❌ Disiscrizione annullata dall\'utente');
+      }
+    }).catchError((e) {
+      debugPrint('❌ Errore durante la disiscrizione: $e');
+      // Mostra snackbar di errore
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Errore durante la disiscrizione: $e'),
+            backgroundColor: errorColor,
+          ),
+        );
+      }
+    });
+  }
+
+  void onJoinWaitlist(Course course) {
+    WaitlistUiHelper.showJoinWaitlistDialog(
+      context: context,
+      course: course,
+      userId: user.uid,
+      onRefresh: refreshCourses,
+      isMounted: () => mounted,
+    );
+  }
+
+  void onLeaveWaitlist(Course course) {
+    WaitlistUiHelper.handleLeaveWaitlist(
+      context: context,
+      course: course,
+      userId: user.uid,
+      onRefresh: refreshCourses,
+      isMounted: () => mounted,
+    );
+  }
+
+  /// Header "Il mio abbonamento" condiviso tra modello multi-abbonamento e legacy.
+  Widget _subscriptionHeader() {
+    return Container(
+      padding: const EdgeInsets.only(top: 20, bottom: 10),
+      width: double.infinity,
+      child: const Text(
+        'Il mio abbonamento',
+        textAlign: TextAlign.left,
+        style: TextStyle(color: onPrimaryColor, fontSize: 20),
+      ),
+    );
+  }
+
+  Widget renderSubscriptionCard() {
+    // Modello multi-abbonamento: se lo snapshot ha voci NON scadute mostra una
+    // card per abbonamento (residui/frequenza/scadenza). Altrimenti fallback al
+    // modello legacy sotto — stesso criterio di selezione di getCourseState,
+    // così display ed eligibility restano allineati (zero regressione).
+    final List<UserSubscription> live =
+        liveSubscriptions(user.activeSubscriptions);
+    if (live.isNotEmpty) {
+      final certificatoInScadenza = user.certificatoScadenza != null &&
+          CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
+      return Column(
+        children: [
+          _subscriptionHeader(),
+          Column(
+            children: [
+              ...live.map((s) => ActiveSubscriptionCard(subscription: s)),
+              if (certificatoInScadenza) _buildCertificatoInfo(),
+            ],
+          ),
+          const SizedBox(height: 30),
+        ],
+      );
+    }
+
+    if (user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_MENSILE &&
+        user.tipologiaIscrizione !=
+            TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE &&
+        user.tipologiaIscrizione !=
+            TipologiaIscrizione.ABBONAMENTO_SEMESTRALE &&
+        user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_ANNUALE &&
+        user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE &&
+        user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_PROVA) {
+      return Column(
+        children: [
+          _subscriptionHeader(),
+          const SizedBox(
+            height: 20,
+          ),
+          const Text(
+            'Nessun abbonamento disponibile',
+            style: TextStyle(color: onPrimaryColor),
+          ),
+          const SizedBox(
+            height: 30,
+          ),
+        ],
+      );
+    }
+
+    bool isExpired = false;
+    int today = DateTime.now().millisecondsSinceEpoch;
+
+    if ((user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_MENSILE ||
+            user.tipologiaIscrizione ==
+                TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE ||
+            user.tipologiaIscrizione ==
+                TipologiaIscrizione.ABBONAMENTO_SEMESTRALE ||
+            user.tipologiaIscrizione ==
+                TipologiaIscrizione.ABBONAMENTO_ANNUALE) &&
+        user.fineIscrizione != null &&
+        today > user.fineIscrizione!.toDate().millisecondsSinceEpoch) {
+      isExpired = true;
+    }
+
+    // Controlla se il certificato è in scadenza
+    final certificatoInScadenza = user.certificatoScadenza != null &&
+        CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
+
+    return Column(
+      children: [
+        _subscriptionHeader(),
+        Column(
+          children: [
+            CustomCard(
+              backgroundColor: onSurfaceColor,
+              title: getTipologiaIscrizioneTitle(
+                  user.tipologiaIscrizione!, isExpired),
+              description: getTipologiaIscrizioneDescription(user),
+            ),
+            if (certificatoInScadenza) _buildCertificatoInfo(),
+          ],
+        ),
+        const SizedBox(
+          height: 30,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCertificatoInfo() {
+    final giorniRimanenti =
+        CertificatoHelper.getGiorniRimanenti(user.certificatoScadenza);
+    final dataScadenza =
+        CertificatoHelper.formatDataScadenza(user.certificatoScadenza);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color:
+            giorniRimanenti <= 3 ? Colors.red.shade100 : Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: giorniRimanenti <= 3
+              ? Colors.red.shade300
+              : Colors.orange.shade300,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.medical_services,
+            color: giorniRimanenti <= 3
+                ? Colors.red.shade700
+                : Colors.orange.shade700,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Certificato in scadenza: $dataScadenza ($giorniRimanenti giorni)',
+              style: TextStyle(
+                color: giorniRimanenti <= 3
+                    ? Colors.red.shade700
+                    : Colors.orange.shade700,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCertificatiInScadenzaCard() {
+    if (user.role != 'Admin') {
+      return const SizedBox.shrink();
+    }
+
+    if (isLoadingCertificati) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Caricamento certificati in scadenza...'),
+          ],
+        ),
+      );
+    }
+
+    if (utentiConCertificatoInScadenza.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.shade300, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red.shade700, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Certificati in Scadenza (${utentiConCertificatoInScadenza.length})',
+                style: TextStyle(
+                  color: Colors.red.shade700,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...utentiConCertificatoInScadenza.map((utente) {
+            final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(
+                utente.certificatoScadenza);
+            final dataScadenza = CertificatoHelper.formatDataScadenza(
+                utente.certificatoScadenza);
+
+            return InkWell(
+              onTap: () async {
+                final updatedUser = await Navigator.push<FitropeUser>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: utente),
+                  ),
+                );
+
+                // Se l'utente è stato aggiornato, ricarica i certificati
+                if (updatedUser != null) {
+                  _loadUtentiConCertificatoInScadenza();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.red.shade100,
+                      radius: 20,
+                      child: Text(
+                        '${utente.name.isNotEmpty ? utente.name[0] : ''}${utente.lastName.isNotEmpty ? utente.lastName[0] : ''}',
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${utente.name} ${utente.lastName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (giorniRimanenti >= 0)
+                            Text(
+                              'Scadenza: $dataScadenza',
+                              style: TextStyle(
+                                color: Colors.red.shade600,
+                                fontSize: 14,
+                              ),
+                            )
+                          else
+                            Text(
+                              'Scaduto il $dataScadenza',
+                              style: TextStyle(
+                                color: Colors.red.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          if (giorniRimanenti >= 0)
+                            Text(
+                              'Giorni rimanenti: $giorniRimanenti',
+                              style: TextStyle(
+                                color: giorniRimanenti <= 3
+                                    ? Colors.red
+                                    : Colors.orange,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.red.shade400,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAbbonamentiInScadenzaCard() {
+    if (user.role != 'Admin') {
+      return const SizedBox.shrink();
+    }
+
+    if (isLoadingAbbonamenti) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Caricamento abbonamenti in scadenza...'),
+          ],
+        ),
+      );
+    }
+
+    if (utentiConAbbonamentoInScadenza.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade300, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.calendar_today,
+                  color: Colors.orange.shade700, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Abbonamenti in Scadenza (${utentiConAbbonamentoInScadenza.length})',
+                style: TextStyle(
+                  color: Colors.orange.shade700,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...utentiConAbbonamentoInScadenza.map((utente) {
+            final giorniRimanenti =
+                AbbonamentoHelper.getGiorniRimanenti(utente.fineIscrizione);
+            final dataScadenza =
+                AbbonamentoHelper.formatDataScadenza(utente.fineIscrizione);
+
+            return InkWell(
+              onTap: () async {
+                final updatedUser = await Navigator.push<FitropeUser>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: utente),
+                  ),
+                );
+
+                // Se l'utente è stato aggiornato, ricarica gli abbonamenti
+                if (updatedUser != null) {
+                  _loadUtentiConAbbonamentoInScadenza();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.orange.shade100,
+                      radius: 20,
+                      child: Text(
+                        '${utente.name.isNotEmpty ? utente.name[0] : ''}${utente.lastName.isNotEmpty ? utente.lastName[0] : ''}',
+                        style: TextStyle(
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${utente.name} ${utente.lastName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'Scadenza: $dataScadenza',
+                            style: TextStyle(
+                              color: Colors.orange.shade600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            'Abbonamento: ${getTipologiaIscrizioneLabel(utente.tipologiaIscrizione)}',
+                            style: TextStyle(
+                              color: Colors.orange.shade600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            'Giorni rimanenti: $giorniRimanenti',
+                            style: TextStyle(
+                              color: giorniRimanenti <= 3
+                                  ? Colors.red
+                                  : Colors.orange,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.orange.shade400,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLezioniProvaSection({
+    required String title,
+    required IconData icon,
+    required Color bgColor,
+    required Color borderColor,
+    required Color headerColor,
+    required Color avatarBgColor,
+    required List<(FitropeUser, List<Course>)> entries,
+  }) {
+    final dateFmt = DateFormat('EEE dd/MM', 'it_IT');
+    final timeFmt = DateFormat('HH:mm');
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: borderColor.withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: headerColor, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: headerColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...entries.map((entry) {
+            final (utente, courses) = entry;
+            return InkWell(
+              onTap: () async {
+                await Navigator.push<FitropeUser>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: utente),
+                  ),
+                );
+                _loadUtentiLezioneProva();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: avatarBgColor,
+                      radius: 20,
+                      child: Text(
+                        '${utente.name.isNotEmpty ? utente.name[0] : ''}${utente.lastName.isNotEmpty ? utente.lastName[0] : ''}',
+                        style: TextStyle(
+                          color: headerColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${utente.name} ${utente.lastName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            utente.email,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: onSurfaceVariantColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...courses.map((c) {
+                            final start = c.startDate.toDate();
+                            final end = c.endDate.toDate();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.event,
+                                      size: 14, color: headerColor),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.name,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: onSurfaceColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${dateFmt.format(start)}  ${timeFmt.format(start)} – ${timeFmt.format(end)}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: onSurfaceVariantColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Posti: ${c.subscribed}/${c.capacity}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: onSurfaceVariantColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, color: borderColor, size: 16),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLezioniProvaProssimi7Giorni() {
+    if (user.role != 'Admin') return const SizedBox.shrink();
+
+    if (_isLoadingLezioniProva) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 12),
+            Text('Caricamento lezioni di prova...'),
+          ],
+        ),
+      );
+    }
+
+    final now = DateTime.now();
+    final limit = now.add(const Duration(days: 7));
+
+    final entries = _utentiProva
+        .map((u) {
+          final courses = allCourses
+              .where((c) =>
+                  u.courses.contains(c.uid) &&
+                  c.startDate.toDate().isAfter(now) &&
+                  c.startDate.toDate().isBefore(limit))
+              .toList()
+            ..sort(
+                (a, b) => a.startDate.toDate().compareTo(b.startDate.toDate()));
+          return (u, courses);
+        })
+        .where((e) => e.$2.isNotEmpty)
+        .toList();
+
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return _buildLezioniProvaSection(
+      title: 'Lezioni di prova – Prossimi 7 giorni (${entries.length})',
+      icon: Icons.calendar_month,
+      bgColor: Colors.blue.shade50,
+      borderColor: Colors.blue.shade300,
+      headerColor: Colors.blue.shade700,
+      avatarBgColor: Colors.blue.shade100,
+      entries: entries,
+    );
+  }
+
+  Widget _buildLezioniProvaUltimi15Giorni() {
+    if (user.role != 'Admin') return const SizedBox.shrink();
+
+    if (_isLoadingLezioniProva) return const SizedBox.shrink();
+
+    final now = DateTime.now();
+    final limit = now.subtract(const Duration(days: 15));
+
+    final entries = _utentiProva
+        .map((u) {
+          final courses = allCourses
+              .where((c) =>
+                  u.courses.contains(c.uid) &&
+                  c.startDate.toDate().isAfter(limit) &&
+                  c.startDate.toDate().isBefore(now))
+              .toList()
+            ..sort(
+                (a, b) => b.startDate.toDate().compareTo(a.startDate.toDate()));
+          return (u, courses);
+        })
+        .where((e) => e.$2.isNotEmpty)
+        .toList();
+
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return _buildLezioniProvaSection(
+      title: 'Ultime lezioni di prova (${entries.length})',
+      icon: Icons.history,
+      bgColor: Colors.teal.shade50,
+      borderColor: Colors.teal.shade300,
+      headerColor: Colors.teal.shade700,
+      avatarBgColor: Colors.teal.shade100,
+      entries: entries,
+    );
+  }
+
+  Widget _buildUtentiSenzaRegolamentoCard() {
+    if (user.role != 'Admin') return const SizedBox.shrink();
+
+    if (_isLoadingRegolamento) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 12),
+            Text('Caricamento regolamento...'),
+          ],
+        ),
+      );
+    }
+
+    // Filtra: utenti senza regolamento che hanno corsi nei prossimi 7 giorni
+    final now = DateTime.now();
+    final limit = now.add(const Duration(days: 7));
+
+    final entries = _utentiSenzaRegolamento
+        .map((u) {
+          final courses = allCourses
+              .where((c) =>
+                  u.courses.contains(c.uid) &&
+                  c.startDate.toDate().isAfter(now) &&
+                  c.startDate.toDate().isBefore(limit))
+              .toList()
+            ..sort(
+                (a, b) => a.startDate.toDate().compareTo(b.startDate.toDate()));
+          return (u, courses);
+        })
+        .where((e) => e.$2.isNotEmpty)
+        .toList();
+
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    final dateFmt = DateFormat('EEE dd/MM', 'it_IT');
+    final timeFmt = DateFormat('HH:mm');
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade300, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.shade300.withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.gavel, color: Colors.orange.shade700, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Regolamento non accettato (${entries.length})',
+                  style: TextStyle(
+                    color: Colors.orange.shade700,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...entries.map((entry) {
+            final (utente, courses) = entry;
+            return InkWell(
+              onTap: () async {
+                await Navigator.push<FitropeUser>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserDetailPage(user: utente),
+                  ),
+                );
+                _loadUtentiSenzaRegolamento();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.orange.shade100,
+                      radius: 20,
+                      child: Text(
+                        '${utente.name.isNotEmpty ? utente.name[0] : ''}${utente.lastName.isNotEmpty ? utente.lastName[0] : ''}',
+                        style: TextStyle(
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${utente.name} ${utente.lastName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            utente.email,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: onSurfaceVariantColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...courses.map((c) {
+                            final start = c.startDate.toDate();
+                            final end = c.endDate.toDate();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.event,
+                                      size: 14, color: Colors.orange.shade700),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.name,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: onSurfaceColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${dateFmt.format(start)}  ${timeFmt.format(start)} – ${timeFmt.format(end)}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: onSurfaceVariantColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios,
+                        color: Colors.orange.shade300, size: 16),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleRow({
+    required String title,
+    required bool expanded,
+    required VoidCallback onToggle,
+    required List<Widget> children,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: onToggle,
+          borderRadius: BorderRadius.circular(6),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            child: Row(
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: onSurfaceVariantColor,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  expanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: onSurfaceVariantColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (expanded)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+      ],
+    );
+  }
+
+  List<Widget> renderWaitlistCourses() {
+    if (user.waitlistCourses.isEmpty) {
+      return [];
+    }
+
+    DateTime now = DateTime.now();
+
+    List<Course> futureWaitlistCourses = [];
+    for (String courseId in user.waitlistCourses) {
+      Course? course = allCourses.where((c) => c.uid == courseId).firstOrNull;
+      if (course != null && course.startDate.toDate().isAfter(now)) {
+        futureWaitlistCourses.add(course);
+      }
+    }
+
+    futureWaitlistCourses.sort((a, b) => a.startDate.compareTo(b.startDate));
+
+    return futureWaitlistCourses
+        .map((course) => CoursePreviewCard(
+              course: course,
+              currentUser: user,
+              trainers: trainers,
+              showDate: true,
+              onSubscribe: () => onSubscribe(course),
+              onUnsubscribe: () => onUnsubscribe(course),
+              onJoinWaitlist: () => onJoinWaitlist(course),
+              onLeaveWaitlist: () => onLeaveWaitlist(course),
+              onRefresh: () => refreshCourses(),
+            ))
+        .toList();
+  }
+
+  List<Widget> renderCourses() {
+    if (user.courses.isEmpty) {
+      return [];
+    }
+
+    final List<Widget> render = [];
+
+    for (int n = 0; n < user.courses.length; n++) {
+      // Usa course.uid invece di course.id per la sincronizzazione
+      Course? course = allCourses
+          .where((Course course) => course.uid == user.courses[n])
+          .firstOrNull;
+      if (course != null && DateTime.now().isBefore(course.endDate.toDate())) {
+        render.add(
+          CoursePreviewCard(
+            course: course,
+            currentUser: user,
+            trainers: trainers,
+            showDate: true,
+            onSubscribe: () => onSubscribe(course),
+            onUnsubscribe: () => onUnsubscribe(course),
+            onJoinWaitlist: () => onJoinWaitlist(course),
+            onLeaveWaitlist: () => onLeaveWaitlist(course),
+            onRefresh: () => refreshCourses(),
+          ),
+        );
+      }
+    }
+
+    return render;
+  }
+
+  Widget _buildCoursesSection(ScreenType screenType) {
+    final coursesWidgets = renderCourses();
+
+    if (coursesWidgets.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 10),
+        child: Text(
+          'Nessun corso disponibile',
+          style: TextStyle(color: onPrimaryColor),
+        ),
+      );
+    }
+
+    if (screenType == ScreenType.mobile) {
+      return Column(children: coursesWidgets);
+    }
+
+    final double cardWidth;
+    switch (screenType) {
+      case ScreenType.tablet:
+        cardWidth = 360;
+        break;
+      case ScreenType.desktop:
+        cardWidth = 380;
+        break;
+      case ScreenType.largeDesktop:
+        cardWidth = 420;
+        break;
+      case ScreenType.mobile:
+        cardWidth = double.infinity;
+        break;
+    }
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: coursesWidgets
+          .map(
+            (widget) => SizedBox(
+              width: cardWidth,
+              child: widget,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenType = breakpointOf(context);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+          left: pagePadding,
+          right: pagePadding,
+          bottom: pagePadding,
+          top: pagePadding + MediaQuery.of(context).viewPadding.top),
+      child: Column(
+        children: [
+          // HEADER
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Image(
+                image: AssetImage('assets/new_logo_only.png'),
+                width: 30,
+              ),
+              const Expanded(
+                child: Text(
+                  'Home',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 30,
+                      color: onPrimaryColor),
+                ),
+              ),
+              if (isDesktop(context))
+                const SizedBox(width: 30)
+              else
+                GestureDetector(
+                  child: CircleAvatar(
+                    backgroundColor: const Color.fromARGB(255, 96, 119, 246),
+                    child: Text(user.name[0] + user.lastName[0]),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => UserDetailPage(user: user)),
+                    );
+                  },
+                ),
+            ],
+          ),
+
+          // ABBONAMENTO
+          renderSubscriptionCard(),
+
+          // CORSI
+          Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.only(bottom: 10),
+                width: double.infinity,
+                child: const Text(
+                  'I miei corsi',
+                  textAlign: TextAlign.left,
+                  style: TextStyle(color: onPrimaryColor, fontSize: 20),
+                ),
+              ),
+              _buildCoursesSection(screenType),
+            ],
+          ),
+
+          // LISTA D'ATTESA
+          Builder(builder: (_) {
+            final waitlistWidgets = renderWaitlistCourses();
+            if (waitlistWidgets.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    width: double.infinity,
+                    child: const Text('Lista d\'attesa',
+                        textAlign: TextAlign.left,
+                        style: TextStyle(color: Colors.orange, fontSize: 20)),
+                  ),
+                  ...waitlistWidgets
+                ],
+              ),
+            );
+          }),
+
+          // SEZIONI ADMIN: certificati, abbonamenti e lezioni di prova
+          if (isDesktop(context)) ...[
+            _buildCollapsibleRow(
+              title: 'Scadenze',
+              expanded: _scadenzeExpanded,
+              onToggle: () =>
+                  setState(() => _scadenzeExpanded = !_scadenzeExpanded),
+              children: [
+                Expanded(child: _buildCertificatiInScadenzaCard()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildAbbonamentiInScadenzaCard()),
+              ],
+            ),
+            const SizedBox(height: 4),
+            _buildCollapsibleRow(
+              title: 'Lezioni di prova',
+              expanded: _lezioniProvaExpanded,
+              onToggle: () => setState(
+                  () => _lezioniProvaExpanded = !_lezioniProvaExpanded),
+              children: [
+                Expanded(child: _buildLezioniProvaProssimi7Giorni()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildLezioniProvaUltimi15Giorni()),
+              ],
+            ),
+            const SizedBox(height: 4),
+            _buildCollapsibleRow(
+              title: 'Regolamento',
+              expanded: _regolamentoExpanded,
+              onToggle: () =>
+                  setState(() => _regolamentoExpanded = !_regolamentoExpanded),
+              children: [
+                Expanded(child: _buildUtentiSenzaRegolamentoCard()),
+              ],
+            ),
+          ] else ...[
+            _buildCertificatiInScadenzaCard(),
+            _buildAbbonamentiInScadenzaCard(),
+            _buildLezioniProvaProssimi7Giorni(),
+            _buildLezioniProvaUltimi15Giorni(),
+          ],
+        ],
+      ),
+    );
+  }
+}

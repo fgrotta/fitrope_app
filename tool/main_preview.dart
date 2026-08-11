@@ -18,14 +18,12 @@ class CaseData {
 const cases = [
   CaseData('Verde — ampia disponibilità',
       '5/20 · 75% posti liberi (≥ 50%) → verde.', 5, 20),
-  CaseData('Verde — soglia 50%',
-      '10/20 · 50% posti liberi → verde.', 10, 20),
+  CaseData('Verde — soglia 50%', '10/20 · 50% posti liberi → verde.', 10, 20),
   CaseData('Arancione — disponibilità media',
       '14/20 · 30% posti liberi (tra 15% e 50%) → arancione.', 14, 20),
-  CaseData('Rosso — soglia 15%',
-      '17/20 · 15% posti liberi (≤ 15%) → rosso.', 17, 20),
-  CaseData('Rosso — corso pieno',
-      '20/20 · 0% posti liberi → rosso.', 20, 20),
+  CaseData('Rosso — soglia 15%', '17/20 · 15% posti liberi (≤ 15%) → rosso.',
+      17, 20),
+  CaseData('Rosso — corso pieno', '20/20 · 0% posti liberi → rosso.', 20, 20),
 ];
 
 const _image = 'assets/course_images/pt_1.webp';
@@ -55,7 +53,8 @@ class PreviewApp extends StatelessWidget {
                 children: [
                   _ColHeader('C+', 'Immagine di sfondo'),
                   _ColHeader('C', 'Card blu strutturata'),
-                  _ColHeader('D', 'Implementata (sfondo chiaro, lista espandibile)'),
+                  _ColHeader(
+                      'D', 'Implementata (sfondo chiaro, lista espandibile)'),
                 ],
               ),
               const Divider(height: 24),
@@ -137,7 +136,8 @@ Widget metaRow(IconData icon, String value) {
       children: [
         Icon(icon, size: 16, color: Colors.white70),
         const SizedBox(width: 8),
-        Expanded(child: Text(value, style: const TextStyle(color: Colors.white))),
+        Expanded(
+            child: Text(value, style: const TextStyle(color: Colors.white))),
       ],
     ),
   );
@@ -146,7 +146,8 @@ Widget metaRow(IconData icon, String value) {
 Widget typeChip(String label, Color bg, {Color fg = Colors.white}) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+    decoration:
+        BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
     child: Text(label,
         style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w600)),
   );
@@ -155,7 +156,8 @@ Widget typeChip(String label, Color bg, {Color fg = Colors.white}) {
 Widget statusPill(int free, Color color) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+    decoration:
+        BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
     child: Text(
       free <= 0 ? 'Pieno' : (free == 1 ? '1 libero' : '$free liberi'),
       style: const TextStyle(
@@ -354,7 +356,8 @@ class VariantCPlus extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text('Iscritti ${data.subscribed}/${data.capacity}',
                           style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold)),
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
                       const Spacer(),
                       statusPill(free, color),
                     ],
@@ -520,8 +523,8 @@ class _VariantDState extends State<VariantD> {
                               (i) => Padding(
                                 padding: const EdgeInsets.only(bottom: 2),
                                 child: Text('• Iscritto ${i + 1}',
-                                    style: const TextStyle(
-                                        color: onPrimaryColor)),
+                                    style:
+                                        const TextStyle(color: onPrimaryColor)),
                               ),
                             ),
                         ],

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Per architettura, modelli dati e regole di business dettagliate vedi `AGENTS.md`.
+Per architettura, modelli dati e regole di business dettagliate vedi `agents.md`.
 
 ## Comandi
 
@@ -9,9 +9,9 @@ Per architettura, modelli dati e regole di business dettagliate vedi `AGENTS.md`
 ```bash
 flutter pub get          # installa dipendenze
 flutter test             # esegui tutti i test
-flutter analyze          # analisi statica
-flutter format --set-exit-if-changed .  # check formattazione
-flutter build web --debug               # build web
+flutter analyze --no-fatal-infos  # gate CI: gli info restano visibili
+dart format --set-exit-if-changed .     # check formattazione
+flutter build web --wasm --release      # build web come CI
 flutter run -d chrome                   # avvio locale
 ```
 
@@ -19,16 +19,40 @@ flutter run -d chrome                   # avvio locale
 
 ```bash
 cd functions
-npm install              # installa dipendenze Node
+npm ci                   # installazione riproducibile (runtime Functions Node 22)
 npm run build            # compila TypeScript
-npm test                 # Jest sull'handler OneSignal
+npm test                 # Jest (handler OneSignal + dominio enrollment)
+npm run test:integration # test integrazione su Emulator Suite (richiede Java 21 nel PATH)
 ```
+
+### Ambiente di test locale (Firebase Emulator Suite)
+
+Il QA manuale si fa sull'emulatore, MAI in produzione (vedi `docs/AMBIENTI_DI_TEST.md`).
+Richiede Java 21+ (keg-only via Homebrew: anteporre al PATH).
+
+```bash
+cd functions && npm run build && cd ..
+PATH="/usr/local/opt/openjdk@21/bin:$PATH" firebase emulators:start   # Auth+Firestore+Functions+UI (localhost:4000)
+cd functions && npm run seed:emulator    # dati sintetici (password utenti: test1234)
+flutter run -d chrome --dart-define=USE_EMULATOR=true                 # app contro gli emulatori
+```
+
+Nel codice functions usare SEMPRE `import { Timestamp, FieldValue } from "firebase-admin/firestore"`
+(il namespace `admin.firestore.*` perde le statiche nel runtime emulato).
 
 ### Deploy e gestione secret
 
 ```bash
-# Deploy (il predeploy compila automaticamente via tsc)
-firebase deploy --only functions
+# Produzione: il predeploy compila automaticamente via tsc
+firebase deploy --project prod --only functions
+
+# Staging manuale: configurare prima functions/.env.fit-rope-staging
+firebase deploy --project staging --only functions
+STAGING_PROJECT_ID=fit-rope-staging npm run seed:staging
+
+# Deploy delle firestore.rules — SEMPRE DOPO functions e web nuova
+# (bloccano le scritture dirette del client vecchio; vedi docs/AVANZAMENTO)
+firebase deploy --only firestore:rules
 
 # Aggiornare il secret OneSignal REST API Key
 firebase functions:secrets:set ONESIGNAL_REST_API_KEY
@@ -41,7 +65,7 @@ firebase functions:log --only sendOneSignalNotification
 firebase functions:delete sendOneSignalNotification
 ```
 
-Dopo ogni modifica, esegui almeno `flutter test` e `flutter analyze`. Se tocchi `functions/`, esegui anche `npm test` nella cartella `functions/`.
+Dopo ogni modifica, esegui almeno `flutter test`, `flutter analyze --no-fatal-infos` e `dart format --set-exit-if-changed .`. Se tocchi `functions/`, esegui anche `npm run build` e `npm test` nella cartella `functions/`; per callable, rules o transazioni aggiorna ed esegui anche `npm run test:integration`.
 
 ## Verifica live e lezioni operative
 
@@ -52,11 +76,12 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 - `flutter run -d web-server` **ricompila solo all'avvio o su hot-restart** (`R` da stdin). Un'istanza lanciata in background non riceve `R`: dopo ogni modifica al codice **riavvia il run** (kill della porta + relaunch), non basta ricaricare la pagina.
 - Il browser serve un `main.dart.js` cache-ato: dopo il relaunch fai un **hard reload** (Cmd/Ctrl+Shift+R), altrimenti vedi il build vecchio (sintomo tipico: il default sembra sbagliato o "la modifica non ha effetto").
 - Per testare i **breakpoint responsive** verifica la larghezza reale (`window.innerWidth`): il ridimensionamento della finestra può essere inaffidabile. Breakpoint in `lib/layout/breakpoints.dart` (mobile <600, tablet <900, desktop <1600, largeDesktop ≥1600).
-- **Pre-commit hook**: in alcuni ambienti `flutter` riporta SDK `0.0.0-unknown` e l'hook fallisce anche con test/analyze verdi → committa con `--no-verify` **dopo** aver eseguito a mano `flutter analyze` + `flutter test`.
+- **Pre-commit hook**: non bypassarlo come procedura ordinaria. Se l'ambiente restituisce erroneamente SDK `0.0.0-unknown`, esegui prima manualmente gli stessi gate (`flutter test`, `flutter analyze --no-fatal-infos`, formattazione e, quando applicabile, test Functions), poi documenta il problema dell'ambiente nel commit o nella PR.
 
 ### Deploy web / aggiornamento PWA (cache stantia su iOS)
 
-- Produzione: `https://app.fithousemonza.it`, hosting Hostinger/LiteSpeed, deploy **manuale** (`flutter build web` → upload di `build/web`). `web/.htaccess` viene copiato automaticamente in `build/web/` dal build Flutter: è il modo per far applicare regole di cache a Hostinger senza toccare il pannello.
+- Produzione: `https://app.fithousemonza.it`, hosting Hostinger/LiteSpeed, deploy **manuale** (`flutter build web --wasm --release` -> upload di `build/web`).
+- Staging: GitHub Pages del repository canonico, pubblicato automaticamente da `develop` tramite `.github/workflows/staging.yml`; non sostituisce il deploy Hostinger. La build usa `APP_ENV=staging` e Firebase separato. `web/.htaccess` viene copiato automaticamente in `build/web/` dal build Flutter: è il modo per far applicare regole di cache a Hostinger senza toccare il pannello.
 - **`main.dart.js`, `flutter_service_worker.js`, `flutter_bootstrap.js`, `flutter.js` non hanno mai un hash nel nome**: restano identici da un build all'altro (il versioning è gestito internamente dal service worker generato da Flutter via confronto hash-per-file, non dal filename). Qualsiasi cache lunga su questi file (anche solo un default del server per estensione `.js`, come i 7 giorni di default riscontrati su Hostinger/LiteSpeed) blocca i client su una versione vecchia finché la cache non scade — `web/.htaccess` la limita a 30 minuti per i file "vivi" (index.html, version.json, manifest.json + i file sopra).
 - Un tentativo precedente di forzare l'update via JS (unregister di tutti i service worker + wipe di tutta la Cache Storage + reload cache-busted) è stato revertito perché causava un **reload loop infinito**: il reload rileggeva comunque `main.dart.js`/`flutter_service_worker.js` dalla cache HTTP del browser (non toccata dal wipe della Cache Storage, che è uno strato diverso), quindi il mismatch di versione si ripresentava a ogni giro. Prima di reintrodurre logica di forzatura via JS, verificare sempre che gli header di cache lato server siano già corretti — altrimenti nessuna logica JS può risolvere il problema.
 
@@ -69,12 +94,12 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 ## Convenzioni
 
 - UI in italiano. Non tradurre stringhe UI in inglese salvo richiesta esplicita.
-- Localizzazione date: `it_IT` via `intl`. Usa `formatDate` da `lib/utils/formatDate.dart`.
+- Localizzazione date: `it_IT` via `intl`. Usa `formatDate` da `lib/utils/format_date.dart`.
 - Serializzazione manuale: se aggiungi/modifichi campi nei modelli, aggiorna sempre sia `toJson` sia `fromJson` in `lib/types/`.
 - Nomi file Dart: rispetta il case esatto (es. `HomePage.dart`, non `homepage.dart`).
 - Stato globale Redux minimale: non aggiungere campi a `AppState` senza necessita reale.
 - Dopo mutazioni su corsi/utenti, invalida la cache (`refresh_manager`, `user_cache_manager`).
-- Usa transazioni Firestore per operazioni che toccano contemporaneamente utente e corso.
+- Per iscrizioni, disiscrizioni, waitlist, assegnazione abbonamenti, delete e recount usa le callable in `europe-west8`: le transazioni autoritative sono nelle Cloud Functions. Le scritture client dirette restano limitate al CRUD corso consentito dalle rules.
 - **Pull request**: apri sempre le PR nel fork `fgrotta/fitrope_app` con base `main`, mai verso l'upstream `dellarosamarco/fitrope_app`. Questo repo è un fork, quindi `gh pr create` di default punterebbe al parent: usa `gh pr create --repo fgrotta/fitrope_app --base main`.
 
 ## Aree sensibili
@@ -83,9 +108,11 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 
 1. Leggi `lib/api/courses/README_ISCRIZIONI.md`
 2. Esegui i test: `flutter test`
-3. File chiave: `lib/api/courses/subscribeToCourse.dart`, `unsubscribeToCourse.dart`, `lib/utils/course_unsubscribe_helper.dart`
+3. File chiave: `lib/api/courses/subscribe_to_course.dart`, `unsubscribeToCourse.dart`, `lib/utils/course_unsubscribe_helper.dart`
 
 ### Notifiche OneSignal
+
+- In staging (`APP_ENV=staging`) la Function invia email solo a UID `stg_` con email nella allowlist `STAGING_NOTIFICATION_EMAIL_ALLOWLIST`; i payload push e tutti gli altri destinatari sono soppressi.
 
 - REST API key **non** nel codice Flutter: sta in Google Secret Manager, usata solo dalla Cloud Function.
 - Se modifichi il payload inviato a OneSignal, non includere `app_id` — lo inietta la function server-side.
@@ -104,7 +131,7 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 - Stato: `lib/state/` (Redux con thunk)
 - Pagine: `lib/pages/welcome/` (auth) e `lib/pages/protected/` (area protetta)
 - API Firestore: `lib/api/` (authentication + courses)
-- Modelli: `lib/types/fitropeUser.dart`, `lib/types/course.dart`
+- Modelli: `lib/types/fitrope_user.dart`, `lib/types/course.dart`
 - Layout responsive: `lib/layout/` (breakpoints + AppShell)
 - Servizi esterni: `lib/services/` (OneSignal mobile + web, notifiche, email templates)
 - Cloud Functions: `functions/src/` (TypeScript, proxy OneSignal)
@@ -113,9 +140,7 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 
 Punti aperti da affrontare in un secondo momento (non ancora fatti):
 
-- **`CourseType.label` deprecato** (`lib/types/course_type.dart`): sostituire gli usi con il nuovo meccanismo di etichettatura della tipologia.
-  - Uso attuale da migrare: `lib/components/course_preview_card.dart` (`widget.course.courseType.label`).
-- **Tipologia corso: doppio binario `tags` + `courseType`**: il modello `Course` mantiene sia `tags` (legacy, accesso per tag) sia `courseType` (enum `open` / `personal_trainer`). Consolidare sul solo `courseType` e valutare la deprecazione/rimozione di `tags` dove non più usato.
+- **Tipologia corso: doppio binario `tags` + `courseType`**: il modello `Course` mantiene sia `tags` (fonte per eligibility e supporto a Hyrox/Hey Mamma) sia `courseType` (enum legacy `open` / `personal_trainer`, usato anche dalle immagini). Definire una migrazione esplicita prima di rimuovere uno dei due campi; non trattare `CourseType.label` come deprecato finche non esiste un sostituto completo.
 - **Test E2E da riallineare al nuovo modello** (`integration_test/`, attualmente in `skip: true`):
-  - `helpers/seed.dart` genera i corsi di test usando ancora `tags` per la tipologia (`buildTestCourseName` / `createFerragostoTestCourse`): passare a `courseType`.
-  - Rivalidare `subscribe_to_course_test.dart` e `waitlist_swap_test.dart` con `getCourseState` aggiornato dopo il merge di `main`.
+  - `helpers/seed.dart` crea documenti direttamente e valorizza solo i `tags`; definire un seed compatibile con il modello misto e con la policy di eligibility corrente.
+  - Rivalidare `subscribe_to_course_test.dart` e `waitlist_swap_test.dart` contro Emulator Suite, con abbonamenti e callable reali invece di credenziali di produzione.

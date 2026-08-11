@@ -1,5 +1,5 @@
 import 'package:fitrope_app/types/course.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 
 class SetUserAction {
   final FitropeUser? user;

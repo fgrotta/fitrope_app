@@ -211,8 +211,13 @@ export async function runCertificateEmails(
     let sent = 0;
     for (const u of selectRecipients(users)) {
       try {
+        if (!u.email && process.env.APP_ENV === "staging") {
+          logger.warn("Email certificato soppressa in staging: email assente", { uid: u.uid });
+          continue;
+        }
         if (u.email) {
-          await deps.ensure(u.uid, u.email, deps.apiKey);
+          const ensured = await deps.ensure(u.uid, u.email, deps.apiKey);
+          if ((ensured as { suppressed?: boolean } | undefined)?.suppressed) continue;
         }
         await deps.post(buildCertificateEmailPayload(u, kind), deps.apiKey);
         sent++;
@@ -266,8 +271,12 @@ export async function sendTestCertificateEmailHandler(
 
   // Come il cron, assicura la subscription email così il test funziona anche
   // verso utenti che non si sono mai loggati.
+  if (!user.email && process.env.APP_ENV === "staging") {
+    return { suppressed: true };
+  }
   if (user.email) {
-    await ensureOneSignalEmailSubscription(user.uid, user.email, apiKey);
+    const ensured = await ensureOneSignalEmailSubscription(user.uid, user.email, apiKey);
+    if (ensured.suppressed === true) return ensured;
   }
   return postToOneSignal(buildCertificateEmailPayload(user, kind, "TEST - "), apiKey);
 }

@@ -1,18 +1,31 @@
 import { onCall } from "firebase-functions/v2/https";
-import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
+import * as admin from "firebase-admin";
 import {
   sendOneSignalNotificationHandler,
   ensureOneSignalUserHandler,
   removeOneSignalEmailHandler,
-  postToOneSignal,
   ensureOneSignalEmailSubscription,
 } from "./handler";
+import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
 import {
-  sendTestCertificateEmailHandler,
-  runCertificateEmails,
-} from "./certificateEmails";
-import { db } from "./firebaseAdmin";
+  subscribeToCourseHandler,
+  unsubscribeFromCourseHandler,
+  joinWaitlistHandler,
+  leaveWaitlistHandler,
+} from "./enrollment/enrollment";
+import {
+  deleteCourseHandler,
+  recountCourseSubscribedHandler,
+} from "./enrollment/admin";
+import {
+  scheduleTrialReminder,
+  notifyWaitlistUsers,
+} from "./enrollment/notify";
+
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
 
 // Secret gestito da Google Secret Manager.
 // Setup: firebase functions:secrets:set ONESIGNAL_REST_API_KEY
@@ -22,8 +35,6 @@ const oneSignalApiKey = defineSecret("ONESIGNAL_REST_API_KEY");
  * Proxy verso OneSignal REST API.
  * Il client invia il body OneSignal già formattato (include_aliases, headings,
  * contents, target_channel, send_after, email_subject, email_body, ...).
- * Per gli invii email mirati garantisce server-side che ogni destinatario
- * esista su OneSignal (ensure idempotente) prima della POST.
  */
 export const sendOneSignalNotification = onCall(
   {
@@ -35,7 +46,7 @@ export const sendOneSignalNotification = onCall(
     sendOneSignalNotificationHandler(
       { auth: request.auth ?? null, data: request.data },
       oneSignalApiKey.value(),
-      { db, ensure: ensureOneSignalEmailSubscription }
+      { db: admin.firestore(), ensure: ensureOneSignalEmailSubscription }
     )
 );
 
@@ -78,49 +89,122 @@ export const removeOneSignalEmail = onCall(
 );
 
 /**
- * Invia un'email di test sulla scadenza del certificato medico a un singolo
- * utente (usata dalla DebugEmailPage). Renderizza il template server-side.
+ * Assegna un abbonamento a un utente (solo Admin). Crea il documento in
+ * `subscriptions` e ricalcola lo snapshot `activeSubscriptions` sul doc utente.
  *
- * Payload atteso: { externalId: string, firstName?: string, kind?: "reminder10" | "expiryToday" }
+ * Payload atteso: { userId: string, planKey: string, startDateMillis?: number }
  */
-export const sendTestCertificateEmail = onCall(
+export const assignSubscription = onCall(
   {
-    secrets: [oneSignalApiKey],
     region: "europe-west8",
     cors: true,
   },
   (request) =>
-    sendTestCertificateEmailHandler(
+    assignSubscriptionHandler(
       { auth: request.auth ?? null, data: request.data },
-      oneSignalApiKey.value()
+      admin.firestore()
     )
 );
 
 /**
- * Cloud Function schedulata: ogni giorno alle 09:00 (ora di Roma) invia le email
- * sulla scadenza del certificato medico — promemoria a chi scade tra 10 giorni e
- * avviso a chi scade oggi. Rilegge lo stato attuale di Firestore (gestisce
- * rinnovi e certificati già esistenti senza scheduling futuro su OneSignal).
+ * Iscrizione a un corso (server-authoritative): valida idoneità/capienza, scala
+ * gli ingressi dell'abbonamento giusto e aggiorna lo snapshot, in transazione.
+ *
+ * Payload: { courseId: string, userId: string, force?: boolean }
  */
-export const sendCertificateExpiryEmails = onSchedule(
-  {
-    schedule: "0 9 * * *",
-    timeZone: "Europe/Rome",
-    // NB: Cloud Scheduler non supporta europe-west8 (Milano), a differenza di
-    // Cloud Functions. La funzione schedulata sta quindi in europe-west1; la
-    // region qui è ininfluente (query Firestore + OneSignal via HTTPS) e il
-    // timeZone garantisce comunque lo scatto alle 09:00 ora di Roma.
-    region: "europe-west1",
-    secrets: [oneSignalApiKey],
-    timeoutSeconds: 300,
-  },
-  async () => {
-    await runCertificateEmails({
-      db,
-      apiKey: oneSignalApiKey.value(),
-      post: postToOneSignal,
-      ensure: ensureOneSignalEmailSubscription,
-      now: new Date(),
-    });
-  }
+export const subscribeToCourse = onCall(
+  { region: "europe-west8", cors: true, secrets: [oneSignalApiKey] },
+  (request) =>
+    subscribeToCourseHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+      {
+        notifyTrialReminder: (userId, courseId) =>
+          scheduleTrialReminder(
+            admin.firestore(),
+            oneSignalApiKey.value(),
+            userId,
+            courseId,
+            Date.now()
+          ),
+      }
+    )
+);
+
+/**
+ * Disiscrizione da un corso: applica le finestre di rimborso (8h ingressi / 4h
+ * frequenza), ripristina il credito dovuto, traccia le disiscrizioni perse e
+ * notifica la waitlist, in transazione.
+ *
+ * Payload: { courseId: string, userId: string, confirmedNoRefund?: boolean }
+ */
+export const unsubscribeFromCourse = onCall(
+  { region: "europe-west8", cors: true, secrets: [oneSignalApiKey] },
+  (request) =>
+    unsubscribeFromCourseHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+      {
+        notifyWaitlist: (courseId) =>
+          notifyWaitlistUsers(admin.firestore(), oneSignalApiKey.value(), courseId),
+      }
+    )
+);
+
+/**
+ * Iscrizione alla lista d'attesa di un corso pieno.
+ *
+ * Payload: { courseId: string, userId: string }
+ */
+export const joinWaitlist = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    joinWaitlistHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore()
+    )
+);
+
+/**
+ * Rimozione dalla lista d'attesa (self oppure Admin/Trainer su altri).
+ *
+ * Payload: { courseId: string, userId: string }
+ */
+export const leaveWaitlist = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    leaveWaitlistHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore()
+    )
+);
+
+/**
+ * Cancella un corso rimborsando tutti gli iscritti e ripulendo le waitlist
+ * (Admin/Trainer), in una transazione atomica.
+ *
+ * Payload: { courseId: string }
+ */
+export const deleteCourse = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    deleteCourseHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore()
+    )
+);
+
+/**
+ * Ricalcola il contatore `subscribed` di un corso dalla fonte di verità
+ * (Admin/Trainer). Sostituisce la correzione manuale client-side.
+ *
+ * Payload: { courseId: string }
+ */
+export const recountCourseSubscribed = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    recountCourseSubscribedHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore()
+    )
 );

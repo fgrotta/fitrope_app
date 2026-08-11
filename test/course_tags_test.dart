@@ -7,7 +7,9 @@ import 'package:fitrope_app/utils/course_tags.dart';
 /// gli utenti (ritornando CourseState.NULL da getCourseState).
 void main() {
   group('CourseTags.canUserAccessCourse', () {
-    test('utente con "Tutti i corsi" accede sempre, anche se corso ha tag specifici', () {
+    test(
+        'utente con "Tutti i corsi" accede sempre, anche se corso ha tag specifici',
+        () {
       expect(
         CourseTags.canUserAccessCourse(
           ['Tutti i corsi'],
@@ -107,11 +109,33 @@ void main() {
     });
 
     test('all contiene tutti i tag documentati', () {
-      expect(CourseTags.all, containsAll([
-        CourseTags.PERSONAL_TRAINER,
-        CourseTags.OPEN,
-        CourseTags.HEY_MAMMA,
-      ]));
+      expect(
+          CourseTags.all,
+          containsAll([
+            CourseTags.PERSONAL_TRAINER,
+            CourseTags.OPEN,
+            CourseTags.HEY_MAMMA,
+          ]));
+    });
+
+    test('utente Hyrox accede a corso Hyrox', () {
+      expect(
+        CourseTags.canUserAccessCourse(
+          [CourseTags.HYROX],
+          [CourseTags.HYROX],
+        ),
+        true,
+      );
+    });
+
+    test('utente OPEN NON accede a corso Hyrox', () {
+      expect(
+        CourseTags.canUserAccessCourse(
+          [CourseTags.OPEN],
+          [CourseTags.HYROX],
+        ),
+        false,
+      );
     });
   });
 }

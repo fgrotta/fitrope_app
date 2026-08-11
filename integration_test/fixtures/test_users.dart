@@ -15,7 +15,8 @@ class TestUser {
   final String email;
   final String password;
   final String role; // 'User' | 'Trainer' | 'Admin'
-  final String name; // nome visualizzato (utile per i corsi assegnati al trainer)
+  final String
+      name; // nome visualizzato (utile per i corsi assegnati al trainer)
 
   const TestUser({
     required this.email,
@@ -40,8 +41,8 @@ const String _user2Password = String.fromEnvironment('TEST_USER2_PASSWORD');
 // Trainer
 const String _trainerEmail = String.fromEnvironment('TEST_TRAINER_EMAIL');
 const String _trainerPassword = String.fromEnvironment('TEST_TRAINER_PASSWORD');
-const String _trainerName =
-    String.fromEnvironment('TEST_TRAINER_NAME', defaultValue: 'Francesco Trainer');
+const String _trainerName = String.fromEnvironment('TEST_TRAINER_NAME',
+    defaultValue: 'Francesco Trainer');
 
 // Admin
 const String _adminEmail = String.fromEnvironment('TEST_ADMIN_EMAIL');

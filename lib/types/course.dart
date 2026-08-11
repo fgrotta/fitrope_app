@@ -15,12 +15,14 @@ class Course {
   final List<String> waitlist; // Utenti in lista d'attesa (user IDs)
   final CourseType courseType; // Tipologia del corso
   final String? imageKey; // Chiave immagine stock del corso
-  final bool reminderEnabled; // Se true, il promemoria email/push viene programmato
-  final bool waitlistEnabled; // Se true, gli utenti possono mettersi in lista d'attesa
+  final String? sala; // Sala in cui si svolge il corso
+  final bool
+      reminderEnabled; // Se true, il promemoria email/push viene programmato
+  final bool
+      waitlistEnabled; // Se true, gli utenti possono mettersi in lista d'attesa
 
   const Course({
-    @Deprecated('Use uid instead')
-    required this.id,
+    @Deprecated('Use uid instead') required this.id,
     required this.uid,
     required this.name,
     required this.startDate,
@@ -32,6 +34,7 @@ class Course {
     this.waitlist = const [],
     this.courseType = CourseType.open,
     this.imageKey,
+    this.sala,
     this.reminderEnabled = true,
     this.waitlistEnabled = true,
   });
@@ -52,10 +55,17 @@ class Course {
       capacity: json['capacity'] as int,
       subscribed: json['subscribed'] as int,
       trainerId: json['trainerId'] as String?,
-      tags: (json['tags'] as List<dynamic>?)?.map((tag) => tag.toString()).toList() ?? [],
-      waitlist: (json['waitlist'] as List<dynamic>?)?.map((id) => id.toString()).toList() ?? [],
+      tags: (json['tags'] as List<dynamic>?)
+              ?.map((tag) => tag.toString())
+              .toList() ??
+          [],
+      waitlist: (json['waitlist'] as List<dynamic>?)
+              ?.map((id) => id.toString())
+              .toList() ??
+          [],
       courseType: CourseType.fromString(json['courseType'] as String?),
       imageKey: json['imageKey'] as String?,
+      sala: json['sala'] as String?,
       reminderEnabled: json['reminderEnabled'] as bool? ?? true,
       waitlistEnabled: json['waitlistEnabled'] as bool? ?? true,
     );
@@ -75,8 +85,49 @@ class Course {
       'waitlist': waitlist,
       'courseType': courseType.firestoreValue,
       'imageKey': imageKey,
+      'sala': sala,
       'reminderEnabled': reminderEnabled,
       'waitlistEnabled': waitlistEnabled,
     };
+  }
+
+  static const Object _unset = Object();
+
+  Course copyWith({
+    String? id,
+    String? uid,
+    String? name,
+    Timestamp? startDate,
+    Timestamp? endDate,
+    int? capacity,
+    int? subscribed,
+    Object? trainerId = _unset,
+    List<String>? tags,
+    List<String>? waitlist,
+    CourseType? courseType,
+    String? imageKey,
+    bool? reminderEnabled,
+    bool? waitlistEnabled,
+    Object? sala = _unset,
+  }) {
+    final newUid = uid ?? this.uid;
+    return Course(
+      id: id ?? newUid,
+      uid: newUid,
+      name: name ?? this.name,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      capacity: capacity ?? this.capacity,
+      subscribed: subscribed ?? this.subscribed,
+      trainerId:
+          identical(trainerId, _unset) ? this.trainerId : trainerId as String?,
+      tags: tags ?? this.tags,
+      waitlist: waitlist ?? this.waitlist,
+      courseType: courseType ?? this.courseType,
+      imageKey: imageKey ?? this.imageKey,
+      sala: identical(sala, _unset) ? this.sala : sala as String?,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      waitlistEnabled: waitlistEnabled ?? this.waitlistEnabled,
+    );
   }
 }

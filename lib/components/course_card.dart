@@ -1,13 +1,13 @@
 import 'package:fitrope_app/style.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/capacity_color.dart';
 import 'package:fitrope_app/utils/course_images.dart';
-import 'package:fitrope_app/pages/protected/UserDetailPage.dart';
-import 'package:fitrope_app/api/authentication/getUsers.dart';
-import 'package:fitrope_app/api/courses/subscribeToCourse.dart';
-import 'package:fitrope_app/api/courses/deleteCourse.dart';
-import 'package:fitrope_app/api/courses/updateCourseSubscribedCount.dart';
-import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
+import 'package:fitrope_app/pages/protected/user_detail_page.dart';
+import 'package:fitrope_app/api/authentication/get_users.dart';
+import 'package:fitrope_app/api/courses/subscribe_to_course.dart';
+import 'package:fitrope_app/api/courses/delete_course.dart';
+import 'package:fitrope_app/api/courses/recount_course_subscribed.dart';
+import 'package:fitrope_app/api/courses/leave_waitlist.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -204,6 +204,7 @@ class _CourseCardState extends State<CourseCard> {
     if (confirmed == true) {
       try {
         await removeUserFromCourse(widget.courseId, user.uid);
+        if (!mounted || !context.mounted) return;
         SnackBarUtils.showSuccessSnackBar(
           context,
           'Utente rimosso con successo dal corso',
@@ -211,6 +212,7 @@ class _CourseCardState extends State<CourseCard> {
         // Aggiorna la lista
         widget.onRefresh();
       } catch (e) {
+        if (!mounted || !context.mounted) return;
         SnackBarUtils.showErrorSnackBar(
           context,
           'Errore durante la rimozione: ${e.toString()}',
@@ -284,7 +286,7 @@ class _CourseCardState extends State<CourseCard> {
                   style: TextStyle(color: onPrimaryColor)),
             ),
             ElevatedButton(
-              onPressed: () => _correctSubscribedCount(context, actualCount),
+              onPressed: () => _correctSubscribedCount(context),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child:
                   const Text('Correggi', style: TextStyle(color: Colors.white)),
@@ -296,14 +298,13 @@ class _CourseCardState extends State<CourseCard> {
   }
 
   // Corregge il conteggio degli iscritti nel database
-  Future<void> _correctSubscribedCount(
-      BuildContext context, int newCount) async {
+  Future<void> _correctSubscribedCount(BuildContext context) async {
     try {
       Navigator.pop(context); // Chiudi il dialog
 
-      await updateCourseSubscribedCount(widget.courseId, newCount).then((_) {
-        widget.onRefresh();
-      });
+      await recountCourseSubscribed(widget.courseId);
+      if (!mounted || !context.mounted) return;
+      widget.onRefresh();
 
       // Mostra messaggio di successo
       SnackBarUtils.showSuccessSnackBar(
@@ -311,6 +312,7 @@ class _CourseCardState extends State<CourseCard> {
         'Conteggio iscritti aggiornato con successo!',
       );
     } catch (e) {
+      if (!mounted || !context.mounted) return;
       SnackBarUtils.showErrorSnackBar(
         context,
         'Errore durante l\'aggiornamento: ${e.toString()}',
@@ -368,7 +370,7 @@ class _CourseCardState extends State<CourseCard> {
                       onPressed: () => _showAddSubscriberDialog(context),
                       tooltip: 'Aggiungi iscritto',
                     ),
-                  if (_hasEnrollmentMismatch())
+                  if (widget.userRole == 'Admin' && _hasEnrollmentMismatch())
                     IconButton(
                       icon: const Icon(Icons.sync_problem,
                           color: Colors.red, size: 20),
@@ -526,13 +528,13 @@ class _CourseCardState extends State<CourseCard> {
       ),
     );
 
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
 
     if (confirmed == true) {
       try {
         await leaveWaitlist(widget.courseId, user.uid);
 
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
 
         SnackBarUtils.showSuccessSnackBar(
           context,
@@ -540,7 +542,7 @@ class _CourseCardState extends State<CourseCard> {
         );
         widget.onRefresh();
       } catch (e) {
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
 
         SnackBarUtils.showErrorSnackBar(
           context,
@@ -965,6 +967,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
   Future<void> _loadUsers() async {
     try {
       final users = await getUsers();
+      if (!mounted) return;
       setState(() {
         allUsers = users
             .where((user) =>
@@ -975,6 +978,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         errorMessage = 'Errore nel caricamento degli utenti';
         isLoading = false;
@@ -1036,7 +1040,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

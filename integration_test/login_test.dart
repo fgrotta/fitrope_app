@@ -1,6 +1,6 @@
-import 'package:fitrope_app/pages/protected/Protected.dart';
-import 'package:fitrope_app/pages/welcome/LoginPage.dart';
-import 'package:fitrope_app/pages/welcome/WelcomePage.dart';
+import 'package:fitrope_app/pages/protected/protected.dart';
+import 'package:fitrope_app/pages/welcome/login_page.dart';
+import 'package:fitrope_app/pages/welcome/welcome_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';

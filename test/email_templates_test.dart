@@ -95,6 +95,5 @@ void main() {
       expect(body, contains('Giovedi 10 Aprile 2026'));
       expect(body, contains('09:00 - 10:00'));
     });
-
   });
 }

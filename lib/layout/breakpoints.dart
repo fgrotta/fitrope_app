@@ -28,16 +28,20 @@ ScreenType breakpointOf(BuildContext context) {
   return ScreenType.mobile;
 }
 
-bool isMobile(BuildContext context) => breakpointOf(context) == ScreenType.mobile;
+bool isMobile(BuildContext context) =>
+    breakpointOf(context) == ScreenType.mobile;
 
-bool isTablet(BuildContext context) => breakpointOf(context) == ScreenType.tablet;
+bool isTablet(BuildContext context) =>
+    breakpointOf(context) == ScreenType.tablet;
 
 bool isDesktop(BuildContext context) {
   final screenType = breakpointOf(context);
-  return screenType == ScreenType.desktop || screenType == ScreenType.largeDesktop;
+  return screenType == ScreenType.desktop ||
+      screenType == ScreenType.largeDesktop;
 }
 
-bool isLargeDesktop(BuildContext context) => breakpointOf(context) == ScreenType.largeDesktop;
+bool isLargeDesktop(BuildContext context) =>
+    breakpointOf(context) == ScreenType.largeDesktop;
 
 double? maxContentWidthFor(ScreenType screenType) {
   switch (screenType) {

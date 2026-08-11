@@ -1,5 +1,5 @@
-import 'package:fitrope_app/api/courses/joinWaitlist.dart';
-import 'package:fitrope_app/api/courses/leaveWaitlist.dart';
+import 'package:fitrope_app/api/courses/join_waitlist.dart';
+import 'package:fitrope_app/api/courses/leave_waitlist.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
@@ -32,12 +32,14 @@ class WaitlistUiHelper {
             onPressed: () {
               Navigator.pop(dialogContext);
               joinWaitlist(course.uid, userId).then((_) {
+                if (!context.mounted || !isMounted()) return;
                 onRefresh();
                 if (isMounted()) {
                   SnackBarUtils.showSuccessSnackBar(
                       context, 'Iscritto alla lista d\'attesa');
                 }
               }).catchError((e) {
+                if (!context.mounted || !isMounted()) return;
                 if (isMounted()) {
                   SnackBarUtils.showErrorSnackBar(
                       context, 'Errore: ${e.toString()}');
@@ -61,12 +63,14 @@ class WaitlistUiHelper {
     required bool Function() isMounted,
   }) {
     leaveWaitlist(course.uid, userId).then((_) {
+      if (!context.mounted || !isMounted()) return;
       onRefresh();
       if (isMounted()) {
         SnackBarUtils.showSuccessSnackBar(
             context, 'Rimosso dalla lista d\'attesa');
       }
     }).catchError((e) {
+      if (!context.mounted || !isMounted()) return;
       if (isMounted()) {
         SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
       }

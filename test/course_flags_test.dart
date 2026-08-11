@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitrope_app/types/course.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/utils/getCourseState.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/utils/get_course_state.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -47,7 +47,8 @@ void main() {
         courses: [],
         tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
         entrateSettimanali: 3,
-        fineIscrizione: Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
+        fineIscrizione:
+            Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
         role: 'User',
         createdAt: DateTime.now(),
       );
@@ -83,7 +84,11 @@ void main() {
 
     group('Serializzazione', () {
       test('toJson include i nuovi flag', () {
-        final c = makeCourse(capacity: 10, subscribed: 0, reminderEnabled: false, waitlistEnabled: false);
+        final c = makeCourse(
+            capacity: 10,
+            subscribed: 0,
+            reminderEnabled: false,
+            waitlistEnabled: false);
         final json = c.toJson();
         expect(json['reminderEnabled'], false);
         expect(json['waitlistEnabled'], false);
@@ -116,18 +121,22 @@ void main() {
 
     group('getCourseState con waitlistEnabled', () {
       test('corso pieno + waitlistEnabled true → CAN_WAITLIST', () {
-        final c = makeCourse(capacity: 10, subscribed: 10, waitlistEnabled: true);
+        final c =
+            makeCourse(capacity: 10, subscribed: 10, waitlistEnabled: true);
         store.dispatch(SetAllCoursesAction([c]));
         expect(getCourseState(c, makeEligibleUser()), CourseState.CAN_WAITLIST);
       });
 
       test('corso pieno + waitlistEnabled false → FULL', () {
-        final c = makeCourse(capacity: 10, subscribed: 10, waitlistEnabled: false);
+        final c =
+            makeCourse(capacity: 10, subscribed: 10, waitlistEnabled: false);
         store.dispatch(SetAllCoursesAction([c]));
         expect(getCourseState(c, makeEligibleUser()), CourseState.FULL);
       });
 
-      test('corso pieno + waitlistEnabled false + utente già in waitlist → FULL', () {
+      test(
+          'corso pieno + waitlistEnabled false + utente già in waitlist → FULL',
+          () {
         // L'utente potrebbe essere rimasto in waitlist da quando il flag era true.
         // Con waitlistEnabled false, non proponiamo più lo stato IN_WAITLIST.
         final c = makeCourse(
@@ -140,7 +149,9 @@ void main() {
         expect(getCourseState(c, makeEligibleUser()), CourseState.FULL);
       });
 
-      test('corso con posti + utente in waitlist + waitlistEnabled true → WAITLIST_SPOT_AVAILABLE', () {
+      test(
+          'corso con posti + utente in waitlist + waitlistEnabled true → WAITLIST_SPOT_AVAILABLE',
+          () {
         final c = makeCourse(
           capacity: 10,
           subscribed: 5,
@@ -148,10 +159,13 @@ void main() {
           waitlist: ['user-1'],
         );
         store.dispatch(SetAllCoursesAction([c]));
-        expect(getCourseState(c, makeEligibleUser()), CourseState.WAITLIST_SPOT_AVAILABLE);
+        expect(getCourseState(c, makeEligibleUser()),
+            CourseState.WAITLIST_SPOT_AVAILABLE);
       });
 
-      test('corso con posti + utente in waitlist + waitlistEnabled false → CAN_SUBSCRIBE', () {
+      test(
+          'corso con posti + utente in waitlist + waitlistEnabled false → CAN_SUBSCRIBE',
+          () {
         final c = makeCourse(
           capacity: 10,
           subscribed: 5,
@@ -159,7 +173,8 @@ void main() {
           waitlist: ['user-1'],
         );
         store.dispatch(SetAllCoursesAction([c]));
-        expect(getCourseState(c, makeEligibleUser()), CourseState.CAN_SUBSCRIBE);
+        expect(
+            getCourseState(c, makeEligibleUser()), CourseState.CAN_SUBSCRIBE);
       });
     });
   });

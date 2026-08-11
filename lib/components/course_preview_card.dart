@@ -1,9 +1,9 @@
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/types/course.dart';
-import 'package:fitrope_app/types/fitropeUser.dart';
-import 'package:fitrope_app/utils/formatDate.dart';
-import 'package:fitrope_app/utils/getCourseState.dart';
-import 'package:fitrope_app/utils/getCourseTimeRange.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/utils/format_date.dart';
+import 'package:fitrope_app/utils/get_course_state.dart';
+import 'package:fitrope_app/utils/get_course_time_range.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/user_display_utils.dart';
 import 'package:fitrope_app/utils/refresh_manager.dart';

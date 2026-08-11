@@ -1,8 +1,8 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fitrope_app/api/courses/deleteCourse.dart';
-import 'package:fitrope_app/api/courses/getCourses.dart';
+import 'package:fitrope_app/api/courses/delete_course.dart';
+import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/types/course.dart';
 
 /// Helper per creare/eliminare i CORSI DI TEST direttamente su Firestore.
