@@ -292,6 +292,39 @@ describe("deleteCourseHandler", () => {
     await deleteCourseHandler({ ...auth("boss"), data: { courseId: "c1" } }, db, NOW);
     expect(store.subs["sub-1"].remainingEntries).toBe(10);
   });
+
+  test("registro che punta a un doc subscription INESISTENTE: cancella comunque il corso", async () => {
+    // Ramo difensivo di admin.ts (logger.warn + return): il doc referenziato dal
+    // registro consumi non esiste piu. La cancellazione deve completare —
+    // l'alternativa sarebbe un corso indistruttibile per colpa di un utente.
+    const store: FakeStore = {
+      users: {
+        boss: { uid: "boss", role: "Admin" },
+        "u-sub": {
+          uid: "u-sub",
+          role: "User",
+          courses: ["c1"],
+          tipologiaCorsoTags: [],
+          entrateDisponibili: 3,
+          activeSubscriptions: [],
+          enrollmentConsumption: {
+            c1: {
+              kind: "SUBSCRIPTION_ENTRY",
+              subscriptionId: "sub-fantasma",
+              atMillis: NOW - 1000,
+            },
+          },
+        },
+      },
+      courses: { c1: course({ tags: ["Hyrox"] }) },
+      subs: {}, // il doc non esiste piu
+    };
+    const db = makeDb(store);
+    await deleteCourseHandler({ ...auth("boss"), data: { courseId: "c1" } }, db, NOW);
+    expect(store.courses.c1).toBeUndefined(); // corso cancellato
+    expect(store.users["u-sub"].courses).toEqual([]);
+    expect(store.users["u-sub"].entrateDisponibili).toBe(3); // nessun ripristino altrove
+  });
 });
 
 describe("recountCourseSubscribedHandler", () => {

@@ -678,6 +678,34 @@ describe("subscribeToCourseHandler", () => {
     });
   });
 
+  test("force su ABBONAMENTO a 0 ingressi: nessun decremento, consumo NONE", async () => {
+    // Gemello del test legacy qui sotto, sul ramo SUBSCRIPTION_ENTRY: senza
+    // questo, un force che scendesse sotto zero (o che registrasse per errore
+    // SUBSCRIPTION_ENTRY, facendo poi "coniare" un ingresso al rimborso) non
+    // verrebbe intercettato.
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          activeSubscriptions: [snapshotEntry("sub-hyrox", hyroxSubDoc(0))],
+        }),
+        boss: { uid: "boss", role: "Admin" },
+      },
+      courses: { ch: course({ uid: "ch", tags: ["Hyrox"] }) },
+      subs: { "sub-hyrox": hyroxSubDoc(0) },
+    };
+    await subscribeToCourseHandler(
+      { ...auth("boss"), data: { courseId: "ch", userId: "u1", force: true } },
+      makeDb(store),
+      {},
+      NOW
+    );
+    expect(store.users.u1.courses).toEqual(["ch"]);
+    expect(store.subs["sub-hyrox"].remainingEntries).toBe(0); // mai negativo
+    expect(store.users.u1.enrollmentConsumption).toEqual({
+      ch: { kind: "NONE", atMillis: NOW, courseStartMillis: FAR },
+    });
+  });
+
   test("force a 0 ingressi: nessun decremento e consumo registrato come NONE", async () => {
     const store: FakeStore = {
       users: {
@@ -986,6 +1014,38 @@ describe("unsubscribeFromCourseHandler", () => {
     );
     expect(store.users.u1.entrateDisponibili).toBe(0); // niente ingressi dal nulla
     expect(store.users.u1.courses).toEqual([]);
+  });
+
+  test("registro che punta a un doc subscription INESISTENTE: si disiscrive comunque", async () => {
+    // Ramo difensivo di enrollment.ts (logger.warn + skip): il doc referenziato
+    // dal registro consumi e stato cancellato. La disiscrizione deve completare
+    // (posto liberato, registro ripulito) senza esplodere e senza inventare
+    // ingressi altrove.
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["ch"],
+          entrateDisponibili: 2,
+          enrollmentConsumption: {
+            ch: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: "sub-fantasma" },
+          },
+          activeSubscriptions: [],
+        }),
+      },
+      courses: { ch: course({ uid: "ch", tags: ["Hyrox"] }) },
+      subs: {}, // il doc non esiste piu
+    };
+    const db = makeDb(store);
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "ch", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.courses).toEqual([]);
+    expect(store.users.u1.enrollmentConsumption).toEqual({});
+    expect(store.users.u1.entrateDisponibili).toBe(2); // nessun ripristino altrove
+    expect(store.courses.ch.subscribed).toBe(4); // decrementato da 5, posto liberato
   });
 
   test("clamp difensivo: il ripristino non supera mai gli ingressi del piano", async () => {

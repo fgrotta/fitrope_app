@@ -332,4 +332,118 @@ describe("integrazione emulatore — write-path enrollment", () => {
     expect(after.courses).toEqual([]);
     expect(after.cancelledEnrollments ?? []).toEqual([]); // nessun tracking admin
   });
+
+  // La waitlist non aveva NESSUN test d'integrazione: i 7 test precedenti la
+  // toccavano solo di rimbalzo in deleteCourse. Qui il flusso reale sulle
+  // callable joinWaitlist/leaveWaitlist contro l'emulatore.
+  test("waitlist: join su corso pieno, swap al posto liberato, leave", async () => {
+    const occupante = uniq("u-occupa");
+    const tOccupante = await createUser(occupante, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 3,
+    });
+    const attesa = uniq("u-attesa");
+    const tAttesa = await createUser(attesa, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 3,
+    });
+
+    // Corso da 1 posto: l'occupante lo riempie, il secondo va in waitlist.
+    const c = uniq("c-wl");
+    await createCourse(c, { capacity: 1 });
+    expect(
+      (await call("subscribeToCourse", tOccupante, { courseId: c, userId: occupante })).ok
+    ).toBe(true);
+    expect((await courseDoc(c))?.subscribed).toBe(1);
+
+    // Corso pieno: l'iscrizione diretta e rifiutata, la waitlist accettata.
+    const pieno = await call("subscribeToCourse", tAttesa, { courseId: c, userId: attesa });
+    expect(pieno.ok).toBe(false);
+    const join = await call("joinWaitlist", tAttesa, { courseId: c, userId: attesa });
+    expect(join.ok).toBe(true);
+    expect((await courseDoc(c))?.waitlist).toEqual([attesa]);
+    expect((await userDoc(attesa)).waitlistCourses).toEqual([c]);
+    // Entrare in waitlist NON consuma crediti.
+    expect((await userDoc(attesa)).entrateDisponibili).toBe(3);
+
+    // Doppio join → already-exists.
+    const doppio = await call("joinWaitlist", tAttesa, { courseId: c, userId: attesa });
+    expect(doppio.ok).toBe(false);
+    expect(doppio.errorStatus).toBe("ALREADY_EXISTS");
+
+    // SWAP: l'occupante si disiscrive, il posto si libera e chi era in lista
+    // resta in waitlist (la promozione e un'azione esplicita dell'utente).
+    expect(
+      (await call("unsubscribeFromCourse", tOccupante, { courseId: c, userId: occupante })).ok
+    ).toBe(true);
+    const dopoSwap = await courseDoc(c);
+    expect(dopoSwap?.subscribed).toBe(0);
+    expect(dopoSwap?.waitlist).toEqual([attesa]);
+
+    // Ora l'iscrizione diretta passa e la callable rimuove da sola la waitlist.
+    expect(
+      (await call("subscribeToCourse", tAttesa, { courseId: c, userId: attesa })).ok
+    ).toBe(true);
+    const finale = await courseDoc(c);
+    expect(finale?.subscribed).toBe(1);
+    expect(finale?.waitlist).toEqual([]);
+    expect((await userDoc(attesa)).waitlistCourses).toEqual([]);
+    expect((await userDoc(attesa)).entrateDisponibili).toBe(2); // credito scalato ora
+  });
+
+  test("waitlist: leaveWaitlist rimuove da entrambi i lati", async () => {
+    const u = uniq("u-leave");
+    const t = await createUser(u, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 3,
+    });
+    const altro = uniq("u-altro");
+    const tAltro = await createUser(altro, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 3,
+    });
+    const c = uniq("c-wl-leave");
+    await createCourse(c, { capacity: 1 });
+    expect((await call("subscribeToCourse", tAltro, { courseId: c, userId: altro })).ok).toBe(
+      true
+    );
+    expect((await call("joinWaitlist", t, { courseId: c, userId: u })).ok).toBe(true);
+
+    expect((await call("leaveWaitlist", t, { courseId: c, userId: u })).ok).toBe(true);
+    expect((await courseDoc(c))?.waitlist).toEqual([]);
+    expect((await userDoc(u)).waitlistCourses).toEqual([]);
+  });
+
+  test("waitlist: rifiutata su corso NON pieno e con waitlistEnabled=false", async () => {
+    const u = uniq("u-wl-no");
+    const t = await createUser(u, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 3,
+    });
+
+    // Corso con posti: bisogna iscriversi, non mettersi in lista.
+    const libero = uniq("c-libero");
+    await createCourse(libero, { capacity: 10 });
+    const suLibero = await call("joinWaitlist", t, { courseId: libero, userId: u });
+    expect(suLibero.ok).toBe(false);
+    expect(suLibero.errorStatus).toBe("FAILED_PRECONDITION");
+
+    // Corso pieno ma con waitlist disabilitata dall'admin.
+    const altro = uniq("u-riempie");
+    const tAltro = await createUser(altro, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 3,
+    });
+    const disabilitato = uniq("c-wl-off");
+    await createCourse(disabilitato, { capacity: 1, waitlistEnabled: false });
+    expect(
+      (await call("subscribeToCourse", tAltro, { courseId: disabilitato, userId: altro })).ok
+    ).toBe(true);
+    const suDisabilitato = await call("joinWaitlist", t, {
+      courseId: disabilitato,
+      userId: u,
+    });
+    expect(suDisabilitato.ok).toBe(false);
+    expect((await courseDoc(disabilitato))?.waitlist).toEqual([]);
+  });
 });
