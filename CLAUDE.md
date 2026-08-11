@@ -32,10 +32,20 @@ Richiede Java 21+ (keg-only via Homebrew: anteporre al PATH).
 
 ```bash
 cd functions && npm run build && cd ..
-PATH="/usr/local/opt/openjdk@21/bin:$PATH" firebase emulators:start   # Auth+Firestore+Functions+UI (localhost:4000)
+# --project OBBLIGATORIO: vedi nota sotto
+PATH="/usr/local/opt/openjdk@21/bin:$PATH" firebase emulators:start --project fit-rope-app-1f575
 cd functions && npm run seed:emulator    # dati sintetici (password utenti: test1234)
 flutter run -d chrome --dart-define=USE_EMULATOR=true                 # app contro gli emulatori
 ```
+
+**Passare sempre `--project fit-rope-app-1f575`.** `.firebaserc` non ha un alias `default`
+(solo `prod` e `staging`), quindi senza il flag la Emulator Suite parte su
+`demo-no-project`, mentre `scripts/seedEmulator.js` e `lib/firebase_options.dart` puntano
+entrambi a `fit-rope-app-1f575`. L'Auth emulator segrega gli account per progetto: il seed
+scrive in un progetto e l'app cerca nell'altro, quindi **il login fallisce con "Email o
+password sbagliati"** anche con le credenziali giuste. Per diagnosticare:
+`curl -s "http://localhost:9099/identitytoolkit.googleapis.com/v1/projects/fit-rope-app-1f575/accounts:query" -H "Authorization: Bearer owner" -H "Content-Type: application/json" -d '{}'`
+(idem con `Bearer owner` sul Firestore emulator per leggere i documenti bypassando le rules).
 
 Nel codice functions usare SEMPRE `import { Timestamp, FieldValue } from "firebase-admin/firestore"`
 (il namespace `admin.firestore.*` perde le statiche nel runtime emulato).
