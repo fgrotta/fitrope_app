@@ -22,7 +22,6 @@ const { Timestamp } = require("firebase-admin/firestore");
 const { planByKey } = require("../lib/enrollment/plansCatalog");
 const {
   buildSubscriptionFromPlan,
-  recordFromDoc,
   recordToDoc,
   recordToSnapshotEntry,
 } = require("../lib/enrollment/subscription");
@@ -30,6 +29,21 @@ const {
 admin.initializeApp({ projectId });
 const db = admin.firestore();
 const PASSWORD = "test1234";
+const MEMBER_UID = "stg_member";
+const MEMBER_SUBSCRIPTIONS = [
+  {
+    planKey: "open_3x_3m",
+    subscriptionId: "stg_member_open_3x_3m",
+  },
+  {
+    planKey: "hyrox_10i_3m",
+    subscriptionId: "stg_member_hyrox_10i_3m",
+  },
+  {
+    planKey: "pt_10i_3m",
+    subscriptionId: "stg_member_pt_10i_3m",
+  },
+];
 
 function timestampInDays(days) {
   return Timestamp.fromMillis(Date.now() + days * 86400000);
@@ -78,17 +92,16 @@ async function upsertAuth(uid, email, displayName) {
   }
 }
 
-async function ensureSubscription(planKey, subscriptionId) {
+async function ensureSubscription(planKey, subscriptionId, userId = MEMBER_UID) {
   const plan = planByKey(planKey);
   if (!plan) throw new Error(`Missing ${planKey} plan`);
+  if (!subscriptionId || typeof subscriptionId !== "string") {
+    throw new Error(`Missing subscriptionId for ${planKey}`);
+  }
 
   const ref = db.collection("subscriptions").doc(subscriptionId);
-  const current = await ref.get();
-  let record = current.exists ? recordFromDoc(ref.id, current.data()) : null;
-  if (!record || record.endDateMillis < Date.now()) {
-    record = buildSubscriptionFromPlan(plan, Date.now() - 86400000);
-    await ref.set(recordToDoc(record, "stg_member", "staging-seed"));
-  }
+  const record = buildSubscriptionFromPlan(plan, Date.now() - 86400000);
+  await ref.set(recordToDoc(record, userId, "staging-seed"));
   return recordToSnapshotEntry({ ...record, id: ref.id });
 }
 
@@ -96,7 +109,7 @@ async function main() {
   const users = [
     ["stg_admin", "test.staging@example.com", "Admin"],
     ["stg_trainer", "trainer.staging@example.com", "Trainer"],
-    ["stg_member", "member.staging@example.com", "User"],
+    [MEMBER_UID, "member.staging@example.com", "User"],
   ];
 
   for (const [uid, email, role] of users) {
@@ -107,11 +120,22 @@ async function main() {
       .set(user(uid, email, role), { merge: true });
   }
 
-  const subscription = await ensureSubscription();
+  const subscriptions = await Promise.all(
+    MEMBER_SUBSCRIPTIONS.map(({ planKey, subscriptionId }) =>
+      ensureSubscription(planKey, subscriptionId),
+    ),
+  );
   await db
     .collection("users")
-    .doc("stg_member")
-    .set({ activeSubscriptions: [subscription] }, { merge: true });
+    .doc(MEMBER_UID)
+    .set(
+      {
+        activeSubscriptions: subscriptions,
+        tipologiaCorsoTags: [],
+        waitlistCourses: ["stg_open_full"],
+      },
+      { merge: true },
+    );
 
   const start = new Date(Date.now() + 3 * 86400000);
   start.setUTCHours(18, 0, 0, 0);
@@ -132,12 +156,19 @@ async function main() {
       subscribed: 0,
     },
     {
+      id: "stg_pt",
+      name: "[STAGING] Personal Training",
+      tags: ["Personal Trainer"],
+      capacity: 1,
+      subscribed: 0,
+    },
+    {
       id: "stg_open_full",
       name: "[STAGING] Open waitlist",
       tags: ["Open"],
       capacity: 1,
       subscribed: 1,
-      waitlist: ["stg_member"],
+      waitlist: [MEMBER_UID],
     },
   ];
   for (const course of courses) {

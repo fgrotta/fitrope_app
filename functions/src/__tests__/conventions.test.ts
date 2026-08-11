@@ -13,6 +13,7 @@ import * as path from "path";
 // innocui (compile-time only) e restano consentiti.
 
 const SRC_DIR = path.join(__dirname, "..");
+const STAGING_SEED = path.join(__dirname, "..", "..", "scripts", "seedStaging.js");
 const FORBIDDEN = /admin\.firestore\.(Timestamp|FieldValue)/;
 
 function tsFilesUnder(dir: string): string[] {
@@ -41,5 +42,19 @@ describe("convenzioni codebase functions", () => {
       });
     }
     expect(offenders).toEqual([]);
+  });
+
+  test("seed staging usa piani e id stabili per il membro sintetico", () => {
+    const script = fs.readFileSync(STAGING_SEED, "utf8");
+
+    expect(script).not.toMatch(/ensureSubscription\(\s*\)/);
+    expect(script).toContain('planKey: "open_3x_3m"');
+    expect(script).toContain('subscriptionId: "stg_member_open_3x_3m"');
+    expect(script).toContain('planKey: "hyrox_10i_3m"');
+    expect(script).toContain('subscriptionId: "stg_member_hyrox_10i_3m"');
+    expect(script).toContain('planKey: "pt_10i_3m"');
+    expect(script).toContain('subscriptionId: "stg_member_pt_10i_3m"');
+    expect(script).toContain('id: "stg_pt"');
+    expect(script).toContain('waitlistCourses: ["stg_open_full"]');
   });
 });
