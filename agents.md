@@ -479,7 +479,7 @@ I test in `functions/src/__integration__/` girano su Firebase Emulator Suite:
 - `enrollment.integration.test.ts` - callable reali, transazioni, concorrenza, authz
 - `firestoreRules.integration.test.ts` - lockdown field-level e payload reali con `@firebase/rules-unit-testing`
 
-Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e firebase-tools 15.x; in CI viene configurato da `.github/workflows/ci.yml`.
+Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e firebase-tools 15.x; in CI e un gate del job `functions-integration`, presente in tutti e tre i workflow (`ci.yml`, `staging.yml`, `release.yml`). Il secret dell'emulatore si passa scrivendo `functions/.secret.local` (gitignored), non via env var.
 
 ## CI/CD
 
@@ -493,15 +493,22 @@ Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e fireb
 
 Nota operativa: `flutter analyze --no-fatal-infos` e parte della CI; gli info-level restano debito tecnico ma non bloccano il job.
 
+**staging.yml** (push su `develop` + avvio manuale) — è il workflow che governa l'ambiente staging:
+
+- gate in parallelo: `flutter-test-and-build` (test, analyze, format, build web con `APP_ENV=staging` e `--base-href /fitrope_app/`, upload artifact Pages), `functions-test` (Node 24), `functions-integration` (Node 22 + Java 21 + Emulator Suite)
+- poi il deploy in sequenza **vincolata**: `deploy-functions` (+ seed dati sintetici) -> `deploy-pages` -> `deploy-rules` -> `smoke-test`. Le callable prima della web nuova, le rules per ultime (bloccano le scritture dirette del client vecchio)
+- `smoke-test`: `curl` su `index.html`/`version.json`/`flutter_bootstrap.js` del sito Pages + `firebase functions:list` con assert su tutte le callable enrollment
+- auth via OIDC/Workload Identity Federation (`google-github-actions/auth@v3`), nessuna service-account key nel repo; il seed usa un access token federato (`GOOGLE_OAUTH_ACCESS_TOKEN`)
+- `concurrency: staging-deploy` con `cancel-in-progress`: un push nuovo annulla il deploy in corso
+
 **release.yml** (branch `release`):
 
-- Test completi + build web release
-- Creazione automatica GitHub Release
-- Deploy su GitHub Pages via branch `gh-pages` come ambiente staging
+- **Valida soltanto**: `validation` (test, analyze, format, build web wasm), `functions`, `functions-integration`
+- Non crea GitHub Release e non pubblica su Pages: la produzione resta un deploy manuale
 
-**Produzione**: https://app.fithousemonza.it (Hostinger, deploy manuale).
+**Produzione**: https://app.fithousemonza.it (Hostinger, deploy manuale, progetto Firebase `fit-rope-app-1f575`).
 
-**Staging**: https://dellarosamarco.github.io/fitrope_app/ (GitHub Pages, pubblicato dal branch `release`)
+**Staging**: https://fgrotta.github.io/fitrope_app/ (GitHub Pages su branch `gh-pages`, pubblicato da `develop`, progetto Firebase `fit-rope-staging`).
 
 ### Dependabot
 
@@ -577,11 +584,11 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 
 ## Osservazioni operative
 
-- Se rinomini file o classi, ricontrolla sempre la compatibilita con filesystem case-sensitive (es. `home_page.dart` non `home_page.dart`).
+- I file Dart sono in `snake_case` (es. `home_page.dart`, non `HomePage.dart`): il repo e stato rinominato interamente da camelCase. Se rinomini file o classi, ricontrolla sempre la compatibilita con filesystem case-sensitive.
 - Il codice usa ancora molti `print` e side effect diretti nei widget; prima di grandi refactor, separa i cambiamenti di dominio da quelli UI.
 - Non usare path assoluti nei file di documentazione: usa sempre path relativi alla root del progetto.
 - Nessun sistema di code generation (build_runner, freezed, json_serializable): la serializzazione e manuale con `toJson()`/`fromJson()`.
-- Nessuna separazione ambienti (dev/staging/prod): un unico progetto Firebase.
+- Due ambienti Firebase separati: `fit-rope-app-1f575` (prod) e `fit-rope-staging` (staging), selezionati a compile-time con `--dart-define=APP_ENV=staging` (vedi `lib/app_environment.dart`). Non esiste un ambiente `dev` distinto: per lo sviluppo si usa la Emulator Suite locale.
 - Localizzazione hardcoded in italiano, nessun file .arb: le stringhe UI sono direttamente nel codice.
 - Nelle Cloud Functions importa `Timestamp` e `FieldValue` da `firebase-admin/firestore`, non da `admin.firestore.*`, per compatibilita con runtime emulato.
 

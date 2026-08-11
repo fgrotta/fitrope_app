@@ -105,15 +105,22 @@ Ordine dei job:
 6. seed idempotente di utenti e dati sintetici staging;
 7. deploy GitHub Pages;
 8. deploy Firestore Rules staging per ultime;
-9. smoke test sito e callable staging.
+9. smoke test sito e callable staging. *(Implementato: job `smoke-test`, `needs: [deploy-pages, deploy-rules]`.)*
 
 Il deploy dipende da tutti i job test. Aggiungere `concurrency` per annullare deploy staging obsoleti.
 
-Usare `actions/upload-pages-artifact` e `actions/deploy-pages`. Il workflow `release.yml` corrente va trasformato o sostituito: pubblica il sito ma non Functions/rules e tratta Pages come release.
+Usare `actions/upload-pages-artifact` e `actions/deploy-pages`. Il workflow `release.yml` corrente va trasformato o sostituito: pubblica il sito ma non Functions/rules e tratta Pages come release. *(Fatto: `release.yml` oggi valida soltanto — test, analyze, format, build wasm, Functions unit e integrazione — e non pubblica più su Pages, che è riservato a staging da `develop`.)*
 
 `ci.yml` resta dedicato alle PR verso `main`/`develop` e all'avvio manuale, senza credenziali cloud e senza deploy. I push su `develop` sono validati dal workflow staging per evitare test e build doppi sullo stesso commit.
 
 ### Backlog ottimizzazione pipeline
+
+> **Stato**: 1 e 2 ✅ fatti, 3 🟡 in parte. Caching npm (`cache: npm` +
+> `cache-dependency-path`) e Flutter (`cache: true`, `pub-cache: true`) sono attivi su
+> tutti i workflow; lo split Node è in produzione (unit su 24, integrazione/deploy su 22,
+> `engines: ">=22 <25"`, `firebase.json` con `runtime: nodejs22`); le Actions sono passate a
+> `@v5` / `google-github-actions@v3` e il blocco `flutter` non riconosciuto è stato rimosso
+> da `firebase.json`. Resta da verificare l'assenza completa di annotations sui run.
 
 1. Introdurre caching sui job CI/staging per ridurre build inutili e consumo runner:
    - Flutter: cache SDK Flutter, Pub cache e, se compatibile con la pipeline, artefatti `.dart_tool`/build invalidati dal lockfile.

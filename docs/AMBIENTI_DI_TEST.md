@@ -43,9 +43,17 @@ Auth + Firestore + Functions girano in locale; l'app Flutter si collega con
 In CI: job `functions-integration` (`.github/workflows/ci.yml`). È la
 categoria C del piano (§8): la rete di regressione permanente del write-path.
 
-### C. Progetto Firebase di staging — ⭐ TARGET (la migliore, da fare prima del rilascio)
+### C. Progetto Firebase di staging — ✅ ATTIVA
 
-Progetto gemello `fit-rope-staging`(-like): Auth, Firestore, Functions
+> **Stato aggiornato.** Questa sezione era la descrizione di un obiettivo futuro.
+> Lo staging è ora **realizzato e automatizzato**: progetto `fit-rope-staging`,
+> deploy a ogni push su `develop` via `.github/workflows/staging.yml`, sito su
+> <https://fgrotta.github.io/fitrope_app/>. Per il flusso operativo (ordine dei job,
+> auth OIDC, vars richieste, smoke test) vedi la sezione "Ambiente Staging" in
+> `CLAUDE.md` e `DEPLOYMENT.md`. I "prerequisiti" qui sotto restano come storico di
+> cosa è servito.
+
+Progetto gemello `fit-rope-staging`: Auth, Firestore, Functions
 deployate, dati sintetici, seconda app OneSignal.
 
 - **Copre in più di A/B**: deploy reale (predeploy, secrets, region, IAM),
@@ -58,13 +66,14 @@ deployate, dati sintetici, seconda app OneSignal.
     alert consigliato. ⚠️ Richiede azione di Francesco (account/billing).
   - Parametrizzare `ONESIGNAL_APP_ID` (oggi hardcoded in
     `functions/src/handler.ts` e `lib/main.dart`) + seconda app OneSignal.
-  - `flutterfire configure --project=<staging>` → secondo `firebase_options`,
-    switch client via `--dart-define=ENV=staging`.
-  - Alias in `.firebaserc` (`firebase use staging|default`).
+  - Secondo `firebase_options` (`lib/firebase_options_staging.dart`, valorizzato da
+    `--dart-define` in CI, non committato con valori reali), switch client via
+    `--dart-define=APP_ENV=staging` (vedi `lib/app_environment.dart`).
+  - Alias in `.firebaserc` (`prod` e `staging`; **non** esiste un alias `default`).
   - La web di staging NON va pubblicata sul GitHub Pages di prod.
   - **GDPR**: mai copiare dati reali (nomi/email/telefoni) in staging — seed
     sintetico o export anonimizzato.
-- **Quando**: prima di rilasciare in produzione il blocco PR3–PR6.
+- **Quando**: fatto, precede il rilascio in produzione del blocco PR3–PR6.
 
 ### Scartate
 
@@ -80,7 +89,7 @@ deployate, dati sintetici, seconda app OneSignal.
 |---|---|---|
 | **A. Emulatore locale** | ✅ implementata (PR4.5) | da subito, per sviluppo e QA manuale |
 | **B. Emulatore in CI (categoria C)** | ✅ consegnata (PR5) | gira in CI sulle PR e nel deploy staging |
-| **C. Staging** | ⭐ target, decisa come opzione migliore | prima del rilascio in prod del blocco PR3–PR6 (serve creazione progetto/billing da parte di Francesco) |
+| **C. Staging** | ✅ attiva e automatizzata | deploy a ogni push su `develop` (`staging.yml`), sito su GitHub Pages |
 
 **Regola operativa**: niente arriva in produzione senza essere passato
 dall'emulatore (sempre) e da staging (per i rilasci che toccano l'area

@@ -56,7 +56,9 @@ Nel codice functions usare SEMPRE `import { Timestamp, FieldValue } from "fireba
 # Produzione: il predeploy compila automaticamente via tsc
 firebase deploy --project prod --only functions
 
-# Staging manuale: configurare prima functions/.env.fit-rope-staging
+# Staging: normalmente NON si deploya a mano (lo fa staging.yml su push a develop,
+# vedi sotto). Percorso manuale solo per emergenze/debug, richiede prima
+# functions/.env.fit-rope-staging
 firebase deploy --project staging --only functions
 STAGING_PROJECT_ID=fit-rope-staging npm run seed:staging
 
@@ -77,6 +79,60 @@ firebase functions:delete sendOneSignalNotification
 
 Dopo ogni modifica, esegui almeno `flutter test`, `flutter analyze --no-fatal-infos` e `dart format --set-exit-if-changed .`. Se tocchi `functions/`, esegui anche `npm run build` e `npm test` nella cartella `functions/`; per callable, rules o transazioni aggiorna ed esegui anche `npm run test:integration`.
 
+### Ambiente Staging (automatico su `develop`)
+
+Staging è un **progetto Firebase separato** (`fit-rope-staging`, alias `staging` in
+`.firebaserc`) con Auth, Firestore e Functions propri. Il deploy è **interamente
+automatico**: ogni push o merge su `develop` fa girare `.github/workflows/staging.yml`.
+Non serve (e non si deve) deployare staging a mano.
+
+- Sito: <https://fgrotta.github.io/fitrope_app/> (GitHub Pages del fork, branch `gh-pages`
+  generato dal workflow). **Non** è produzione: la prod è Hostinger, deploy manuale.
+- Il client sceglie l'ambiente a compile-time: `--dart-define=APP_ENV=staging` →
+  `lib/app_environment.dart` espone `isStaging` e `main.dart` usa
+  `StagingFirebaseOptions` invece di `DefaultFirebaseOptions`. La config Firebase staging
+  **non è nel repo**: arriva da GitHub `vars` via `--dart-define` (vedi sotto).
+
+**Ordine dei job — è vincolante, non cosmetico** (`concurrency: staging-deploy` con
+`cancel-in-progress`, quindi un push nuovo annulla il deploy in corso):
+
+1. in parallelo `flutter-test-and-build` (test + analyze + format + build web staging +
+   upload artifact Pages), `functions-test` (Node 24) e `functions-integration`
+   (Node 22 + Java 21 + Emulator Suite)
+2. `deploy-functions` — **le callable devono esistere prima della web nuova**; subito dopo
+   il seed dei dati sintetici staging
+3. `deploy-pages` — pubblica il sito
+4. `deploy-rules` — **le rules per ULTIME**: bloccano le scritture dirette del client, se
+   uscissero prima romperebbero i client ancora sulla build vecchia
+5. `smoke-test` — `curl` su `index.html`, `version.json`, `flutter_bootstrap.js` del sito
+   Pages + `firebase functions:list` con assert sulla presenza di tutte le callable
+   enrollment. Serve a intercettare un deploy Functions parziale, che altrimenti
+   passerebbe silenzioso e romperebbe l'app al primo click.
+
+**Autenticazione: OIDC / Workload Identity Federation, nessuna service-account key nel
+repo.** I job di deploy usano `google-github-actions/auth@v3` con
+`vars.GCP_WORKLOAD_IDENTITY_PROVIDER` + `vars.GCP_STAGING_DEPLOY_SERVICE_ACCOUNT` e
+richiedono `permissions: id-token: write`. Il seed non usa l'ADC ma un access token
+federato: `functions/scripts/seedStaging.js` legge `GOOGLE_OAUTH_ACCESS_TOKEN`
+(valorizzato con `gcloud auth print-access-token`) e istanzia `Firestore` da
+`@google-cloud/firestore`.
+
+**Ogni job che legge `vars` staging deve dichiarare `environment: staging`**, e
+`STAGING_PROJECT_ID` è definita **per job** (non a livello di workflow): omettendola il
+job la legge vuota e il comando `firebase` fallisce in modo poco chiaro. Vars richieste
+nell'environment `staging`: `FIREBASE_STAGING_{API_KEY,APP_ID,MESSAGING_SENDER_ID,PROJECT_ID,AUTH_DOMAIN,STORAGE_BUCKET,MEASUREMENT_ID}`,
+`GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_STAGING_DEPLOY_SERVICE_ACCOUNT`,
+`ONESIGNAL_APP_ID`, `STAGING_NOTIFICATION_EMAIL_ALLOWLIST`.
+
+**Node**: `functions/package.json` dichiara `engines: ">=22 <25"` e `firebase.json` fissa
+`"runtime": "nodejs22"`. I job che esercitano il runtime reale (integrazione, deploy)
+girano su **22**, quelli unit su **24** per compatibilità tooling. Nel secret
+dell'emulatore in CI si scrive `functions/.secret.local` (gitignored), non una env var.
+
+`ci.yml` gira **solo sulle PR** verso `main`/`develop` e su avvio manuale: i push su
+`develop` sono già validati da `staging.yml`, che ripete gli stessi gate. `release.yml`
+(branch `release`) **valida soltanto** — non crea release e non pubblica niente.
+
 ## Verifica live e lezioni operative
 
 > **Policy — salva cosa impari.** Al termine di ogni sviluppo significativo, registra le lezioni apprese (trappole dell'ambiente, errori da non ripetere, pattern utili): se hanno valore generale per il progetto aggiungile a questa sezione; in ogni caso annotale nella memoria di progetto. Così le scoperte non vanno riscoperte alla sessione successiva.
@@ -91,7 +147,7 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 ### Deploy web / aggiornamento PWA (cache stantia su iOS)
 
 - Produzione: `https://app.fithousemonza.it`, hosting Hostinger/LiteSpeed, deploy **manuale** (`flutter build web --wasm --release` -> upload di `build/web`).
-- Staging: GitHub Pages del repository canonico, pubblicato automaticamente da `develop` tramite `.github/workflows/staging.yml`; non sostituisce il deploy Hostinger. La build usa `APP_ENV=staging` e Firebase separato. `web/.htaccess` viene copiato automaticamente in `build/web/` dal build Flutter: è il modo per far applicare regole di cache a Hostinger senza toccare il pannello.
+- Staging: <https://fgrotta.github.io/fitrope_app/> (GitHub Pages, branch `gh-pages`), pubblicato automaticamente da `develop` tramite `.github/workflows/staging.yml` — dettagli del flusso nella sezione "Ambiente Staging" sopra. Non sostituisce il deploy Hostinger: la build usa `APP_ENV=staging`, `--base-href /fitrope_app/` e il progetto Firebase separato. `web/.htaccess` viene copiato automaticamente in `build/web/` dal build Flutter: è il modo per far applicare regole di cache a Hostinger senza toccare il pannello (su GitHub Pages è inerte, Pages non legge `.htaccess`).
 - **`main.dart.js`, `flutter_service_worker.js`, `flutter_bootstrap.js`, `flutter.js` non hanno mai un hash nel nome**: restano identici da un build all'altro (il versioning è gestito internamente dal service worker generato da Flutter via confronto hash-per-file, non dal filename). Qualsiasi cache lunga su questi file (anche solo un default del server per estensione `.js`, come i 7 giorni di default riscontrati su Hostinger/LiteSpeed) blocca i client su una versione vecchia finché la cache non scade — `web/.htaccess` la limita a 30 minuti per i file "vivi" (index.html, version.json, manifest.json + i file sopra).
 - Un tentativo precedente di forzare l'update via JS (unregister di tutti i service worker + wipe di tutta la Cache Storage + reload cache-busted) è stato revertito perché causava un **reload loop infinito**: il reload rileggeva comunque `main.dart.js`/`flutter_service_worker.js` dalla cache HTTP del browser (non toccata dal wipe della Cache Storage, che è uno strato diverso), quindi il mismatch di versione si ripresentava a ogni giro. Prima di reintrodurre logica di forzatura via JS, verificare sempre che gli header di cache lato server siano già corretti — altrimenti nessuna logica JS può risolvere il problema.
 

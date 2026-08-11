@@ -80,7 +80,7 @@ Da fare prima di rilasciare il blocco PR3–PR6 in produzione (vedi
 Blaze (⚠️ serve Francesco per progetto/billing), parametrizzazione
 `ONESIGNAL_APP_ID` (oggi hardcoded in `functions/src/handler.ts` e
 `lib/main.dart`) + seconda app OneSignal, `flutterfire configure` per il
-secondo `firebase_options` + switch `--dart-define=ENV=staging`, alias
+secondo `firebase_options` + switch `--dart-define=APP_ENV=staging`, alias
 `.firebaserc`, seed sintetico (MAI dati reali: GDPR).
 
 ### PR7 — UI polish + docs ✅ FATTO
