@@ -118,8 +118,11 @@ class FitropeUser {
     return FitropeUser(
       uid: json['uid'] as String,
       email: json['email'] as String? ?? '',
-      name: json['name'] as String,
-      lastName: json['lastName'] as String,
+      // Tolleranti come lo era la mappatura manuale di getUsers: un documento
+      // senza nome resta un utente con nome vuoto, non un utente che sparisce
+      // dalla lista admin.
+      name: json['name'] as String? ?? '',
+      lastName: json['lastName'] as String? ?? '',
       courses: (json['courses'] as List<dynamic>?)
               ?.map((courseId) => courseId.toString())
               .toList() ??
