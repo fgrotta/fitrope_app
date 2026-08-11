@@ -106,7 +106,7 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 - UI in italiano. Non tradurre stringhe UI in inglese salvo richiesta esplicita.
 - Localizzazione date: `it_IT` via `intl`. Usa `formatDate` da `lib/utils/format_date.dart`.
 - Serializzazione manuale: se aggiungi/modifichi campi nei modelli, aggiorna sempre sia `toJson` sia `fromJson` in `lib/types/`.
-- Nomi file Dart: rispetta il case esatto (es. `HomePage.dart`, non `homepage.dart`).
+- Nomi file Dart: `snake_case` (es. `home_page.dart`, `get_course_state.dart`). Il repo è stato rinominato interamente da camelCase: non reintrodurre `HomePage.dart` & co.
 - Stato globale Redux minimale: non aggiungere campi a `AppState` senza necessita reale.
 - Dopo mutazioni su corsi/utenti, invalida la cache (`refresh_manager`, `user_cache_manager`).
 - Per iscrizioni, disiscrizioni, waitlist, assegnazione abbonamenti, delete e recount usa le callable in `europe-west8`: le transazioni autoritative sono nelle Cloud Functions. Le scritture client dirette restano limitate al CRUD corso consentito dalle rules.
@@ -118,7 +118,7 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 
 1. Leggi `lib/api/courses/README_ISCRIZIONI.md`
 2. Esegui i test: `flutter test`
-3. File chiave: `lib/api/courses/subscribe_to_course.dart`, `unsubscribeToCourse.dart`, `lib/utils/course_unsubscribe_helper.dart`
+3. File chiave: `lib/api/courses/subscribe_to_course.dart`, `unsubscribe_to_course.dart`, `lib/utils/course_unsubscribe_helper.dart`
 
 ### Notifiche OneSignal
 
