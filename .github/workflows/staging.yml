@@ -14,12 +14,10 @@ concurrency:
   group: staging-deploy
   cancel-in-progress: true
 
-env:
-  STAGING_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
-
 jobs:
   flutter-test-and-build:
     runs-on: ubuntu-latest
+    environment: staging
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -97,6 +95,8 @@ jobs:
     needs: [flutter-test-and-build, functions-test, functions-integration]
     runs-on: ubuntu-latest
     environment: staging
+    env:
+      STAGING_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -140,6 +140,8 @@ jobs:
     needs: deploy-pages
     runs-on: ubuntu-latest
     environment: staging
+    env:
+      STAGING_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
