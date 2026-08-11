@@ -26,7 +26,22 @@ const {
   recordToSnapshotEntry,
 } = require("../lib/enrollment/subscription");
 
-admin.initializeApp({ projectId });
+function stagingCredential() {
+  const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN;
+  if (!accessToken) return undefined;
+
+  return {
+    getAccessToken: async () => ({
+      access_token: accessToken,
+      expires_in: 3600,
+    }),
+  };
+}
+
+const appOptions = { projectId };
+const credential = stagingCredential();
+if (credential) appOptions.credential = credential;
+admin.initializeApp(appOptions);
 const db = admin.firestore();
 const PASSWORD = "test1234";
 const MEMBER_UID = "stg_member";

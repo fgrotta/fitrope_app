@@ -124,7 +124,10 @@ jobs:
         run: firebase deploy --project "$STAGING_PROJECT_ID" --only functions --non-interactive
       - name: Seed staging data
         working-directory: functions
-        run: npm run seed:staging
+        run: |
+          GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          export GOOGLE_OAUTH_ACCESS_TOKEN
+          npm run seed:staging
 
   deploy-pages:
     needs: deploy-functions
