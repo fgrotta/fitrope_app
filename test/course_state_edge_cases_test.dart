@@ -200,8 +200,13 @@ void main() {
     });
 
     test(
-        'il controllo tag avviene prima dell-iscrizione: utente gia iscritto con tag sbagliati -> NULL',
+        'utente gia iscritto con tag sbagliati -> SUBSCRIBED (puo comunque disiscriversi)',
         () {
+      // L'attesa era NULL ("Non disponibile", bottone disabilitato): un utente
+      // iscritto a un corso i cui tag non gli competono piu (tag cambiati
+      // dall'admin dopo l'iscrizione) restava bloccato su un posto che non
+      // poteva liberare. Il tag gate serve a impedire NUOVE iscrizioni, non a
+      // impedire l'uscita: il server infatti la consente.
       final course = makeCourse(uid: 'c1', tags: [CourseTags.PERSONAL_TRAINER]);
       store.dispatch(SetAllCoursesAction([course]));
       final user = makeUser(
@@ -210,6 +215,20 @@ void main() {
         fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
         tipologiaCorsoTags: [CourseTags.OPEN],
         courses: ['c1'],
+      );
+
+      expect(getCourseState(course, user), CourseState.SUBSCRIBED);
+    });
+
+    test('utente NON iscritto con tag sbagliati -> NULL (invariato)', () {
+      final course = makeCourse(uid: 'c1', tags: [CourseTags.PERSONAL_TRAINER]);
+      store.dispatch(SetAllCoursesAction([course]));
+      final user = makeUser(
+        tipologia: TipologiaIscrizione.ABBONAMENTO_MENSILE,
+        entrateSettimanali: 3,
+        fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
+        tipologiaCorsoTags: [CourseTags.OPEN],
+        courses: const [],
       );
 
       expect(getCourseState(course, user), CourseState.NULL);
@@ -289,12 +308,15 @@ void main() {
     });
   });
 
-  group(
-      'getCourseState - abbonamento scaduto precede tutti gli altri controlli',
-      () {
+  group('getCourseState - essere iscritto precede scadenze e limiti', () {
     setUp(() => store.dispatch(SetAllCoursesAction([])));
 
-    test('utente scaduto iscritto al corso -> EXPIRED (non SUBSCRIBED)', () {
+    test(
+        'utente scaduto MA iscritto al corso -> SUBSCRIBED (puo disiscriversi)',
+        () {
+      // L'attesa era EXPIRED: l'iscritto vedeva "Abbonamento scaduto" col
+      // bottone disabilitato e restava bloccato su un posto che non poteva
+      // liberare, mentre il server la disiscrizione la consente (con rimborso).
       final course = makeCourse(
         uid: 'c1',
         start: now.add(const Duration(days: 10)),
@@ -305,6 +327,22 @@ void main() {
         entrateSettimanali: 3,
         fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 5))),
         courses: ['c1'],
+      );
+
+      expect(getCourseState(course, user), CourseState.SUBSCRIBED);
+    });
+
+    test('utente scaduto e NON iscritto -> EXPIRED (invariato)', () {
+      final course = makeCourse(
+        uid: 'c1',
+        start: now.add(const Duration(days: 10)),
+      );
+      store.dispatch(SetAllCoursesAction([course]));
+      final user = makeUser(
+        tipologia: TipologiaIscrizione.ABBONAMENTO_MENSILE,
+        entrateSettimanali: 3,
+        fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 5))),
+        courses: const [],
       );
 
       expect(getCourseState(course, user), CourseState.EXPIRED);

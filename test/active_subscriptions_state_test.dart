@@ -540,7 +540,10 @@ void main() {
       expect(getCourseState(target, u), CourseState.WAITLIST_SPOT_AVAILABLE);
     });
 
-    test('gia iscritto con abbonamento scaduto -> EXPIRED', () {
+    test('gia iscritto con abbonamento scaduto -> SUBSCRIBED, non EXPIRED', () {
+      // Essere iscritto precede la scadenza: altrimenti CourseCard disabilita il
+      // bottone e l'utente non puo liberare il posto, mentre la callable
+      // unsubscribeFromCourse glielo consentirebbe.
       final target = course(uid: 'o1', tags: [CourseTags.OPEN]);
       store.dispatch(SetAllCoursesAction([target]));
       final u = user(
@@ -555,7 +558,7 @@ void main() {
               validFor: const Duration(days: -1))
         ],
       );
-      expect(getCourseState(target, u), CourseState.EXPIRED);
+      expect(getCourseState(target, u), CourseState.SUBSCRIBED);
     });
 
     test('frequenza 3x: al limite -> LIMIT, sotto -> CAN_SUBSCRIBE', () {
