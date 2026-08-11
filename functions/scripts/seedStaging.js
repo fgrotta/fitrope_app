@@ -18,7 +18,7 @@ if (
 }
 
 const admin = require("firebase-admin");
-const { Timestamp } = require("firebase-admin/firestore");
+const { Firestore, Timestamp } = require("@google-cloud/firestore");
 const { planByKey } = require("../lib/enrollment/plansCatalog");
 const {
   buildSubscriptionFromPlan,
@@ -42,7 +42,7 @@ const appOptions = { projectId };
 const credential = stagingCredential();
 if (credential) appOptions.credential = credential;
 admin.initializeApp(appOptions);
-const db = admin.firestore();
+const db = new Firestore({ projectId });
 const PASSWORD = "test1234";
 const MEMBER_UID = "stg_member";
 const MEMBER_SUBSCRIPTIONS = [

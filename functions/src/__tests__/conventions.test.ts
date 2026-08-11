@@ -65,5 +65,7 @@ describe("convenzioni codebase functions", () => {
     expect(script).toContain("getAccessToken");
     expect(script).toContain("access_token");
     expect(script).toContain("appOptions.credential = credential");
+    expect(script).toContain('require("@google-cloud/firestore")');
+    expect(script).toContain("new Firestore({ projectId })");
   });
 });
