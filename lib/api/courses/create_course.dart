@@ -24,11 +24,15 @@ Future<Course?> createCourse(Course course,
       debugPrint('Course created successfully with ID: ${newCourse.id}');
       return newCourse;
     } else {
+      // Unico caso di `null`: il corso ha già un uid, non c'è niente da creare.
+      // Gli errori veri passano da `rethrow` qui sotto.
       debugPrint('Course already exists');
       return null;
     }
   } catch (e) {
+    // Rilancia invece di ritornare null: nessun call-site controllava il null,
+    // quindi un permission-denied delle rules PR6 mostrava "successo".
     debugPrint('Error creating course: $e');
-    return null;
+    rethrow;
   }
 }

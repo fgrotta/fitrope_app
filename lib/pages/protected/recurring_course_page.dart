@@ -356,6 +356,12 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       isLoading = true;
     });
 
+    // Dichiarati fuori dal try: servono nel catch per distinguere un fallimento
+    // totale da uno parziale (createCourse rilancia, quindi il ciclo si
+    // interrompe lasciando creati i corsi precedenti).
+    int createdCount = 0;
+    int totalCount = 0;
+
     try {
       final name = nameController.text.trim();
       final duration = double.tryParse(durationController.text.trim()) ?? 1;
@@ -374,7 +380,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       // I Trainer vengono automaticamente assegnati ai corsi che creano
       final trainerId = user.role == 'Trainer' ? user.uid : selectedTrainerId;
 
-      int createdCount = 0;
+      totalCount = courseDates.length;
 
       // Crea un corso per ogni data
       for (DateTime courseDate in courseDates) {
@@ -397,7 +403,12 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
           waitlistEnabled: waitlistEnabled,
         );
 
-        await createCourse(newCourse);
+        final created = await createCourse(newCourse);
+        // Conta solo le creazioni davvero avvenute: prima l'incremento era
+        // incondizionato e annunciava "Creati N corsi" anche con N fallimenti.
+        if (created == null) {
+          throw Exception('creazione non eseguita (corso già esistente)');
+        }
         createdCount++;
       }
 
@@ -411,9 +422,14 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
+      // Fallimento parziale: i corsi già creati restano: dirlo, invece di far
+      // credere che non sia stato creato nulla. Si resta sulla pagina così il
+      // messaggio è leggibile (createCourse ha già invalidato la cache corsi).
       SnackBarUtils.showErrorSnackBar(
         context,
-        'Errore durante la creazione dei corsi ricorrenti',
+        createdCount == 0
+            ? 'Errore durante la creazione dei corsi ricorrenti: $e'
+            : 'Creati solo $createdCount corsi su $totalCount, poi errore: $e',
       );
     } finally {
       if (mounted) {
