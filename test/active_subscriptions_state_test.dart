@@ -261,8 +261,12 @@ void main() {
         tipologiaCorsoTags: const ['Tutti i corsi'],
         tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
         entrateDisponibili: 0,
+        // Necessaria: senza fineIscrizione getCourseState ritorna EXPIRED prima
+        // di arrivare al controllo sui crediti, e il test non eserciterebbe il
+        // ramo che dichiara di coprire.
+        fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
       );
-      expect(getCourseState(target, u), CourseState.EXPIRED);
+      expect(getCourseState(target, u), CourseState.SUBSCRIBE_LIMIT);
     });
   });
 
@@ -726,6 +730,10 @@ void main() {
         tipologiaCorsoTags: const [CourseTags.OPEN],
         tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
         entrateDisponibili: 3,
+        // Necessaria: senza fineIscrizione il fallback legacy ritorna EXPIRED e
+        // il test non arriverebbe mai a verificare il filtro sullo snapshot
+        // stantio, cioe l'unica cosa che dichiara di coprire.
+        fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
         activeSubscriptions: [
           sub(
               family: SubscriptionFamily.HYROX,
@@ -737,7 +745,7 @@ void main() {
       );
       // Senza filtro: NULL (famiglia OPEN non coperta). Col filtro: legacy
       // PACCHETTO_ENTRATE con crediti -> CAN_SUBSCRIBE.
-      expect(getCourseState(target, u), CourseState.EXPIRED);
+      expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
     });
 
     test('voce scaduta + voce viva: decide solo la viva', () {

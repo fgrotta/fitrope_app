@@ -17,10 +17,18 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 |---|---|---|
 | `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, promemoria prova |
 | `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, `entryLost` + `cancelledEnrollments`. **La penalità segue la fonte realmente consumata** (registro `enrollmentConsumption`): se fu scalato un ingresso la penalità è "l'ingresso non torna" e NON si scrive `cancelledEnrollments`; la voce `entryLost` resta solo se la prenotazione consumò davvero uno slot settimanale (`kind: NONE` sotto un modello a frequenza). **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
-| `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze) |
+| `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze). **`joinWaitlist` richiede l'idoneità**: esegue `evaluateSubscribe` con `courseFull: false` e rifiuta chi non potrebbe iscriversi (crediti esauriti, limite settimanale, scadenza, tag) |
 | `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot, max 1 attivo per famiglia |
 | `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Niente email waitlist |
 | `recountCourseSubscribed` *(SOLO Admin, da PR5)* | `admin.ts` | Ricalcola `subscribed` dalla fonte di verità (utenti con il corso in `courses[]`), in transazione |
+
+**I limiti bloccano anche l'ingresso in lista d'attesa.** Non è una waitlist "illimitata":
+chi non è idoneo a iscriversi (crediti esauriti, limite settimanale raggiunto, abbonamento
+scaduto, tag non compatibili) non entra nemmeno in lista, perché occuperebbe una posizione
+senza poter essere promosso. Enforcement server in `joinWaitlist` (`evaluateSubscribe` con
+`courseFull: false`), mirror client in `get_course_state.dart` (il `limitState` prevale su
+`CAN_WAITLIST` nel ramo corso-pieno). Test: `waitlist_state_test.dart`,
+`waitlist_operations_test.dart`.
 
 **Perché `unsubscribeFromCourse` admin rimborsa e `deleteCourse` su corso iniziato no.**
 Non è un'incoerenza: sono due situazioni opposte. Un admin che rimuove UN utente da un
