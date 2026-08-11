@@ -488,8 +488,8 @@ Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e fireb
 **ci.yml** (branch `main`, `develop`):
 
 - `test`: `flutter pub get` -> `flutter test` -> `flutter analyze --no-fatal-infos` -> `dart format --set-exit-if-changed .` -> `flutter build web --wasm --release`
-- `functions-test`: Node 22, `npm ci`, `npm run build`, `npm test`
-- `functions-integration`: Node 22 + Java 21 + firebase-tools 15, `npm run test:integration` con project `demo-fitrope`
+- `functions-test`: Node 24 per compatibilita tooling CI, `npm ci`, `npm run build`, `npm test`
+- `functions-integration`: Node 22 runtime-aligned + Java 21 + firebase-tools 15, `npm run test:integration` con project `demo-fitrope`
 
 Nota operativa: `flutter analyze --no-fatal-infos` e parte della CI; gli info-level restano debito tecnico ma non bloccano il job.
 
@@ -527,7 +527,7 @@ flutter run -d chrome
 ```bash
 # Sviluppo locale
 cd functions
-npm ci                 # installazione riproducibile (runtime Functions Node 22; CI Node 22)
+npm ci                 # installazione riproducibile (runtime Functions Node 22; unit CI verifica anche Node 24)
 npm run build          # compila TypeScript
 npm test               # esegue test Jest unitari (253 test verificati)
 npm run test:integration # Emulator Suite, richiede Java 21+

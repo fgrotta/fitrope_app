@@ -14,6 +14,7 @@ import {
 } from "@firebase/rules-unit-testing";
 
 let env: RulesTestEnvironment;
+let consoleWarnSpy: jest.SpyInstance;
 
 const ADMIN = "admin-uid";
 const TRAINER = "trainer-uid";
@@ -49,6 +50,14 @@ function courseDoc(extra: Record<string, unknown> = {}) {
 }
 
 beforeAll(async () => {
+  consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation((...args: unknown[]) => {
+    const message = args.map(String).join(" ");
+    if (message.includes("@firebase/firestore") && message.includes("PERMISSION_DENIED")) {
+      return;
+    }
+    process.stderr.write(`${message}\n`);
+  });
+
   env = await initializeTestEnvironment({
     projectId: "demo-rules-fitrope",
     firestore: {
@@ -59,6 +68,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await env.cleanup();
+  consoleWarnSpy.mockRestore();
 });
 
 beforeEach(async () => {
