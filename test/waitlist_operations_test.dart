@@ -97,7 +97,7 @@ void main() {
     });
 
     test(
-        'utente pacchetto entrate senza crediti PUÒ entrare in waitlist (lista d\'attesa illimitata)',
+        'utente pacchetto entrate senza crediti NON entra in waitlist -> SUBSCRIBE_LIMIT',
         () {
       final course = Course(
         id: 'c1',
@@ -123,7 +123,8 @@ void main() {
         createdAt: now,
       );
 
-      // La lista d'attesa è illimitata: l'assenza di crediti NON deve bloccarla.
+      // POLICY: i limiti bloccano anche l'ingresso in lista d'attesa (mirror del
+      // server: joinWaitlist esegue evaluateSubscribe). Vedi README_ISCRIZIONI.
       final state = getCourseState(course, userNoEntries);
       expect(state, CourseState.SUBSCRIBE_LIMIT);
     });

@@ -16,6 +16,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
@@ -58,6 +59,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
   String? errorMsg;
   List<Course> allCourses = [];
   bool _showAllEnrollments12Months = false;
+
+  /// Snapshot abbonamenti ricaricato dal server dopo un'assegnazione: null
+  /// finche non c'e stata nessuna assegnazione in questa schermata, e allora
+  /// vale quello arrivato con `widget.user`.
+  List<UserSubscription>? _reloadedSubscriptions;
+
+  List<UserSubscription> get _activeSubscriptions =>
+      _reloadedSubscriptions ?? widget.user.activeSubscriptions;
 
   @override
   void initState() {
@@ -449,7 +458,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         // persi nell'oggetto in memoria propagato a store/liste).
         waitlistCourses: widget.user.waitlistCourses,
         regolamentoAccettatoIl: widget.user.regolamentoAccettatoIl,
-        activeSubscriptions: widget.user.activeSubscriptions,
+        activeSubscriptions: _activeSubscriptions,
       );
 
       // Aggiorna lo store Redux se l'utente ha modificato il proprio profilo
@@ -868,6 +877,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   // Lo snapshot dell'utente è cambiato server-side: invalida la
                   // cache così liste e dettagli ricaricano dati freschi.
                   invalidateUsersCache();
+                  _reloadSubscriptions();
                 },
               ),
               const SizedBox(height: 20),
@@ -1369,6 +1379,23 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
+  /// Rilegge l'utente dal server per mostrare subito l'abbonamento appena
+  /// assegnato: `widget.user` e immutabile e arriva dalla lista chiamante, che
+  /// non si ricarica finche non si torna indietro.
+  Future<void> _reloadSubscriptions() async {
+    try {
+      final fresh = await getUser(widget.user.uid);
+      if (!mounted || fresh == null) return;
+      setState(() {
+        _reloadedSubscriptions = fresh.activeSubscriptions;
+      });
+    } catch (e) {
+      // L'assegnazione server-side e comunque andata a buon fine: la lista si
+      // aggiornera al prossimo caricamento (la cache e già stata invalidata).
+      debugPrint('Ricarica abbonamenti fallita: $e');
+    }
+  }
+
   /// Elenco (sola lettura) degli abbonamenti del modello multi-abbonamento.
   /// Ordinati per scadenza decrescente (tie-break su planKey per ordine
   /// deterministico tra rebuild): i più futuri in alto, gli eventuali scaduti
@@ -1378,7 +1405,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   /// scadute), perché è la vista gestionale/storica admin; la HomePage utente
   /// filtra invece con `liveSubscriptions` e mostra solo quelle vive.
   Widget _buildActiveSubscriptionsSection() {
-    final subs = [...widget.user.activeSubscriptions]..sort((a, b) {
+    final subs = [..._activeSubscriptions]..sort((a, b) {
         final byEnd = b.endDate.compareTo(a.endDate);
         return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
       });

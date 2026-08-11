@@ -495,3 +495,72 @@ describe("evaluateSubscribe — force (admin)", () => {
     expect(d.consume).toEqual({ kind: "SUBSCRIPTION_ENTRY", subscriptionId: "e1" });
   });
 });
+
+// Le tre soglie di scadenza usano confronti inclusivi/esclusivi diversi ed erano
+// tutte senza test al millisecondo esatto: un `>` che diventa `>=` (o viceversa)
+// passerebbe inosservato. Il client concorda gia su tutti e tre
+// (lib/utils/get_course_state.dart): questi test bloccano la deriva.
+describe("boundary di scadenza al millisecondo", () => {
+  test("legacy: corso ESATTAMENTE a fineIscrizione e ancora idoneo (> esclusivo)", () => {
+    const atExpiry = input({
+      tipologia: "ABBONAMENTO_MENSILE",
+      entrateSettimanali: 2,
+      fineIscrizioneMillis: COURSE_AT,
+      weeklyUsed: 0,
+    });
+    expect(evaluateSubscribe(atExpiry).reason).toBe("OK");
+
+    // Un millisecondo dopo la scadenza: EXPIRED.
+    expect(
+      evaluateSubscribe({ ...atExpiry, fineIscrizioneMillis: COURSE_AT - 1 }).reason
+    ).toBe("EXPIRED");
+  });
+
+  test("validAtDate: startDate e endDate sono INCLUSIVI", () => {
+    const atStart = sub({ startDateMillis: COURSE_AT, endDateMillis: COURSE_AT + 1000 });
+    const atEnd = sub({ startDateMillis: COURSE_AT - 1000, endDateMillis: COURSE_AT });
+    const beforeStart = sub({
+      startDateMillis: COURSE_AT + 1,
+      endDateMillis: COURSE_AT + 1000,
+    });
+    const afterEnd = sub({
+      startDateMillis: COURSE_AT - 1000,
+      endDateMillis: COURSE_AT - 1,
+    });
+
+    expect(validAtDate([atStart], COURSE_AT)).toHaveLength(1);
+    expect(validAtDate([atEnd], COURSE_AT)).toHaveLength(1);
+    expect(validAtDate([beforeStart], COURSE_AT)).toHaveLength(0);
+    expect(validAtDate([afterEnd], COURSE_AT)).toHaveLength(0);
+  });
+
+  test("selezione del modello: endDate === now e ancora VIVA (>= inclusivo)", () => {
+    // Voce che scade esattamente adesso: seleziona ancora il multi-abbonamento,
+    // quindi i crediti legacy NON vengono usati.
+    const alive = evaluateSubscribe(
+      input({
+        tipologia: "PACCHETTO_ENTRATE",
+        entrateDisponibili: 5,
+        activeSubscriptions: [
+          sub({ endDateMillis: NOW, billingMode: "FREQUENCY", weeklyFrequency: 2 }),
+        ],
+      })
+    );
+    // L'abbonamento e vivo "adesso" ma scaduto alla data del corso → EXPIRED,
+    // non un consumo di credito legacy.
+    expect(alive.reason).toBe("EXPIRED");
+
+    // Un millisecondo prima: voce scaduta, fallback legacy con i crediti pagati.
+    const fallback = evaluateSubscribe(
+      input({
+        tipologia: "PACCHETTO_ENTRATE",
+        entrateDisponibili: 5,
+        activeSubscriptions: [
+          sub({ endDateMillis: NOW - 1, billingMode: "FREQUENCY", weeklyFrequency: 2 }),
+        ],
+      })
+    );
+    expect(fallback.reason).toBe("OK");
+    expect(fallback.consume).toEqual({ kind: "LEGACY_ENTRY" });
+  });
+});

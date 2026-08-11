@@ -31,6 +31,7 @@ jobs:
       - run: flutter pub get
       - run: flutter test
       - run: flutter analyze --no-fatal-infos
+      - run: dart format --set-exit-if-changed .
       - run: flutter build web --wasm --release
 
   functions:
@@ -48,3 +49,28 @@ jobs:
         run: npm run build
       - working-directory: functions
         run: npm test -- --runInBand
+
+  # Stesso gate di ci.yml: il branch release non puo essere piu permissivo di
+  # main. Le callable enrollment sono il codice piu critico e le transazioni si
+  # verificano solo contro la Emulator Suite reale.
+  functions-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm install -g firebase-tools@15
+      - working-directory: functions
+        run: npm ci
+      - name: Configure emulator secrets
+        working-directory: functions
+        run: printf "ONESIGNAL_REST_API_KEY=emulator-dummy-key\n" > .secret.local
+      - working-directory: functions
+        run: npm run test:integration

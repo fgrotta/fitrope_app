@@ -385,8 +385,14 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           waitlistEnabled: waitlistEnabled,
         );
 
-        await createCourse(newCourse);
+        final created = await createCourse(newCourse);
         if (!mounted) return;
+        // createCourse rilancia sugli errori; il null resta solo per "corso già
+        // esistente" (impossibile con uid vuoto), ma non deve poter passare per
+        // un successo.
+        if (created == null) {
+          throw Exception('creazione non eseguita (corso già esistente)');
+        }
 
         final isDuplication = widget.mode == 'duplicate';
         SnackBarUtils.showSuccessSnackBar(
@@ -410,7 +416,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
               : 'creazione';
       SnackBarUtils.showErrorSnackBar(
         context,
-        'Errore durante la $action del corso',
+        'Errore durante la $action del corso: $e',
       );
     } finally {
       if (mounted) {

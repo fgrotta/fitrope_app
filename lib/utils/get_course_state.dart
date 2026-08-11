@@ -13,6 +13,19 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.CLOSED; // Corso passato
   }
 
+  // Già iscritto: è un FATTO, non l'esito di una valutazione di idoneità, quindi
+  // precede scadenze e limiti. L'unica cosa che lo sovrascrive è il corso già
+  // iniziato (CLOSED, sopra) — mirror del gate server, che sulla disiscrizione
+  // self controlla solo "iscritto?" e "corso iniziato?" senza idoneità
+  // (unsubscribeFromCourse in functions/src/enrollment/enrollment.ts).
+  // Prima questo check stava dopo le scadenze: un iscritto con abbonamento
+  // scaduto otteneva EXPIRED e CourseCard gli disabilitava il bottone, quindi
+  // restava bloccato su un posto che non poteva liberare (e che il server gli
+  // avrebbe lasciato liberare, con rimborso).
+  if (user.courses.contains(course.uid)) {
+    return CourseState.SUBSCRIBED;
+  }
+
   DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
 
   // Modello multi-abbonamento se lo snapshot contiene voci NON scadute;
@@ -58,11 +71,6 @@ CourseState getCourseState(Course course, FitropeUser user) {
     if (!hasTagAccess && covering.isEmpty) return CourseState.NULL;
   } else if (!hasTagAccess) {
     return CourseState.NULL;
-  }
-
-  // Già iscritto: EXPIRED ha già prevalso; per gli altri limiti resta iscritto.
-  if (user.courses.contains(course.uid)) {
-    return CourseState.SUBSCRIBED;
   }
 
   bool isInWaitlist = course.waitlist.contains(user.uid);

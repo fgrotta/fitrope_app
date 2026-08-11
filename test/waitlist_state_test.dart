@@ -117,8 +117,12 @@ void main() {
     });
 
     group('Waitlist with subscription limits', () {
+      // POLICY: i limiti di idoneita bloccano anche l'INGRESSO in lista d'attesa,
+      // non solo l'iscrizione diretta. Mirror del server: joinWaitlist esegue
+      // evaluateSubscribe con courseFull: false e rifiuta se non idoneo
+      // (functions/src/enrollment/enrollment.ts). Vedi README_ISCRIZIONI.
       test(
-          'should return CAN_WAITLIST when pacchetto entrate user has no entries but course is full (waitlist illimitata)',
+          'pacchetto entrate senza crediti su corso pieno -> SUBSCRIBE_LIMIT (i limiti bloccano la waitlist)',
           () {
         final userNoEntries = FitropeUser(
           uid: 'user-no-entries',
@@ -134,14 +138,13 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        // La lista d'attesa è illimitata: l'assenza di crediti NON deve bloccarla.
+        // Senza crediti non ci si mette nemmeno in lista: entrare in waitlist
+        // senza poter poi essere promossi bloccherebbe il posto a qualcun altro.
         final state = getCourseState(fullCourse, userNoEntries);
         expect(state, CourseState.SUBSCRIBE_LIMIT);
       });
 
-      test(
-          'should return CAN_WAITLIST when pacchetto entrate user has entries and course is full',
-          () {
+      test('pacchetto entrate CON crediti su corso pieno -> CAN_WAITLIST', () {
         final userWithEntries = FitropeUser(
           uid: 'user-with-entries',
           email: 'test@example.com',
@@ -161,7 +164,7 @@ void main() {
       });
 
       test(
-          'should return CAN_WAITLIST when weekly limit reached and course is full (waitlist illimitata)',
+          'limite settimanale raggiunto su corso pieno -> LIMIT (i limiti bloccano la waitlist)',
           () {
         final now = DateTime.now();
         // Crea 3 corsi nella stessa settimana futura
@@ -219,13 +222,14 @@ void main() {
           createdAt: now,
         );
 
-        // La lista d'attesa è illimitata: il limite settimanale raggiunto NON deve bloccarla.
+        // Il limite settimanale raggiunto blocca anche l'ingresso in waitlist.
         final state = getCourseState(fullCourseNextWeek, userAtLimit);
         expect(state, CourseState.LIMIT);
       });
     });
 
-    group('Waitlist ignora limiti settimanali/crediti', () {
+    group('Limiti e waitlist: lo stato riflette il limite, non la waitlist',
+        () {
       test(
           'corso CON POSTI + limite settimanale raggiunto -> LIMIT (la sottoscrizione diretta resta bloccata)',
           () {

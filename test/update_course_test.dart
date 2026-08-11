@@ -94,5 +94,26 @@ void main() {
       expect(data['subscribed'], 7);
       expect(data['waitlist'], ['u9']);
     });
+
+    test('un errore di scrittura PROPAGA invece di essere inghiottito',
+        () async {
+      // Regressione: il catch di updateCourse loggava e ritornava, così il
+      // call-site (CourseManagementPage) mostrava "Corso modificato con
+      // successo" anche su un permission-denied delle rules.
+      final orphan = Course(
+        id: 'non-esiste',
+        uid: 'non-esiste',
+        name: 'Fantasma',
+        startDate: start,
+        endDate: end,
+        capacity: 5,
+        subscribed: 0,
+      );
+
+      await expectLater(
+        updateCourse(orphan, firestore: db),
+        throwsA(anything),
+      );
+    });
   });
 }

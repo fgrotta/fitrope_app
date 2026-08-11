@@ -1,7 +1,6 @@
 import "package:flutter/foundation.dart";
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
-import 'package:fitrope_app/utils/course_tags.dart';
 
 // Cache per gli utenti
 List<FitropeUser>? _cachedUsers;
@@ -13,17 +12,20 @@ List<FitropeUser>? _cachedTrainers;
 DateTime? _lastTrainersCacheTime;
 const Duration _trainersCacheDuration = Duration(minutes: 5);
 
-Future<FitropeUser?> getUser(String uid) async {
-  final usersCollection = FirebaseFirestore.instance.collection('users');
+Future<FitropeUser?> getUser(String uid, {FirebaseFirestore? firestore}) async {
+  final db = firestore ?? FirebaseFirestore.instance;
+  final usersCollection = db.collection('users');
   final snapshot = await usersCollection.doc(uid).get();
   final data = snapshot.data();
   if (data == null) {
     return null;
   }
-  return FitropeUser.fromJson(data);
+  // 'uid' dall'id del documento: non tutti i documenti users lo hanno salvato
+  // come campo (es. creati server-side).
+  return FitropeUser.fromJson({...data, 'uid': snapshot.id});
 }
 
-Future<List<FitropeUser>> getUsers() async {
+Future<List<FitropeUser>> getUsers({FirebaseFirestore? firestore}) async {
   // Controlla se la cache è ancora valida
   if (_cachedUsers != null && _lastCacheTime != null) {
     final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
@@ -34,46 +36,27 @@ Future<List<FitropeUser>> getUsers() async {
   }
 
   try {
-    final usersCollection = FirebaseFirestore.instance.collection('users');
+    final db = firestore ?? FirebaseFirestore.instance;
+    final usersCollection = db.collection('users');
     final snapshot = await usersCollection.get();
 
-    final usersList = snapshot.docs.map((doc) {
-      final data = doc.data();
-      return FitropeUser(
-        uid: doc.id,
-        email: data['email'] ?? '',
-        name: data['name'] ?? '',
-        lastName: data['lastName'] ?? '',
-        role: data['role'] ?? 'User',
-        courses: List<String>.from(data['courses'] ?? []),
-        cancelledEnrollments: (data['cancelledEnrollments'] as List<dynamic>?)
-                ?.map((item) =>
-                    CancelledEnrollment.fromJson(item as Map<String, dynamic>))
-                .toList() ??
-            [],
-        tipologiaIscrizione: data['tipologiaIscrizione'] != null
-            ? TipologiaIscrizione.values
-                .where((e) =>
-                    e.toString().split('.').last == data['tipologiaIscrizione'])
-                .firstOrNull
-            : null,
-        entrateDisponibili: data['entrateDisponibili'] as int?,
-        entrateSettimanali: data['entrateSettimanali'] as int?,
-        fineIscrizione: data['fineIscrizione'] as Timestamp?,
-        createdAt: data['createdAt'] != null
-            ? (data['createdAt'] as Timestamp).toDate()
-            : DateTime.now(),
-        isActive: data['isActive'] ?? true,
-        isAnonymous: data['isAnonymous'] ?? false,
-        certificatoScadenza: data['certificatoScadenza'] as Timestamp?,
-        numeroTelefono: data['numeroTelefono'] as String?,
-        tipologiaCorsoTags: (data['tipologiaCorsoTags'] as List<dynamic>?)
-                ?.map((tag) => tag.toString())
-                .toList() ??
-            CourseTags.defaultUserTags,
-        regolamentoAccettatoIl: data['regolamentoAccettatoIl'] as Timestamp?,
-      );
-    }).toList();
+    // Deserializzazione tramite FitropeUser.fromJson: una mappatura manuale qui
+    // si dimenticherebbe (come e successo con activeSubscriptions/waitlistCourses/
+    // preferenze notifiche) i campi aggiunti al modello. 'uid' e messo DOPO lo
+    // spread per far vincere doc.id su un eventuale uid stantio nel documento.
+    final usersList = snapshot.docs
+        .map((doc) {
+          try {
+            return FitropeUser.fromJson({...doc.data(), 'uid': doc.id});
+          } catch (e) {
+            // getUsers carica TUTTI gli utenti: un documento malformato non deve
+            // far fallire l'intera lista admin, si salta solo quello.
+            debugPrint('Utente ${doc.id} non deserializzabile, saltato: $e');
+            return null;
+          }
+        })
+        .whereType<FitropeUser>()
+        .toList();
 
     // Aggiorna la cache
     _cachedUsers = usersList;
@@ -95,7 +78,7 @@ void invalidateUsersCache() {
 }
 
 // Funzione per ottenere solo i trainer
-Future<List<FitropeUser>> getTrainers() async {
+Future<List<FitropeUser>> getTrainers({FirebaseFirestore? firestore}) async {
   // Controlla se la cache è ancora valida
   if (_cachedTrainers != null && _lastTrainersCacheTime != null) {
     final timeSinceLastCache =
@@ -107,7 +90,7 @@ Future<List<FitropeUser>> getTrainers() async {
   }
 
   try {
-    final usersList = await getUsers();
+    final usersList = await getUsers(firestore: firestore);
     final trainersList = usersList
         .where((user) => user.role == 'Trainer' && user.isActive)
         .toList();

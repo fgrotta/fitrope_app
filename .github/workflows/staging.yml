@@ -34,6 +34,7 @@ jobs:
       - run: flutter pub get
       - run: flutter test
       - run: flutter analyze --no-fatal-infos
+      - run: dart format --set-exit-if-changed .
       - name: Validate staging Firebase configuration
         env:
           FIREBASE_API_KEY: ${{ vars.FIREBASE_STAGING_API_KEY }}
@@ -149,6 +150,8 @@ jobs:
     environment:
       name: staging
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
@@ -174,3 +177,52 @@ jobs:
       - run: npm install -g firebase-tools@15
       - name: Deploy Firestore Rules staging
         run: firebase deploy --project "$STAGING_PROJECT_ID" --only firestore:rules --non-interactive
+
+  # Step 9 del PIANO_STAGING: smoke test di sito e callable dopo il deploy.
+  # Verifica che la PWA risponda e che tutte le callable enrollment esistano
+  # davvero sul progetto staging — un deploy Functions parziale altrimenti
+  # passerebbe silenziosamente e romperebbe l'app solo al primo click.
+  smoke-test:
+    needs: [deploy-pages, deploy-rules]
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_STAGING_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - run: npm install -g firebase-tools@15
+      - name: Smoke test sito staging
+        env:
+          PAGE_URL: ${{ needs.deploy-pages.outputs.page_url }}
+        run: |
+          test -n "$PAGE_URL"
+          # index.html e i due file che il service worker usa per il versioning.
+          for path in "" "version.json" "flutter_bootstrap.js"; do
+            echo "GET ${PAGE_URL}${path}"
+            curl -fsS --retry 5 --retry-delay 5 --retry-all-errors \
+              -o /dev/null "${PAGE_URL}${path}"
+          done
+      - name: Smoke test callable staging
+        run: |
+          firebase functions:list --project "$STAGING_PROJECT_ID" --json > functions.json
+          # grep sul nome nudo: firebase puo prefissare la regione nell'id
+          # (europe-west8-subscribeToCourse), quindi non ancorare alle virgolette.
+          for fn in subscribeToCourse unsubscribeFromCourse joinWaitlist \
+                    leaveWaitlist assignSubscription deleteCourse \
+                    recountCourseSubscribed sendOneSignalNotification; do
+            if ! grep -q "$fn" functions.json; then
+              echo "::error::callable mancante su staging: $fn"
+              exit 1
+            fi
+            echo "ok: $fn"
+          done

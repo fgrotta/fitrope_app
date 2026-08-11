@@ -678,6 +678,34 @@ describe("subscribeToCourseHandler", () => {
     });
   });
 
+  test("force su ABBONAMENTO a 0 ingressi: nessun decremento, consumo NONE", async () => {
+    // Gemello del test legacy qui sotto, sul ramo SUBSCRIPTION_ENTRY: senza
+    // questo, un force che scendesse sotto zero (o che registrasse per errore
+    // SUBSCRIPTION_ENTRY, facendo poi "coniare" un ingresso al rimborso) non
+    // verrebbe intercettato.
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          activeSubscriptions: [snapshotEntry("sub-hyrox", hyroxSubDoc(0))],
+        }),
+        boss: { uid: "boss", role: "Admin" },
+      },
+      courses: { ch: course({ uid: "ch", tags: ["Hyrox"] }) },
+      subs: { "sub-hyrox": hyroxSubDoc(0) },
+    };
+    await subscribeToCourseHandler(
+      { ...auth("boss"), data: { courseId: "ch", userId: "u1", force: true } },
+      makeDb(store),
+      {},
+      NOW
+    );
+    expect(store.users.u1.courses).toEqual(["ch"]);
+    expect(store.subs["sub-hyrox"].remainingEntries).toBe(0); // mai negativo
+    expect(store.users.u1.enrollmentConsumption).toEqual({
+      ch: { kind: "NONE", atMillis: NOW, courseStartMillis: FAR },
+    });
+  });
+
   test("force a 0 ingressi: nessun decremento e consumo registrato come NONE", async () => {
     const store: FakeStore = {
       users: {
@@ -875,6 +903,68 @@ describe("unsubscribeFromCourseHandler", () => {
     expect(store.subs["sub-open"].weeklyFrequency).toBe(2); // doc intatto
   });
 
+  test("misto legacy→FREQUENCY entro finestra: penalità UNA volta sola (no doppia)", async () => {
+    // Prenotazione fatta col modello legacy (registro LEGACY_ENTRY), poi l'utente
+    // passa a un abbonamento FREQUENCY. Disiscrizione entro 4h con conferma: il
+    // credito legacy è perso (penalità applicata), quindi NON va scritta anche una
+    // voce entryLost che peserebbe sul limite settimanale — sarebbe doppia.
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["c-soon"],
+          entrateDisponibili: 3,
+          enrollmentConsumption: { "c-soon": { kind: "LEGACY_ENTRY" } },
+          activeSubscriptions: [snapshotEntry("sub-open", openFreqSubDoc(2))],
+        }),
+      },
+      courses: {
+        "c-soon": course({ uid: "c-soon", startDate: Timestamp.fromMillis(SOON) }),
+      },
+      subs: { "sub-open": openFreqSubDoc(2) },
+    };
+    const db = makeDb(store);
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-soon", userId: "u1", confirmedNoRefund: true } },
+      db,
+      {},
+      NOW
+    );
+    // Penalità: il credito legacy NON torna.
+    expect(store.users.u1.entrateDisponibili).toBe(3);
+    // ...e non se ne aggiunge una seconda sul limite settimanale.
+    expect(store.users.u1.cancelledEnrollments).toBeUndefined();
+    expect(store.users.u1.courses).toEqual([]);
+  });
+
+  test("consumo NONE sotto FREQUENCY entro finestra: la voce entryLost resta (slot settimanale davvero consumato)", async () => {
+    // Caso di controllo del test precedente: qui la prenotazione NON ha scalato
+    // ingressi (kind NONE), quindi la penalità corretta è proprio la voce
+    // entryLost che pesa sul limite settimanale.
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["c-soon"],
+          enrollmentConsumption: { "c-soon": { kind: "NONE" } },
+          activeSubscriptions: [snapshotEntry("sub-open", openFreqSubDoc(2))],
+        }),
+      },
+      courses: {
+        "c-soon": course({ uid: "c-soon", startDate: Timestamp.fromMillis(SOON) }),
+      },
+      subs: { "sub-open": openFreqSubDoc(2) },
+    };
+    const db = makeDb(store);
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-soon", userId: "u1", confirmedNoRefund: true } },
+      db,
+      {},
+      NOW
+    );
+    const cancelled = store.users.u1.cancelledEnrollments as Data[];
+    expect(cancelled).toHaveLength(1);
+    expect(cancelled[0].entryLost).toBe(true);
+  });
+
   test("transizione legacy→abbonamento: il rimborso ripristina la fonte CONSUMATA (registro), non il modello attuale", async () => {
     // Prenotazione fatta da legacy (registro: LEGACY_ENTRY), poi l'admin assegna
     // un abbonamento ENTRIES. Alla disiscrizione: +1 a entrateDisponibili,
@@ -924,6 +1014,38 @@ describe("unsubscribeFromCourseHandler", () => {
     );
     expect(store.users.u1.entrateDisponibili).toBe(0); // niente ingressi dal nulla
     expect(store.users.u1.courses).toEqual([]);
+  });
+
+  test("registro che punta a un doc subscription INESISTENTE: si disiscrive comunque", async () => {
+    // Ramo difensivo di enrollment.ts (logger.warn + skip): il doc referenziato
+    // dal registro consumi e stato cancellato. La disiscrizione deve completare
+    // (posto liberato, registro ripulito) senza esplodere e senza inventare
+    // ingressi altrove.
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["ch"],
+          entrateDisponibili: 2,
+          enrollmentConsumption: {
+            ch: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: "sub-fantasma" },
+          },
+          activeSubscriptions: [],
+        }),
+      },
+      courses: { ch: course({ uid: "ch", tags: ["Hyrox"] }) },
+      subs: {}, // il doc non esiste piu
+    };
+    const db = makeDb(store);
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "ch", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.courses).toEqual([]);
+    expect(store.users.u1.enrollmentConsumption).toEqual({});
+    expect(store.users.u1.entrateDisponibili).toBe(2); // nessun ripristino altrove
+    expect(store.courses.ch.subscribed).toBe(4); // decrementato da 5, posto liberato
   });
 
   test("clamp difensivo: il ripristino non supera mai gli ingressi del piano", async () => {

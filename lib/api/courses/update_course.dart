@@ -20,6 +20,10 @@ Future<void> updateCourse(Course course, {FirebaseFirestore? firestore}) async {
     invalidateCoursesCache(); // Invalida la cache dopo l'aggiornamento
     debugPrint('Course updated ${course.uid} successfully!');
   } catch (e) {
+    // Rilancia: con le rules di PR6 un permission-denied qui è la norma per un
+    // Trainer su un corso non suo, e inghiottirlo faceva mostrare al call-site
+    // "Corso modificato con successo" su un salvataggio mai avvenuto.
     debugPrint('Error updating course: $e');
+    rethrow;
   }
 }

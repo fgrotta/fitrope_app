@@ -52,118 +52,118 @@ In modalita emulatore OneSignal non viene inizializzato, per evitare registrazio
 
 ```
 lib/
-├── main.dart                        # Bootstrap Firebase, emulatori, OneSignal, MaterialApp
-├── router.dart                      # Route statiche + debug-only in kDebugMode
-├── style.dart                       # Costanti di stile globali
-├── firebase_options.dart            # Config Firebase produzione
-├── firebase_options_staging.dart    # Config Firebase staging da dart-define
-├── app_environment.dart             # Selezione ambiente prod/staging
+├── main.dart                              # Bootstrap Firebase, emulatori, OneSignal, MaterialApp
+├── router.dart                            # Route statiche + debug-only in kDebugMode
+├── style.dart                             # Costanti di stile globali
+├── firebase_options.dart                  # Config Firebase produzione
+├── firebase_options_staging.dart          # Config Firebase staging da dart-define
+├── app_environment.dart                   # Selezione ambiente prod/staging
 │
-├── state/                           # Redux state management
-│   ├── store.dart                   # Store con thunk middleware
-│   ├── state.dart                   # AppState (user, isLoading, allCourses)
-│   ├── actions.dart                 # 4 azioni Redux
-│   └── reducers.dart                # Reducer puri
+├── state/                                 # Redux state management
+│   ├── store.dart                         # Store con thunk middleware
+│   ├── state.dart                         # AppState (user, isLoading, allCourses)
+│   ├── actions.dart                       # 4 azioni Redux
+│   └── reducers.dart                      # Reducer puri
 │
-├── layout/                          # Sistema layout responsive
-│   ├── breakpoints.dart             # Mobile/Tablet/Desktop/LargeDesktop
-│   ├── breakpoint_builder.dart      # Widget responsive builder
-│   └── app_shell.dart               # Scaffold principale (BottomNav vs NavigationRail)
+├── layout/                                # Sistema layout responsive
+│   ├── breakpoints.dart                   # Mobile/Tablet/Desktop/LargeDesktop
+│   ├── breakpoint_builder.dart            # Widget responsive builder
+│   └── app_shell.dart                     # Scaffold principale (BottomNav vs NavigationRail)
 │
 ├── pages/
-│   ├── welcome/                     # Schermate pre-autenticazione
-│   │   ├── SplashScreen.dart        # Splash iniziale, check auth
-│   │   ├── WelcomePage.dart         # Landing page
-│   │   ├── LoginPage.dart           # Login email/password
-│   │   └── RegistrationPage.dart    # Registrazione nuovo utente
+│   ├── welcome/                           # Schermate pre-autenticazione
+│   │   ├── splash_screen.dart             # Splash iniziale, check auth
+│   │   ├── welcome_page.dart              # Landing page
+│   │   ├── login_page.dart                # Login email/password
+│   │   └── registration_page.dart         # Registrazione nuovo utente
 │   │
-│   └── protected/                   # Area autenticata
-│       ├── Protected.dart           # Scaffold principale con endDrawer admin
-│       ├── HomePage.dart            # Dashboard con abbonamenti/certificati in scadenza
-│       ├── CalendarPage.dart        # Calendario corsi con filtri e iscrizioni
-│       ├── CourseManagementPage.dart # CRUD corsi (crea/modifica/duplica)
-│       ├── RecurringCoursePage.dart  # Gestione corsi ricorrenti
-│       ├── AdminUsersPage.dart      # Lista utenti admin
-│       ├── CreateUserPage.dart      # Creazione utente (solo admin)
-│       ├── UserDetailPage.dart      # Profilo/modifica utente (admin)
-│       ├── AdminDashboardPage.dart  # Analytics (solo desktop)
-│       └── DebugEmailPage.dart      # Invio email di test (solo kDebugMode)
+│   └── protected/                         # Area autenticata
+│       ├── protected.dart                 # Scaffold principale con endDrawer admin
+│       ├── home_page.dart                 # Dashboard con abbonamenti/certificati in scadenza
+│       ├── calendar_page.dart             # Calendario corsi con filtri e iscrizioni
+│       ├── course_management_page.dart    # CRUD corsi (crea/modifica/duplica)
+│       ├── recurring_course_page.dart     # Gestione corsi ricorrenti
+│       ├── admin_users_page.dart          # Lista utenti admin
+│       ├── create_user_page.dart          # Creazione utente (solo admin)
+│       ├── user_detail_page.dart          # Profilo/modifica utente (admin)
+│       ├── admin_dashboard_page.dart      # Analytics (solo desktop)
+│       └── debug_email_page.dart          # Invio email di test (solo kDebugMode)
 │
-├── api/                             # Layer Firestore
-│   ├── getUserData.dart             # Fetch singolo utente
-│   ├── authentication/              # CRUD e query utenti
-│   │   ├── acceptRegolamento.dart   # Accettazione regolamento
-│   │   ├── getUsers.dart            # Tutti gli utenti (cache 5 min)
-│   │   ├── createUser.dart          # Creazione utente
-│   │   ├── updateUser.dart          # Aggiornamento diff-based campi utente
-│   │   ├── toggleUserStatus.dart    # Attiva/disattiva utente
-│   │   ├── getUsersWithExpiringSubscriptions.dart
-│   │   └── getUsersWithExpiringCertificates.dart
-│   ├── courses/                     # CRUD corsi + thin wrapper callable enrollment
-│   │   ├── getCourses.dart          # Tutti i corsi (cache 1 min)
-│   │   ├── createCourse.dart
-│   │   ├── updateCourse.dart
-│   │   ├── deleteCourse.dart        # Callable admin atomica
-│   │   ├── cleanCourses.dart        # Rimozione corsi vecchi
-│   │   ├── enrollment_callable.dart # Helper condiviso per callable europe-west8
-│   │   ├── joinWaitlist.dart        # Callable joinWaitlist
-│   │   ├── leaveWaitlist.dart       # Callable leaveWaitlist
-│   │   ├── recountCourseSubscribed.dart # Callable admin ricalcolo contatore
-│   │   ├── subscribeToCourse.dart   # Callable subscribeToCourse
-│   │   ├── unsubscribeToCourse.dart # Callable unsubscribeFromCourse
-│   │   └── README_ISCRIZIONI.md     # Documentazione logica iscrizioni server-side
+├── api/                                   # Layer Firestore
+│   ├── get_user_data.dart                 # Fetch singolo utente
+│   ├── authentication/                    # CRUD e query utenti
+│   │   ├── accept_regolamento.dart        # Accettazione regolamento
+│   │   ├── get_users.dart                 # Tutti gli utenti (cache 5 min)
+│   │   ├── create_user.dart               # Creazione utente
+│   │   ├── update_user.dart               # Aggiornamento diff-based campi utente
+│   │   ├── toggle_user_status.dart        # Attiva/disattiva utente
+│   │   ├── get_users_with_expiring_subscriptions.dart
+│   │   └── get_users_with_expiring_certificates.dart
+│   ├── courses/                           # CRUD corsi + thin wrapper callable enrollment
+│   │   ├── get_courses.dart               # Tutti i corsi (cache 1 min)
+│   │   ├── create_course.dart
+│   │   ├── update_course.dart
+│   │   ├── delete_course.dart             # Callable admin atomica
+│   │   ├── clean_courses.dart             # Rimozione corsi vecchi
+│   │   ├── enrollment_callable.dart       # Helper condiviso per callable europe-west8
+│   │   ├── join_waitlist.dart             # Callable joinWaitlist
+│   │   ├── leave_waitlist.dart            # Callable leaveWaitlist
+│   │   ├── recount_course_subscribed.dart # Callable admin ricalcolo contatore
+│   │   ├── subscribe_to_course.dart       # Callable subscribeToCourse
+│   │   ├── unsubscribe_to_course.dart     # Callable unsubscribeFromCourse
+│   │   └── README_ISCRIZIONI.md           # Documentazione logica iscrizioni server-side
 │   └── subscriptions/
-│       └── assign_subscription.dart # Callable admin assignSubscription
+│       └── assign_subscription.dart       # Callable admin assignSubscription
 │
-├── authentication/                  # Flussi auth lato client
-│   ├── login.dart                   # Login + OneSignal.login + addEmail
+├── authentication/                        # Flussi auth lato client
+│   ├── login.dart                         # Login + OneSignal.login + addEmail
 │   ├── registration.dart
-│   ├── logout.dart                  # Logout + OneSignal.logout
-│   ├── isLogged.dart
-│   ├── deleteUser.dart
-│   ├── resetPassword.dart
-│   └── resendVerificationEmail.dart
+│   ├── logout.dart                        # Logout + OneSignal.logout
+│   ├── is_logged.dart
+│   ├── delete_user.dart
+│   ├── reset_password.dart
+│   └── resend_verification_email.dart
 │
-├── services/                        # Servizi esterni e facade
-│   ├── onesignal_service.dart       # Conditional export web/mobile
-│   ├── onesignal_mobile.dart        # Wrapper onesignal_flutter
-│   ├── onesignal_web.dart           # Disabilitato: metodi no-op
-│   ├── notification_service.dart    # Proxy/debug email via Cloud Functions
-│   └── email_templates.dart         # Template HTML email
+├── services/                              # Servizi esterni e facade
+│   ├── onesignal_service.dart             # Conditional export web/mobile
+│   ├── onesignal_mobile.dart              # Wrapper onesignal_flutter
+│   ├── onesignal_web.dart                 # Disabilitato: metodi no-op
+│   ├── notification_service.dart          # Proxy/debug email via Cloud Functions
+│   └── email_templates.dart               # Template HTML email
 │
-├── types/                           # Modelli dati
-│   ├── fitropeUser.dart             # FitropeUser + CancelledEnrollment + TipologiaIscrizione
-│   ├── course.dart                  # Course
-│   └── userSubscription.dart        # UserSubscription + enum famiglia/billing
+├── types/                                 # Modelli dati
+│   ├── fitrope_user.dart                  # FitropeUser + CancelledEnrollment + TipologiaIscrizione
+│   ├── course.dart                        # Course
+│   └── user_subscription.dart             # UserSubscription + enum famiglia/billing
 │
-├── components/                      # Widget riusabili
+├── components/                            # Widget riusabili
 │   ├── active_subscription_card.dart
 │   ├── assign_subscription_card.dart
 │   ├── course_card.dart
 │   ├── course_preview_card.dart
-│   ├── course_unsubscribe_button.dart  # Bottone disiscrizione color-coded
+│   ├── course_unsubscribe_button.dart     # Bottone disiscrizione color-coded
 │   ├── custom_text_field.dart
 │   ├── loader.dart
 │   └── sala_selector_card.dart
 │
-└── utils/                           # Helper e regole di dominio
-    ├── course_unsubscribe_helper.dart  # Logica core disiscrizione
-    ├── abbonamento_helper.dart         # Helper tipologie abbonamento
-    ├── certificato_helper.dart         # Scadenza certificati
-    ├── course_tags.dart                # Gestione tag corsi
-    ├── course_types.dart               # Registry tipologie/famiglie/sale default
-    ├── getCourseState.dart
-    ├── getCourseTimeRange.dart
-    ├── getTipologiaIscrizioneLabel.dart
-    ├── formatDate.dart
-    ├── randomId.dart
+└── utils/                                 # Helper e regole di dominio
+    ├── course_unsubscribe_helper.dart     # Logica core disiscrizione
+    ├── abbonamento_helper.dart            # Helper tipologie abbonamento
+    ├── certificato_helper.dart            # Scadenza certificati
+    ├── course_tags.dart                   # Gestione tag corsi
+    ├── course_types.dart                  # Registry tipologie/famiglie/sale default
+    ├── get_course_state.dart
+    ├── get_course_time_range.dart
+    ├── get_tipologia_iscrizione_label.dart
+    ├── format_date.dart
+    ├── random_id.dart
     ├── regolamento_helper.dart
-    ├── sale.dart                       # Lista chiusa Sale
+    ├── sale.dart                          # Lista chiusa Sale
     ├── snackbar_utils.dart
-    ├── subscription_labels.dart        # Label UI nuovo modello abbonamenti
-    ├── subscription_plans.dart         # Catalogo piani Open/Hyrox/PT
-    ├── refresh_manager.dart            # Logica refresh cache
-    ├── user_cache_manager.dart         # Cache dati utente
+    ├── subscription_labels.dart           # Label UI nuovo modello abbonamenti
+    ├── subscription_plans.dart            # Catalogo piani Open/Hyrox/PT
+    ├── refresh_manager.dart               # Logica refresh cache
+    ├── user_cache_manager.dart            # Cache dati utente
     ├── user_display_utils.dart
     └── waitlist_ui_helper.dart
 ```
@@ -444,7 +444,7 @@ Ogni utente ha in Firestore `emailNotificationsEnabled` e `pushNotificationsEnab
 - `AdminDashboardPage`: sezioni analisi utenti, corsi (ultimi 6 mesi) e abbonamenti con grafici a barre
 - `UserListDrawer`: drawer laterale con lista utenti ricercabile (nome, email, telefono), aperto dalla dashboard o dall'area admin
 
-La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in `Protected.dart` gestisce l'`endDrawer` con la chiave globale `_scaffoldKey`.
+La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in `protected.dart` gestisce l'`endDrawer` con la chiave globale `_scaffoldKey`.
 
 ## Testing
 
@@ -452,10 +452,10 @@ La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in
 
 Test focalizzati su logica iscrizioni, serializzazione modelli, sale, course types, subscription plans/labels, update diff-based e waitlist. Suite principali:
 
-- `active_subscriptions_state_test.dart`, `userSubscription_test.dart`, `subscription_plans_test.dart`, `subscription_labels_test.dart`
+- `active_subscriptions_state_test.dart`, `user_subscription_test.dart`, `subscription_plans_test.dart`, `subscription_labels_test.dart`
 - `course_unsubscribe_test.dart`, `enrollment_new_logic_test.dart`, `enrollment_current_logic_test.dart`, `subscribe_restriction_test.dart`
 - `waitlist_state_test.dart`, `waitlist_operations_test.dart`, `course_flags_test.dart`
-- `createCourse_test.dart`, `updateCourse_test.dart`, `updateUser_test.dart`
+- `create_course_test.dart`, `update_course_test.dart`, `update_user_test.dart`
 - `course_sala_serialization_test.dart`, `sale_test.dart`, `course_types_test.dart`
 - `notification_preferences_test.dart`, `email_templates_test.dart`
 
@@ -577,7 +577,7 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 
 ## Osservazioni operative
 
-- Se rinomini file o classi, ricontrolla sempre la compatibilita con filesystem case-sensitive (es. `HomePage.dart` non `Homepage.dart`).
+- Se rinomini file o classi, ricontrolla sempre la compatibilita con filesystem case-sensitive (es. `home_page.dart` non `home_page.dart`).
 - Il codice usa ancora molti `print` e side effect diretti nei widget; prima di grandi refactor, separa i cambiamenti di dominio da quelli UI.
 - Non usare path assoluti nei file di documentazione: usa sempre path relativi alla root del progetto.
 - Nessun sistema di code generation (build_runner, freezed, json_serializable): la serializzazione e manuale con `toJson()`/`fromJson()`.
@@ -591,10 +591,10 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 |---|---|
 | Login, logout, verifica email, reset password | `lib/authentication/`, `lib/pages/welcome/` |
 | Sessione e loading overlay | `lib/state/`, `lib/pages/protected/protected.dart` |
-| Gestione utenti admin | `lib/pages/protected/admin_users_page.dart`, `CreateUserPage.dart`, `UserDetailPage.dart`, `lib/api/authentication/` |
-| Gestione corsi | `lib/pages/protected/course_management_page.dart`, `RecurringCoursePage.dart`, `lib/api/courses/` |
+| Gestione utenti admin | `lib/pages/protected/admin_users_page.dart`, `create_user_page.dart`, `user_detail_page.dart`, `lib/api/authentication/` |
+| Gestione corsi | `lib/pages/protected/course_management_page.dart`, `recurring_course_page.dart`, `lib/api/courses/` |
 | Regole iscrizione/disiscrizione | `functions/src/enrollment/`, `lib/api/courses/`, `lib/utils/get_course_state.dart`, `lib/utils/course_unsubscribe_helper.dart`, `test/` |
-| Waitlist corsi | `lib/api/courses/join_waitlist.dart`, `leaveWaitlist.dart`, `lib/utils/waitlist_ui_helper.dart` |
+| Waitlist corsi | `lib/api/courses/join_waitlist.dart`, `leave_waitlist.dart`, `lib/utils/waitlist_ui_helper.dart` |
 | Abbonamenti multi-famiglia | `lib/types/user_subscription.dart`, `lib/utils/subscription_plans.dart`, `lib/utils/subscription_labels.dart`, `lib/api/subscriptions/`, `functions/src/enrollment/subscription.ts` |
 | Sale e tipologie corso | `lib/utils/sale.dart`, `lib/utils/course_types.dart`, `lib/utils/course_tags.dart`, `lib/components/sala_selector_card.dart` |
 | Firestore rules e emulatori | `firestore.rules`, `firebase.json`, `docs/AMBIENTI_DI_TEST.md`, `functions/src/__integration__/` |
@@ -608,7 +608,7 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 ## Regole per gli agenti
 
 - Parti sempre dai file reali, non dal `README.md`.
-- Se modifichi logica di iscrizione, allinea client display (`getCourseState.dart` / `course_unsubscribe_helper.dart`) e server enforcement (`functions/src/enrollment/`).
+- Se modifichi logica di iscrizione, allinea client display (`get_course_state.dart` / `course_unsubscribe_helper.dart`) e server enforcement (`functions/src/enrollment/`).
 - Il client non deve scrivere direttamente campi enrollment server-owned (`courses`, `waitlistCourses`, `activeSubscriptions`, `enrollmentConsumption`, `cancelledEnrollments`, `subscribed`, `waitlist`): usa le callable/wrapper esistenti.
 - Se modifichi logica Flutter di corsi/abbonamenti, esegui almeno `flutter test`; se modifichi Functions, esegui `cd functions && npm run build && npm test`.
 - Se tocchi `firestore.rules`, emulatori o transazioni reali, esegui anche `cd functions && npm run test:integration` con Java 21.
