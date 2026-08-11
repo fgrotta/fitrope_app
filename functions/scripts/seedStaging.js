@@ -18,7 +18,7 @@ if (
 }
 
 const admin = require("firebase-admin");
-const { Timestamp } = require("firebase-admin/firestore");
+const { Firestore, Timestamp } = require("@google-cloud/firestore");
 const { planByKey } = require("../lib/enrollment/plansCatalog");
 const {
   buildSubscriptionFromPlan,
@@ -26,8 +26,23 @@ const {
   recordToSnapshotEntry,
 } = require("../lib/enrollment/subscription");
 
-admin.initializeApp({ projectId });
-const db = admin.firestore();
+function stagingCredential() {
+  const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN;
+  if (!accessToken) return undefined;
+
+  return {
+    getAccessToken: async () => ({
+      access_token: accessToken,
+      expires_in: 3600,
+    }),
+  };
+}
+
+const appOptions = { projectId };
+const credential = stagingCredential();
+if (credential) appOptions.credential = credential;
+admin.initializeApp(appOptions);
+const db = new Firestore({ projectId });
 const PASSWORD = "test1234";
 const MEMBER_UID = "stg_member";
 const MEMBER_SUBSCRIPTIONS = [

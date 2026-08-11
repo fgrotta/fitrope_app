@@ -99,6 +99,6 @@ Per ogni PR: implementa → `flutter analyze` + `flutter test` (+ `npm run build
 
 ## Note ambiente
 
-- Node 22 richiesto (runtime Functions e `engines` in `functions/package.json`; stessa versione nei workflow CI). Symlink `/usr/local/bin/{node,npm,npx}` da aggiornare di conseguenza (vecchio v4 in `node-v4.0.0.bak`).
+- Node: `engines` in `functions/package.json` è `>=22 <25`. Il runtime Functions è 22, quindi i job che lo esercitano davvero (`functions-integration`, deploy) girano su 22, mentre i job unit usano 24 per compatibilità tooling. In locale serve almeno 22; symlink `/usr/local/bin/{node,npm,npx}` da aggiornare di conseguenza (vecchio v4 in `node-v4.0.0.bak`).
 - Hook `.git/hooks/pre-commit` (repo principale, condiviso tra worktree): fa `unset GIT_DIR …` per non rompere il `git describe` di Flutter. Non versionato → riapplicare se si clona da zero.
 - `functions/lib/` (compilato) NON è tracciato da PR4: si rigenera al deploy via predeploy `tsc` e in locale con `npm run build`.

@@ -57,4 +57,15 @@ describe("convenzioni codebase functions", () => {
     expect(script).toContain('id: "stg_pt"');
     expect(script).toContain('waitlistCourses: ["stg_open_full"]');
   });
+
+  test("seed staging supporta token OAuth CI senza service account key", () => {
+    const script = fs.readFileSync(STAGING_SEED, "utf8");
+
+    expect(script).toContain("GOOGLE_OAUTH_ACCESS_TOKEN");
+    expect(script).toContain("getAccessToken");
+    expect(script).toContain("access_token");
+    expect(script).toContain("appOptions.credential = credential");
+    expect(script).toContain('require("@google-cloud/firestore")');
+    expect(script).toContain("new Firestore({ projectId })");
+  });
 });

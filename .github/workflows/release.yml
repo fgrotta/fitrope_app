@@ -6,17 +6,28 @@ on:
   pull_request:
     branches: [release]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NPM_CONFIG_AUDIT: "false"
+  NPM_CONFIG_FUND: "false"
+  NPM_CONFIG_LOGLEVEL: error
+
 # Production remains a manual Hostinger deployment. GitHub Pages is reserved
 # for staging and is deployed exclusively by staging.yml from develop.
 jobs:
   validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.41.6"
           channel: stable
+          cache: true
+          pub-cache: true
       - run: flutter pub get
       - run: flutter test
       - run: flutter analyze --no-fatal-infos
@@ -26,10 +37,12 @@ jobs:
   functions:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
       - working-directory: functions
         run: npm ci
       - working-directory: functions
@@ -43,20 +56,21 @@ jobs:
   functions-integration:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Setup Java (richiesto dall'emulatore Firestore)
-        uses: actions/setup-java@v4
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
       - run: npm install -g firebase-tools@15
       - working-directory: functions
         run: npm ci
+      - name: Configure emulator secrets
+        working-directory: functions
+        run: printf "ONESIGNAL_REST_API_KEY=emulator-dummy-key\n" > .secret.local
       - working-directory: functions
-        env:
-          # Secret fittizio per defineSecret nell'emulatore (notifiche best-effort).
-          ONESIGNAL_REST_API_KEY: emulator-dummy-key
         run: npm run test:integration

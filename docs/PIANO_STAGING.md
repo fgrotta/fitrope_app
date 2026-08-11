@@ -113,6 +113,29 @@ Usare `actions/upload-pages-artifact` e `actions/deploy-pages`. Il workflow `rel
 
 `ci.yml` resta dedicato a PR e `main`, senza credenziali cloud e senza deploy.
 
+### Backlog ottimizzazione pipeline
+
+1. Introdurre caching sui job CI/staging per ridurre build inutili e consumo runner:
+   - Flutter: cache SDK Flutter, Pub cache e, se compatibile con la pipeline, artefatti `.dart_tool`/build invalidati dal lockfile.
+   - Functions: cache npm basata su `functions/package-lock.json` usando `actions/setup-node` con `cache: npm` e `cache-dependency-path`.
+   - Firebase Emulator: evitare install ripetute non necessarie di `firebase-tools` quando possibile, o fissare un caching esplicito del tool.
+   - Criterio di accettazione: run successivo senza cambi dipendenze deve mostrare cache hit e tempi ridotti sui job test/build.
+
+2. Aggiornare Node per Functions/tooling a Node 24:
+   - aggiornare i job GitHub Actions unit/build Functions a Node 24;
+   - mantenere integration test emulatori e deploy Functions su Node 22 per restare allineati al runtime Firebase;
+   - mantenere il runtime Firebase esplicito a `nodejs22` in `firebase.json` finche Firebase non supporta ufficialmente Node 24 per Cloud Functions for Firebase;
+   - tenere `functions/package.json` compatibile con Node 22 e Node 24 per evitare warning `EBADENGINE` durante i job CI;
+   - aggiornare `functions/package.json`/runtime Firebase quando il runtime Functions Node 24 e supportato nel progetto;
+   - verificare compatibilita di `firebase-functions`, `firebase-admin`, `ts-jest` e `firebase-tools`.
+   - Criterio di accettazione: `npm run build`, `npm test`, `npm run test:integration` e deploy staging verdi con runtime/tooling allineati.
+
+3. Azzerare i warning della pipeline:
+   - migrare le Actions che generano warning Node.js 20 deprecation alle versioni che girano nativamente su Node 24;
+   - mantenere `actions/setup-java@v5` sui job Emulator Suite;
+   - eliminare eventuali warning Firebase CLI, incluso il blocco `flutter` non riconosciuto in `firebase.json` se compare nei log CI/deploy.
+   - Criterio di accettazione: run CI e Staging Deploy verdi senza annotations/warning operativi.
+
 ## Ordine deploy
 
 1. Functions staging.

@@ -19,7 +19,7 @@ flutter run -d chrome                   # avvio locale
 
 ```bash
 cd functions
-npm ci                   # installazione riproducibile (runtime Functions Node 22)
+npm ci                   # installazione riproducibile (runtime Functions Node 22; unit CI verifica anche Node 24)
 npm run build            # compila TypeScript
 npm test                 # Jest (handler OneSignal + dominio enrollment)
 npm run test:integration # test integrazione su Emulator Suite (richiede Java 21 nel PATH)
