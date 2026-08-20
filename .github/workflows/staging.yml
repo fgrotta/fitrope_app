@@ -217,9 +217,12 @@ jobs:
           firebase functions:list --project "$STAGING_PROJECT_ID" --json > functions.json
           # grep sul nome nudo: firebase puo prefissare la regione nell'id
           # (europe-west8-subscribeToCourse), quindi non ancorare alle virgolette.
+          # sendTestCertificateEmail e certificateEmailsDaily sono gated su
+          # APP_ENV=staging: su staging DEVONO esserci (in prod non esistono).
           for fn in subscribeToCourse unsubscribeFromCourse joinWaitlist \
                     leaveWaitlist assignSubscription deleteCourse \
-                    recountCourseSubscribed sendOneSignalNotification; do
+                    recountCourseSubscribed sendOneSignalNotification \
+                    sendTestCertificateEmail certificateEmailsDaily; do
             if ! grep -q "$fn" functions.json; then
               echo "::error::callable mancante su staging: $fn"
               exit 1

@@ -1,12 +1,19 @@
-import { onCall } from "firebase-functions/v2/https";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
+import { logger } from "firebase-functions";
 import * as admin from "firebase-admin";
 import {
   sendOneSignalNotificationHandler,
   ensureOneSignalUserHandler,
   removeOneSignalEmailHandler,
   ensureOneSignalEmailSubscription,
+  postToOneSignal,
 } from "./handler";
+import {
+  runCertificateEmails,
+  sendTestCertificateEmailHandler,
+} from "./certificateEmails";
 import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
 import {
   subscribeToCourseHandler,
@@ -208,3 +215,76 @@ export const recountCourseSubscribed = onCall(
       admin.firestore()
     )
 );
+
+// ──────────────────────────────────────────────
+//  Email certificati — SOLO emulatore e staging
+// ──────────────────────────────────────────────
+//
+// Le funzioni certificati non devono esistere in produzione finché la feature
+// non viene promossa. Il gate agisce in fase di DISCOVERY: la CLI Firebase
+// carica `.env.<projectId>` prima di enumerare gli export, quindi su staging
+// (`.env.fit-rope-staging` con APP_ENV=staging, scritto da staging.yml) le
+// funzioni vengono deployate, mentre in prod — dove quel file non esiste —
+// l'export è undefined e la CLI le ignora. Sull'emulatore il runtime imposta
+// FUNCTIONS_EMULATOR=true. La stessa condizione è rivalutata a runtime come
+// guardia difensiva contro un deploy con env sbagliata.
+function certificateFunctionsEnabled(): boolean {
+  return (
+    process.env.APP_ENV === "staging" ||
+    process.env.FUNCTIONS_EMULATOR === "true"
+  );
+}
+
+/**
+ * Invio di test delle email certificato (DebugEmailPage, kDebugMode).
+ * Payload: { externalId: string, firstName?: string, kind?: "reminder10"|"expiryToday", email?: string }
+ */
+export const sendTestCertificateEmail = certificateFunctionsEnabled()
+  ? onCall(
+      { secrets: [oneSignalApiKey], region: "europe-west8", cors: true },
+      (request) => {
+        if (!certificateFunctionsEnabled()) {
+          throw new HttpsError(
+            "failed-precondition",
+            "Funzione disponibile solo su emulatore e staging"
+          );
+        }
+        return sendTestCertificateEmailHandler(
+          { auth: request.auth ?? null, data: request.data },
+          oneSignalApiKey.value()
+        );
+      }
+    )
+  : undefined;
+
+/**
+ * Run giornaliero delle email certificato: promemoria a chi scade tra 10 giorni
+ * e avviso a chi scade oggi (08:00 Europe/Rome). In staging gli invii restano
+ * comunque filtrati dalla allowlist dentro postToOneSignal/ensure (UID stg_ +
+ * STAGING_NOTIFICATION_EMAIL_ALLOWLIST).
+ */
+export const certificateEmailsDaily = certificateFunctionsEnabled()
+  ? onSchedule(
+      {
+        schedule: "0 8 * * *",
+        timeZone: "Europe/Rome",
+        region: "europe-west8",
+        secrets: [oneSignalApiKey],
+      },
+      async () => {
+        if (!certificateFunctionsEnabled()) {
+          logger.warn(
+            "certificateEmailsDaily invocata fuori da emulatore/staging: no-op"
+          );
+          return;
+        }
+        await runCertificateEmails({
+          db: admin.firestore(),
+          apiKey: oneSignalApiKey.value(),
+          post: postToOneSignal,
+          ensure: ensureOneSignalEmailSubscription,
+          now: new Date(),
+        });
+      }
+    )
+  : undefined;
