@@ -8,7 +8,7 @@ FitRope e una app Flutter per la gestione di utenti, autenticazione e iscrizioni
 - `cloud_firestore` per utenti, corsi e stato iscrizioni
 - `cloud_functions` per write-path server-side iscrizioni/abbonamenti e proxy sicuro verso OneSignal (email + push)
 - Redux minimale per lo stato globale di sessione e lista corsi
-- OneSignal: push native su Android/iOS + email server-side via Cloud Function. Push web disabilitate.
+- OneSignal: push native su Android/iOS + Web SDK v16 attivo su web (push opt-in e email) + email applicative server-side via Cloud Function.
 
 L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit House`, mentre il package resta `fitrope_app`.
 
@@ -20,8 +20,7 @@ L'app e localizzata principalmente in italiano e il brand esposto in UI e `Fit H
 | Flutter CI | `3.41.6` stable |
 | Stato globale | `redux`, `redux_thunk`, `flutter_redux` |
 | Backend | `firebase_core`, `firebase_auth`, `cloud_firestore`, `cloud_functions` con callable in `europe-west8` |
-| Notifiche | `onesignal_flutter` (mobile push) + Cloud Functions (email server-side). Web SDK disabilitato. |
-| HTTP | `http` per comunicazione generica |
+| Notifiche | `onesignal_flutter` (mobile push) + Web SDK v16 via bridge JS (`web/index.html` + `onesignal_web.dart`) + Cloud Functions (email server-side) |
 | Design system | `flutter_design_system` (Git dep da GitHub, branch main) |
 | Localizzazione | `intl`, `flutter_localizations` (italiano primario) |
 | Lint | `flutter_lints` v4.0.0 |
@@ -42,9 +41,9 @@ Sequenza di avvio in `main.dart`:
 2. `Firebase.initializeApp` seleziona `DefaultFirebaseOptions` produzione o `StagingFirebaseOptions` con `--dart-define=APP_ENV=staging`
 3. Se `--dart-define=USE_EMULATOR=true`, connessione agli emulatori Auth/Firestore/Functions (`europe-west8`) tramite `EMULATOR_HOST` (default `localhost`)
 4. Se NON si usa l'emulatore, `OneSignalService.initialize(oneSignalAppId)`
-5. `initializeDateFormatting('it_IT', null)`
+5. `initializeDateFormatting('it_IT', null)` + `initItalianTime()` (database timezone Europe/Rome)
 6. `SafeArea` + `StoreProvider(store)` wrapping `MyApp`
-7. `MaterialApp` con locale `it_IT`, route iniziale `INITIAL_ROUTE`
+7. `MaterialApp` con locale `it_IT`, route iniziale `INITIAL_ROUTE`; su build staging il builder aggiunge un `Banner` "STAGING" 
 
 In modalita emulatore OneSignal non viene inizializzato, per evitare registrazioni su OneSignal produzione durante il QA locale.
 
@@ -127,22 +126,25 @@ lib/
 ├── services/                              # Servizi esterni e facade
 │   ├── onesignal_service.dart             # Conditional export web/mobile
 │   ├── onesignal_mobile.dart              # Wrapper onesignal_flutter
-│   ├── onesignal_web.dart                 # Disabilitato: metodi no-op
+│   ├── onesignal_web.dart                 # Binding dart:js_interop verso il bridge JS di web/index.html
 │   ├── notification_service.dart          # Proxy/debug email via Cloud Functions
 │   └── email_templates.dart               # Template HTML email
 │
 ├── types/                                 # Modelli dati
 │   ├── fitrope_user.dart                  # FitropeUser + CancelledEnrollment + TipologiaIscrizione
 │   ├── course.dart                        # Course
+│   ├── course_type.dart                   # Enum legacy open/personal_trainer (vedi TODO doppio binario)
 │   └── user_subscription.dart             # UserSubscription + enum famiglia/billing
 │
 ├── components/                            # Widget riusabili
 │   ├── active_subscription_card.dart
 │   ├── assign_subscription_card.dart
+│   ├── calendar.dart                      # Calendario vendored da flutter_design_system
 │   ├── course_card.dart
 │   ├── course_preview_card.dart
 │   ├── course_unsubscribe_button.dart     # Bottone disiscrizione color-coded
 │   ├── custom_text_field.dart
+│   ├── deferred_page.dart                 # Wrapper per route con deferred loading
 │   ├── loader.dart
 │   └── sala_selector_card.dart
 │
@@ -150,12 +152,15 @@ lib/
     ├── course_unsubscribe_helper.dart     # Logica core disiscrizione
     ├── abbonamento_helper.dart            # Helper tipologie abbonamento
     ├── certificato_helper.dart            # Scadenza certificati
+    ├── capacity_color.dart                # Colore riempimento corso
+    ├── course_images.dart                 # Immagini corso per tipologia
     ├── course_tags.dart                   # Gestione tag corsi
     ├── course_types.dart                  # Registry tipologie/famiglie/sale default
     ├── get_course_state.dart
     ├── get_course_time_range.dart
     ├── get_tipologia_iscrizione_label.dart
     ├── format_date.dart
+    ├── italian_time.dart                  # toItalianTime/italianTimestamp (Europe/Rome)
     ├── random_id.dart
     ├── regolamento_helper.dart
     ├── sale.dart                          # Lista chiusa Sale
@@ -270,8 +275,8 @@ Breakpoint definiti in `lib/layout/breakpoints.dart`:
 
 `AppShell` (`lib/layout/app_shell.dart`) switcha automaticamente tra:
 
-- **Mobile/Tablet**: `BottomNavigationBar` con 2-3 tab (Home, Calendario, Utenti se admin)
-- **Desktop**: `NavigationRail` laterale con iniziali utente e pulsante logout
+- **Mobile/Tablet**: `CustomBottomNavigationBar` (design system) con 2-3 tab (Home, Calendario, Utenti se admin)
+- **Desktop**: `NavigationRail` laterale con 4 destinazioni (Home, Calendario, Utenti, Dashboard) + iniziali utente e pulsante logout
 
 Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layout. La `AdminDashboardPage` e disponibile solo su desktop.
 
@@ -299,11 +304,16 @@ Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layou
 
 `CourseManagementPage` accetta argomenti: `courseToEdit`, `courseToDuplicate`, `mode`.
 
+**Deferred loading**: `Protected`, `CourseManagementPage`, `RecurringCoursePage` e
+`DebugEmailPage` sono importate con `deferred as` e wrappate in `DeferredPage(load: ...)`
+(`lib/components/deferred_page.dart`), con preload avviato dallo splash: riducono il primo
+caricamento web. Se aggiungi una route "pesante", segui lo stesso pattern.
+
 ## Regole di business
 
 La parte piu delicata del progetto e la logica di iscrizione ai corsi.
 
-Da PR4/PR5 le scritture del dominio iscrizioni sono server-side: il client mantiene le firme pubbliche in `lib/api/courses/`, ma i file Dart sono thin wrapper verso callable Cloud Functions in `europe-west8`. La logica autoritativa sta in `functions/src/enrollment/` (`eligibility.ts`, `refund.ts`, `subscription.ts`, `enrollment.ts`, `admin.ts`).
+Da PR4/PR5 le scritture del dominio iscrizioni sono server-side: il client mantiene le firme pubbliche in `lib/api/courses/`, ma i file Dart sono thin wrapper verso callable Cloud Functions in `europe-west8`. La logica autoritativa sta in `functions/src/enrollment/` (`eligibility.ts`, `refund.ts`, `subscription.ts`, `enrollment.ts`, `admin.ts`, più `notify.ts` per promemoria/waitlist, `courseTypes.ts`, `assignSubscription.ts`, `plansCatalog.ts`, `emailTemplates.ts`).
 
 ### Iscrizione
 
@@ -334,7 +344,7 @@ Da PR4/PR5 le scritture del dominio iscrizioni sono server-side: il client manti
 
 ### Cache
 
-- Corsi: cache 1 minuto (`getCourses`)
+- Corsi: cache 1 minuto (`getAllCourses` in `get_courses.dart`)
 - Utenti: cache 5 minuti (`getUsers`)
 - Dopo operazioni su corsi o utenti, il codice invalida/aggiorna cache e store
 
@@ -411,10 +421,10 @@ Le versioni client di `notifyWaitlistUsers`/`scheduleTrialReminder` sono state R
 ### SDK client
 
 - **Mobile** (`lib/services/onesignal_mobile.dart`): wrapper di `onesignal_flutter` con `requestPermission` — push native attive
-- **Web** (`lib/services/onesignal_web.dart`): **disabilitato**, tutti i metodi sono no-op. Il caricamento del Web SDK in `web/index.html` è commentato.
+- **Web** (`lib/services/onesignal_web.dart`): **attivo** — binding `dart:js_interop` completo (init, login/logout, email, push opt-in/opt-out) verso il bridge JS definito in `web/index.html`, che carica il Web SDK v16 e registra il service worker.
 - **Facade** (`lib/services/onesignal_service.dart`): `export ... if (dart.library.html)` per scelta automatica
 
-Su web le email passano via Cloud Function (`ensureOneSignalUser` crea l'utente server-side, poi `sendOneSignalNotification` invia). Il service worker `web/OneSignalSDKWorker.js` rimane nel progetto ma non viene mai caricato finché il blocco script in `web/index.html` è commentato.
+Su web le email applicative passano via Cloud Function (`ensureOneSignalUser` crea l'utente server-side, poi `sendOneSignalNotification` invia). Il service worker sta in `web/push/onesignal/OneSignalSDKWorker.js` e viene registrato da `OneSignal.init` con scope calcolato dal `base href`. ATTENZIONE: l'appId in `lib/main.dart` è hardcoded ed è quello di produzione anche nella build staging (vedi TODO in CLAUDE.md).
 
 ### Flag per corso
 
@@ -425,13 +435,23 @@ Ogni `Course` ha due flag configurabili dall'admin in creazione/duplicazione:
 
 Entrambi si applicano anche ai corsi creati tramite `RecurringCoursePage`.
 
+### Email certificati (solo emulatore e staging)
+
+`functions/src/certificateEmails.ts`: `runCertificateEmails` invia il promemoria a chi ha
+il certificato in scadenza tra 10 giorni e l'avviso a chi scade oggi (finestre giorno
+DST-aware in Europe/Rome). Wiring in `index.ts` con **export condizionali**
+(`APP_ENV=staging` o `FUNCTIONS_EMULATOR=true`): `certificateEmailsDaily` (onSchedule
+08:00 Europe/Rome) e `sendTestCertificateEmail` (callable per DebugEmailPage). In
+produzione NON vengono deployate finché la feature non viene promossa; in staging gli
+invii restano filtrati dalla allowlist dentro `postToOneSignal`/ensure.
+
 ### Cloud Function
 
 - Source: `functions/src/`
 - Build: TypeScript → `functions/lib/`
 - Test: Jest in `functions/src/__tests__/`
-- Secret: `firebase functions:secrets:set ONESIGNAL_REST_API_KEY`
-- Deploy: `firebase deploy --only functions`
+- Secret: `firebase functions:secrets:set ONESIGNAL_REST_API_KEY --project prod`
+- Deploy: `firebase deploy --project prod --only functions`
 
 ### Preferenze utente
 
@@ -453,13 +473,17 @@ La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in
 Test focalizzati su logica iscrizioni, serializzazione modelli, sale, course types, subscription plans/labels, update diff-based e waitlist. Suite principali:
 
 - `active_subscriptions_state_test.dart`, `user_subscription_test.dart`, `subscription_plans_test.dart`, `subscription_labels_test.dart`
-- `course_unsubscribe_test.dart`, `enrollment_new_logic_test.dart`, `enrollment_current_logic_test.dart`, `subscribe_restriction_test.dart`
-- `waitlist_state_test.dart`, `waitlist_operations_test.dart`, `course_flags_test.dart`
-- `create_course_test.dart`, `update_course_test.dart`, `update_user_test.dart`
-- `course_sala_serialization_test.dart`, `sale_test.dart`, `course_types_test.dart`
-- `notification_preferences_test.dart`, `email_templates_test.dart`
+- `course_unsubscribe_test.dart`, `enrollment_new_logic_test.dart`, `enrollment_current_logic_test.dart`, `subscribe_restriction_test.dart`, `enrollment_mismatch_test.dart`
+- `waitlist_state_test.dart`, `waitlist_operations_test.dart`, `course_flags_test.dart`, `course_state_edge_cases_test.dart`
+- `create_course_test.dart`, `update_course_test.dart`, `update_user_test.dart`, `get_users_test.dart`, `course_correction_test.dart`
+- `course_sala_serialization_test.dart`, `sale_test.dart`, `course_types_test.dart`, `course_type_test.dart`, `course_tags_test.dart`
+- `notification_preferences_test.dart`, `email_templates_test.dart`, `italian_time_test.dart`, `capacity_color_test.dart`, `course_card_widget_test.dart`, `model_state_regression_test.dart`
 
-Framework: `flutter_test` con `group()` e `setUp()`. Conteggio verificato localmente: `flutter test` passa 316 test.
+Framework: `flutter_test` con `group()` e `setUp()`. Conteggio indicativo (si aggiorna a ogni PR, fonte: `flutter test`): ~326 test.
+
+Esiste anche una suite E2E in `integration_test/` (login, subscribe, waitlist-swap, con
+driver `test_driver/integration_test.dart`): 2 file su 3 sono in `skip: true` e nessun
+workflow CI la esegue — vedi `integration_test/README.md` e il TODO in `CLAUDE.md`.
 
 ### Cloud Functions (functions/src/__tests__/)
 
@@ -469,8 +493,10 @@ Test Jest su handler OneSignal e dominio enrollment:
 - `eligibility.test.ts`, `refund.test.ts`, `courseTypes.test.ts`, `enrollment.test.ts`
 - `enrollmentHandlers.test.ts`, `adminHandlers.test.ts`, `assignSubscription.test.ts`
 - `notify.test.ts`, `notifyOrchestration.test.ts`, `conventions.test.ts`
+- `certificateEmails.test.ts` (finestre giorno Europe/Rome, selezione destinatari, run)
+- `indexExports.test.ts` (gate ambiente delle funzioni certificati)
 
-Framework: `jest` + `ts-jest`. Conteggio verificato localmente: `cd functions && npm test` passa 253 test.
+Framework: `jest` + `ts-jest`. Conteggio indicativo (fonte: `cd functions && npm test`): ~272 test.
 
 ### Integration tests emulatori
 
@@ -501,14 +527,20 @@ Nota operativa: `flutter analyze --no-fatal-infos` e parte della CI; gli info-le
 - auth via OIDC/Workload Identity Federation (`google-github-actions/auth@v3`), nessuna service-account key nel repo; il seed usa un access token federato (`GOOGLE_OAUTH_ACCESS_TOKEN`)
 - `concurrency: staging-deploy` con `cancel-in-progress`: un push nuovo annulla il deploy in corso
 
-**release.yml** (branch `release`):
+**release.yml** (push e Pull Request sul branch `release`):
 
-- **Valida soltanto**: `validation` (test, analyze, format, build web wasm), `functions`, `functions-integration`
+- **Valida soltanto**: `validation` (test, analyze, format, build web wasm), `functions` (`npm test -- --runInBand`, come staging.yml), `functions-integration`
 - Non crea GitHub Release e non pubblica su Pages: la produzione resta un deploy manuale
+
+**version-bump.yml** (PR chiusa con merge su `main`) — l'unico workflow che SCRIVE sul repo:
+
+- bump patch della versione in `pubspec.yaml` e push diretto su `main` (`permissions: contents: write`)
+- skip sui titoli `chore: bump version` / `[skip ci]` per non auto-innescarsi
+- è il motivo per cui la "Versione app" in questa guida va trattata come indicativa
 
 **Produzione**: https://app.fithousemonza.it (Hostinger, deploy manuale, progetto Firebase `fit-rope-app-1f575`).
 
-**Staging**: https://fgrotta.github.io/fitrope_app/ (GitHub Pages su branch `gh-pages`, pubblicato da `develop`, progetto Firebase `fit-rope-staging`).
+**Staging**: https://fgrotta.github.io/fitrope_app/ (GitHub Pages via `actions/deploy-pages` da artifact — nessun branch `gh-pages` coinvolto — pubblicato da `develop`, progetto Firebase `fit-rope-staging`).
 
 ### Dependabot
 
@@ -536,16 +568,17 @@ flutter run -d chrome
 cd functions
 npm ci                 # installazione riproducibile (runtime Functions Node 22; unit CI verifica anche Node 24)
 npm run build          # compila TypeScript
-npm test               # esegue test Jest unitari (253 test verificati)
+npm test               # test Jest unitari
 npm run test:integration # Emulator Suite, richiede Java 21+
 npm run seed:emulator  # seed dati sintetici su emulatori avviati
+npm run seed:staging   # seed sintetico su staging (richiede STAGING_PROJECT_ID + credenziali)
 npm run serve          # avvia emulatore Firebase Functions
 
-# Deploy
-firebase deploy --only functions                        # deploy in produzione
-firebase functions:secrets:set ONESIGNAL_REST_API_KEY   # setup/aggiorna secret
-firebase functions:log --only sendOneSignalNotification # vedi log runtime
-firebase functions:delete sendOneSignalNotification     # elimina la function
+# Deploy — .firebaserc NON ha un alias default: --project e sempre obbligatorio
+firebase deploy --project prod --only functions            # deploy in produzione (= npm run deploy)
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY --project prod   # setup/aggiorna secret
+firebase functions:log --project prod --only sendOneSignalNotification # vedi log runtime
+firebase functions:delete sendOneSignalNotification --project prod     # elimina la function
 ```
 
 Il predeploy in `firebase.json` compila TypeScript automaticamente via `./node_modules/.bin/tsc` (invocazione diretta senza npm per evitare il bug stdin di npm 10+).
@@ -553,8 +586,8 @@ Il predeploy in `firebase.json` compila TypeScript automaticamente via `./node_m
 **Setup iniziale** (una volta sola per ambiente):
 
 1. `firebase login`
-2. `firebase functions:secrets:set ONESIGNAL_REST_API_KEY` (incolla la REST API Key OneSignal)
-3. `firebase deploy --only functions`
+2. `firebase functions:secrets:set ONESIGNAL_REST_API_KEY --project prod` (incolla la REST API Key OneSignal)
+3. `firebase deploy --project prod --only functions`
 
 Se il primo deploy fallisce per permessi IAM (errore "missing permission on the build service account"), assegna al compute service account (`PROJECT_NUMBER-compute@developer.gserviceaccount.com`) i ruoli:
 
@@ -607,7 +640,7 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 | Firestore rules e emulatori | `firestore.rules`, `firebase.json`, `docs/AMBIENTI_DI_TEST.md`, `functions/src/__integration__/` |
 | Notifiche push/email | `lib/services/notification_service.dart`, `lib/services/email_templates.dart`, `functions/src/` |
 | Test email manuale (debug) | `lib/pages/protected/debug_email_page.dart`, `lib/services/notification_service.dart` (`sendTestWaitlistEmail`, `sendTestTrialReminderEmail`) |
-| OneSignal SDK | `lib/services/onesignal_*.dart`, `web/index.html` (web SDK commentato), `web/OneSignalSDKWorker.js` |
+| OneSignal SDK | `lib/services/onesignal_*.dart`, `web/index.html` (bridge JS + init SDK v16), `web/push/onesignal/OneSignalSDKWorker.js` |
 | Dashboard e analisi | `lib/pages/protected/admin_dashboard_page.dart` |
 | Layout e breakpoints | `lib/layout/` |
 | Stili globali | `lib/style.dart`, `lib/components/` |

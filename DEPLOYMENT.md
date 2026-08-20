@@ -44,7 +44,7 @@ Progetto Firebase separato (`fit-rope-staging`), sito su GitHub Pages, tutto aut
 #### Web
 - **Directory**: `build/web`
 - **Produzione**: https://app.fithousemonza.it — Hostinger, upload **manuale** di `build/web`
-- **Staging**: https://fgrotta.github.io/fitrope_app/ — GitHub Pages tramite branch `gh-pages`, automatico da `develop`
+- **Staging**: https://fgrotta.github.io/fitrope_app/ — GitHub Pages via `actions/deploy-pages` (artifact, nessun branch `gh-pages`), automatico da `develop`
 
 ### Configurazione Locale
 

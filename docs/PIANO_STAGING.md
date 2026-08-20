@@ -35,7 +35,7 @@ Un progetto Firebase separato isola Firestore, Auth, Functions, Secret Manager, 
 4. Configurare Workload Identity Federation GitHub-Google per il deploy CI. Non usare chiavi JSON persistenti.
 5. Creare GitHub Environment `staging`, con protezione deploy e variabili necessarie.
 6. Confermare il repository GitHub canonico per Pages. Il remoto corrente e `fgrotta/fitrope_app`, mentre documentazione storica cita `dellarosamarco/fitrope_app`.
-7. Creare e proteggere il branch `develop`: non esiste ancora nel repository e il workflow staging si attiva solo dai suoi push.
+7. Creare e proteggere il branch `develop`. *(Fatto: esiste ed è il trigger vivo di `staging.yml`.)*
 
 ## Modifiche repository
 
@@ -54,15 +54,20 @@ Aggiornare `.firebaserc` con alias espliciti:
 
 Ogni deploy deve indicare alias o `--project`; non deve dipendere da `default`.
 
-Parametrizzare lo script seed: oggi punta al project ID produzione e deve ricevere il project staging in modo esplicito.
+Parametrizzare lo script seed. *(Fatto: `seedStaging.js` legge `STAGING_PROJECT_ID`, richiede che contenga "staging" e rifiuta esplicitamente il project di produzione.)*
 
 ### Flutter
 
-1. Generare FirebaseOptions separate per produzione e staging.
-2. Introdurre `APP_ENV` tramite `--dart-define`, con valori `prod` e `staging`.
-3. Selezionare le FirebaseOptions corrette in `Firebase.initializeApp`.
-4. Rendere obbligatorio `--dart-define=APP_ENV=staging` nella build Pages.
-5. Mostrare un indicatore discreto `STAGING` solo nelle build staging.
+*(Tutti e 5 i punti sono implementati: `lib/firebase_options_staging.dart` — scritto a
+mano da `String.fromEnvironment`, non generato da flutterfire —,
+`lib/app_environment.dart`, la selezione in `main.dart`, il `--dart-define` nella build
+di staging.yml e il `Banner` STAGING in `main.dart`.)*
+
+1. Generare FirebaseOptions separate per produzione e staging. ✅
+2. Introdurre `APP_ENV` tramite `--dart-define`, con valori `prod` e `staging`. ✅
+3. Selezionare le FirebaseOptions corrette in `Firebase.initializeApp`. ✅
+4. Rendere obbligatorio `--dart-define=APP_ENV=staging` nella build Pages. ✅
+5. Mostrare un indicatore discreto `STAGING` solo nelle build staging. ✅
 
 ### Functions e OneSignal
 
@@ -77,7 +82,7 @@ Guardrail obbligatori staging:
 - soggetto e contenuto marcati `[STAGING]`;
 - destinatari fuori allowlist soppressi e loggati;
 - nessun import di utenti, email o device token produzione;
-- push Web resta disabilitato e il backend staging sopprime ogni payload push.
+- il backend staging sopprime ogni payload push server-side. ⚠️ NB: il Web SDK OneSignal lato client è ATTIVO e l'appId in `lib/main.dart` è quello di produzione anche nella build staging — vedi il TODO "OneSignal web" in `CLAUDE.md`.
 
 ## Configurazione GitHub e Firebase
 

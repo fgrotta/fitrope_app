@@ -54,18 +54,23 @@ categoria C del piano (§8): la rete di regressione permanente del write-path.
 > cosa è servito.
 
 Progetto gemello `fit-rope-staging`: Auth, Firestore, Functions
-deployate, dati sintetici, seconda app OneSignal.
+deployate, dati sintetici (OneSignal resta l'app di produzione, con guardrail
+server-side: vedi sotto).
 
 - **Copre in più di A/B**: deploy reale (predeploy, secrets, region, IAM),
   **indici veri**, prove da telefono/browser di chiunque, prova generale del
-  vincolo di deploy functions→web, notifiche email/push vere senza toccare
-  utenti reali.
+  vincolo di deploy functions→web. Le notifiche NON sono libere: le push sono
+  soppresse server-side e le email limitate a UID `stg_` nella allowlist
+  (`STAGING_NOTIFICATION_EMAIL_ALLOWLIST`).
 - **Prerequisiti / lavoro necessario**:
   - Creazione progetto + **piano Blaze** (functions v2): serve il billing
     account (riusabile quello di prod), costo ~0€ ai volumi di test, budget
     alert consigliato. ⚠️ Richiede azione di Francesco (account/billing).
-  - Parametrizzare `ONESIGNAL_APP_ID` (oggi hardcoded in
-    `functions/src/handler.ts` e `lib/main.dart`) + seconda app OneSignal.
+  - Parametrizzare `ONESIGNAL_APP_ID`: lato Functions è FATTO (env var, con
+    fallback all'appId prod in `functions/src/handler.ts`); lato client resta
+    hardcoded in `lib/main.dart` con l'appId di PRODUZIONE. Non esiste una
+    seconda app OneSignal: staging usa la stessa app di prod, con push soppresse
+    e email limitate alla allowlist server-side (vedi TODO in `CLAUDE.md`).
   - Secondo `firebase_options` (`lib/firebase_options_staging.dart`, valorizzato da
     `--dart-define` in CI, non committato con valori reali), switch client via
     `--dart-define=APP_ENV=staging` (vedi `lib/app_environment.dart`).
@@ -107,7 +112,7 @@ iscrizioni). La produzione non è un ambiente di test.
   il `java` nel PATH è il 17 → anteporre il 21 quando si avviano gli emulatori
   (vedi sotto) o aggiornare il PATH in `~/.zshrc`
   (`export PATH="/usr/local/opt/openjdk@21/bin:$PATH"`).
-- `cd functions && npm install && npm run build`
+- `cd functions && npm ci && npm run build`
 - Creare `functions/.secret.local` (gitignored) con una key fittizia, così le
   functions non toccano OneSignal reale:
 
@@ -120,7 +125,7 @@ iscrizioni). La produzione non è un ambiente di test.
 ```bash
 # 1. Compila le functions e avvia gli emulatori (Auth, Firestore, Functions + UI)
 cd functions && npm run build && cd ..
-PATH="/usr/local/opt/openjdk@21/bin:$PATH" firebase emulators:start
+PATH="/usr/local/opt/openjdk@21/bin:$PATH" firebase emulators:start --project fit-rope-app-1f575
 
 # 2. (in un altro terminale) Popola dati sintetici: utenti, corsi, abbonamenti
 cd functions && npm run seed:emulator
@@ -143,7 +148,7 @@ flutter run -d chrome --dart-define=USE_EMULATOR=true
 
 - I dati sono effimeri: si riparte puliti a ogni avvio (ri-eseguire il seed).
   Per conservare uno scenario: `firebase emulators:export ./.emulator-data` e
-  riavvio con `firebase emulators:start --import ./.emulator-data`.
+  riavvio con `firebase emulators:start --project fit-rope-app-1f575 --import ./.emulator-data`.
 - Le email/push NON partono (key fittizia): l'esito si verifica nei log delle
   functions nella Emulator UI.
 - L'emulatore **non valida gli indici Firestore**: prima del deploy in prod di

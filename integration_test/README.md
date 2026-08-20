@@ -16,12 +16,14 @@ integration_test/
 ├── helpers/
 │   ├── test_app.dart        # avvio app + gestione splash + attese su rete reale
 │   ├── actions.dart         # azioni riusabili: login(), ...
-│   └── seed.dart            # crea/elimina corso "Test" (Ferragosto) + lookup trainer
-└── flows/
-    ├── login_test.dart                # ✅ pronto
-    ├── subscribe_to_course_test.dart  # iscrizione (skip finché non validato)
-    └── waitlist_swap_test.dart        # waitlist + scambio posto (skip finché non validato)
+│   └── seed.dart            # crea/elimina il corso di test (Ferragosto) + lookup trainer
+├── login_test.dart                # ✅ pronto (non skippato)
+├── subscribe_to_course_test.dart  # iscrizione (skip: true finché non validato)
+└── waitlist_swap_test.dart        # waitlist + scambio posto (skip: true finché non validato)
 ```
+
+Il driver per l'esecuzione via `flutter drive` esiste già:
+`test_driver/integration_test.dart` (`integrationDriver()`).
 
 ## Scenari
 
@@ -52,30 +54,36 @@ integration_test/
 
 ## Eseguire i test
 
+Su target **web** gli `integration_test` non girano con `flutter test -d chrome`:
+serve `flutter drive` con chromedriver in ascolto.
+
 ```bash
 flutter pub get
 
-# Tutti gli scenari (le credenziali arrivano dal file env)
-flutter test integration_test -d chrome \
-  --dart-define-from-file=integration_test/test_env.json
+# 1. chromedriver in ascolto (versione allineata al Chrome installato)
+chromedriver --port=4444
 
-# Singolo scenario
-flutter test integration_test/flows/login_test.dart -d chrome \
+# 2. Un singolo scenario (le credenziali arrivano dal file env)
+flutter drive \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/login_test.dart \
+  -d chrome \
   --dart-define-from-file=integration_test/test_env.json
 ```
 
-> Su `-d chrome` serve Chrome installato. In CI si usa `flutter drive` con
-> chromedriver; lo aggiungiamo quando colleghiamo la pipeline.
+> Nessun workflow CI esegue ancora questa suite (vedi TODO in `CLAUDE.md`).
 
 ## Corsi di test: creati al volo
 
 Non servono corsi predisposti a mano. `helpers/seed.dart` espone:
 
-- `createFerragostoTestCourse(trainerId: ...)` → crea un corso **"Test"** nella
-  **settimana di Ferragosto** (15 agosto, anno corrente o successivo se già
-  passato), assegnato al trainer. `reminderEnabled` è **false** di default per
-  non far partire promemoria reali in produzione.
-- `resolveUserIdByEmail(email)` → ricava l'uid del trainer dall'email.
+- `createFerragostoTestCourse(trainerId: ...)` → crea un corso di test nella
+  **settimana di Ferragosto** (`ferragostoSlot`: 15 agosto, anno corrente o
+  successivo se già passato), assegnato al trainer, con nome generato da
+  `buildTestCourseName(...)`. `reminderEnabled` è **false** di default per non
+  far partire promemoria reali in produzione.
+- `resolveUserIdByEmail(email)` / `resolveUserNameByEmail(email)` → lookup del
+  trainer dall'email.
 - `deleteTestCourse(courseId)` → cleanup (da usare in `addTearDown`).
 
 La creazione/eliminazione richiede permessi di scrittura sui corsi: nei test si
