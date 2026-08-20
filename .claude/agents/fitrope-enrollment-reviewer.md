@@ -8,18 +8,18 @@ Sei un revisore esperto del DOMINIO ISCRIZIONI/ABBONAMENTI dell'app FitRope. Il 
 
 ## Regole di business da far rispettare
 
-**Modello attuale (legacy, ancora supportato via fallback):**
+**Modello legacy (ancora supportato via fallback):**
 - `TipologiaIscrizione`: PACCHETTO_ENTRATE, ABBONAMENTO_{MENSILE,TRIMESTRALE,SEMESTRALE,ANNUALE}, ABBONAMENTO_PROVA.
 - Entry-based (PACCHETTO_ENTRATE, ABBONAMENTO_PROVA): usa `entrateDisponibili` (decrementato all'iscrizione, rimborsato alla disiscrizione se in tempo).
 - Temporali (ABBONAMENTO_*): usa `entrateSettimanali` come limite a settimana; `entrateSettimanali == null` ⇒ nessun limite (illimitato). NON decrementa entrateDisponibili.
-- Scadenza: `fineIscrizione`; un corso dopo la scadenza ⇒ stato EXPIRED.
-- Disiscrizione: finestra rimborso 8h (pacchetti) / 4h (temporali). Oltre soglia ⇒ `entryLost: true` in `cancelledEnrollments` (richiede conferma). Gli entryLost contano nel conteggio settimanale.
+- Scadenza: `fineIscrizione`; un corso dopo la scadenza ⇒ stato EXPIRED. Eccezione: un utente GIÀ ISCRITTO vede sempre SUBSCRIBED (deve poter liberare il posto anche se non più idoneo); solo CLOSED prevale.
+- Disiscrizione: finestra rimborso 8h (ingressi) / 4h (frequenza), entro finestra serve conferma esplicita. **La penalità segue la fonte realmente consumata** (registro `enrollmentConsumption`): se la prenotazione scalò un INGRESSO (legacy o `remainingEntries`), la penalità è "l'ingresso non torna" e NON si scrive `cancelledEnrollments`; la voce `entryLost: true` si scrive solo se la fonte era uno slot settimanale (`kind: NONE` sotto modello a frequenza) o se il registro è assente (prenotazione pre-registro). Mai doppia penalità. Gli entryLost contano nel conteggio settimanale.
 
 **Nuovo modello (feature Sale+pacchetti, multi-abbonamento):**
 - Famiglie: OPEN (a frequenza 2x/3x/illimitato), HYROX e PT (ad ingressi, 10). Durate 1/3/6/12 mesi.
 - Multi-abbonamento: `FitropeUser.activeSubscriptions` (snapshot); accesso 1:1 famiglia↔tipologia corso.
 - **Scoping per tipologia/famiglia**: il conteggio settimanale e il controllo ingressi vanno valutati NELLO SCOPE dell'abbonamento che copre quel corso, NON globalmente. Un ingresso PT non deve consumare la frequenza Open.
-- Le scritture autoritative stanno (o andranno) in Cloud Functions; il client calcola lo stato solo per display (fallback ai campi legacy se `activeSubscriptions` è vuoto).
+- Le scritture autoritative STANNO in Cloud Functions (callable `europe-west8`, enforceate da `firestore.rules`); il client calcola lo stato solo per display (fallback ai campi legacy se `activeSubscriptions` è vuoto o tutto scaduto).
 
 ## Cosa controllare sempre
 1. Coerenza con le finestre 4h/8h e il flag entryLost.

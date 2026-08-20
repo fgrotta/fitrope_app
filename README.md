@@ -7,8 +7,8 @@ FitRope e una applicazione Flutter per la gestione di utenti, autenticazione e i
 - Flutter
 - Firebase Auth
 - Cloud Firestore
-- Cloud Functions (TypeScript, proxy verso OneSignal)
-- OneSignal (push mobile native + email server-side). Push web disabilitate.
+- Cloud Functions (TypeScript): write-path autoritativo di iscrizioni/abbonamenti + proxy sicuro verso OneSignal
+- OneSignal (push native mobile, Web SDK v16 su web, email server-side)
 - Redux + `flutter_redux`
 - `flutter_design_system` come dipendenza Git esterna
 
@@ -23,7 +23,7 @@ FitRope e una applicazione Flutter per la gestione di utenti, autenticazione e i
 - preferenze notifiche utente (push e email, attivabili singolarmente)
 - per ogni corso, l'admin puo abilitare/disabilitare singolarmente promemoria e lista d'attesa
 - dashboard admin con analisi utenti, corsi e abbonamenti (solo desktop)
-- deploy web tramite GitHub Actions
+- ambiente **staging** completo (progetto Firebase separato + GitHub Pages), deployato automaticamente a ogni push su `develop` — vedi `DEPLOYMENT.md`; la produzione resta un deploy manuale su Hostinger
 
 ## Layout responsive
 
@@ -44,8 +44,10 @@ L'app si adatta automaticamente:
 - `lib/services/`: OneSignal (mobile + web), notifiche, email templates
 - `lib/utils/`: regole di business e helper
 - `test/`: test Flutter (iscrizioni, waitlist, preferenze, template)
-- `functions/`: Cloud Functions TypeScript (proxy OneSignal)
-- `web/`: index.html e asset web (OneSignal Web SDK commentato/disabilitato)
+- `functions/`: Cloud Functions TypeScript (callable enrollment in `europe-west8` + proxy OneSignal)
+- `web/`: index.html (bridge OneSignal Web SDK), `.htaccess` cache, service worker push
+- `integration_test/`: suite E2E Flutter (vedi `integration_test/README.md`)
+- `docs/`: piani e runbook (staging, ambienti di test, avanzamento)
 
 ## Avvio locale
 
@@ -59,19 +61,21 @@ flutter run -d chrome
 ```bash
 # Flutter
 flutter test
-flutter analyze
-flutter format --set-exit-if-changed .
-flutter build web --debug
+flutter analyze --no-fatal-infos
+dart format --set-exit-if-changed .
+flutter build web --wasm --release   # stesso path di CI e produzione
 
 # Cloud Functions
 cd functions
-npm test
+npm ci
 npm run build
+npm test
+npm run test:integration   # Emulator Suite, richiede Java 21+
 ```
 
 ## Cloud Functions
 
-Il progetto include una Cloud Function che funge da proxy sicuro verso OneSignal per push ed email. La REST API key non viene mai esposta al client.
+Il progetto include 10 callable in `europe-west8`: il write-path autoritativo delle iscrizioni (subscribe/unsubscribe/waitlist/assegnazione abbonamenti/delete/recount, vedi `lib/api/courses/README_ISCRIZIONI.md`) più il proxy sicuro verso OneSignal per push ed email. La REST API key non viene mai esposta al client.
 
 ### Setup iniziale (una volta sola)
 
@@ -82,11 +86,12 @@ Richiede il piano Firebase **Blaze**.
 firebase login
 
 # 2. Imposta il secret della REST API Key OneSignal
-firebase functions:secrets:set ONESIGNAL_REST_API_KEY
+#    (--project sempre esplicito: .firebaserc non ha un alias default)
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY --project prod
 # Incolla la chiave os_v2_app_... quando richiesto
 
 # 3. Primo deploy
-firebase deploy --only functions
+firebase deploy --project prod --only functions
 ```
 
 Se il primo deploy fallisce con errore di permessi IAM sul build service account, assegna i ruoli necessari al compute service account (`PROJECT_NUMBER-compute@developer.gserviceaccount.com`):
@@ -120,7 +125,7 @@ npm run build
 cd ..
 
 # 2. Deploy (il predeploy compila automaticamente)
-firebase deploy --only functions
+firebase deploy --project prod --only functions
 ```
 
 ### Aggiornare il secret OneSignal
@@ -128,16 +133,16 @@ firebase deploy --only functions
 Se cambi la REST API Key:
 
 ```bash
-firebase functions:secrets:set ONESIGNAL_REST_API_KEY
+firebase functions:secrets:set ONESIGNAL_REST_API_KEY --project prod
 # Dopo l'aggiornamento serve un re-deploy per bindare il nuovo valore
-firebase deploy --only functions
+firebase deploy --project prod --only functions
 ```
 
 ### Vedere i log runtime
 
 ```bash
-firebase functions:log                           # tutti i log
-firebase functions:log --only sendOneSignalNotification   # solo una function
+firebase functions:log --project prod                           # tutti i log
+firebase functions:log --project prod --only sendOneSignalNotification   # solo una function
 ```
 
 Oppure dalla [console Cloud Functions](https://console.cloud.google.com/functions/list?project=fit-rope-app-1f575).
@@ -146,14 +151,14 @@ Oppure dalla [console Cloud Functions](https://console.cloud.google.com/function
 
 ```bash
 # Elimina la function (il client smetterà di funzionare finché non riesegui il deploy)
-firebase functions:delete sendOneSignalNotification
+firebase functions:delete sendOneSignalNotification --project prod
 ```
 
-Per un rollback pulito, fai commit del codice precedente e riesegui `firebase deploy --only functions`.
+Per un rollback pulito, fai commit del codice precedente e riesegui `firebase deploy --project prod --only functions`.
 
 ## Note operative
 
 - La localizzazione principale e italiana (`it_IT`).
 - La logica piu sensibile e in `lib/api/courses/`, `lib/utils/course_unsubscribe_helper.dart` e `lib/services/notification_service.dart`.
-- La CI valida test, analisi, formattazione e build web.
+- La CI valida test Flutter, analisi, formattazione, build web wasm, test Functions unitari e d'integrazione su Emulator Suite (`ci.yml` sulle PR, `staging.yml` sui push a `develop`, `release.yml` sul branch `release`).
 - Le notifiche email richiedono deploy della Cloud Function con secret configurato.

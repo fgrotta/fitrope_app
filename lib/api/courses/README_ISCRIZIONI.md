@@ -38,7 +38,7 @@ invece pulizia di calendario/storico: i partecipanti *hanno* frequentato, quindi
 c'è nulla da rimborsare. Se una delle due regole cambia, aggiornare anche l'altra
 motivandola qui.
 
-La logica autoritativa è nei moduli puri (mirror di `getCourseState.dart` /
+La logica autoritativa è nei moduli puri (mirror di `lib/utils/get_course_state.dart` /
 `CourseUnsubscribeHelper`): `eligibility.ts`, `refund.ts`, `courseTypes.ts`,
 `plansCatalog.ts`, `subscription.ts`. **Se modifichi le regole qui o lì, tieni
 allineati i due lati** (client = display/UX, server = enforcement).
@@ -47,7 +47,12 @@ Da PR6 l'enforcement è EFFETTIVO: `firestore.rules` (nel repo) nega ai client
 le scritture sui campi del dominio iscrizioni (courses, waitlistCourses,
 activeSubscriptions, enrollmentConsumption, cancelledEnrollments, subscribed,
 waitlist, collezione subscriptions) e su `role`/crediti per i non-Admin —
-le callable sono l'unica via di scrittura. Test: categoria D in
+le callable sono l'unica via di scrittura. Precisazioni: il divieto su
+`subscribed`/`waitlist` vale in **update** (in create il client li scrive, ma le
+rules impongono `subscribed == 0` e `waitlist == []`); nella create di `/users`
+anche un **Trainer** può valorizzare tipologia/crediti/scadenza (scelta
+deliberata per il flusso walk-in, commentata nelle rules; unico hardening: il
+tag `Tutti i corsi` è negato). Test: categoria D in
 `functions/src/__integration__/firestoreRules.integration.test.ts`.
 
 Garanzie aggiuntive del write-path server (oltre il porting 1:1):
@@ -84,10 +89,18 @@ Differenze deliberate rispetto al vecchio client (fix di bug, non regressioni):
   prova NON parte per utenti già convertiti al multi-abbonamento (snapshot vivo),
   anche se `tipologiaIscrizione` legacy è rimasta `ABBONAMENTO_PROVA`.
 
-Restano client-side (con scritture dirette Firestore) SOLO
-`createCourse`/`updateCourse` (CRUD corso, non toccano iscrizioni;
-`updateCourse` esclude già i campi server-owned `subscribed`/`waitlist` dal
-payload; migrazione pianificata, vedi `// TODO(server-migration)`).
+Restano client-side (con scritture dirette Firestore, migrazione pianificata,
+vedi `// TODO(server-migration)`):
+- `createCourse`/`updateCourse` (CRUD corso, non toccano iscrizioni;
+  `updateCourse` esclude già i campi server-owned `subscribed`/`waitlist` dal
+  payload);
+- il CRUD utenti (`create_user.dart`, `update_user.dart`,
+  `toggle_user_status.dart`) e l'accettazione regolamento self-service
+  (`accept_regolamento.dart`). NB: `update_user.dart`
+  scrive ancora dal client `tipologiaIscrizione`/`entrateDisponibili`/
+  `entrateSettimanali`/`fineIscrizione` — i crediti/scadenza del modello LEGACY —
+  consentito dalle rules al solo Admin. Gli abbonamenti del nuovo modello invece
+  passano SOLO dalla callable `assignSubscription`.
 
 Da PR5 i flussi admin sono server-side e i caveat interim di PR4 sono risolti:
 - `removeUserFromCourse` (l'alias legacy `forceUnsubscribeFromCourse` è stato
@@ -102,9 +115,11 @@ Da PR5 i flussi admin sono server-side e i caveat interim di PR4 sono risolti:
   inviavano email "posto disponibile" per un corso in cancellazione).
 - "Correggi conteggio" → callable `recountCourseSubscribed` (il client non
   calcola/scrive più il valore).
-- Il registro consumi ha retention 90 giorni (pruning opportunistico a ogni
-  scrittura: le correzioni admin a posteriori restano possibili entro quella
-  finestra).
+- Il registro consumi ha retention 90 giorni **dall'inizio del corso prenotato**
+  (l'àncora è `courseStartMillis`, non la data di scrittura; pruning
+  opportunistico a ogni scrittura: le correzioni admin a posteriori restano
+  possibili entro quella finestra, e una prenotazione aperta per un corso futuro
+  non viene mai prunata).
 
 ## Logica per Pacchetto Entrate
 
