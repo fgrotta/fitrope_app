@@ -49,6 +49,8 @@ const String _adminPassword = String.fromEnvironment('TEST_ADMIN_PASSWORD');
 const String _disabledEmail = String.fromEnvironment('TEST_DISABLED_EMAIL');
 const String _disabledPassword =
     String.fromEnvironment('TEST_DISABLED_PASSWORD');
+const String _matrixNamespace = String.fromEnvironment('TEST_RUN_NAMESPACE');
+const String _matrixPassword = 'test1234';
 
 // ---------------------------------------------------------------------------
 // Utenti di test
@@ -93,6 +95,30 @@ const List<TestUser> allTestUsers = [
   adminTest,
   disabledTest,
 ];
+
+/// Fixture temporanea creata da `e2eAdmin.js prepare-enrollment-matrix`.
+/// UID, email e course id dipendono dal namespace della run, così un retry o
+/// una run concorrente non possono leggere dati di un'altra esecuzione.
+String _matrixSlug() {
+  final slug = _matrixNamespace
+      .toLowerCase()
+      .replaceAll(RegExp('[^a-z0-9]+'), '-')
+      .replaceAll(RegExp('^-+|-+\$'), '');
+  if (slug.isEmpty) {
+    throw StateError(
+      'TEST_RUN_NAMESPACE è obbligatorio per gli E2E della matrice enrollment.',
+    );
+  }
+  return slug.length > 48 ? slug.substring(0, 48) : slug;
+}
+
+TestUser matrixTestUser(String key) => TestUser(
+      email: 'e2e.matrix+${_matrixSlug()}.$key@example.com',
+      password: _matrixPassword,
+      role: 'User',
+    );
+
+String matrixCourseId(String key) => 'e2e_matrix_${_matrixSlug()}_course_$key';
 
 /// Verifica che le credenziali di [user] siano state fornite via env file.
 /// Da chiamare in setUpAll dei test che fanno login.

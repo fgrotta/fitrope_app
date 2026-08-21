@@ -13,6 +13,10 @@ Firebase; la produzione non è mai un ambiente di test.
   protetta.
 - `subscribe_to_course_test.dart`: creazione Admin, iscrizione e cleanup.
 - `waitlist_swap_test.dart`: join, uscita del primo membro e swap atomico.
+- `subscription_limits_test.dart`: consumo UI Open/pacchetto, modelli attivi
+  distinti (Hyrox, PT, prova, temporale) e tutte le varianti scadute.
+- `waitlist_subscription_matrix_test.dart`: join della lista d'attesa senza
+  consumo e rifiuti scaduto/limite/esaurito senza scritture sui due documenti.
 - `course_management_test.dart`: creazione singola e serie ricorrente via UI.
 - `registration_unverified_test.dart`: validazioni, creazione prova e blocco
   email non verificata.
@@ -28,6 +32,8 @@ cd functions && npm ci && npm run build && cd ..
 printf "ONESIGNAL_REST_API_KEY=emulator-dummy-key\n" > functions/.secret.local
 firebase emulators:start --project fit-rope-app-1f575
 cd functions && npm run seed:emulator && cd ..
+npm --prefix functions run e2e:admin -- prepare-enrollment-matrix \
+  --namespace manuale --emulator
 chromedriver --port=4444
 
 flutter drive \
@@ -43,6 +49,13 @@ Il project ID è obbligatorio e deve combaciare con la configurazione Flutter e
 con `seedEmulator.js`. Le fixture includono anche un account disattivato per il
 fail-closed del login. OneSignal è disabilitato dal bootstrap E2E.
 
+Al termine (anche dopo un drive interrotto) ripulire la matrice namespaced:
+
+```bash
+npm --prefix functions run e2e:admin -- cleanup-enrollment-matrix \
+  --namespace manuale --emulator
+```
+
 ## Staging
 
 Generare un file gitignored `test_env.staging.json` dal template, usando solo
@@ -50,7 +63,9 @@ gli account `stg_*`, e passare `APP_ENV=staging`, tutti i define `FIREBASE_*`
 richiesti e un `TEST_RUN_NAMESPACE` univoco.
 
 Il workflow staging esegue la suite dopo il deploy delle rules. Prima e dopo il
-run usa `functions/scripts/e2eAdmin.js` per eliminare risorse abbandonate.
+run usa `functions/scripts/e2eAdmin.js`: ripulisce eventuali matrici rimaste,
+prepara fixture con namespace della run e nel cleanup elimina prima i corsi via
+callable Admin, poi subscription, documenti Firestore e account Auth.
 
 ## Registrazione bifase
 

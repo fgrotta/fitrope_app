@@ -68,7 +68,8 @@ l'attivazione dell'albero semantics. I flussi funzionali restano in
 
 - Emulatore: Admin, Trainer, account disattivato, legacy
   pacchetto/mensile/prova e membro nuovo modello con Open 3x, Hyrox 10 ingressi
-  e PT 10 ingressi.
+  e PT 10 ingressi. Gli E2E della matrice aggiungono account, corsi e
+  subscription namespaced per run tramite `prepare-enrollment-matrix`.
 - Staging: `stg_admin`, `stg_trainer`, `stg_disabled`, `stg_member`,
   `stg_member2`; subscription deterministiche per i percorsi usati dagli E2E.
 - I corsi E2E sono creati otto giorni avanti alle 18:00 Europe/Rome, dentro la
@@ -133,8 +134,12 @@ il certificato quando l'utente non ha un abbonamento.
 ### A8 — Iscrizione
 
 Percorsi prova, pacchetto, temporale, FREQUENCY Open, ENTRIES Hyrox/PT, tipo
-senza famiglia e force Admin; regolamento e stati non azionabili. Matrice pura e
-concorrenza sono già coperte; E2E rappresentativi locale/staging.
+senza famiglia e force Admin; regolamento e stati non azionabili. La matrice
+pura copre Open 2x/3x/illimitato, reset settimanale, scoping di famiglia,
+disiscrizioni perse, ENTRIES e ogni enum legacy. Functions copre i rifiuti e
+l'emulatore la concorrenza (ultimo slot Open e ultimo ingresso ENTRIES). L'E2E
+`subscription_limits_test.dart` verifica i percorsi comportamentali distinti
+locale/staging con fixture isolate.
 
 ### A9 — Disiscrizione
 
@@ -147,8 +152,10 @@ dominio senza mutare crediti condivisi di staging.
 ### A10 — Lista d'attesa
 
 Join/leave, rifiuti, ruoli esclusi, self-heal, swap completo, pulizia legacy,
-rimozione Admin e deleteCourse senza notifica. Unit/integration presenti; lo
-swap completo è un gate E2E critico.
+rimozione Admin e deleteCourse senza notifica. Handler ed emulatore verificano
+il join per Open, Hyrox, PT e legacy senza consumo e che i rifiuti non scrivano
+né `course.waitlist` né `user.waitlistCourses`. Lo swap e la matrice UI sono
+gate E2E critici.
 
 ### A11 — Gestione corso staff
 
@@ -228,11 +235,13 @@ richiedono una Key duplicata.
 ## Gate CI
 
 1. PR: unit, analyze, build, Functions integration ed E2E A1/A2/A3/A4/A5/
-   A8/A9/A10 su emulatore.
+   A8/A9/A10 su emulatore, inclusi `subscription_limits_test.dart` e
+   `waitlist_subscription_matrix_test.dart`.
 2. Staging: deploy Functions → Pages → rules → smoke → stessi E2E, tutti sotto
    `concurrency: staging-deploy`.
-3. Cleanup staging iniziale e `if: always()` finale; mai affidarsi solo ad
-   `addTearDown`.
+3. Cleanup staging iniziale e `if: always()` finale; la matrice rimuove prima i
+   corsi tramite callable, quindi subscription, documenti utente e account
+   Auth. Mai affidarsi solo ad `addTearDown`.
 
 Restano fuori dagli E2E Chrome: push nativo, comportamento iOS del prompt,
 consegna OneSignal generica e produzione. La produzione non è un target di test.

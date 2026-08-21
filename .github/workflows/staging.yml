@@ -290,7 +290,15 @@ jobs:
         run: |
           GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
           export GOOGLE_OAUTH_ACCESS_TOKEN
+          npm --prefix functions run e2e:admin -- cleanup-enrollment-matrix \
+            --all --confirm-staging || true
           npm --prefix functions run e2e:admin -- cleanup-courses --confirm-staging
+      - name: Prepare isolated enrollment matrix
+        run: |
+          GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          export GOOGLE_OAUTH_ACCESS_TOKEN
+          npm --prefix functions run e2e:admin -- prepare-enrollment-matrix \
+            --namespace "$TEST_NAMESPACE" --confirm-staging
       - name: Run critical Flutter E2E against staging
         shell: bash
         env:
@@ -330,6 +338,8 @@ jobs:
           drive integration_test/role_navigation_test.dart
           drive integration_test/subscribe_to_course_test.dart
           drive integration_test/waitlist_swap_test.dart
+          drive integration_test/subscription_limits_test.dart
+          drive integration_test/waitlist_subscription_matrix_test.dart
           drive integration_test/course_management_test.dart
           drive integration_test/registration_unverified_test.dart \
             --dart-define=SIGNUP_TEST_EMAIL="$SIGNUP_EMAIL" \
@@ -348,5 +358,7 @@ jobs:
           export GOOGLE_OAUTH_ACCESS_TOKEN
           npm --prefix functions run e2e:admin -- delete-signup \
             --email "$SIGNUP_EMAIL" --confirm-staging || true
+          npm --prefix functions run e2e:admin -- cleanup-enrollment-matrix \
+            --namespace "$TEST_NAMESPACE" --confirm-staging || true
           npm --prefix functions run e2e:admin -- cleanup-courses \
             --namespace "$TEST_NAMESPACE" --confirm-staging || true

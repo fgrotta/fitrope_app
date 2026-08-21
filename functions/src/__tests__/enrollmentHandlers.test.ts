@@ -1174,6 +1174,129 @@ describe("unsubscribeFromCourseHandler", () => {
 // ──────────────────────────────────────────────
 
 describe("joinWaitlistHandler", () => {
+  test.each([
+    [
+      "legacy pacchetto",
+      () => ({ users: { u1: packUser() }, courses: { c1: course({ subscribed: 10 }) }, subs: {} }),
+      5,
+    ],
+    [
+      "legacy prova",
+      () => ({
+        users: {
+          u1: packUser({ tipologiaIscrizione: "ABBONAMENTO_PROVA", entrateDisponibili: 1 }),
+        },
+        courses: { c1: course({ subscribed: 10 }) },
+        subs: {},
+      }),
+      1,
+    ],
+    [
+      "Open FREQUENCY",
+      () => {
+        const open = openFreqSubDoc(2);
+        return {
+          users: { u1: subUser({ activeSubscriptions: [snapshotEntry("sub-open", open)] }) },
+          courses: { c1: course({ subscribed: 10 }) },
+          subs: { "sub-open": open },
+        };
+      },
+      null,
+    ],
+    [
+      "Hyrox ENTRIES",
+      () => {
+        const hyrox = hyroxSubDoc(1);
+        return {
+          users: { u1: subUser({ activeSubscriptions: [snapshotEntry("sub-hyrox", hyrox)] }) },
+          courses: { c1: course({ subscribed: 10, tags: ["Hyrox"] }) },
+          subs: { "sub-hyrox": hyrox },
+        };
+      },
+      null,
+    ],
+    [
+      "PT ENTRIES",
+      () => {
+        const pt: Data = {
+          ...hyroxSubDoc(1),
+          planKey: "pt_10i_3m",
+          family: "PT",
+          courseTypeTags: ["Personal Trainer"],
+        };
+        return {
+          users: { u1: subUser({ activeSubscriptions: [snapshotEntry("sub-pt", pt)] }) },
+          courses: { c1: course({ subscribed: 10, tags: ["Personal Trainer"] }) },
+          subs: { "sub-pt": pt },
+        };
+      },
+      null,
+    ],
+  ])("matrice %s: join aggiorna entrambi i lati senza consumare crediti", async (_label, makeStore, expectedEntries) => {
+    const store = makeStore() as FakeStore;
+    const beforeSubscriptions = JSON.parse(JSON.stringify(store.subs));
+
+    const res = await joinWaitlistHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      makeDb(store),
+      NOW
+    );
+
+    expect(res.ok).toBe(true);
+    expect(store.courses.c1.waitlist).toEqual(["u1"]);
+    expect(store.users.u1.waitlistCourses).toEqual(["c1"]);
+    expect(store.subs).toEqual(beforeSubscriptions);
+    if (expectedEntries !== null) {
+      expect(store.users.u1.entrateDisponibili).toBe(expectedEntries);
+    }
+  });
+
+  test.each([
+    ["legacy credito esaurito", packUser({ entrateDisponibili: 0 }), course({ subscribed: 10 }), {}],
+    [
+      "legacy scaduto",
+      packUser({ fineIscrizione: Timestamp.fromMillis(FAR - 1) }),
+      course({ subscribed: 10 }),
+      {},
+    ],
+    [
+      "Open al limite",
+      subUser({
+        courses: ["c-used"],
+        activeSubscriptions: [snapshotEntry("sub-open", openFreqSubDoc(1))],
+      }),
+      course({ subscribed: 10 }),
+      { "sub-open": openFreqSubDoc(1) },
+    ],
+  ])("matrice rifiuti %s: non scrive alcun lato della waitlist", async (_label, testUser, target, subs) => {
+    const store: FakeStore = {
+      users: { u1: testUser as Data },
+      courses: {
+        c1: target as Data,
+        // Necessario per il conteggio reale dell'Open al limite; negli altri
+        // casi non è referenziato e non influenza la decisione.
+        "c-used": course({ uid: "c-used", startDate: Timestamp.fromMillis(FAR) }),
+      },
+      subs: subs as Record<string, Data>,
+    };
+    const entriesBefore = store.users.u1.entrateDisponibili;
+    const subscriptionsBefore = JSON.parse(JSON.stringify(store.subs));
+
+    await expectCode(
+      joinWaitlistHandler(
+        { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+        makeDb(store),
+        NOW
+      ),
+      "failed-precondition"
+    );
+
+    expect(store.courses.c1.waitlist).toEqual([]);
+    expect(store.users.u1.waitlistCourses ?? []).toEqual([]);
+    expect(store.users.u1.entrateDisponibili).toBe(entriesBefore);
+    expect(store.subs).toEqual(subscriptionsBefore);
+  });
+
   test("corso non pieno → failed-precondition", async () => {
     const db = makeDb({
       users: { u1: packUser() },

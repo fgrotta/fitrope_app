@@ -134,6 +134,59 @@ describe("coveringSubsByType / validAtDate", () => {
 });
 
 describe("evaluateSubscribe — legacy (snapshot vuoto)", () => {
+  test.each([
+    "PACCHETTO_ENTRATE",
+    "ABBONAMENTO_PROVA",
+  ])("%s: 1 ingresso consente e 0 ingressi rifiuta", (tipologia) => {
+    const withEntry = evaluateSubscribe(
+      input({ tipologia, entrateDisponibili: 1 })
+    );
+    expect(withEntry).toMatchObject({
+      allowed: true,
+      reason: "OK",
+      consume: { kind: "LEGACY_ENTRY" },
+    });
+    expect(
+      evaluateSubscribe(input({ tipologia, entrateDisponibili: 0 })).reason
+    ).toBe("NO_ENTRIES");
+  });
+
+  test.each([
+    "PACCHETTO_ENTRATE",
+    "ABBONAMENTO_PROVA",
+    "ABBONAMENTO_MENSILE",
+    "ABBONAMENTO_TRIMESTRALE",
+    "ABBONAMENTO_SEMESTRALE",
+    "ABBONAMENTO_ANNUALE",
+  ])("%s: scade per ogni enum legacy", (tipologia) => {
+    const d = evaluateSubscribe(
+      input({
+        tipologia,
+        entrateDisponibili: 1,
+        entrateSettimanali: 1,
+        fineIscrizioneMillis: COURSE_AT - 1,
+      })
+    );
+    expect(d.reason).toBe("EXPIRED");
+  });
+
+  test.each([
+    "ABBONAMENTO_MENSILE",
+    "ABBONAMENTO_TRIMESTRALE",
+    "ABBONAMENTO_SEMESTRALE",
+    "ABBONAMENTO_ANNUALE",
+  ])("%s: il limite settimanale non consuma crediti", (tipologia) => {
+    const under = evaluateSubscribe(
+      input({ tipologia, entrateSettimanali: 2, weeklyUsed: 1 })
+    );
+    expect(under).toMatchObject({ allowed: true, consume: { kind: "NONE" } });
+    expect(
+      evaluateSubscribe(
+        input({ tipologia, entrateSettimanali: 2, weeklyUsed: 2 })
+      ).reason
+    ).toBe("WEEKLY_LIMIT");
+  });
+
   test("già iscritto non scaduto → ALREADY_SUBSCRIBED", () => {
     const d = evaluateSubscribe(input({ alreadySubscribed: true, courseFull: true }));
     expect(d.allowed).toBe(false);
@@ -251,6 +304,43 @@ describe("evaluateSubscribe — legacy (snapshot vuoto)", () => {
 });
 
 describe("evaluateSubscribe — multi-abbonamento", () => {
+  test.each([
+    ["Hyrox", "HYROX", "Hyrox"],
+    ["PT", "PT", "Personal Trainer"],
+  ])("%s ENTRIES: 1 ingresso, zero ingressi e scadenza", (_label, family, tag) => {
+    const base = {
+      userTags: [],
+      courseTags: [tag],
+      coursePrimaryTag: tag,
+    };
+    const available = sub({
+      family: family as "HYROX" | "PT",
+      billingMode: "ENTRIES",
+      courseTypeTags: [tag],
+      weeklyFrequency: null,
+      remainingEntries: 1,
+    });
+    expect(
+      evaluateSubscribe(input({ ...base, activeSubscriptions: [available] }))
+    ).toMatchObject({
+      allowed: true,
+      consume: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: "s1" },
+    });
+    expect(
+      evaluateSubscribe(
+        input({ ...base, activeSubscriptions: [{ ...available, remainingEntries: 0 }] })
+      ).reason
+    ).toBe("NO_ENTRIES");
+    expect(
+      evaluateSubscribe(
+        input({
+          ...base,
+          activeSubscriptions: [{ ...available, endDateMillis: COURSE_AT - 1 }],
+        })
+      ).reason
+    ).toBe("EXPIRED");
+  });
+
   test("ENTRIES con ingressi → OK, consuma SUBSCRIPTION_ENTRY dell'abbonamento giusto", () => {
     const d = evaluateSubscribe(
       input({

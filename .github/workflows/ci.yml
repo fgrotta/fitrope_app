@@ -147,6 +147,8 @@ jobs:
           cleanup() {
             npm --prefix functions run e2e:admin -- delete-signup \
               --email "$SIGNUP_EMAIL" --emulator || true
+            npm --prefix functions run e2e:admin -- cleanup-enrollment-matrix \
+              --namespace "$TEST_NAMESPACE" --emulator || true
             npm --prefix functions run e2e:admin -- cleanup-courses \
               --namespace "$TEST_NAMESPACE" --emulator || true
             kill "$chromedriver_pid" "$emulator_pid" 2>/dev/null || true
@@ -162,6 +164,8 @@ jobs:
             sleep 2
           done
           npm --prefix functions run seed:emulator
+          npm --prefix functions run e2e:admin -- prepare-enrollment-matrix \
+            --namespace "$TEST_NAMESPACE" --emulator
 
           drive() {
             local target="$1"
@@ -180,6 +184,8 @@ jobs:
           drive integration_test/role_navigation_test.dart
           drive integration_test/subscribe_to_course_test.dart
           drive integration_test/waitlist_swap_test.dart
+          drive integration_test/subscription_limits_test.dart
+          drive integration_test/waitlist_subscription_matrix_test.dart
           drive integration_test/course_management_test.dart
           drive integration_test/registration_unverified_test.dart \
             --dart-define=SIGNUP_TEST_EMAIL="$SIGNUP_EMAIL" \

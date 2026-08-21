@@ -8,6 +8,7 @@
 
 import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
+import { romeWeekBoundsMillis } from "../enrollment/romeTime";
 
 // emulators:exec esporta FIRESTORE_EMULATOR_HOST/FIREBASE_AUTH_EMULATOR_HOST e
 // GCLOUD_PROJECT per il processo figlio: l'Admin SDK punta agli emulatori.
@@ -80,6 +81,35 @@ async function createCourse(
       waitlistEnabled: true,
       ...over,
     });
+}
+
+/** Scrive la fonte di verità e lo snapshot utente come farebbe assignSubscription. */
+async function attachSubscription(
+  userId: string,
+  id: string,
+  over: Record<string, unknown>
+): Promise<void> {
+  const record = {
+    id,
+    planKey: "open_2x_3m",
+    family: "OPEN",
+    billingMode: "FREQUENCY",
+    courseTypeTags: ["Open"],
+    weeklyFrequency: 2,
+    remainingEntries: null,
+    startDate: Timestamp.fromMillis(Date.now() - 24 * 3600 * 1000),
+    endDate: Timestamp.fromMillis(Date.now() + 60 * 24 * 3600 * 1000),
+    ...over,
+  };
+  const { id: _snapshotId, ...doc } = record;
+  await db.collection("subscriptions").doc(id).set({ userId, ...doc });
+  await db.collection("users").doc(userId).update({ activeSubscriptions: [record] });
+}
+
+/** Lunedì della prossima settimana Rome, con ore centrali per evitare confini DST. */
+function nextRomeWeekStart(): number {
+  const thisWeek = romeWeekBoundsMillis(Date.now()).start;
+  return thisWeek + 7 * 24 * 3600 * 1000;
 }
 
 interface CallResult {
@@ -223,6 +253,75 @@ describe("integrazione emulatore — write-path enrollment", () => {
     expect(okCount).toBe(1);
     const user = await userDoc(u);
     expect((user.courses as string[]).length).toBe(1);
+  });
+
+  test("CONCORRENZA Open 2x: un solo slot settimanale residuo consente una sola iscrizione", async () => {
+    const u = uniq("u-open-race");
+    const token = await createUser(u, { tipologiaCorsoTags: [] });
+    const subscriptionId = uniq("sub-open-race");
+    await attachSubscription(u, subscriptionId, {});
+
+    const monday = nextRomeWeekStart();
+    const used = uniq("c-open-used");
+    const a = uniq("c-open-a");
+    const b = uniq("c-open-b");
+    await Promise.all([
+      createCourse(used, {
+        startDate: Timestamp.fromMillis(monday + 10 * 3600 * 1000),
+        endDate: Timestamp.fromMillis(monday + 11 * 3600 * 1000),
+      }),
+      createCourse(a, {
+        startDate: Timestamp.fromMillis(monday + 34 * 3600 * 1000),
+        endDate: Timestamp.fromMillis(monday + 35 * 3600 * 1000),
+      }),
+      createCourse(b, {
+        startDate: Timestamp.fromMillis(monday + 58 * 3600 * 1000),
+        endDate: Timestamp.fromMillis(monday + 59 * 3600 * 1000),
+      }),
+    ]);
+    // Una prenotazione già esistente lascia esattamente uno slot del piano 2x.
+    await db.collection("users").doc(u).update({ courses: [used] });
+
+    const [ra, rb] = await Promise.all([
+      call("subscribeToCourse", token, { courseId: a, userId: u }),
+      call("subscribeToCourse", token, { courseId: b, userId: u }),
+    ]);
+    expect([ra, rb].filter((r) => r.ok)).toHaveLength(1);
+    expect([ra, rb].filter((r) => r.errorStatus === "FAILED_PRECONDITION")).toHaveLength(1);
+    const after = await userDoc(u);
+    expect(after.courses).toHaveLength(2); // il corso già usato + un vincitore
+    expect((await db.collection("subscriptions").doc(subscriptionId).get()).data()?.remainingEntries)
+      .toBeNull(); // FREQUENCY non scala crediti
+  });
+
+  test("CONCORRENZA ENTRIES: l'ultimo ingresso non può essere consumato due volte", async () => {
+    const u = uniq("u-entries-race");
+    const token = await createUser(u, { tipologiaCorsoTags: [] });
+    const subscriptionId = uniq("sub-hyrox-race");
+    await attachSubscription(u, subscriptionId, {
+      planKey: "hyrox_10i_3m",
+      family: "HYROX",
+      billingMode: "ENTRIES",
+      courseTypeTags: ["Hyrox"],
+      weeklyFrequency: null,
+      remainingEntries: 1,
+    });
+    const a = uniq("c-hyrox-a");
+    const b = uniq("c-hyrox-b");
+    await Promise.all([
+      createCourse(a, { tags: ["Hyrox"] }),
+      createCourse(b, { tags: ["Hyrox"] }),
+    ]);
+
+    const [ra, rb] = await Promise.all([
+      call("subscribeToCourse", token, { courseId: a, userId: u }),
+      call("subscribeToCourse", token, { courseId: b, userId: u }),
+    ]);
+    expect([ra, rb].filter((r) => r.ok)).toHaveLength(1);
+    expect([ra, rb].filter((r) => r.errorStatus === "FAILED_PRECONDITION")).toHaveLength(1);
+    expect((await userDoc(u)).courses).toHaveLength(1);
+    expect((await db.collection("subscriptions").doc(subscriptionId).get()).data()?.remainingEntries)
+      .toBe(0);
   });
 
   test("deleteCourse atomico: rimborsi (legacy + abbonamento via registro), waitlist pulita, corso eliminato", async () => {
@@ -445,5 +544,130 @@ describe("integrazione emulatore — write-path enrollment", () => {
     });
     expect(suDisabilitato.ok).toBe(false);
     expect((await courseDoc(disabilitato))?.waitlist).toEqual([]);
+  });
+
+  test("waitlist: Open, Hyrox, PT e legacy aggiornano entrambi i lati senza consumo", async () => {
+    const rows = [
+      {
+        label: "Open",
+        tag: "Open",
+        user: { tipologiaCorsoTags: [] },
+        subscription: {},
+      },
+      {
+        label: "Hyrox",
+        tag: "Hyrox",
+        user: { tipologiaCorsoTags: [] },
+        subscription: {
+          planKey: "hyrox_10i_3m",
+          family: "HYROX",
+          billingMode: "ENTRIES",
+          courseTypeTags: ["Hyrox"],
+          weeklyFrequency: null,
+          remainingEntries: 1,
+        },
+      },
+      {
+        label: "PT",
+        tag: "Personal Trainer",
+        user: { tipologiaCorsoTags: [] },
+        subscription: {
+          planKey: "pt_10i_3m",
+          family: "PT",
+          billingMode: "ENTRIES",
+          courseTypeTags: ["Personal Trainer"],
+          weeklyFrequency: null,
+          remainingEntries: 1,
+        },
+      },
+      {
+        label: "legacy",
+        tag: "Open",
+        user: {
+          tipologiaIscrizione: "PACCHETTO_ENTRATE",
+          entrateDisponibili: 1,
+          tipologiaCorsoTags: ["Open"],
+        },
+        subscription: null,
+      },
+    ];
+
+    for (const row of rows) {
+      const u = uniq(`u-wl-${row.label}`);
+      const token = await createUser(u, row.user);
+      let subscriptionId: string | null = null;
+      if (row.subscription) {
+        subscriptionId = uniq(`sub-wl-${row.label}`);
+        await attachSubscription(u, subscriptionId, row.subscription);
+      }
+      const c = uniq(`c-wl-${row.label}`);
+      await createCourse(c, { tags: [row.tag], capacity: 1, subscribed: 1 });
+
+      const before = await userDoc(u);
+      const joined = await call("joinWaitlist", token, { courseId: c, userId: u });
+      expect(joined.ok).toBe(true);
+      expect((await courseDoc(c))?.waitlist).toEqual([u]);
+      expect((await userDoc(u)).waitlistCourses).toEqual([c]);
+      expect((await userDoc(u)).entrateDisponibili).toBe(before.entrateDisponibili);
+      if (subscriptionId) {
+        expect((await db.collection("subscriptions").doc(subscriptionId).get()).data()?.remainingEntries)
+          .toBe((row.subscription as Record<string, unknown>).remainingEntries);
+      }
+    }
+  });
+
+  test("waitlist: rifiuta scaduto, ENTRIES esaurito e Open al limite senza scritture", async () => {
+    const expired = uniq("u-wl-expired");
+    const expiredToken = await createUser(expired, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 1,
+      fineIscrizione: Timestamp.fromMillis(Date.now() - 1),
+    });
+    const exhausted = uniq("u-wl-exhausted");
+    const exhaustedToken = await createUser(exhausted, { tipologiaCorsoTags: [] });
+    await attachSubscription(exhausted, uniq("sub-wl-exhausted"), {
+      planKey: "hyrox_10i_3m",
+      family: "HYROX",
+      billingMode: "ENTRIES",
+      courseTypeTags: ["Hyrox"],
+      weeklyFrequency: null,
+      remainingEntries: 0,
+    });
+    const limited = uniq("u-wl-limited");
+    const limitedToken = await createUser(limited, { tipologiaCorsoTags: [] });
+    await attachSubscription(limited, uniq("sub-wl-limited"), { weeklyFrequency: 1 });
+
+    const monday = nextRomeWeekStart();
+    const used = uniq("c-wl-used");
+    const expiredCourse = uniq("c-wl-expired");
+    const exhaustedCourse = uniq("c-wl-exhausted");
+    const limitedCourse = uniq("c-wl-limited");
+    await Promise.all([
+      createCourse(used, {
+        startDate: Timestamp.fromMillis(monday + 10 * 3600 * 1000),
+        endDate: Timestamp.fromMillis(monday + 11 * 3600 * 1000),
+      }),
+      createCourse(expiredCourse, { capacity: 1, subscribed: 1 }),
+      createCourse(exhaustedCourse, { tags: ["Hyrox"], capacity: 1, subscribed: 1 }),
+      createCourse(limitedCourse, {
+        capacity: 1,
+        subscribed: 1,
+        startDate: Timestamp.fromMillis(monday + 34 * 3600 * 1000),
+        endDate: Timestamp.fromMillis(monday + 35 * 3600 * 1000),
+      }),
+    ]);
+    await db.collection("users").doc(limited).update({ courses: [used] });
+
+    for (const [token, userId, courseId] of [
+      [expiredToken, expired, expiredCourse],
+      [exhaustedToken, exhausted, exhaustedCourse],
+      [limitedToken, limited, limitedCourse],
+    ]) {
+      const result = await call("joinWaitlist", token, { courseId, userId });
+      expect(result.ok).toBe(false);
+      expect(result.errorStatus).toBe("FAILED_PRECONDITION");
+      expect((await courseDoc(courseId))?.waitlist).toEqual([]);
+      expect((await userDoc(userId)).waitlistCourses ?? []).toEqual([]);
+    }
   });
 });
