@@ -79,7 +79,7 @@ lib/
 │   └── protected/                         # Area autenticata
 │       ├── protected.dart                 # Scaffold principale con endDrawer admin
 │       ├── home_page.dart                 # Dashboard con abbonamenti/certificati in scadenza
-│       ├── calendar_page.dart             # Calendario corsi con filtri e iscrizioni
+│       ├── calendar_page.dart             # Calendario corsi: filtri Tipologia/Sala, card in ordine cronologico
 │       ├── course_management_page.dart    # CRUD corsi (crea/modifica/duplica)
 │       ├── recurring_course_page.dart     # Gestione corsi ricorrenti
 │       ├── admin_users_page.dart          # Lista utenti admin
@@ -244,7 +244,7 @@ Un utente puo avere piu abbonamenti attivi insieme. La fonte di verita e la coll
 
 I tag dei corsi sono in `CourseTags` (Personal Trainer, Open, **Hyrox**, Hey Mamma). Il registry `CourseTypes` (`lib/utils/course_types.dart`) mappa ogni tag a una tipologia con `displayName`, famiglia di abbonamento e `defaultSala` (quest'ultimo previsto per il futuro, non usato in v1). La tipologia per eligibility si deriva dai `tags` via `CourseTypes.primaryForTags`.
 
-`Course.courseType` e un enum legacy limitato a Open/PT e serve anche per l'immagine di default; non usarlo per le regole di accesso o per rappresentare Hyrox e Hey Mamma. `imageKey` deve essere una chiave valida di `CourseImages`, altrimenti la UI applica il default della `courseType`.
+`Course.courseType` e un enum legacy limitato a Open/PT: il suo **unico** uso residuo e la scelta dell'immagine di default. Non usarlo per le regole di accesso, per raggruppare i corsi ne per rappresentare Hyrox e Hey Mamma. La UI mostra la tipologia reale tramite `CourseTypes.primaryForTags` + i token colore/icona di `lib/utils/course_type_style.dart`. `imageKey` deve essere una chiave valida di `CourseImages`, altrimenti la UI applica il default della `courseType`.
 
 ## Stato globale Redux
 

@@ -6,9 +6,11 @@ import 'package:fitrope_app/utils/waitlist_ui_helper.dart';
 import 'package:fitrope_app/api/get_user_data.dart';
 import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
+import 'package:fitrope_app/components/course_filter_bar.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
+import 'package:fitrope_app/utils/course_filters.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/components/loader.dart';
@@ -17,7 +19,6 @@ import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
-import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:flutter/material.dart';
@@ -43,13 +44,29 @@ class _CalendarPageState extends State<CalendarPage> {
   late DateTime currentDate;
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
-  String? _tagFilter; // null = tutti i tag
+
+  // Filtri della lista corsi. Le due dimensioni (Tipologia e Sala) restano
+  // entrambe attive e si combinano in AND; il selettore decide solo quale
+  // gruppo di chip è visibile. Set vuoto = "tutti".
+  // I filtri NON si azzerano al cambio giorno: così si può seguire una
+  // tipologia lungo la settimana senza riselezionarla ogni volta.
+  final Set<String> _typeFilter = {};
+  final Set<String> _salaFilter = {};
+  CourseFilterDimension _filterDimension = CourseFilterDimension.tipologia;
   // null = default in base al layout (mese su desktop, settimana su mobile);
   // una volta che l'utente usa il toggle, il valore esplicito resta per la sessione.
   bool? _monthExpanded;
   bool _fabOpen = false; // speed-dial CTA admin (solo mobile/tablet)
 
   bool get _isStaff => user.role == 'Admin' || user.role == 'Trainer';
+
+  void _clearFilters() => setState(() {
+        _typeFilter.clear();
+        _salaFilter.clear();
+      });
+
+  static void _toggle(Set<String> set, String key) =>
+      set.contains(key) ? set.remove(key) : set.add(key);
 
   @override
   void initState() {
@@ -114,7 +131,6 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void onSelectDate(DateTime selectedDate) {
     currentDate = selectedDate;
-    _tagFilter = null; // ogni giorno riparte da "Tutti"
     selectedCourses = [];
     String indexDate = DateFormat(pattern).format(selectedDate);
     if (coursesByDate[indexDate] != null) {
@@ -500,46 +516,6 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildSectionHeader(CourseType type) {
-    IconData icon;
-    Color accentColor;
-    switch (type) {
-      case CourseType.personal_trainer:
-        icon = Icons.person;
-        accentColor = primaryColor;
-        break;
-      case CourseType.open:
-        icon = Icons.group;
-        accentColor = secondaryColor;
-        break;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: accentColor, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            type.label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: accentColor,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: accentColor.withValues(alpha: 0.3),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCourseCard(Course course) {
     return CoursePreviewCard(
       key: ValueKey(course.uid),
@@ -619,57 +595,17 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  // Chip di filtro per tag dei corsi del giorno selezionato. I tag sono
-  // dinamici: i chip mostrano "Tutti" + i tag effettivamente presenti.
-  Widget _buildTagFilterChips() {
-    if (selectedCourses.isEmpty) return const SizedBox.shrink();
-    final tags = selectedCourses.expand((c) => c.tags).toSet().toList()..sort();
-    if (tags.isEmpty) return const SizedBox.shrink();
-
-    int countOf(String? tag) => tag == null
-        ? selectedCourses.length
-        : selectedCourses.where((c) => c.tags.contains(tag)).length;
-    Widget chip(String label, String? value) => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: ChoiceChip(
-            label: Text('$label (${countOf(value)})'),
-            selected: _tagFilter == value,
-            onSelected: (_) => setState(() => _tagFilter = value),
-            visualDensity: VisualDensity.compact,
-          ),
-        );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6, left: 2),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.filter_list,
-                    size: 16, color: onPrimaryColor.withValues(alpha: 0.6)),
-                const SizedBox(width: 4),
-                Text('Filtra per tag',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: onPrimaryColor.withValues(alpha: 0.6))),
-              ],
-            ),
-          ),
-          Wrap(
-            spacing: 0,
-            runSpacing: 4,
-            children: [
-              chip('Tutti', null),
-              ...tags.map((t) => chip(t, t)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildFilterBar() => CourseFilterBar(
+        courses: selectedCourses,
+        selectedTypes: _typeFilter,
+        selectedSale: _salaFilter,
+        dimension: _filterDimension,
+        onDimensionChanged: (dimension) =>
+            setState(() => _filterDimension = dimension),
+        onToggleType: (key) => setState(() => _toggle(_typeFilter, key)),
+        onToggleSala: (key) => setState(() => _toggle(_salaFilter, key)),
+        onClearFilters: _clearFilters,
+      );
 
   // Numero di colonne in base alla larghezza disponibile: 1 su mobile,
   // 2-3 su desktop per sfruttare lo spazio orizzontale.
@@ -715,46 +651,60 @@ class _CalendarPageState extends State<CalendarPage> {
           Icons.event_busy, 'Nessun corso programmato in questa giornata');
     }
 
-    // Applica il filtro per tag (chip).
-    final visible = _tagFilter == null
-        ? selectedCourses
-        : selectedCourses.where((c) => c.tags.contains(_tagFilter)).toList();
-    if (visible.isEmpty) {
-      return _buildEmptyState(Icons.filter_alt_off,
-          'Nessun corso con il tag "$_tagFilter" in questa giornata');
-    }
-
-    // Raggruppa i corsi per tipologia
-    final groupedCourses = <CourseType, List<Course>>{};
-    for (final course in visible) {
-      groupedCourses.putIfAbsent(course.courseType, () => []);
-      groupedCourses[course.courseType]!.add(course);
-    }
-
-    // Ordine di visualizzazione delle sezioni
-    const typeOrder = [CourseType.personal_trainer, CourseType.open];
-    final presentTypes =
-        typeOrder.where((type) => groupedCourses.containsKey(type)).toList();
+    // Ordine cronologico, senza raggruppare per `courseType`: quell'enum ha
+    // solo open/personal_trainer, quindi un corso Hyrox o Hey Mamma finiva
+    // sotto l'intestazione sbagliata. La tipologia reale (dai `tags`) è ora
+    // sulla card, come colore di accento e badge.
+    final visible = applyCourseFilters(selectedCourses,
+        types: _typeFilter, sale: _salaFilter);
+    if (visible.isEmpty) return _buildFilteredEmptyState();
 
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = _columnsFor(constraints.maxWidth);
+      builder: (context, constraints) =>
+          _buildCards(visible, _columnsFor(constraints.maxWidth)),
+    );
+  }
 
-        // Se c'è un solo tipo, mostra senza header di sezione
-        if (presentTypes.length <= 1) {
-          return _buildCards(visible, columns);
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: presentTypes
-              .expand((type) => [
-                    _buildSectionHeader(type),
-                    _buildCards(groupedCourses[type]!, columns),
-                  ])
-              .toList(),
-        );
-      },
+  // Empty state distinto da quello del giorno senza corsi: qui i corsi ci sono,
+  // è la selezione che non ne lascia passare nessuno. Va detto, con la via
+  // d'uscita a portata di dito.
+  Widget _buildFilteredEmptyState() {
+    final total = selectedCourses.length;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.filter_alt_off,
+                size: 56, color: onPrimaryColor.withValues(alpha: 0.30)),
+            const SizedBox(height: 12),
+            Text('Nessun corso con questi filtri',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: onPrimaryColor.withValues(alpha: 0.75),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(
+                'In questa giornata ci ${total == 1 ? 'è 1 corso' : 'sono $total corsi'}, ma nessuno corrisponde alla selezione.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: onPrimaryColor.withValues(alpha: 0.65),
+                    fontSize: 14)),
+            const SizedBox(height: 14),
+            ElevatedButton.icon(
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.filter_alt_off, size: 18),
+              label: const Text('Azzera filtri'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -894,7 +844,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildDayContextHeader(),
-                                    _buildTagFilterChips(),
+                                    _buildFilterBar(),
                                     _buildSelectedCoursesList(),
                                   ],
                                 ),
@@ -910,7 +860,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _buildDayContextHeader(),
-                              _buildTagFilterChips(),
+                              _buildFilterBar(),
                               _buildSelectedCoursesList(),
                               // Spazio per non far coprire l'ultima card dal FAB.
                               if (_isStaff) const SizedBox(height: 80),

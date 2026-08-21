@@ -2,6 +2,8 @@ import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/capacity_color.dart';
 import 'package:fitrope_app/utils/course_images.dart';
+import 'package:fitrope_app/utils/course_type_style.dart';
+import 'package:fitrope_app/utils/course_types.dart';
 import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/courses/subscribe_to_course.dart';
@@ -598,6 +600,8 @@ class _CourseCardState extends State<CourseCard> {
         return Icons.person_outline;
       case 'tipologia':
         return Icons.fitness_center;
+      case 'sala':
+        return Icons.meeting_room_outlined;
       case 'iscritti':
         return Icons.groups_outlined;
       default:
@@ -648,6 +652,46 @@ class _CourseCardState extends State<CourseCard> {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  // Identità visiva della tipologia reale del corso, ricavata dai `tags`.
+  CourseTypeStyle get _typeStyle => courseTypeStyleForTags(widget.course.tags);
+
+  // Badge della tipologia: colore + icona + nome. Il nome c'è sempre perché il
+  // colore da solo non basta a distinguerlo dalle tonalità della capienza.
+  // Assente se nessun tag del corso è una tipologia registrata: meglio niente
+  // che un'etichetta inventata.
+  Widget _buildTypeBadge() {
+    final type = CourseTypes.primaryForTags(widget.course.tags);
+    if (type == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: _typeStyle.color,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_typeStyle.icon, size: 13, color: Colors.white),
+              const SizedBox(width: 4),
+              Text(
+                type.displayName,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -803,8 +847,19 @@ class _CourseCardState extends State<CourseCard> {
                 ),
               ),
             ),
+            // Accento colore della tipologia sul bordo sinistro. Va nello
+            // Stack e non come `Border` del Container: un bordo non uniforme
+            // non è compatibile con `borderRadius`.
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(width: 5, color: _typeStyle.color),
+            ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              // `left` maggiore per lasciare respiro all'accento colore.
+              padding: const EdgeInsets.only(
+                  left: 16, right: 12, top: 12, bottom: 12),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -822,7 +877,9 @@ class _CourseCardState extends State<CourseCard> {
                       if (widget.isAdmin) renderAdminButtons(),
                     ],
                   ),
-                  // Riga 2: Metadati con icone (orario, trainer, tipologia)
+                  // Riga 2: Badge della tipologia reale (dai tags)
+                  _buildTypeBadge(),
+                  // Riga 3: Metadati con icone (orario, trainer, sala)
                   if (widget.description.trim() != "") _buildMetadata(),
                   // Riga 3: Bottoni iscrizione
                   if (!widget.isAdmin)
