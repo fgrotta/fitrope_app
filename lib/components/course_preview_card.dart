@@ -121,13 +121,18 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
     final trainer =
         "Trainer: ${UserDisplayUtils.getTrainerName(widget.course.trainerId, widget.trainers)}";
 
-    final tipologia = widget.course.courseType.label;
+    // La tipologia non è più una riga di metadati: sta nel badge colorato in
+    // testa alla card, che mostra la tipologia REALE (dai `tags`) e non l'enum
+    // legacy `courseType`, che conosce solo Open e Personal Trainer.
+    // Al suo posto la sala, che finora era salvata ma non mostrata da nessuna
+    // parte in lettura.
+    final sala = "Sala: ${widget.course.sala ?? 'Nessuna sala'}";
 
     if (widget.showDate) {
       final courseDate = toItalianTime(widget.course.startDate.toDate());
-      return "Orario: ${formatDate(courseDate)}, ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: $tipologia";
+      return "Orario: ${formatDate(courseDate)}, ${getCourseTimeRange(widget.course)}\n$trainer\n$sala";
     } else {
-      return "Orario: ${getCourseTimeRange(widget.course)}\n$trainer\nTipologia: $tipologia";
+      return "Orario: ${getCourseTimeRange(widget.course)}\n$trainer\n$sala";
     }
   }
 
