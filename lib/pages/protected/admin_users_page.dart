@@ -1,10 +1,10 @@
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/authentication/toggle_user_status.dart';
 import 'package:fitrope_app/authentication/reset_password.dart';
-import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
+import 'package:fitrope_app/utils/dashboard_subscription_metrics.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/pages/protected/create_user_page.dart';
@@ -24,7 +24,12 @@ enum AbbonamentoScadenzaListFilter {
 }
 
 class AdminUsersPage extends StatefulWidget {
-  const AdminUsersPage({super.key});
+  final Future<List<FitropeUser>> Function() loadUsersOperation;
+
+  const AdminUsersPage({
+    super.key,
+    Future<List<FitropeUser>> Function()? loadUsersOperation,
+  }) : loadUsersOperation = loadUsersOperation ?? getUsers;
 
   @override
   State<AdminUsersPage> createState() => _AdminUsersPageState();
@@ -115,7 +120,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     });
 
     try {
-      final usersList = await getUsers();
+      final usersList = await widget.loadUsersOperation();
       if (!mounted) return;
 
       setState(() {
@@ -196,14 +201,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
             break;
           case AbbonamentoScadenzaListFilter.inScadenzaProssimi30Giorni:
             result = result
-                .where((u) =>
-                    AbbonamentoHelper.isFineIscrizioneNeiProssimi30Giorni(
-                      u.fineIscrizione,
-                    ))
+                .where(
+                    (u) => usersWithSubscriptionsExpiringWithin([u]).isNotEmpty)
                 .toList();
             break;
           case AbbonamentoScadenzaListFilter.senzaScadenza:
-            result = result.where((u) => u.fineIscrizione == null).toList();
+            result = usersWithoutSubscriptionEndDate(result);
             break;
         }
       }
@@ -379,6 +382,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     final bool isAdmin = user.role == 'Admin';
 
     final tagDropdown = DropdownButtonFormField<String?>(
+      key: const Key('admin-users-tag-filter'),
+      isExpanded: true,
       initialValue: selectedTagFilter,
       decoration: const InputDecoration(
         labelText: 'Tag',
@@ -398,6 +403,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
 
     final tipologiaDropdown = DropdownButtonFormField<TipologiaIscrizione?>(
+      key: const Key('admin-users-subscription-filter'),
+      isExpanded: true,
       initialValue: selectedTipologiaFilter,
       decoration: const InputDecoration(
         labelText: 'Tipologia abbonamento',
@@ -419,6 +426,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
 
     final statoDropdown = DropdownButtonFormField<bool?>(
+      key: const Key('admin-users-status-filter'),
+      isExpanded: true,
       initialValue: activeFilter,
       decoration: const InputDecoration(
         labelText: 'Stato',
@@ -439,6 +448,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
     final Widget? scadenzaAbbonamentoFilterDropdown = isAdmin
         ? DropdownButtonFormField<AbbonamentoScadenzaListFilter>(
+            key: const Key('admin-users-expiry-filter'),
+            isExpanded: true,
             initialValue: _abbonamentoScadenzaFilter,
             decoration: const InputDecoration(
               labelText: 'Scadenza abbonamento',
@@ -588,10 +599,17 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   ],
                   rows: displayedUsers.map((fitropeUser) {
                     return DataRow(
+                      key: ValueKey('admin-user-row-${fitropeUser.uid}'),
                       onSelectChanged: (_) => showUserDetails(fitropeUser),
                       cells: [
-                        DataCell(Text(
-                            '${fitropeUser.name} ${fitropeUser.lastName}')),
+                        DataCell(
+                          Text(
+                            '${fitropeUser.name} ${fitropeUser.lastName}',
+                            key: ValueKey(
+                              'admin-user-name-${fitropeUser.uid}',
+                            ),
+                          ),
+                        ),
                         DataCell(Text(fitropeUser.email)),
                         if (showDesktopExtraColumns) ...[
                           DataCell(
@@ -750,6 +768,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   ),
                   const SizedBox(height: 16),
                   TextField(
+                    key: const Key('admin-users-search-field'),
                     controller: searchController,
                     onChanged: filterUsers,
                     decoration: const InputDecoration(
@@ -767,6 +786,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ElevatedButton.icon(
+                        key: const Key('admin-users-create-button'),
                         onPressed: _navigateToCreateUser,
                         icon: const Icon(Icons.person_add, color: Colors.white),
                         label: const Text('Crea Utente',
@@ -782,6 +802,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
+                        key: const Key('admin-users-create-button'),
                         onPressed: _navigateToCreateUser,
                         icon: const Icon(Icons.person_add, color: Colors.white),
                         label: const Text('Crea Utente',
@@ -836,6 +857,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
                                   final user = displayedUsers[index];
                                   return Container(
+                                    key: ValueKey('admin-user-row-${user.uid}'),
                                     margin: const EdgeInsets.only(bottom: 8),
                                     decoration: BoxDecoration(
                                       color: Colors.white,

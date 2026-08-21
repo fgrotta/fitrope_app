@@ -22,14 +22,13 @@ class SignInResponse {
 }
 
 Future<SignInResponse> signInWithEmailPassword(
-    String email, String password) async {
+  String email,
+  String password,
+) async {
   store.dispatch(StartLoadingAction());
   try {
-    UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
+    UserCredential userCredential = await FirebaseAuth.instance
+        .signInWithEmailAndPassword(email: email, password: password);
 
     User? user = userCredential.user;
 
@@ -38,9 +37,10 @@ Future<SignInResponse> signInWithEmailPassword(
         store.dispatch(FinishLoadingAction());
         print('Email non verificata.');
         return SignInResponse(
-            error:
-                "Email non verificata. Controlla la tua casella di posta per il link di verifica.",
-            emailNotVerified: true);
+          error:
+              "Email non verificata. Controlla la tua casella di posta per il link di verifica.",
+          emailNotVerified: true,
+        );
       }
 
       print("User signed in: ${user.email}");
@@ -58,29 +58,36 @@ Future<SignInResponse> signInWithEmailPassword(
           // Disconnetti l'utente da Firebase Auth
           await FirebaseAuth.instance.signOut();
           return SignInResponse(
-              error:
-                  "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
+            error:
+                "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.",
+          );
         }
 
         // Popola la cache degli utenti in background
-        unawaited(getUsers().catchError((error) {
-          // Gestione silenziosa degli errori - non blocca il processo di login
-          print('Background cache population failed: $error');
-          return <FitropeUser>[];
-        }));
+        unawaited(
+          getUsers().catchError((error) {
+            // Gestione silenziosa degli errori - non blocca il processo di login
+            print('Background cache population failed: $error');
+            return <FitropeUser>[];
+          }),
+        );
 
         print(
-            '🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
+          '🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}',
+        );
         // Client SDK (per push future): identifica l'utente se abbiamo un permesso push
         OneSignalService.login(fitropeUser.uid);
         if (fitropeUser.email.isNotEmpty) {
           OneSignalService.addEmail(fitropeUser.email);
         }
-        unawaited(OneSignalService.syncPushPreference(
-            fitropeUser.pushNotificationsEnabled));
+        unawaited(
+          OneSignalService.syncPushPreference(
+            fitropeUser.pushNotificationsEnabled,
+          ),
+        );
         // Server-side: garantisce che l'utente esista su OneSignal con la sua email,
         // indipendentemente dal permesso push del browser. Fire-and-forget.
-        if (fitropeUser.email.isNotEmpty) {
+        if (OneSignalService.isEnabled && fitropeUser.email.isNotEmpty) {
           unawaited(ensureOneSignalUser(fitropeUser.uid, fitropeUser.email));
         }
 

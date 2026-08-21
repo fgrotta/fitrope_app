@@ -11,6 +11,7 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/utils/course_form_defaults.dart';
 import 'package:fitrope_app/components/sala_selector_card.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -19,13 +20,21 @@ class CourseManagementPage extends StatefulWidget {
   final Course? courseToEdit;
   final Course? courseToDuplicate;
   final String mode; // 'create', 'edit', 'duplicate'
+  final Future<List<FitropeUser>> Function() loadTrainers;
+  final Future<Course?> Function(Course course) createCourseOperation;
+  final Future<void> Function(Course course) updateCourseOperation;
 
   const CourseManagementPage({
     super.key,
     this.courseToEdit,
     this.courseToDuplicate,
     required this.mode,
-  });
+    Future<List<FitropeUser>> Function()? loadTrainers,
+    Future<Course?> Function(Course course)? createCourseOperation,
+    Future<void> Function(Course course)? updateCourseOperation,
+  })  : loadTrainers = loadTrainers ?? getTrainers,
+        createCourseOperation = createCourseOperation ?? createCourse,
+        updateCourseOperation = updateCourseOperation ?? updateCourse;
 
   @override
   State<CourseManagementPage> createState() => _CourseManagementPageState();
@@ -47,6 +56,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   String? selectedImageKey;
   bool reminderEnabled = true;
   bool waitlistEnabled = true;
+  bool accessDenied = false;
   String? selectedSala;
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
 
@@ -57,12 +67,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
     // Controlla se l'utente ha i permessi per accedere a questa pagina
     if (user.role != 'Admin' && user.role != 'Trainer') {
+      accessDenied = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pop(context);
         SnackBarUtils.showErrorSnackBar(
           context,
           'Non hai i permessi per accedere a questa pagina',
         );
+        Navigator.maybePop(context);
       });
       return;
     }
@@ -73,12 +84,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         widget.courseToEdit != null) {
       final course = widget.courseToEdit!;
       if (course.trainerId != null && course.trainerId != user.uid) {
+        accessDenied = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.pop(context);
           SnackBarUtils.showErrorSnackBar(
             context,
             'Non puoi modificare un corso assegnato a un altro trainer',
           );
+          Navigator.maybePop(context);
         });
         return;
       }
@@ -94,7 +106,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
     try {
       // Carica i trainer
-      final trainersResponse = await getTrainers();
+      final trainersResponse = await widget.loadTrainers();
       if (!mounted) return;
       setState(() {
         trainers = trainersResponse;
@@ -122,13 +134,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         ? toItalianTime(widget.courseToEdit!.startDate.toDate())
         : widget.courseToDuplicate != null
             ? toItalianTime(widget.courseToDuplicate!.startDate.toDate())
-            : DateTime.now();
+            : nextDefaultCourseStart(DateTime.now());
 
     // Per la creazione di nuovi corsi, non permettere date nel passato
-    if (widget.mode == 'create' && startDate!.isBefore(DateTime.now())) {
-      DateTime now = DateTime.now();
-      startDate = DateTime(now.year, now.month, now.day, defaultTimeOfDay.hour,
-          defaultTimeOfDay.minute);
+    if (widget.mode == 'create' && !startDate!.isAfter(DateTime.now())) {
+      startDate = nextDefaultCourseStart(DateTime.now());
     }
     // Per la modifica, permettere date future anche se il corso originale era nel passato
 
@@ -359,7 +369,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           waitlistEnabled: waitlistEnabled,
         );
 
-        await updateCourse(updatedCourse);
+        await widget.updateCourseOperation(updatedCourse);
         if (!mounted) return;
         SnackBarUtils.showSuccessSnackBar(
             context, 'Corso modificato con successo');
@@ -385,7 +395,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           waitlistEnabled: waitlistEnabled,
         );
 
-        final created = await createCourse(newCourse);
+        final created = await widget.createCourseOperation(newCourse);
         if (!mounted) return;
         // createCourse rilancia sugli errori; il null resta solo per "corso già
         // esistente" (impossibile con uid vuoto), ma non deve poter passare per
@@ -429,6 +439,16 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (accessDenied) {
+      return const Scaffold(
+        body: Center(
+          child: Text(
+            'Accesso negato',
+            key: Key('course-form-access-denied'),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
@@ -446,6 +466,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
               children: [
                 // Campo Nome
                 TextField(
+                  key: const Key('course-form-name-field'),
                   controller: nameController,
                   decoration: const InputDecoration(
                     labelText: 'Nome corso',
@@ -491,6 +512,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                               ),
                             ),
                             ElevatedButton.icon(
+                              key: const Key('course-form-date-button'),
                               onPressed: _selectDate,
                               icon: const Icon(Icons.calendar_today),
                               label: const Text('Seleziona Data'),
@@ -516,6 +538,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                               ),
                             ),
                             ElevatedButton.icon(
+                              key: const Key('course-form-time-button'),
                               onPressed: _selectTime,
                               icon: const Icon(Icons.access_time),
                               label: const Text('Seleziona Ora'),
@@ -531,6 +554,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                 // Campo Durata (solo per creazione e duplicazione)
                 if (widget.mode != 'edit')
                   TextField(
+                    key: const Key('course-form-duration-field'),
                     controller: durationController,
                     decoration: const InputDecoration(
                       labelText: 'Durata (ore)',
@@ -544,6 +568,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
                 // Campo Capacità
                 TextField(
+                  key: const Key('course-form-capacity-field'),
                   controller: capacityController,
                   decoration: const InputDecoration(
                     labelText: 'Numero massimo partecipanti',
@@ -573,6 +598,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
+                            key: const Key('course-form-trainer-dropdown'),
                             initialValue: selectedTrainerId,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
@@ -607,6 +633,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                 ],
 
                 SalaSelectorCard(
+                  dropdownKey: const Key('course-form-sala-dropdown'),
                   value: selectedSala,
                   onChanged: (value) => setState(() => selectedSala = value),
                 ),
@@ -633,6 +660,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           children: CourseType.values.map((type) {
                             final isSelected = selectedCourseType == type;
                             return ChoiceChip(
+                              key: Key('course-form-type-${type.name}'),
                               label: Text(type.label),
                               selected: isSelected,
                               onSelected: (selected) {
@@ -780,6 +808,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           children: CourseTags.all.map((tag) {
                             final isSelected = selectedTags.contains(tag);
                             return FilterChip(
+                              key: Key('course-form-tag-$tag'),
                               label: Text(tag),
                               selected: isSelected,
                               onSelected: (selected) {
@@ -818,6 +847,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         ),
                         const SizedBox(height: 8),
                         SwitchListTile(
+                          key: const Key('course-form-reminder-switch'),
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Promemoria corso'),
                           subtitle: const Text(
@@ -831,6 +861,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           activeThumbColor: primaryLightColor,
                         ),
                         SwitchListTile(
+                          key: const Key('course-form-waitlist-switch'),
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Lista d\'attesa'),
                           subtitle: const Text(
@@ -885,6 +916,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
+                        key: const Key('course-form-submit-button'),
                         onPressed: isLoading ? null : _saveCourse,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryLightColor,

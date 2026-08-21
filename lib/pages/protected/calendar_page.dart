@@ -26,7 +26,15 @@ import 'package:flutter_redux/flutter_redux.dart';
 import 'package:intl/intl.dart';
 
 class CalendarPage extends StatefulWidget {
-  const CalendarPage({super.key});
+  final Future<List<Course>> Function() loadCourses;
+  final Future<List<FitropeUser>> Function() loadTrainers;
+
+  const CalendarPage({
+    super.key,
+    Future<List<Course>> Function()? loadCourses,
+    Future<List<FitropeUser>> Function()? loadTrainers,
+  })  : loadCourses = loadCourses ?? getAllCourses,
+        loadTrainers = loadTrainers ?? getTrainers;
 
   @override
   State<CalendarPage> createState() => _CalendarPageState();
@@ -55,18 +63,22 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     currentDate = DateTime.now();
     user = store.state.user!;
-    getTrainers().then((List<FitropeUser> response) {
+    widget.loadTrainers().then((List<FitropeUser> response) {
       if (!mounted) return;
       setState(() {
         trainers = response;
       });
+    }).catchError((Object error) {
+      debugPrint('Errore nel caricamento trainer Calendario: $error');
     });
-    getAllCourses().then((List<Course> response) {
+    widget.loadCourses().then((List<Course> response) {
       if (!mounted) return;
       setState(() {
         refreshCourseMap(response);
         onSelectDate(DateTime.now());
       });
+    }).catchError((Object error) {
+      debugPrint('Errore nel caricamento corsi Calendario: $error');
     });
     super.initState();
   }
@@ -103,12 +115,14 @@ class _CalendarPageState extends State<CalendarPage> {
     user = store.state.user!;
     invalidateCoursesCache();
     selectedCourses = [];
-    getAllCourses().then((List<Course> response) {
+    widget.loadCourses().then((List<Course> response) {
       if (mounted) {
         refreshCourseMap(response);
         onSelectDate(currentDate);
         store.dispatch(SetAllCoursesAction(response));
       }
+    }).catchError((Object error) {
+      debugPrint('Errore nell’aggiornamento corsi Calendario: $error');
     });
   }
 
@@ -346,6 +360,7 @@ class _CalendarPageState extends State<CalendarPage> {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton.icon(
+            key: const Key('calendar-view-toggle'),
             onPressed: () => setState(() => _monthExpanded = !expanded),
             icon: Icon(expanded ? Icons.unfold_less : Icons.unfold_more,
                 size: 18),
@@ -453,6 +468,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 d.year == now.year && d.month == now.month && d.day == now.day;
             return Expanded(
               child: GestureDetector(
+                key: Key(
+                  'calendar-week-day-${DateFormat(pattern).format(d)}',
+                ),
                 onTap: () => onSelectDate(DateTime(d.year, d.month, d.day)),
                 child: Container(
                   margin: const EdgeInsets.all(2),
@@ -632,6 +650,7 @@ class _CalendarPageState extends State<CalendarPage> {
     Widget chip(String label, String? value) => Padding(
           padding: const EdgeInsets.only(right: 8),
           child: ChoiceChip(
+            key: Key('calendar-tag-filter-${value ?? 'all'}'),
             label: Text('$label (${countOf(value)})'),
             selected: _tagFilter == value,
             onSelected: (_) => setState(() => _tagFilter = value),
@@ -766,6 +785,7 @@ class _CalendarPageState extends State<CalendarPage> {
       children: [
         Expanded(
           child: ElevatedButton.icon(
+            key: const Key('calendar-create-course-button'),
             onPressed: showCreateCoursePage,
             icon: const Icon(Icons.add, color: onPrimaryColor),
             label: const Text('Crea nuovo corso',
@@ -777,6 +797,7 @@ class _CalendarPageState extends State<CalendarPage> {
         const SizedBox(width: 16),
         Expanded(
           child: ElevatedButton.icon(
+            key: const Key('calendar-recurring-course-button'),
             onPressed: showRecurringCoursePage,
             icon: const Icon(Icons.repeat, color: onPrimaryColor),
             label: const Text('Corsi ricorrenti',

@@ -4,6 +4,7 @@ import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/utils/recurring_course_schedule.dart';
 import 'package:fitrope_app/components/sala_selector_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -15,7 +16,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class RecurringCoursePage extends StatefulWidget {
-  const RecurringCoursePage({super.key});
+  final Future<List<FitropeUser>> Function() loadTrainers;
+  final Future<Course?> Function(Course course) createCourseOperation;
+
+  const RecurringCoursePage({
+    super.key,
+    Future<List<FitropeUser>> Function()? loadTrainers,
+    Future<Course?> Function(Course course)? createCourseOperation,
+  })  : loadTrainers = loadTrainers ?? getTrainers,
+        createCourseOperation = createCourseOperation ?? createCourse;
 
   @override
   State<RecurringCoursePage> createState() => _RecurringCoursePageState();
@@ -90,7 +99,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
 
     try {
       // Carica i trainer
-      final trainersResponse = await getTrainers();
+      final trainersResponse = await widget.loadTrainers();
       if (!mounted) return;
       setState(() {
         trainers = trainersResponse;
@@ -252,30 +261,14 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
 
   List<DateTime> _calculateCourseDates() {
     if (startDate == null || endDate == null) return [];
-
-    List<DateTime> dates = [];
-    DateTime currentDate = DateTime(
-      startDate!.year,
-      startDate!.month,
-      startDate!.day,
+    return calculateRecurringCourseDates(
+      start: startDate!,
+      end: endDate!,
+      weekdays: selectedDays.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toSet(),
     );
-
-    while (currentDate.isBefore(endDate!) ||
-        currentDate.isAtSameMomentAs(endDate!)) {
-      int weekday = currentDate.weekday;
-      if (selectedDays[weekday] == true) {
-        dates.add(DateTime(
-          currentDate.year,
-          currentDate.month,
-          currentDate.day,
-          startDate!.hour,
-          startDate!.minute,
-        ));
-      }
-      currentDate = currentDate.add(const Duration(days: 1));
-    }
-
-    return dates;
   }
 
   bool _validateForm() {
@@ -403,7 +396,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
           waitlistEnabled: waitlistEnabled,
         );
 
-        final created = await createCourse(newCourse);
+        final created = await widget.createCourseOperation(newCourse);
         // Conta solo le creazioni davvero avvenute: prima l'incremento era
         // incondizionato e annunciava "Creati N corsi" anche con N fallimenti.
         if (created == null) {
@@ -461,6 +454,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
               children: [
                 // Campo Nome
                 TextField(
+                  key: const Key('recurring-course-name-field'),
                   controller: nameController,
                   decoration: const InputDecoration(
                     labelText: 'Nome corso',
@@ -506,6 +500,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                               ),
                             ),
                             ElevatedButton.icon(
+                              key: const Key(
+                                  'recurring-course-start-date-button'),
                               onPressed: _selectStartDate,
                               icon: const Icon(Icons.calendar_today),
                               label: const Text('Seleziona Data'),
@@ -531,6 +527,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                               ),
                             ),
                             ElevatedButton.icon(
+                              key: const Key('recurring-course-time-button'),
                               onPressed: _selectTime,
                               icon: const Icon(Icons.access_time),
                               label: const Text('Seleziona Ora'),
@@ -578,6 +575,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                               ),
                             ),
                             ElevatedButton.icon(
+                              key:
+                                  const Key('recurring-course-end-date-button'),
                               onPressed: _selectEndDate,
                               icon: const Icon(Icons.calendar_today),
                               label: const Text('Seleziona Data'),
@@ -608,6 +607,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                         const SizedBox(height: 12),
                         ...selectedDays.entries.map((entry) {
                           return CheckboxListTile(
+                            key: Key('recurring-course-weekday-${entry.key}'),
                             title: Text(dayNames[entry.key]!),
                             value: entry.value,
                             onChanged: (bool? value) {
@@ -624,6 +624,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
 
                 // Campo Durata
                 TextField(
+                  key: const Key('recurring-course-duration-field'),
                   controller: durationController,
                   decoration: const InputDecoration(
                     labelText: 'Durata (ore)',
@@ -637,6 +638,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
 
                 // Campo Capacità
                 TextField(
+                  key: const Key('recurring-course-capacity-field'),
                   controller: capacityController,
                   decoration: const InputDecoration(
                     labelText: 'Numero massimo partecipanti',
@@ -649,6 +651,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                 const SizedBox(height: 20),
 
                 SalaSelectorCard(
+                  dropdownKey: const Key('recurring-course-sala-dropdown'),
                   value: selectedSala,
                   onChanged: (value) => setState(() => selectedSala = value),
                 ),
@@ -910,6 +913,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                         ),
                         const SizedBox(height: 8),
                         SwitchListTile(
+                          key: const Key('recurring-course-reminder-switch'),
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Promemoria corso'),
                           subtitle: const Text(
@@ -923,6 +927,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                           activeThumbColor: primaryLightColor,
                         ),
                         SwitchListTile(
+                          key: const Key('recurring-course-waitlist-switch'),
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Lista d\'attesa'),
                           subtitle: const Text(
@@ -1044,6 +1049,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
+                        key: const Key('recurring-course-submit-button'),
                         onPressed: isLoading ? null : _createRecurringCourses,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,

@@ -1,101 +1,70 @@
-# Test E2E (integration_test)
+# Test E2E Flutter
 
-Test end-to-end che lanciano l'app **reale** e cliccano davvero, eseguiti
-**contro l'ambiente di PRODUZIONE** usando utenti di test dedicati.
-Non c'è emulatore: i corsi vengono **creati durante il test** e **eliminati** in
-tearDown, e i test che mutano dati si ripuliscono da soli.
+La suite avvia l'app reale in Chrome e accetta soltanto due target sicuri:
+Firebase Emulator Suite oppure il progetto staging. Una build senza
+`USE_EMULATOR=true` o `APP_ENV=staging` fallisce prima di inizializzare
+Firebase; la produzione non è mai un ambiente di test.
 
-## Struttura
+## Scenari critici
 
-```
-integration_test/
-├── test_env.example.json   # template credenziali (committato)
-├── test_env.json           # credenziali reali (gitignored — crealo tu)
-├── fixtures/
-│   └── test_users.dart      # 2 utenti, 1 trainer, 1 admin (da env)
-├── helpers/
-│   ├── test_app.dart        # avvio app + gestione splash + attese su rete reale
-│   ├── actions.dart         # azioni riusabili: login(), ...
-│   └── seed.dart            # crea/elimina il corso di test (Ferragosto) + lookup trainer
-├── login_test.dart                # ✅ pronto (non skippato)
-├── subscribe_to_course_test.dart  # iscrizione (skip: true finché non validato)
-└── waitlist_swap_test.dart        # waitlist + scambio posto (skip: true finché non validato)
-```
+- `login_test.dart`: login valido/errato, account disattivato, persistenza
+  sessione e logout.
+- `role_navigation_test.dart`: destinazioni per ruolo e route gestionale
+  protetta.
+- `subscribe_to_course_test.dart`: creazione Admin, iscrizione e cleanup.
+- `waitlist_swap_test.dart`: join, uscita del primo membro e swap atomico.
+- `course_management_test.dart`: creazione singola e serie ricorrente via UI.
+- `registration_unverified_test.dart`: validazioni, creazione prova e blocco
+  email non verificata.
+- `registration_verified_login_test.dart`: seconda fase dopo verifica Admin SDK.
 
-Il driver per l'esecuzione via `flutter drive` esiste già:
-`test_driver/integration_test.dart` (`integrationDriver()`).
+Il driver è `test_driver/integration_test.dart`. Sul web si usa un solo target
+per invocazione con chromedriver sulla porta 4444.
 
-## Scenari
-
-- **login_test** — login valido / credenziali errate.
-- **subscribe_to_course_test** — un utente base si prenota a un corso.
-- **waitlist_swap_test** — corso da 1 posto: Utente 1 si iscrive, Utente 2 va in
-  lista d'attesa, l'Admin li vede, Utente 1 si disiscrive, Utente 2 prende il
-  posto liberato e l'Admin vede la lista d'attesa vuota.
-
-> Gli scenari che iscrivono utenti sono `skip: true` finché non vengono
-> eseguiti e validati la prima volta (servono Chrome + credenziali reali).
-> Richiedono inoltre che gli utenti di test abbiano un **abbonamento attivo con
-> entrate disponibili**.
-
-## Credenziali in un file env (niente più password ad ogni run)
-
-1. Copia il template:
-   ```bash
-   cp integration_test/test_env.example.json integration_test/test_env.json
-   ```
-2. Compila `test_env.json` con gli account reali (email + password):
-   - 2 utenti normali → `TEST_USER1_*`, `TEST_USER2_*`
-   - 1 trainer → `TEST_TRAINER_*` (`TEST_TRAINER_NAME` di default `Francesco Trainer`)
-   - 1 admin → `TEST_ADMIN_*`
-
-   Tutti gli account devono avere **email verificata** e **account attivo**.
-   `test_env.json` è in `.gitignore`: non finisce nel repo.
-
-## Eseguire i test
-
-Su target **web** gli `integration_test` non girano con `flutter test -d chrome`:
-serve `flutter drive` con chromedriver in ascolto.
+## Emulatore
 
 ```bash
-flutter pub get
-
-# 1. chromedriver in ascolto (versione allineata al Chrome installato)
+cd functions && npm ci && npm run build && cd ..
+printf "ONESIGNAL_REST_API_KEY=emulator-dummy-key\n" > functions/.secret.local
+firebase emulators:start --project fit-rope-app-1f575
+cd functions && npm run seed:emulator && cd ..
 chromedriver --port=4444
 
-# 2. Un singolo scenario (le credenziali arrivano dal file env)
 flutter drive \
   --driver=test_driver/integration_test.dart \
   --target=integration_test/login_test.dart \
   -d chrome \
-  --dart-define-from-file=integration_test/test_env.json
+  --dart-define=USE_EMULATOR=true \
+  --dart-define=TEST_RUN_NAMESPACE=manuale \
+  --dart-define-from-file=integration_test/test_env.emulator.json
 ```
 
-> Nessun workflow CI esegue ancora questa suite (vedi TODO in `CLAUDE.md`).
+Il project ID è obbligatorio e deve combaciare con la configurazione Flutter e
+con `seedEmulator.js`. Le fixture includono anche un account disattivato per il
+fail-closed del login. OneSignal è disabilitato dal bootstrap E2E.
 
-## Corsi di test: creati al volo
+## Staging
 
-Non servono corsi predisposti a mano. `helpers/seed.dart` espone:
+Generare un file gitignored `test_env.staging.json` dal template, usando solo
+gli account `stg_*`, e passare `APP_ENV=staging`, tutti i define `FIREBASE_*`
+richiesti e un `TEST_RUN_NAMESPACE` univoco.
 
-- `createFerragostoTestCourse(trainerId: ...)` → crea un corso di test nella
-  **settimana di Ferragosto** (`ferragostoSlot`: 15 agosto, anno corrente o
-  successivo se già passato), assegnato al trainer, con nome generato da
-  `buildTestCourseName(...)`. `reminderEnabled` è **false** di default per non
-  far partire promemoria reali in produzione.
-- `resolveUserIdByEmail(email)` / `resolveUserNameByEmail(email)` → lookup del
-  trainer dall'email.
-- `deleteTestCourse(courseId)` → cleanup (da usare in `addTearDown`).
+Il workflow staging esegue la suite dopo il deploy delle rules. Prima e dopo il
+run usa `functions/scripts/e2eAdmin.js` per eliminare risorse abbandonate.
 
-La creazione/eliminazione richiede permessi di scrittura sui corsi: nei test si
-fa **login come Admin** prima di creare il corso.
+## Registrazione bifase
 
-## ⚠️ Attenzione (ambiente di produzione)
+Il primo drive riceve `SIGNUP_TEST_EMAIL` e `SIGNUP_TEST_PASSWORD`. Poi il
+runner host verifica lo stesso account:
 
-- I test toccano dati **veri**: gli scenari che creano corsi/iscrizioni
-  **devono eliminarli** in `tearDown` (già previsto via `addTearDown`).
-- L'iscrizione/waitlist può inviare email/notifiche reali via OneSignal. Il
-  corso di test nasce con `reminderEnabled: false`; valuta i flag con cautela.
-- Non cancellare gli utenti di test referenziati in `test_env.json`.
+```bash
+npm --prefix functions run e2e:admin -- verify-signup \
+  --email "$SIGNUP_TEST_EMAIL" --emulator
+```
 
-Quando vorrai isolare tutto, il passo successivo è l'emulatore Firebase (punto 1
-del piano): seed e cleanup diventano automatici e senza rischi sul DB reale.
+Il secondo drive verifica il login; `delete-signup` viene sempre eseguito nel
+cleanup. I corsi hanno nomi `[TEST:<namespace>] ...`, data otto giorni avanti
+alle 18:00 Europe/Rome e vengono eliminati tramite la callable Admin
+`deleteCourse`, preservando rimborsi e ledger anche dopo un run interrotto.
+
+Per architettura, catalogo e limiti vedere `docs/AREE_DI_TEST.md`.

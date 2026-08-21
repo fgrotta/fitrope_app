@@ -1,5 +1,8 @@
 # Ambienti di test — analisi e decisione
 
+> Questo documento descrive **dove** eseguire i test. Il catalogo di cosa
+> verificare e del livello corretto è in [AREE_DI_TEST.md](AREE_DI_TEST.md).
+
 > Analisi del 2026-06-10 (post-PR4). Contesto: fino a PR4 ogni prova manuale
 > avveniva direttamente in produzione (`fit-rope-app-1f575`), con gate
 > `kDebugMode` e DebugEmailPage come uniche protezioni. Con il write-path
@@ -53,9 +56,9 @@ categoria C del piano (§8): la rete di regressione permanente del write-path.
 > `CLAUDE.md` e `DEPLOYMENT.md`. I "prerequisiti" qui sotto restano come storico di
 > cosa è servito.
 
-Progetto gemello `fit-rope-staging`: Auth, Firestore, Functions
-deployate, dati sintetici (OneSignal resta l'app di produzione, con guardrail
-server-side: vedi sotto).
+Progetto gemello `fit-rope-staging`: Auth, Firestore, Functions deployate e dati
+sintetici. Il client OneSignal è disabilitato; le email Functions restano
+protette dai guardrail server-side.
 
 - **Copre in più di A/B**: deploy reale (predeploy, secrets, region, IAM),
   **indici veri**, prove da telefono/browser di chiunque, prova generale del
@@ -66,11 +69,9 @@ server-side: vedi sotto).
   - Creazione progetto + **piano Blaze** (functions v2): serve il billing
     account (riusabile quello di prod), costo ~0€ ai volumi di test, budget
     alert consigliato. ⚠️ Richiede azione di Francesco (account/billing).
-  - Parametrizzare `ONESIGNAL_APP_ID`: lato Functions è FATTO (env var, con
-    fallback all'appId prod in `functions/src/handler.ts`); lato client resta
-    hardcoded in `lib/main.dart` con l'appId di PRODUZIONE. Non esiste una
-    seconda app OneSignal: staging usa la stessa app di prod, con push soppresse
-    e email limitate alla allowlist server-side (vedi TODO in `CLAUDE.md`).
+  - `ONESIGNAL_APP_ID` è parametrizzato lato Functions. Non esiste una seconda
+    app OneSignal: il bootstrap client non inizializza l'SDK in staging; push
+    soppresse ed email limitate alla allowlist restano applicate server-side.
   - Secondo `firebase_options` (`lib/firebase_options_staging.dart`, valorizzato da
     `--dart-define` in CI, non committato con valori reali), switch client via
     `--dart-define=APP_ENV=staging` (vedi `lib/app_environment.dart`).

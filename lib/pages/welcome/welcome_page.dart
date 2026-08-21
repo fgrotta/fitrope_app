@@ -40,39 +40,49 @@ class _WelcomePageState extends State<WelcomePage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Image(
-                image: AssetImage('assets/new_logo_only.png'), width: 200),
+              image: AssetImage('assets/new_logo_only.png'),
+              width: 200,
+            ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, LOGIN_ROUTE);
-                    },
-                    style: ButtonStyle(
-                        backgroundColor: WidgetStateProperty.all(ghostColor),
-                        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                            RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ))),
-                    child: const Text(
-                      'Entra',
-                      style: TextStyle(color: surfaceVariantColor),
-                    )),
+                  key: const Key('welcome-login-button'),
+                  onPressed: () {
+                    Navigator.pushNamed(context, LOGIN_ROUTE);
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all(ghostColor),
+                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  child: const Text(
+                    'Entra',
+                    style: TextStyle(color: surfaceVariantColor),
+                  ),
+                ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, REGISTRATION_ROUTE);
-                    },
-                    style: ButtonStyle(
-                        backgroundColor: WidgetStateProperty.all(ghostColor),
-                        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                            RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ))),
-                    child: const Text(
-                      'Registrati',
-                      style: TextStyle(color: surfaceVariantColor),
-                    )),
+                  key: const Key('welcome-registration-button'),
+                  onPressed: () {
+                    Navigator.pushNamed(context, REGISTRATION_ROUTE);
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all(ghostColor),
+                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  child: const Text(
+                    'Registrati',
+                    style: TextStyle(color: surfaceVariantColor),
+                  ),
+                ),
               ],
             ),
           ],

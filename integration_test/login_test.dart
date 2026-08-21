@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/pages/protected/protected.dart';
 import 'package:fitrope_app/pages/welcome/login_page.dart';
 import 'package:fitrope_app/pages/welcome/welcome_page.dart';
@@ -12,7 +13,10 @@ import 'helpers/test_app.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() => assertCredentials(utenteBase1));
+  setUpAll(() {
+    assertCredentials(utenteBase1);
+    assertCredentials(disabledTest);
+  });
 
   testWidgets('Login: un utente valido accede e arriva alla pagina protetta',
       (tester) async {
@@ -46,5 +50,37 @@ void main() {
     // Restiamo sulla LoginPage e compare l'errore.
     await pumpUntilFound(tester, find.text('Email o password sbagliati'));
     expect(find.byType(LoginPage), findsOneWidget);
+  });
+
+  testWidgets('Sessione: persiste al restart e il logout torna alla welcome',
+      (tester) async {
+    await launchTestApp(tester);
+    await login(tester, utenteBase1);
+
+    await launchTestApp(tester, resetSession: false);
+    expect(find.byType(Protected), findsOneWidget);
+
+    await FirebaseAuth.instance.signOut();
+    await launchTestApp(tester, resetSession: false);
+    expect(find.byType(WelcomePage), findsOneWidget);
+  });
+
+  testWidgets('Login: un utente disattivato resta fuori dall’area protetta',
+      (tester) async {
+    await launchTestApp(tester);
+    await tester.tap(find.text('Entra'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('login-email-field')),
+      disabledTest.email,
+    );
+    await tester.enterText(
+      find.byKey(const Key('login-password-field')),
+      disabledTest.password,
+    );
+    await tester.tap(find.byKey(const Key('login-submit-button')));
+    await pumpUntilFound(tester, find.textContaining('disattivato'));
+    expect(find.byType(LoginPage), findsOneWidget);
+    expect(find.byType(Protected), findsNothing);
   });
 }

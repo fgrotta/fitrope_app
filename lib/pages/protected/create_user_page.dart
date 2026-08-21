@@ -6,13 +6,30 @@ import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+typedef CreateUserOperation = Future<CreateUserResponse> Function({
+  String? email,
+  String? password,
+  required String name,
+  required String lastName,
+  required String role,
+  TipologiaIscrizione? tipologiaIscrizione,
+  int? entrateDisponibili,
+  int? entrateSettimanali,
+  DateTime? fineIscrizione,
+  required bool isAnonymous,
+  String? numeroTelefono,
+  List<String>? tipologiaCorsoTags,
+});
+
 class CreateUserPage extends StatefulWidget {
   final String currentUserRole;
+  final CreateUserOperation createUserOperation;
 
   const CreateUserPage({
     super.key,
     required this.currentUserRole,
-  });
+    CreateUserOperation? createUserOperation,
+  }) : createUserOperation = createUserOperation ?? createUser;
 
   @override
   State<CreateUserPage> createState() => _CreateUserPageState();
@@ -62,7 +79,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
     });
 
     try {
-      final response = await createUser(
+      final response = await widget.createUserOperation(
         email: _emailController.text.trim().isEmpty
             ? null
             : _emailController.text.trim(),
@@ -150,6 +167,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 children: [
                   Expanded(
                     child: TextFormField(
+                      key: const Key('create-user-name-field'),
                       controller: _nameController,
                       decoration: const InputDecoration(
                         labelText: 'Nome *',
@@ -168,6 +186,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: TextFormField(
+                      key: const Key('create-user-last-name-field'),
                       controller: _lastNameController,
                       decoration: const InputDecoration(
                         labelText: 'Cognome *',
@@ -189,6 +208,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Numero di Telefono (opzionale)
               TextFormField(
+                key: const Key('create-user-phone-field'),
                 controller: _numeroTelefonoController,
                 decoration: const InputDecoration(
                   labelText: 'Numero di Telefono (opzionale)',
@@ -217,6 +237,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Email (opzionale)
               TextFormField(
+                key: const Key('create-user-email-field'),
                 controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email (opzionale)',
@@ -240,6 +261,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Password (opzionale)
               TextFormField(
+                key: const Key('create-user-password-field'),
                 controller: _passwordController,
                 decoration: const InputDecoration(
                   labelText: 'Password (opzionale)',
@@ -274,6 +296,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
               // Ruolo (solo per Admin)
               if (widget.currentUserRole == 'Admin') ...[
                 DropdownButtonFormField<String>(
+                  key: const Key('create-user-role-dropdown'),
                   initialValue: _selectedRole,
                   decoration: const InputDecoration(
                     labelText: 'Ruolo *',
@@ -297,6 +320,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Tipologia Iscrizione
               DropdownButtonFormField<TipologiaIscrizione?>(
+                key: const Key('create-user-subscription-type-dropdown'),
                 initialValue: _selectedTipologia,
                 decoration: const InputDecoration(
                   labelText: 'Tipologia Iscrizione',
@@ -348,6 +372,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Entrate Disponibili
               TextFormField(
+                key: const Key('create-user-entries-field'),
                 controller: _entrateDisponibiliController,
                 decoration: const InputDecoration(
                   labelText: 'Entrate Disponibili',
@@ -366,6 +391,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Entrate Settimanali
               TextFormField(
+                key: const Key('create-user-weekly-entries-field'),
                 controller: _entrateSettimanaliController,
                 decoration: const InputDecoration(
                   labelText: 'Entrate Settimanali',
@@ -384,6 +410,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Checkbox Anonimo
               CheckboxListTile(
+                key: const Key('create-user-anonymous-checkbox'),
                 title: const Text('Utente Anonimo'),
                 value: _isAnonymous,
                 onChanged: (value) {
@@ -427,6 +454,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                           final isSelected =
                               _selectedTipologiaCorsoTags.contains(tag);
                           return FilterChip(
+                            key: Key('create-user-tag-$tag'),
                             label: Text(tag),
                             selected: isSelected,
                             onSelected: (selected) {
@@ -467,6 +495,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
+                      key: const Key('create-user-submit-button'),
                       onPressed: _isLoading ? null : _createUser,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,

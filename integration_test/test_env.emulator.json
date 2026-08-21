@@ -1,0 +1,13 @@
+{
+  "TEST_USER1_EMAIL": "abbonato@test.it",
+  "TEST_USER1_PASSWORD": "test1234",
+  "TEST_USER2_EMAIL": "mensile@test.it",
+  "TEST_USER2_PASSWORD": "test1234",
+  "TEST_TRAINER_EMAIL": "trainer@test.it",
+  "TEST_TRAINER_PASSWORD": "test1234",
+  "TEST_TRAINER_NAME": "Teo Trainer",
+  "TEST_ADMIN_EMAIL": "admin@test.it",
+  "TEST_ADMIN_PASSWORD": "test1234",
+  "TEST_DISABLED_EMAIL": "disabled@test.it",
+  "TEST_DISABLED_PASSWORD": "test1234"
+}

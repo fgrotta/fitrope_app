@@ -938,6 +938,12 @@ class AddSubscriberDialog extends StatefulWidget {
   final String courseName;
   final List<FitropeUser> existingSubscribers;
   final int capacity;
+  final Future<List<FitropeUser>> Function() loadUsersOperation;
+  final Future<void> Function(
+    String courseId,
+    String userId, {
+    required bool force,
+  }) subscribeOperation;
 
   const AddSubscriberDialog({
     super.key,
@@ -945,7 +951,11 @@ class AddSubscriberDialog extends StatefulWidget {
     required this.courseName,
     required this.existingSubscribers,
     required this.capacity,
-  });
+    Future<List<FitropeUser>> Function()? loadUsersOperation,
+    Future<void> Function(String, String, {required bool force})?
+        subscribeOperation,
+  })  : loadUsersOperation = loadUsersOperation ?? getUsers,
+        subscribeOperation = subscribeOperation ?? subscribeToCourse;
 
   @override
   State<AddSubscriberDialog> createState() => _AddSubscriberDialogState();
@@ -966,7 +976,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
 
   Future<void> _loadUsers() async {
     try {
-      final users = await getUsers();
+      final users = await widget.loadUsersOperation();
       if (!mounted) return;
       setState(() {
         allUsers = users
@@ -1001,7 +1011,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
 
   Future<void> _addSubscriber(String userId) async {
     try {
-      await subscribeToCourse(widget.courseId, userId, force: true);
+      await widget.subscribeOperation(widget.courseId, userId, force: true);
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
@@ -1024,6 +1034,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
           children: [
             // Campo di ricerca
             TextField(
+              key: const Key('add-subscriber-search-field'),
               controller: searchController,
               decoration: const InputDecoration(
                 labelText: 'Cerca per nome o cognome',
@@ -1065,6 +1076,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
                           itemBuilder: (context, index) {
                             final user = filteredUsers[index];
                             return ListTile(
+                              key: ValueKey('add-subscriber-user-${user.uid}'),
                               leading: CircleAvatar(
                                 child: Text(
                                   '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
@@ -1073,6 +1085,9 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
                               title: Text('${user.name} ${user.lastName}'),
                               subtitle: Text(user.email),
                               trailing: IconButton(
+                                key: ValueKey(
+                                  'add-subscriber-action-${user.uid}',
+                                ),
                                 icon: const Icon(Icons.add),
                                 onPressed: () => _addSubscriber(user.uid),
                                 tooltip: 'Aggiungi al corso',

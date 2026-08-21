@@ -45,6 +45,7 @@ admin.initializeApp(appOptions);
 const db = new Firestore({ projectId });
 const PASSWORD = "test1234";
 const MEMBER_UID = "stg_member";
+const MEMBER2_UID = "stg_member2";
 const MEMBER_SUBSCRIPTIONS = [
   {
     planKey: "open_3x_3m",
@@ -65,11 +66,17 @@ function timestampInDays(days) {
 }
 
 function user(uid, email, role, extra = {}) {
+  const lastNames = {
+    stg_admin: "Admin",
+    stg_trainer: "Trainer",
+    stg_member: "Member Uno",
+    stg_member2: "Member Due",
+  };
   return {
     uid,
     email,
-    name: role === "Admin" ? "Staging" : "Test",
-    lastName: role,
+    name: "Staging",
+    lastName: lastNames[uid] || role,
     role,
     courses: [],
     tipologiaIscrizione: null,
@@ -95,6 +102,13 @@ function user(uid, email, role, extra = {}) {
 async function upsertAuth(uid, email, displayName) {
   try {
     await admin.auth().getUser(uid);
+    await admin.auth().updateUser(uid, {
+      email,
+      password: PASSWORD,
+      displayName,
+      emailVerified: true,
+      disabled: false,
+    });
   } catch (error) {
     if (error.code !== "auth/user-not-found") throw error;
     await admin.auth().createUser({
@@ -125,6 +139,8 @@ async function main() {
     ["stg_admin", "test.staging@example.com", "Admin"],
     ["stg_trainer", "trainer.staging@example.com", "Trainer"],
     [MEMBER_UID, "member.staging@example.com", "User"],
+    [MEMBER2_UID, "member2.staging@example.com", "User"],
+    ["stg_disabled", "disabled.staging@example.com", "User"],
   ];
 
   for (const [uid, email, role] of users) {
@@ -132,7 +148,12 @@ async function main() {
     await db
       .collection("users")
       .doc(uid)
-      .set(user(uid, email, role), { merge: true });
+      .set(
+        user(uid, email, role, {
+          isActive: uid !== "stg_disabled",
+        }),
+        { merge: true },
+      );
   }
 
   const subscriptions = await Promise.all(
@@ -151,6 +172,19 @@ async function main() {
       },
       { merge: true },
     );
+
+  const member2Subscription = await ensureSubscription(
+    "open_3x_3m",
+    "stg_member2_open_3x_3m",
+    MEMBER2_UID,
+  );
+  await db.collection("users").doc(MEMBER2_UID).set(
+    {
+      activeSubscriptions: [member2Subscription],
+      tipologiaCorsoTags: [],
+    },
+    { merge: true },
+  );
 
   const start = new Date(Date.now() + 3 * 86400000);
   start.setUTCHours(18, 0, 0, 0);

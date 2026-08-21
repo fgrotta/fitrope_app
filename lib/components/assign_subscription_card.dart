@@ -5,17 +5,24 @@ import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/subscription_plans.dart';
 
+typedef AssignSubscriptionOperation = Future<void> Function({
+  required String userId,
+  required String planKey,
+});
+
 /// Card admin per assegnare un abbonamento a un utente (chiama la Cloud Function
 /// `assignSubscription`). Self-contained: gestisce loading/errore/successo.
 class AssignSubscriptionCard extends StatefulWidget {
   final String userId;
   final VoidCallback? onAssigned;
+  final AssignSubscriptionOperation assignOperation;
 
   const AssignSubscriptionCard({
     super.key,
     required this.userId,
     this.onAssigned,
-  });
+    AssignSubscriptionOperation? assignOperation,
+  }) : assignOperation = assignOperation ?? assignSubscription;
 
   @override
   State<AssignSubscriptionCard> createState() => _AssignSubscriptionCardState();
@@ -30,7 +37,7 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
     if (planKey == null) return;
     setState(() => loading = true);
     try {
-      await assignSubscription(userId: widget.userId, planKey: planKey);
+      await widget.assignOperation(userId: widget.userId, planKey: planKey);
       if (!mounted) return;
       SnackBarUtils.showSuccessSnackBar(context, 'Abbonamento assegnato');
       widget.onAssigned?.call();
@@ -62,6 +69,7 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              key: const Key('subscription-plan-dropdown'),
               initialValue: selectedPlanKey,
               isExpanded: true,
               decoration: const InputDecoration(
@@ -82,6 +90,7 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
             ),
             const SizedBox(height: 12),
             ElevatedButton(
+              key: const Key('subscription-assign-button'),
               onPressed: (selectedPlanKey == null || loading) ? null : _assign,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryLightColor,

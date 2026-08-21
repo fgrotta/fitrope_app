@@ -24,17 +24,56 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 
+typedef UpdateUserOperation = Future<void> Function({
+  required FitropeUser original,
+  required String name,
+  required String lastName,
+  required String role,
+  TipologiaIscrizione? tipologiaIscrizione,
+  int? entrateDisponibili,
+  int? entrateSettimanali,
+  DateTime? fineIscrizione,
+  bool? isActive,
+  bool? isAnonymous,
+  DateTime? certificatoScadenza,
+  String? numeroTelefono,
+  List<String>? tipologiaCorsoTags,
+  bool? emailNotificationsEnabled,
+  bool? pushNotificationsEnabled,
+});
+
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
 
   /// Se true e i permessi lo consentono, apre direttamente la modalità modifica.
   final bool openInEditMode;
+  final Future<List<Course>> Function() loadCoursesOperation;
+  final UpdateUserOperation updateUserOperation;
+  final Future<void> Function(bool enabled) setPushEnabledOperation;
+  final Future<bool> Function() hasPushPermissionOperation;
+  final Future<bool> Function() canRequestPushPermissionOperation;
+  final Future<void> Function(bool enabled) syncPushPreferenceOperation;
 
   const UserDetailPage({
     super.key,
     required this.user,
     this.openInEditMode = false,
-  });
+    Future<List<Course>> Function()? loadCoursesOperation,
+    UpdateUserOperation? updateUserOperation,
+    Future<void> Function(bool)? setPushEnabledOperation,
+    Future<bool> Function()? hasPushPermissionOperation,
+    Future<bool> Function()? canRequestPushPermissionOperation,
+    Future<void> Function(bool)? syncPushPreferenceOperation,
+  })  : loadCoursesOperation = loadCoursesOperation ?? getAllCourses,
+        updateUserOperation = updateUserOperation ?? updateUser,
+        setPushEnabledOperation =
+            setPushEnabledOperation ?? OneSignalService.setPushEnabled,
+        hasPushPermissionOperation =
+            hasPushPermissionOperation ?? OneSignalService.hasPushPermission,
+        canRequestPushPermissionOperation = canRequestPushPermissionOperation ??
+            OneSignalService.canRequestPushPermission,
+        syncPushPreferenceOperation =
+            syncPushPreferenceOperation ?? OneSignalService.syncPushPreference;
 
   @override
   State<UserDetailPage> createState() => _UserDetailPageState();
@@ -97,7 +136,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   Future<void> loadCourses() async {
     try {
-      final courses = await getAllCourses();
+      final courses = await widget.loadCoursesOperation();
       if (!mounted) return;
       setState(() {
         allCourses = courses;
@@ -385,14 +424,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
           }
         }
 
-        await OneSignalService.setPushEnabled(selectedPushNotifications);
+        await widget.setPushEnabledOperation(selectedPushNotifications);
         pushPreferenceApplied = true;
 
         if (selectedPushNotifications) {
-          final hasPermission = await OneSignalService.hasPushPermission();
+          final hasPermission = await widget.hasPushPermissionOperation();
           if (!hasPermission) {
-            final canRequest =
-                await OneSignalService.canRequestPushPermission();
+            final canRequest = await widget.canRequestPushPermissionOperation();
             if (!canRequest) {
               await _showPushPermissionHelp();
             }
@@ -401,7 +439,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         }
       }
 
-      await updateUser(
+      await widget.updateUserOperation(
         original: widget.user,
         name: name,
         lastName: lastName,
@@ -481,7 +519,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       Navigator.pop(context, updatedUser);
     } catch (e) {
       if (pushPreferenceChanged && pushPreferenceApplied) {
-        await OneSignalService.syncPushPreference(previousPushPreference);
+        await widget.syncPushPreferenceOperation(previousPushPreference);
       }
       if (mounted) {
         setState(() {
@@ -838,12 +876,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       tooltip: 'Cancella Account',
                     ),
                   IconButton(
+                    key: const Key('user-detail-edit-button'),
                     icon: const Icon(Icons.edit),
                     onPressed: toggleEdit,
                   ),
                 ],
                 if (isEditing) ...[
                   IconButton(
+                    key: const Key('user-detail-save-button'),
                     icon: const Icon(Icons.save),
                     onPressed: saveChanges,
                   ),
@@ -1441,6 +1481,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ),
           ),
           Switch(
+            key: Key(label == 'Notifiche Push'
+                ? 'user-notification-push-switch'
+                : 'user-notification-email-switch'),
             value: value,
             onChanged: enabled ? onChanged : null,
             activeThumbColor: primaryLightColor,

@@ -2,27 +2,36 @@ import 'package:flutter/foundation.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart' as os;
 
 class OneSignalService {
+  static bool _enabled = true;
+  static bool get isEnabled => _enabled;
+  static void setEnabled(bool enabled) => _enabled = enabled;
+
   static void initialize(String appId) {
+    if (!_enabled) return;
     debugPrint('🔔 [OneSignal] initialize(appId: $appId)');
     os.OneSignal.initialize(appId);
   }
 
   static void login(String userId) {
+    if (!_enabled) return;
     debugPrint('🔔 [OneSignal] login(userId: $userId)');
     os.OneSignal.login(userId);
   }
 
   static void addEmail(String email) {
+    if (!_enabled) return;
     debugPrint('🔔 [OneSignal] addEmail(email: $email)');
     os.OneSignal.User.addEmail(email);
   }
 
   static Future<void> removeEmail(String email) async {
+    if (!_enabled) return;
     debugPrint('🔔 [OneSignal] removeEmail(email: $email)');
     await os.OneSignal.User.removeEmail(email);
   }
 
   static Future<void> setPushEnabled(bool enabled) async {
+    if (!_enabled) return;
     debugPrint('🔔 [OneSignal] setPushEnabled(enabled: $enabled)');
     if (enabled) {
       final granted = await os.OneSignal.Notifications.requestPermission(true);
@@ -36,6 +45,7 @@ class OneSignalService {
   }
 
   static Future<void> syncPushPreference(bool enabled) async {
+    if (!_enabled) return;
     debugPrint('🔔 [OneSignal] syncPushPreference(enabled: $enabled)');
     if (!enabled) {
       await os.OneSignal.User.pushSubscription.optOut();
@@ -49,14 +59,17 @@ class OneSignalService {
   }
 
   static Future<bool> hasPushPermission() async {
+    if (!_enabled) return false;
     return os.OneSignal.Notifications.permission;
   }
 
   static Future<bool> canRequestPushPermission() async {
+    if (!_enabled) return false;
     return os.OneSignal.Notifications.canRequest();
   }
 
   static Future<void> logout() async {
+    if (!_enabled) return;
     debugPrint('🔔 [OneSignal] logout()');
     await os.OneSignal.logout();
   }

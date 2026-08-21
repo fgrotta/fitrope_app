@@ -6,7 +6,10 @@ List<Course>? _cachedCourses;
 DateTime? _lastCacheTime;
 const Duration _cacheDuration = Duration(minutes: 1);
 
-Future<List<Course>> getAllCourses({bool force = false}) async {
+Future<List<Course>> getAllCourses({
+  bool force = false,
+  FirebaseFirestore? firestore,
+}) async {
   // Calcola la data di 45 giorni fa
   final cutoffDate = DateTime.now().subtract(const Duration(days: 150));
   final cutoffTimestamp = Timestamp.fromDate(cutoffDate);
@@ -21,7 +24,7 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
   }
 
   CollectionReference collectionRef =
-      FirebaseFirestore.instance.collection('courses');
+      (firestore ?? FirebaseFirestore.instance).collection('courses');
   // Filtra i corsi con startDate successiva a 45 giorni fa
   QuerySnapshot querySnapshot = await collectionRef
       .where('startDate', isGreaterThan: cutoffTimestamp)
@@ -30,8 +33,9 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
   List<Course> courses = [];
 
   for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-    if ((doc.data() as Map<String, dynamic>)['id'] != null) {
-      Course course = Course.fromJson(doc.data() as Map<String, dynamic>);
+    final data = doc.data() as Map<String, dynamic>;
+    if (data['uid'] != null || data['id'] != null) {
+      Course course = Course.fromJson(data);
       courses.add(course);
     }
   }

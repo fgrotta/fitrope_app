@@ -9,6 +9,7 @@
 
 import { UserSubscriptionRecord } from "./subscription";
 import { canUserAccessCourse, familyForTypeTag } from "./courseTypes";
+import { romeWeekBoundsMillis } from "./romeTime";
 
 /** Corso a cui l'utente è attualmente iscritto (per il conteggio settimanale). */
 export interface EnrolledCourse {
@@ -49,29 +50,14 @@ export interface SubscribeDecision {
 }
 
 /**
- * Inizio/fine (in millis) della settimana che contiene [courseStartMillis], in UTC
- * (lun 00:00:00.000 → dom 23:59:59.999).
- *
- * NB: il client (getCourseState.dart) calcola i bordi nel fuso locale dell'utente
- * (Europe/Rome); qui usiamo UTC perché le Cloud Functions girano in UTC. Le due
- * versioni divergono solo per corsi a cavallo della mezzanotte sul bordo settimana
- * — caso raro. Il client resta il gate UX primario; questo è un backstop. Eventuale
- * allineamento esatto (settimana Europe/Rome anche server-side) è un miglioramento
- * futuro.
+ * Inizio/fine della settimana civile Europe/Rome che contiene il corso
+ * (lun 00:00:00.000 → dom 23:59:59.999), allineata al client anche sui DST.
  */
 export function weekBoundsMillis(courseStartMillis: number): {
   start: number;
   end: number;
 } {
-  const d = new Date(courseStartMillis);
-  const isoDow = (d.getUTCDay() + 6) % 7; // 0=lun .. 6=dom
-  const start = Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate() - isoDow
-  );
-  const end = start + 7 * 24 * 60 * 60 * 1000 - 1;
-  return { start, end };
+  return romeWeekBoundsMillis(courseStartMillis);
 }
 
 function inWeek(millis: number, bounds: { start: number; end: number }): boolean {

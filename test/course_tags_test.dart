@@ -6,6 +6,12 @@ import 'package:fitrope_app/utils/course_tags.dart';
 /// Precedentemente priva di copertura: la scorrettezza qui blocca silenziosamente
 /// gli utenti (ritornando CourseState.NULL da getCourseState).
 void main() {
+  test('defaultUserTags restituisce una lista indipendente', () {
+    final first = CourseTags.defaultUserTags;
+    first.add(CourseTags.HYROX);
+    expect(CourseTags.defaultUserTags, [CourseTags.OPEN]);
+  });
+
   group('CourseTags.canUserAccessCourse', () {
     test(
         'utente con "Tutti i corsi" accede sempre, anche se corso ha tag specifici',

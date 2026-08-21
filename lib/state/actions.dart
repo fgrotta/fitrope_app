@@ -20,3 +20,8 @@ class SetAllCoursesAction {
 
   SetAllCoursesAction(this.courses);
 }
+
+/// Ripristina lo stato globale tra scenari E2E eseguiti nello stesso processo.
+class ResetAppStateAction {
+  const ResetAppStateAction();
+}

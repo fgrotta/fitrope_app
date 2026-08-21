@@ -7,11 +7,13 @@ import 'package:fitrope_app/utils/sale.dart';
 class SalaSelectorCard extends StatelessWidget {
   final String? value;
   final ValueChanged<String?> onChanged;
+  final Key? dropdownKey;
 
   const SalaSelectorCard({
     super.key,
     required this.value,
     required this.onChanged,
+    this.dropdownKey,
   });
 
   @override
@@ -29,6 +31,7 @@ class SalaSelectorCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String?>(
+              key: dropdownKey,
               initialValue: value,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),

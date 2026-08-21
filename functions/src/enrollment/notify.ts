@@ -20,6 +20,12 @@ import {
   waitlistSpotAvailableSubject,
   waitlistSpotAvailableBody,
 } from "./emailTemplates";
+import {
+  romeParts,
+  romeWallClockToUtcMillis,
+} from "./romeTime";
+
+export { RomeParts, romeParts, romeWallClockToUtcMillis } from "./romeTime";
 
 const DAY_NAMES = [
   "Lunedì",
@@ -44,81 +50,6 @@ const MONTH_NAMES = [
   "Novembre",
   "Dicembre",
 ];
-
-const ROME_TZ = "Europe/Rome";
-
-export interface RomeParts {
-  year: number;
-  month: number; // 1-12
-  day: number;
-  hour: number;
-  minute: number;
-  isoWeekday: number; // 1=lun .. 7=dom
-}
-
-/** Componenti wall-clock di [millis] nel fuso Europe/Rome. (Esportata per i test.) */
-export function romeParts(millis: number): RomeParts {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: ROME_TZ,
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const map: Record<string, string> = {};
-  for (const p of dtf.formatToParts(new Date(millis))) map[p.type] = p.value;
-  const year = Number(map.year);
-  const month = Number(map.month);
-  const day = Number(map.day);
-  let hour = Number(map.hour);
-  if (hour === 24) hour = 0; // alcune impl. usano 24 per mezzanotte
-  const minute = Number(map.minute);
-  const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // 0=dom..6=sab
-  const isoWeekday = ((dow + 6) % 7) + 1; // 1=lun..7=dom
-  return { year, month, day, hour, minute, isoWeekday };
-}
-
-/** Offset (in millis) di Europe/Rome all'istante [date]. */
-function romeOffsetMillis(date: Date): number {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: ROME_TZ,
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const map: Record<string, string> = {};
-  for (const p of dtf.formatToParts(date)) map[p.type] = p.value;
-  let hour = Number(map.hour);
-  if (hour === 24) hour = 0;
-  const asUtc = Date.UTC(
-    Number(map.year),
-    Number(map.month) - 1,
-    Number(map.day),
-    hour,
-    Number(map.minute),
-    Number(map.second)
-  );
-  return asUtc - date.getTime();
-}
-
-/** Istante UTC (millis) del wall-clock Europe/Rome indicato. (Esportata per i test.) */
-export function romeWallClockToUtcMillis(
-  year: number,
-  month: number, // 1-12
-  day: number,
-  hour: number,
-  minute: number
-): number {
-  const guess = Date.UTC(year, month - 1, day, hour, minute);
-  const offset = romeOffsetMillis(new Date(guess));
-  return guess - offset;
-}
 
 export function formatCourseDate(startMillis: number): string {
   const p = romeParts(startMillis);

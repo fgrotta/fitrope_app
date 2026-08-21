@@ -3,29 +3,39 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/api/courses/delete_course.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
+import 'package:fitrope_app/app_environment.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+const String _runNamespace = String.fromEnvironment('TEST_RUN_NAMESPACE');
+
+String get testRunNamespace {
+  if (isStaging && _runNamespace.trim().isEmpty) {
+    throw StateError('TEST_RUN_NAMESPACE è obbligatorio per gli E2E staging.');
+  }
+  return _runNamespace.trim().isEmpty ? 'local' : _runNamespace.trim();
+}
 
 /// Helper per creare/eliminare i CORSI DI TEST direttamente su Firestore.
 ///
 /// I corsi NON sono fixtures statiche: vengono creati al volo durante il test
-/// (con nome "Test" e date nella settimana di Ferragosto) e poi eliminati in
-/// tearDown, per non lasciare dati sporchi in produzione.
+/// (con namespace del run e date nei successivi 7–14 giorni) e poi eliminati.
 ///
 /// Tutte queste operazioni richiedono di essere autenticati con permessi di
 /// scrittura sui corsi (es. login come Admin) prima di chiamarle.
 
-/// Slot orario di un corso nella **settimana di Ferragosto** (15 agosto).
-///
-/// Se Ferragosto dell'anno corrente è già passato, usa l'anno successivo, così
-/// il corso di test risulta sempre nel futuro.
-({DateTime start, DateTime end}) ferragostoSlot({DateTime? now}) {
-  final reference = now ?? DateTime.now();
-  var year = reference.year;
-  var start = DateTime(year, 8, 15, 18, 0); // Ferragosto, ore 18:00
-  if (start.isBefore(reference)) {
-    year += 1;
-    start = DateTime(year, 8, 15, 18, 0);
-  }
+/// Slot alle 18:00 italiane tra otto giorni: abbastanza lontano dalle finestre
+/// di disiscrizione, ma sempre dentro la validità delle subscription seed.
+({DateTime start, DateTime end}) testCourseSlot({DateTime? now}) {
+  final reference = toItalianTime(now ?? DateTime.now());
+  final wallClock = DateTime(
+    reference.year,
+    reference.month,
+    reference.day + 8,
+    18,
+  );
+  final start = italianTimestamp(wallClock).toDate();
   final end = start.add(const Duration(hours: 1));
   return (start: start, end: end);
 }
@@ -51,11 +61,13 @@ const List<String> _animaliTest = [
 ///
 /// [random] è iniettabile per rendere il nome deterministico nei test.
 String buildTestCourseName({String? tipologia, Random? random}) {
+  final prefix = '[TEST:$testRunNamespace]';
   if (tipologia != null && tipologia.trim().isNotEmpty) {
-    return 'Test ${tipologia.trim()}';
+    return '$prefix ${tipologia.trim()}';
   }
   final rnd = random ?? Random();
-  return 'Test ${_animaliTest[rnd.nextInt(_animaliTest.length)]}';
+  final unique = DateTime.now().microsecondsSinceEpoch;
+  return '$prefix ${_animaliTest[rnd.nextInt(_animaliTest.length)]}-$unique';
 }
 
 /// Risolve l'uid di un utente (es. il trainer) a partire dalla sua email,
@@ -88,7 +100,7 @@ Future<String> resolveUserNameByEmail(String email) async {
   return '${data['name'] ?? ''} ${data['lastName'] ?? ''}'.trim();
 }
 
-/// Crea un corso di test nella settimana di Ferragosto, assegnato al trainer
+/// Crea un corso di test nello slot dinamico, assegnato al trainer
 /// [trainerId]. Ritorna il [Course] creato (con uid generato).
 ///
 /// Il nome è parametrico (vedi [buildTestCourseName]):
@@ -99,8 +111,8 @@ Future<String> resolveUserNameByEmail(String email) async {
 ///
 /// Scriviamo il documento direttamente (non via `createCourse`) per preservare
 /// tutti i flag: in particolare [reminderEnabled] di default è FALSE, così il
-/// corso di test non fa partire promemoria email/push reali in produzione.
-Future<Course> createFerragostoTestCourse({
+/// corso di test non fa partire promemoria email/push nello staging.
+Future<Course> createTestCourse({
   required String trainerId,
   String? tipologia,
   int capacity = 10,
@@ -109,7 +121,7 @@ Future<Course> createFerragostoTestCourse({
   bool waitlistEnabled = true,
   Random? random,
 }) async {
-  final slot = ferragostoSlot();
+  final slot = testCourseSlot();
   final ref = FirebaseFirestore.instance.collection('courses').doc();
 
   final course = Course(
@@ -136,3 +148,17 @@ Future<Course> createFerragostoTestCourse({
 /// Elimina un corso di test (rimuove anche iscrizioni/waitlist degli utenti).
 /// Da usare in tearDown.
 Future<void> deleteTestCourse(String courseId) => deleteCourse(courseId);
+
+/// Cleanup applicativo con una sessione Admin, necessario perché la callable
+/// deleteCourse è Admin-only e il test normalmente termina come membro.
+Future<void> deleteTestCourseAsAdmin({
+  required String courseId,
+  required String adminEmail,
+  required String adminPassword,
+}) async {
+  await FirebaseAuth.instance.signInWithEmailAndPassword(
+    email: adminEmail,
+    password: adminPassword,
+  );
+  await deleteTestCourse(courseId);
+}

@@ -42,3 +42,28 @@ Timestamp italianTimestamp(DateTime wallClock) => Timestamp.fromDate(
         wallClock.second,
       ),
     );
+
+/// Bordi UTC della settimana civile italiana che contiene [instant].
+///
+/// La settimana va da lunedì 00:00:00.000 a domenica 23:59:59.999 in
+/// Europe/Rome. Il lunedì successivo viene costruito come data civile, quindi
+/// la durata assoluta può essere 167 o 169 ore durante i cambi DST.
+({int start, int end}) italianWeekBoundsMillis(DateTime instant) {
+  final local = toItalianTime(instant);
+  final start = tz.TZDateTime(
+    _location(),
+    local.year,
+    local.month,
+    local.day - (local.weekday - DateTime.monday),
+  );
+  final nextWeek = tz.TZDateTime(
+    _location(),
+    start.year,
+    start.month,
+    start.day + 7,
+  );
+  return (
+    start: start.millisecondsSinceEpoch,
+    end: nextWeek.millisecondsSinceEpoch - 1,
+  );
+}

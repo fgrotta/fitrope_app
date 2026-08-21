@@ -1,7 +1,6 @@
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
-import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/style.dart';
@@ -10,6 +9,7 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
 import 'package:fitrope_app/utils/subscription_labels.dart';
+import 'package:fitrope_app/utils/dashboard_subscription_metrics.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -17,8 +17,16 @@ final DateFormat _dashboardUserListDateFormat = DateFormat('dd/MM/yyyy');
 
 class AdminDashboardPage extends StatefulWidget {
   final void Function(String title, List<FitropeUser> users) onOpenUserList;
+  final Future<List<FitropeUser>> Function() loadUsers;
+  final Future<List<Course>> Function() loadCourses;
 
-  const AdminDashboardPage({super.key, required this.onOpenUserList});
+  const AdminDashboardPage({
+    super.key,
+    required this.onOpenUserList,
+    Future<List<FitropeUser>> Function()? loadUsers,
+    Future<List<Course>> Function()? loadCourses,
+  })  : loadUsers = loadUsers ?? getUsers,
+        loadCourses = loadCourses ?? getAllCourses;
 
   @override
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
@@ -49,8 +57,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       _error = null;
     });
     try {
-      final users = await getUsers();
-      final courses = await getAllCourses();
+      final users = await widget.loadUsers();
+      final courses = await widget.loadCourses();
       if (mounted) {
         setState(() {
           _users = users;
@@ -220,6 +228,7 @@ class _UserListDrawerState extends State<UserListDrawer> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
+              key: const Key('dashboard-users-search-field'),
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Cerca per nome, email o telefono...',
@@ -606,10 +615,8 @@ class _SectionAbbonamenti extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeUsers = users.where((u) => u.isActive).toList();
 
-    final expiringSoonList = activeUsers
-        .where((u) => AbbonamentoHelper.isFineIscrizioneNeiProssimi30Giorni(
-            u.fineIscrizione))
-        .toList();
+    final expiringSoonList =
+        usersWithSubscriptionsExpiringWithin(activeUsers, days: 30);
     final expiringSoon = expiringSoonList.length;
 
     final pacchettoUsers = activeUsers.where((u) {
@@ -729,12 +736,7 @@ class _SectionAbbonamentiSenzaData extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final senzaData = users
-        .where((u) =>
-            u.fineIscrizione == null &&
-            u.role != 'Admin' &&
-            u.role != 'Trainer')
-        .toList()
+    final senzaData = usersWithoutSubscriptionEndDate(users)
       ..sort((a, b) => ('${a.name} ${a.lastName}')
           .toLowerCase()
           .compareTo(('${b.name} ${b.lastName}').toLowerCase()));
@@ -832,6 +834,7 @@ class _MetricRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final row = Padding(
+      key: Key('dashboard-metric-${_metricSlug(label)}'),
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -857,3 +860,8 @@ class _MetricRow extends StatelessWidget {
     return row;
   }
 }
+
+String _metricSlug(String value) => value
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+    .replaceAll(RegExp(r'^-|-$'), '');

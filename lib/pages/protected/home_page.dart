@@ -27,7 +27,15 @@ import 'package:flutter_design_system/components/custom_card.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final Future<List<Course>> Function() loadCourses;
+  final Future<List<FitropeUser>> Function() loadTrainers;
+
+  const HomePage({
+    super.key,
+    Future<List<Course>> Function()? loadCourses,
+    Future<List<FitropeUser>> Function()? loadTrainers,
+  })  : loadCourses = loadCourses ?? getAllCourses,
+        loadTrainers = loadTrainers ?? getTrainers;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -52,18 +60,22 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     user = store.state.user!;
-    getTrainers().then((List<FitropeUser> response) {
+    widget.loadTrainers().then((List<FitropeUser> response) {
       if (!mounted) return;
       setState(() {
         trainers = response;
       });
+    }).catchError((Object error) {
+      debugPrint('Errore nel caricamento trainer Home: $error');
     });
-    getAllCourses().then((List<Course> response) {
+    widget.loadCourses().then((List<Course> response) {
       if (!mounted) return;
       setState(() {
         allCourses = response;
         store.dispatch(SetAllCoursesAction(response));
       });
+    }).catchError((Object error) {
+      debugPrint('Errore nel caricamento corsi Home: $error');
     });
 
     // Carica utenti con certificati in scadenza se l'utente è Admin
@@ -212,13 +224,15 @@ class _HomePageState extends State<HomePage> {
 
   // Funzione per aggiornare i corsi e lo stato utente
   void refreshCourses() {
-    getAllCourses().then((List<Course> response) {
+    widget.loadCourses().then((List<Course> response) {
       if (mounted) {
         setState(() {
           allCourses = response;
           store.dispatch(SetAllCoursesAction(response));
         });
       }
+    }).catchError((Object error) {
+      debugPrint('Errore nell’aggiornamento corsi Home: $error');
     });
 
     // Aggiorna anche lo stato utente per riflettere le modifiche
@@ -230,6 +244,8 @@ class _HomePageState extends State<HomePage> {
           });
           store.dispatch(SetUserAction(user));
         }
+      }).catchError((Object error) {
+        debugPrint('Errore nell’aggiornamento utente Home: $error');
       });
     }
 
@@ -327,6 +343,7 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       child: const Text(
         'Il mio abbonamento',
+        key: Key('home-subscriptions-heading'),
         textAlign: TextAlign.left,
         style: TextStyle(color: onPrimaryColor, fontSize: 20),
       ),
@@ -365,6 +382,10 @@ class _HomePageState extends State<HomePage> {
         user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_ANNUALE &&
         user.tipologiaIscrizione != TipologiaIscrizione.PACCHETTO_ENTRATE &&
         user.tipologiaIscrizione != TipologiaIscrizione.ABBONAMENTO_PROVA) {
+      final certificatoInScadenza = user.certificatoScadenza != null &&
+          CertificatoHelper.isCertificatoInScadenza(
+            user.certificatoScadenza,
+          );
       return Column(
         children: [
           _subscriptionHeader(),
@@ -375,6 +396,7 @@ class _HomePageState extends State<HomePage> {
             'Nessun abbonamento disponibile',
             style: TextStyle(color: onPrimaryColor),
           ),
+          if (certificatoInScadenza) _buildCertificatoInfo(),
           const SizedBox(
             height: 30,
           ),
@@ -429,6 +451,7 @@ class _HomePageState extends State<HomePage> {
         CertificatoHelper.formatDataScadenza(user.certificatoScadenza);
 
     return Container(
+      key: const Key('home-certificate-expiry'),
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1452,6 +1475,7 @@ class _HomePageState extends State<HomePage> {
           Column(
             children: [
               Container(
+                key: const Key('home-courses-section'),
                 padding: const EdgeInsets.only(bottom: 10),
                 width: double.infinity,
                 child: const Text(
@@ -1469,6 +1493,7 @@ class _HomePageState extends State<HomePage> {
             final waitlistWidgets = renderWaitlistCourses();
             if (waitlistWidgets.isEmpty) return const SizedBox.shrink();
             return Padding(
+              key: const Key('home-waitlist-section'),
               padding: const EdgeInsets.only(top: 20),
               child: Column(
                 children: [

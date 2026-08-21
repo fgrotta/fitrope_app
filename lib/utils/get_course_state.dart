@@ -5,6 +5,7 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 
 CourseState getCourseState(Course course, FitropeUser user) {
   int courseDay = course.startDate.millisecondsSinceEpoch;
@@ -48,8 +49,10 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.EXPIRED;
   }
 
-  final bool hasTagAccess =
-      CourseTags.canUserAccessCourse(user.tipologiaCorsoTags, course.tags);
+  final bool hasTagAccess = CourseTags.canUserAccessCourse(
+    user.tipologiaCorsoTags,
+    course.tags,
+  );
 
   // Abbonamenti che coprono la tipologia del corso (solo modello multi-abbonamento).
   final List<UserSubscription> covering = useSubscriptions
@@ -58,9 +61,11 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   if (useSubscriptions &&
       covering.isNotEmpty &&
-      !covering.any((s) =>
-          !courseDate.isBefore(s.startDate.toDate()) &&
-          !courseDate.isAfter(s.endDate.toDate()))) {
+      !covering.any(
+        (s) =>
+            !courseDate.isBefore(s.startDate.toDate()) &&
+            !courseDate.isAfter(s.endDate.toDate()),
+      )) {
     return CourseState.EXPIRED;
   }
 
@@ -121,7 +126,9 @@ String _coursePrimaryTypeTag(Course course) =>
 
 /// Abbonamenti (tra quelli non scaduti) che coprono la tipologia primaria del corso.
 List<UserSubscription> _coveringSubscriptions(
-    Course course, List<UserSubscription> liveSubscriptions) {
+  Course course,
+  List<UserSubscription> liveSubscriptions,
+) {
   final String primary = _coursePrimaryTypeTag(course);
   return liveSubscriptions
       .where((s) => s.courseTypeTags.contains(primary))
@@ -131,13 +138,18 @@ List<UserSubscription> _coveringSubscriptions(
 /// Valuta scadenza + limiti nello scope degli abbonamenti che coprono il corso.
 /// Precondizione: [covering] non vuoto. Ritorna null se l'utente è idoneo.
 CourseState? _evaluateCovering(
-    List<UserSubscription> covering, FitropeUser user, DateTime courseDate) {
+  List<UserSubscription> covering,
+  FitropeUser user,
+  DateTime courseDate,
+) {
   // Tieni solo gli abbonamenti validi alla data del corso: già iniziati
   // (startDate) e non ancora scaduti (endDate).
   final valid = covering
-      .where((s) =>
-          !courseDate.isBefore(s.startDate.toDate()) &&
-          !courseDate.isAfter(s.endDate.toDate()))
+      .where(
+        (s) =>
+            !courseDate.isBefore(s.startDate.toDate()) &&
+            !courseDate.isAfter(s.endDate.toDate()),
+      )
       .toList();
   if (valid.isEmpty) return CourseState.EXPIRED;
 
@@ -148,8 +160,11 @@ CourseState? _evaluateCovering(
     } else {
       // FREQUENCY: null = illimitato.
       if (s.weeklyFrequency == null) return null;
-      final used =
-          _countWeeklyEntriesForTags(courseDate, user, s.courseTypeTags);
+      final used = _countWeeklyEntriesForTags(
+        courseDate,
+        user,
+        s.courseTypeTags,
+      );
       if (used < s.weeklyFrequency!) return null;
     }
   }
@@ -188,24 +203,10 @@ CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
   return CourseState.NULL;
 }
 
-/// Inizio/fine (in millis) della settimana che contiene [courseDate] (lun-dom, UTC).
-({int start, int end}) _weekBoundsMillis(DateTime courseDate) {
-  DateTime startOfWeek =
-      courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
-  startOfWeek =
-      DateTime.utc(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-  DateTime endOfWeek = startOfWeek.add(const Duration(
-      days: 6, hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
-  return (
-    start: startOfWeek.millisecondsSinceEpoch,
-    end: endOfWeek.millisecondsSinceEpoch
-  );
-}
-
 /// Conta gli ingressi settimanali usati (corsi attivi + disiscrizioni perse) nel
 /// modello legacy: tutti i corsi della settimana, senza distinzione di tipologia.
 int _countWeeklyEntries(DateTime courseDate, FitropeUser user) {
-  final bounds = _weekBoundsMillis(courseDate);
+  final bounds = italianWeekBoundsMillis(courseDate);
   final List<Course> allCourses = store.state.allCourses;
 
   int activeCoursesCount = 0;
@@ -231,8 +232,11 @@ int _countWeeklyEntries(DateTime courseDate, FitropeUser user) {
 /// [typeTags] (scoping per famiglia, modello multi-abbonamento). Le disiscrizioni
 /// perse contano solo se il corso originario è ancora risolvibile e della tipologia.
 int _countWeeklyEntriesForTags(
-    DateTime courseDate, FitropeUser user, Set<String> typeTags) {
-  final bounds = _weekBoundsMillis(courseDate);
+  DateTime courseDate,
+  FitropeUser user,
+  Set<String> typeTags,
+) {
+  final bounds = italianWeekBoundsMillis(courseDate);
   final List<Course> allCourses = store.state.allCourses;
 
   bool matchesType(Course c) => typeTags.contains(_coursePrimaryTypeTag(c));

@@ -57,6 +57,8 @@ macos/Podfile
 
 # Credenziali test E2E (NON committare)
 integration_test/test_env.json
+integration_test/test_env.staging.json
+tool/playwright/node_modules/
 
 # Firebase Functions runtime configuration (local/deploy generated)
 /functions/.env.*

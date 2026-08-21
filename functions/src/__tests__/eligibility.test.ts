@@ -12,8 +12,8 @@ import { UserSubscriptionRecord } from "../enrollment/subscription";
 
 // Mer 10 giu 2026, 10:00 UTC. Settimana: lun 8 → dom 14 giu.
 const COURSE_AT = Date.UTC(2026, 5, 10, 10);
-const WEEK_MON = Date.UTC(2026, 5, 8);
-const WEEK_SUN_END = Date.UTC(2026, 5, 15) - 1;
+const WEEK_MON = Date.UTC(2026, 5, 7, 22); // lun 8 giugno, 00:00 CEST
+const WEEK_SUN_END = Date.UTC(2026, 5, 14, 22) - 1;
 // "Adesso": il giorno prima del corso.
 const NOW = Date.UTC(2026, 5, 9, 12);
 
@@ -53,7 +53,7 @@ function input(over: Partial<SubscribeInput> = {}): SubscribeInput {
 }
 
 describe("weekBoundsMillis", () => {
-  test("settimana lun-dom (UTC) del corso", () => {
+  test("settimana lun-dom Europe/Rome del corso", () => {
     const b = weekBoundsMillis(COURSE_AT);
     expect(b.start).toBe(WEEK_MON);
     expect(b.end).toBe(WEEK_SUN_END);
@@ -62,6 +62,13 @@ describe("weekBoundsMillis", () => {
   test("lunedì 00:00 e domenica 23:59 cadono nella stessa settimana", () => {
     expect(weekBoundsMillis(WEEK_MON).start).toBe(WEEK_MON);
     expect(weekBoundsMillis(WEEK_SUN_END).start).toBe(WEEK_MON);
+  });
+
+  test("rispetta il cambio DST e produce una settimana da 169 ore", () => {
+    const b = weekBoundsMillis(Date.UTC(2026, 9, 25, 12));
+    expect(b.start).toBe(Date.UTC(2026, 9, 18, 22));
+    expect(b.end).toBe(Date.UTC(2026, 9, 25, 23) - 1);
+    expect(b.end - b.start + 1).toBe(169 * 60 * 60 * 1000);
   });
 });
 

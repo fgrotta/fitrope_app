@@ -118,24 +118,24 @@ class AppShell extends StatelessWidget {
               const NavigationRailDestination(
                 icon: Icon(Icons.home_outlined),
                 selectedIcon: Icon(Icons.home),
-                label: Text('Home'),
+                label: Text('Home', key: Key('nav-home')),
               ),
               const NavigationRailDestination(
                 icon: Icon(Icons.calendar_month_outlined),
                 selectedIcon: Icon(Icons.calendar_month),
-                label: Text('Calendario'),
+                label: Text('Calendario', key: Key('nav-calendar')),
               ),
               if (isAdmin)
                 const NavigationRailDestination(
                   icon: Icon(Icons.people_outline),
                   selectedIcon: Icon(Icons.people),
-                  label: Text('Utenti'),
+                  label: Text('Utenti', key: Key('nav-users')),
                 ),
               if (isAdmin)
                 const NavigationRailDestination(
                   icon: Icon(Icons.dashboard_outlined),
                   selectedIcon: Icon(Icons.dashboard),
-                  label: Text('Dashboard'),
+                  label: Text('Dashboard', key: Key('nav-dashboard')),
                 ),
             ],
           ),

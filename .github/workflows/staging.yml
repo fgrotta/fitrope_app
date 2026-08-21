@@ -229,3 +229,124 @@ jobs:
             fi
             echo "ok: $fn"
           done
+      - name: Install Playwright smoke dependencies
+        working-directory: tool/playwright
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Smoke test browser staging
+        working-directory: tool/playwright
+        env:
+          PAGE_URL: ${{ needs.deploy-pages.outputs.page_url }}
+        run: npm test
+
+  flutter-e2e-staging:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+      FIREBASE_API_KEY: ${{ vars.FIREBASE_STAGING_API_KEY }}
+      TEST_NAMESPACE: ${{ github.run_id }}:${{ github.run_attempt }}
+      SIGNUP_EMAIL: e2e.signup+${{ github.run_id }}-${{ github.run_attempt }}@example.com
+      SIGNUP_PASSWORD: test1234
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.6"
+          channel: stable
+          cache: true
+          pub-cache: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: nanasess/setup-chromedriver@v2
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_STAGING_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - run: flutter pub get
+      - working-directory: functions
+        run: npm ci
+      - name: Generate staging E2E credentials
+        run: |
+          jq -n --arg namespace "$TEST_NAMESPACE" '{
+            TEST_USER1_EMAIL: "member.staging@example.com",
+            TEST_USER1_PASSWORD: "test1234",
+            TEST_USER2_EMAIL: "member2.staging@example.com",
+            TEST_USER2_PASSWORD: "test1234",
+            TEST_TRAINER_EMAIL: "trainer.staging@example.com",
+            TEST_TRAINER_PASSWORD: "test1234",
+            TEST_TRAINER_NAME: "Staging Trainer",
+            TEST_ADMIN_EMAIL: "test.staging@example.com",
+            TEST_ADMIN_PASSWORD: "test1234",
+            TEST_DISABLED_EMAIL: "disabled.staging@example.com",
+            TEST_DISABLED_PASSWORD: "test1234",
+            TEST_RUN_NAMESPACE: $namespace
+          }' > integration_test/test_env.staging.json
+      - name: Remove stale E2E resources
+        run: |
+          GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          export GOOGLE_OAUTH_ACCESS_TOKEN
+          npm --prefix functions run e2e:admin -- cleanup-courses --confirm-staging
+      - name: Run critical Flutter E2E against staging
+        shell: bash
+        env:
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_STAGING_API_KEY }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_STAGING_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_STAGING_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_STAGING_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STAGING_STORAGE_BUCKET }}
+          FIREBASE_MEASUREMENT_ID: ${{ vars.FIREBASE_STAGING_MEASUREMENT_ID }}
+        run: |
+          set -euo pipefail
+          chromedriver --port=4444 > /tmp/chromedriver.log 2>&1 &
+          chromedriver_pid=$!
+          trap 'kill "$chromedriver_pid" 2>/dev/null || true' EXIT
+
+          drive() {
+            local target="$1"
+            shift
+            flutter drive --no-pub \
+              --driver=test_driver/integration_test.dart \
+              --target="$target" -d chrome \
+              --browser-dimension=1200x900 \
+              --dart-define=APP_ENV=staging \
+              --dart-define=FIREBASE_API_KEY="$FIREBASE_API_KEY" \
+              --dart-define=FIREBASE_APP_ID="$FIREBASE_APP_ID" \
+              --dart-define=FIREBASE_MESSAGING_SENDER_ID="$FIREBASE_MESSAGING_SENDER_ID" \
+              --dart-define=FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
+              --dart-define=FIREBASE_AUTH_DOMAIN="$FIREBASE_AUTH_DOMAIN" \
+              --dart-define=FIREBASE_STORAGE_BUCKET="$FIREBASE_STORAGE_BUCKET" \
+              --dart-define=FIREBASE_MEASUREMENT_ID="$FIREBASE_MEASUREMENT_ID" \
+              --dart-define-from-file=integration_test/test_env.staging.json \
+              "$@"
+          }
+
+          drive integration_test/login_test.dart
+          drive integration_test/role_navigation_test.dart
+          drive integration_test/subscribe_to_course_test.dart
+          drive integration_test/waitlist_swap_test.dart
+          drive integration_test/course_management_test.dart
+          drive integration_test/registration_unverified_test.dart \
+            --dart-define=SIGNUP_TEST_EMAIL="$SIGNUP_EMAIL" \
+            --dart-define=SIGNUP_TEST_PASSWORD="$SIGNUP_PASSWORD"
+          GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          export GOOGLE_OAUTH_ACCESS_TOKEN
+          npm --prefix functions run e2e:admin -- verify-signup \
+            --email "$SIGNUP_EMAIL" --confirm-staging
+          drive integration_test/registration_verified_login_test.dart \
+            --dart-define=SIGNUP_TEST_EMAIL="$SIGNUP_EMAIL" \
+            --dart-define=SIGNUP_TEST_PASSWORD="$SIGNUP_PASSWORD"
+      - name: Cleanup E2E resources
+        if: always()
+        run: |
+          GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          export GOOGLE_OAUTH_ACCESS_TOKEN
+          npm --prefix functions run e2e:admin -- delete-signup \
+            --email "$SIGNUP_EMAIL" --confirm-staging || true
+          npm --prefix functions run e2e:admin -- cleanup-courses \
+            --namespace "$TEST_NAMESPACE" --confirm-staging || true

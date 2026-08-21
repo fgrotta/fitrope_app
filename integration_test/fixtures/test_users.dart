@@ -1,13 +1,12 @@
-/// Utenti di test che ESISTONO GIÀ in produzione.
+/// Utenti sintetici presenti nell'Emulator Suite o nello staging isolato.
 ///
-/// I test E2E girano contro l'ambiente di produzione (nessun emulatore), quindi
-/// questi devono essere account reali, dedicati ai test, con email verificata e
-/// account attivo.
+/// Il runner fail-closed vieta l'ambiente di produzione.
 ///
 /// Le credenziali NON sono committate: stanno in `integration_test/test_env.json`
 /// (gitignored, vedi `test_env.example.json`) e vengono iniettate a runtime con:
 ///
-///   flutter test integration_test -d chrome \
+///   flutter drive --driver=test_driver/integration_test.dart \
+///     --target=integration_test/<scenario>.dart -d chrome \
 ///     --dart-define-from-file=integration_test/test_env.json
 ///
 /// In questo modo non devi più passare le password ad ogni esecuzione.
@@ -47,6 +46,9 @@ const String _trainerName = String.fromEnvironment('TEST_TRAINER_NAME',
 // Admin
 const String _adminEmail = String.fromEnvironment('TEST_ADMIN_EMAIL');
 const String _adminPassword = String.fromEnvironment('TEST_ADMIN_PASSWORD');
+const String _disabledEmail = String.fromEnvironment('TEST_DISABLED_EMAIL');
+const String _disabledPassword =
+    String.fromEnvironment('TEST_DISABLED_PASSWORD');
 
 // ---------------------------------------------------------------------------
 // Utenti di test
@@ -77,12 +79,19 @@ const TestUser adminTest = TestUser(
   role: 'Admin',
 );
 
+const TestUser disabledTest = TestUser(
+  email: _disabledEmail,
+  password: _disabledPassword,
+  role: 'User',
+);
+
 /// Tutti gli utenti di test, comodo per validazioni o cicli.
 const List<TestUser> allTestUsers = [
   utenteBase1,
   utenteBase2,
   trainerTest,
   adminTest,
+  disabledTest,
 ];
 
 /// Verifica che le credenziali di [user] siano state fornite via env file.
@@ -91,7 +100,7 @@ void assertCredentials(TestUser user) {
   if (user.email.isEmpty || user.password.isEmpty) {
     throw StateError(
       'Credenziali mancanti per un utente di ruolo "${user.role}". '
-      'Compila integration_test/test_env.json e lancia i test con '
+      'Configura il file credenziali del target e lancia i test con '
       '--dart-define-from-file=integration_test/test_env.json',
     );
   }

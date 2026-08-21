@@ -18,14 +18,16 @@ void main() {
       expect(rome.hour, 13); // 12:00 UTC -> 13:00 a Roma
     });
 
-    test('cambio giorno: un istante serale UTC resta lo stesso giorno a Roma',
-        () {
-      // 1 lug 23:30 a Roma = 21:30 UTC; un device a Tokyo (UTC+9) vedrebbe il 2.
-      final rome = toItalianTime(DateTime.utc(2026, 7, 1, 21, 30));
-      expect(rome.day, 1);
-      expect(rome.hour, 23);
-      expect(rome.minute, 30);
-    });
+    test(
+      'cambio giorno: un istante serale UTC resta lo stesso giorno a Roma',
+      () {
+        // 1 lug 23:30 a Roma = 21:30 UTC; un device a Tokyo (UTC+9) vedrebbe il 2.
+        final rome = toItalianTime(DateTime.utc(2026, 7, 1, 21, 30));
+        expect(rome.day, 1);
+        expect(rome.hour, 23);
+        expect(rome.minute, 30);
+      },
+    );
   });
 
   group('italianTimestamp (scrittura)', () {
@@ -48,13 +50,38 @@ void main() {
     });
 
     test(
-        'la differenza assoluta (soglia disiscrizione) è indipendente dal fuso',
-        () {
-      // Inizio corso 19:00 italiane, "ora" 14:00 italiane dello stesso giorno.
-      final start = italianTimestamp(DateTime(2026, 7, 1, 19, 0)).toDate();
-      final now = italianTimestamp(DateTime(2026, 7, 1, 14, 0)).toDate();
-      expect(start.difference(now).inHours,
-          5); // sempre 5h, qualunque sia il device
+      'la differenza assoluta (soglia disiscrizione) è indipendente dal fuso',
+      () {
+        // Inizio corso 19:00 italiane, "ora" 14:00 italiane dello stesso giorno.
+        final start = italianTimestamp(DateTime(2026, 7, 1, 19, 0)).toDate();
+        final now = italianTimestamp(DateTime(2026, 7, 1, 14, 0)).toDate();
+        expect(
+          start.difference(now).inHours,
+          5,
+        ); // sempre 5h, qualunque sia il device
+      },
+    );
+  });
+
+  group('italianWeekBoundsMillis', () {
+    test('usa lunedì e domenica secondo il calendario di Roma', () {
+      final bounds = italianWeekBoundsMillis(DateTime.utc(2026, 7, 1, 12));
+      expect(
+        DateTime.fromMillisecondsSinceEpoch(bounds.start, isUtc: true),
+        DateTime.utc(2026, 6, 28, 22),
+      );
+      expect(
+        DateTime.fromMillisecondsSinceEpoch(bounds.end, isUtc: true),
+        DateTime.utc(2026, 7, 5, 21, 59, 59, 999),
+      );
+    });
+
+    test('settimana del cambio ora solare dura 169 ore', () {
+      final bounds = italianWeekBoundsMillis(DateTime.utc(2026, 10, 25, 12));
+      expect(
+        bounds.end - bounds.start + 1,
+        const Duration(hours: 169).inMilliseconds,
+      );
     });
   });
 }

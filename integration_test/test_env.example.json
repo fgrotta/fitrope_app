@@ -1,5 +1,5 @@
 {
-  "_comment": "Copia questo file in 'test_env.json' (gitignored) e compila i valori reali degli utenti di test in produzione. Esegui i test con: flutter test integration_test -d chrome --dart-define-from-file=integration_test/test_env.json",
+  "_comment": "Template staging locale. Non usare produzione. Esegui un singolo scenario con flutter drive, APP_ENV=staging e la configurazione FIREBASE_* completa.",
 
   "TEST_USER1_EMAIL": "test.user1@fitrope.local",
   "TEST_USER1_PASSWORD": "",
@@ -11,5 +11,8 @@
   "TEST_TRAINER_NAME": "Francesco Trainer",
 
   "TEST_ADMIN_EMAIL": "test.admin@fitrope.local",
-  "TEST_ADMIN_PASSWORD": ""
+  "TEST_ADMIN_PASSWORD": "",
+  "TEST_DISABLED_EMAIL": "disabled.staging@example.com",
+  "TEST_DISABLED_PASSWORD": "",
+  "TEST_RUN_NAMESPACE": "manuale-001"
 }

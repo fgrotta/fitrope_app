@@ -60,6 +60,10 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
           store.dispatch(SetAllCoursesAction(response));
         });
       }
+    }).catchError((Object error) {
+      // La richiesta può terminare dopo logout/dispose. Non lasciare una Future
+      // non gestita che faccia cadere l'app o il caso E2E successivo.
+      debugPrint('Errore nel caricamento iniziale dei corsi: $error');
     });
 
     if (!isLogged()) {
@@ -100,14 +104,19 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     invalidateCoursesCache();
     invalidateAllUserCaches();
 
-    final courses = await getAllCourses(force: true);
-    if (!mounted) return;
-    setState(() {
-      store.dispatch(SetAllCoursesAction(courses));
-    });
+    try {
+      final courses = await getAllCourses(force: true);
+      if (!mounted) return;
+      setState(() {
+        store.dispatch(SetAllCoursesAction(courses));
+      });
 
-    // Propaga il refresh a HomePage / pagine admin e alle card iscritti.
-    RefreshManager().notifyRefresh();
+      // Propaga il refresh a HomePage / pagine admin e alle card iscritti.
+      RefreshManager().notifyRefresh();
+    } catch (error) {
+      // Un resume può sovrapporsi al logout o al dispose della pagina.
+      debugPrint('Errore nel refresh corsi alla ripresa: $error');
+    }
   }
 
   Future<void> resetUser() async {

@@ -4,6 +4,10 @@ Per architettura, modelli dati e regole di business dettagliate vedi `agents.md`
 
 ## Comandi
 
+Il catalogo funzionale e la strategia dual-target sono in
+`docs/AREE_DI_TEST.md`; limiti e setup degli ambienti sono in
+`docs/AMBIENTI_DI_TEST.md`.
+
 ### Flutter
 
 ```bash
@@ -212,7 +216,9 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 Punti aperti da affrontare in un secondo momento (non ancora fatti):
 
 - **Tipologia corso: doppio binario `tags` + `courseType`**: il modello `Course` mantiene sia `tags` (fonte per eligibility e supporto a Hyrox/Hey Mamma) sia `courseType` (enum legacy `open` / `personal_trainer`, usato anche dalle immagini). Definire una migrazione esplicita prima di rimuovere uno dei due campi; non trattare `CourseType.label` come deprecato finche non esiste un sostituto completo.
-- **OneSignal web — decisioni aperte**: (a) il Web SDK è attivo con push opt-in funzionante, ma non è tracciato se l'attivazione sia una scelta definitiva — confermare o disattivare; (b) l'appId OneSignal è **hardcoded in `lib/main.dart` ed è quello di produzione**: la build web di staging non riceve alcun `--dart-define` OneSignal, quindi la web staging registra device/utenti sull'app OneSignal di prod (non esiste una seconda app OneSignal per staging — lato Functions invece `ONESIGNAL_APP_ID` è già parametrizzato via env). Da decidere: seconda app + dart-define, oppure disattivazione dell'init su `isStaging`.
-- **Test E2E da riallineare al nuovo modello** (`integration_test/`; `subscribe_to_course_test.dart` e `waitlist_swap_test.dart` in `skip: true`, `login_test.dart` attivo ma nessun job CI li esegue):
-  - `helpers/seed.dart` crea documenti direttamente e valorizza solo i `tags`; definire un seed compatibile con il modello misto e con la policy di eligibility corrente.
-  - Rivalidare `subscribe_to_course_test.dart` e `waitlist_swap_test.dart` contro Emulator Suite, con abbonamenti e callable reali invece di credenziali di produzione.
+- **OneSignal web**: attivo in produzione; disabilitato nel bootstrap emulatore,
+  staging ed E2E perché non esiste una app OneSignal staging separata. Le email
+  server-side staging restano disponibili esclusivamente tramite allowlist.
+- **Test E2E**: `integration_test/` è fail-closed su emulatore/staging, usa date
+  dinamiche e cleanup Admin; i flussi critici girano in CI. Vedi
+  `docs/AREE_DI_TEST.md` e `integration_test/README.md`.

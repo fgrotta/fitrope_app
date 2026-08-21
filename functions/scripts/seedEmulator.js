@@ -164,6 +164,13 @@ async function main() {
         tipologiaCorsoTags: [],
       }),
     },
+    {
+      uid: "disabled-test",
+      email: "disabled@test.it",
+      doc: baseUser("disabled-test", "disabled@test.it", "Dina", "Disabled", "User", {
+        isActive: false,
+      }),
+    },
   ];
 
   for (const u of users) {
@@ -172,15 +179,15 @@ async function main() {
     console.log(`  ${u.email} (${u.doc.role})`);
   }
 
-  // Abbonamenti nuovo modello per abbonato-test: Open 3x + Hyrox 10 ingressi.
+  // Abbonamenti nuovo modello per abbonato-test: FREQUENCY + due famiglie ENTRIES.
   // Riusa il catalogo/logica compilati (stesse chiavi e date di produzione).
   console.log("Abbonamenti (collezione subscriptions + snapshot)…");
   const snapshot = [];
-  for (const planKey of ["open_3x_3m", "hyrox_10i_3m"]) {
+  for (const planKey of ["open_3x_3m", "hyrox_10i_3m", "pt_10i_3m"]) {
     const plan = planByKey(planKey);
     if (!plan) throw new Error(`piano sconosciuto nel catalogo: ${planKey}`);
     const record = buildSubscriptionFromPlan(plan, Date.now() - 86400000);
-    const ref = db.collection("subscriptions").doc();
+    const ref = db.collection("subscriptions").doc(`abbonato-test_${planKey}`);
     // Stessa shape di assignSubscription (recordToDoc dal compilato).
     await ref.set(recordToDoc(record, "abbonato-test", "seed"));
     snapshot.push(recordToSnapshotEntry({ ...record, id: ref.id }));
