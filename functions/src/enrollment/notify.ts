@@ -15,11 +15,14 @@ import {
   postToOneSignal,
 } from "../handler";
 import {
+  trialConfirmationSubject,
+  trialConfirmationBody,
   trialReminderSubject,
   trialReminderBody,
   waitlistSpotAvailableSubject,
   waitlistSpotAvailableBody,
 } from "./emailTemplates";
+import { calendarUrlsForCourse } from "./calendarLinks";
 
 const DAY_NAMES = [
   "Lunedì",
@@ -166,8 +169,11 @@ function toMillis(ts: unknown): number | null {
   return null;
 }
 
-/** Trova il corso per campo `uid` (come fa il client). Null se assente. */
-async function getCourseByUid(
+/**
+ * Trova il corso per campo `uid` (come fa il client). Null se assente.
+ * Esportata: la usa anche la function HTTP `courseIcs`.
+ */
+export async function getCourseByUid(
   db: Firestore,
   courseId: string
 ): Promise<{ ref: admin.firestore.DocumentReference; data: FsData } | null> {
@@ -210,6 +216,13 @@ export async function scheduleTrialReminder(
   const courseDate = formatCourseDate(startMillis);
   const courseTime = formatCourseTime(startMillis, endMillis);
   const name = (courseDoc.name as string) ?? "";
+  const sala = (courseDoc.sala as string | undefined) ?? null;
+  const calendarUrls = calendarUrlsForCourse(courseId, {
+    courseName: name,
+    startMillis,
+    endMillis,
+    sala,
+  });
 
   const userSnap = await db.collection("users").doc(userId).get();
   const userData = userSnap.data() ?? {};
@@ -244,11 +257,75 @@ export async function scheduleTrialReminder(
         target_channel: "email",
         send_after: sendAfter,
         email_subject: trialReminderSubject(name),
-        email_body: trialReminderBody({ courseName: name, courseDate, courseTime }),
+        email_body: trialReminderBody({
+          courseName: name,
+          courseDate,
+          courseTime,
+          sala,
+          ...calendarUrls,
+        }),
       })
     );
   }
   await Promise.all(tasks);
+}
+
+/**
+ * Email di conferma immediata dell'iscrizione alla lezione di prova, con i
+ * bottoni "aggiungi al calendario".
+ *
+ * A differenza del promemoria è **transazionale**: non guarda `reminderEnabled`
+ * (quel flag governa il promemoria, non la conferma di un'iscrizione appena
+ * fatta) e non ha `send_after`. Copre anche il buco del promemoria, che non
+ * parte se l'iscrizione arriva a lezione imminente (`trialReminderSendAtMillis`
+ * già passato).
+ *
+ * Solo email, nessuna push: l'utente ha appena usato l'app, la push sarebbe
+ * rumore.
+ */
+export async function sendTrialEnrollmentConfirmation(
+  db: Firestore,
+  apiKey: string,
+  userId: string,
+  courseId: string,
+  nowMillis: number
+): Promise<void> {
+  const course = await getCourseByUid(db, courseId);
+  if (!course) return;
+  const courseDoc = course.data;
+
+  const startMillis = toMillis(courseDoc.startDate);
+  const endMillis = toMillis(courseDoc.endDate);
+  if (startMillis === null || endMillis === null) return;
+  if (startMillis <= nowMillis) return; // lezione già iniziata: niente da segnare
+
+  const userSnap = await db.collection("users").doc(userId).get();
+  const userData = userSnap.data() ?? {};
+  const email = (userData.email as string | undefined)?.trim();
+  if (userData.emailNotificationsEnabled === false) return;
+  if (!isStagingIdentityAllowed(userId, email)) return;
+
+  const name = (courseDoc.name as string) ?? "";
+  const sala = (courseDoc.sala as string | undefined) ?? null;
+  const calendarUrls = calendarUrlsForCourse(courseId, {
+    courseName: name,
+    startMillis,
+    endMillis,
+    sala,
+  });
+
+  await postOneSignal(apiKey, "Trial Email Confirmation", {
+    include_aliases: { external_id: [userId] },
+    target_channel: "email",
+    email_subject: trialConfirmationSubject(name),
+    email_body: trialConfirmationBody({
+      courseName: name,
+      courseDate: formatCourseDate(startMillis),
+      courseTime: formatCourseTime(startMillis, endMillis),
+      sala,
+      ...calendarUrls,
+    }),
+  });
 }
 
 /**

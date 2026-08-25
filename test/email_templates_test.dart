@@ -90,10 +90,81 @@ void main() {
         courseName: 'Pilates',
         courseDate: 'Giovedi 10 Aprile 2026',
         courseTime: '09:00 - 10:00',
+        sala: 'Sala 2',
+        googleUrl: _googleUrl,
+        icsUrl: _icsUrl,
       );
       expect(body, contains('Pilates'));
       expect(body, contains('Giovedi 10 Aprile 2026'));
       expect(body, contains('09:00 - 10:00'));
+      expect(body, contains('Sala 2'));
+    });
+
+    test('deve contenere i due bottoni calendario con href escaped', () {
+      final body = trialReminderBody(
+        courseName: 'Pilates',
+        courseDate: 'Giovedi 10 Aprile 2026',
+        courseTime: '09:00 - 10:00',
+        googleUrl: _googleUrl,
+        icsUrl: _icsUrl,
+      );
+      expect(body, contains('Aggiungi a Google Calendar'));
+      expect(body, contains('Apple / Outlook / altro'));
+      // Gli & dei query string vanno &amp; dentro l'attributo href.
+      expect(
+        body,
+        contains(
+          'href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=Pilates"',
+        ),
+      );
+    });
+  });
+
+  group('trialConfirmationSubject', () {
+    test('deve contenere il nome del corso e "confermata"', () {
+      final subject = trialConfirmationSubject('Pilates Mattina');
+      expect(subject, contains('Pilates Mattina'));
+      expect(subject, contains('confermata'));
+    });
+  });
+
+  group('trialConfirmationBody', () {
+    test('deve contenere dettagli, sala e bottoni calendario', () {
+      final body = trialConfirmationBody(
+        courseName: 'Pilates',
+        courseDate: 'Giovedi 10 Aprile 2026',
+        courseTime: '09:00 - 10:00',
+        sala: 'Sala 1',
+        googleUrl: _googleUrl,
+        icsUrl: _icsUrl,
+      );
+      expect(body, contains('Iscrizione confermata'));
+      expect(body, contains('Giovedi 10 Aprile 2026'));
+      expect(body, contains('Sala 1'));
+      expect(body, contains('Aggiungi a Google Calendar'));
+      expect(body, contains('Apple / Outlook / altro'));
+    });
+
+    test('sala vuota: nessuna riga Sala', () {
+      final body = trialConfirmationBody(
+        courseName: 'Pilates',
+        courseDate: 'Giovedi 10 Aprile 2026',
+        courseTime: '09:00 - 10:00',
+        sala: '   ',
+        googleUrl: _googleUrl,
+        icsUrl: _icsUrl,
+      );
+      expect(body, isNot(contains('<strong>Sala:</strong>')));
+    });
+  });
+
+  group('htmlAttrUrl', () {
+    test('trasforma gli & in &amp;', () {
+      expect(htmlAttrUrl('https://x/y?a=1&b=2'), 'https://x/y?a=1&amp;b=2');
     });
   });
 }
+
+const String _googleUrl =
+    'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Pilates';
+const String _icsUrl = 'https://example.test/courseIcs?courseId=c1';

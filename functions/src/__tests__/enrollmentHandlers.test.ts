@@ -468,8 +468,9 @@ describe("subscribeToCourseHandler", () => {
     expect(store.users.u1.waitlistCourses).toEqual(["altro"]);
   });
 
-  test("utente ABBONAMENTO_PROVA: parte il promemoria prova", async () => {
+  test("utente ABBONAMENTO_PROVA: partono promemoria E conferma iscrizione", async () => {
     const calls: Array<[string, string]> = [];
+    const confirmations: Array<[string, string]> = [];
     const store: FakeStore = {
       users: { u1: packUser({ tipologiaIscrizione: "ABBONAMENTO_PROVA", entrateDisponibili: 1 }) },
       courses: { c1: course() },
@@ -479,11 +480,40 @@ describe("subscribeToCourseHandler", () => {
     await subscribeToCourseHandler(
       { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
       db,
-      { notifyTrialReminder: async (u, c) => void calls.push([u, c]) },
+      {
+        notifyTrialReminder: async (u, c) => void calls.push([u, c]),
+        notifyTrialConfirmation: async (u, c) => void confirmations.push([u, c]),
+      },
       NOW
     );
     expect(calls).toEqual([["u1", "c1"]]);
+    expect(confirmations).toEqual([["u1", "c1"]]);
     expect(store.users.u1.entrateDisponibili).toBe(0);
+  });
+
+  test("conferma che fallisce non fa fallire l'iscrizione (best-effort)", async () => {
+    const store: FakeStore = {
+      users: { u1: packUser({ tipologiaIscrizione: "ABBONAMENTO_PROVA", entrateDisponibili: 1 }) },
+      courses: { c1: course() },
+      subs: {},
+    };
+    const db = makeDb(store);
+    await expect(
+      subscribeToCourseHandler(
+        { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+        db,
+        {
+          notifyTrialConfirmation: async () => {
+            throw new Error("OneSignal down");
+          },
+          notifyTrialReminder: async () => {
+            throw new Error("OneSignal down");
+          },
+        },
+        NOW
+      )
+    ).resolves.toEqual({ ok: true });
+    expect(store.users.u1.courses).toEqual(["c1"]);
   });
 
   test("utente non PROVA: nessun promemoria", async () => {
@@ -496,7 +526,10 @@ describe("subscribeToCourseHandler", () => {
     await subscribeToCourseHandler(
       { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
       db,
-      { notifyTrialReminder: async (u) => void calls.push(u) },
+      {
+        notifyTrialReminder: async (u) => void calls.push(u),
+        notifyTrialConfirmation: async (u) => void calls.push(u),
+      },
       NOW
     );
     expect(calls).toEqual([]);

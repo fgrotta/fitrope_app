@@ -411,10 +411,25 @@ La REST API key **non e mai esposta al client**. Il client chiama la Cloud Funct
 | Trigger | Dove (da PR4/PR5: SERVER-side) | Invio |
 |---|---|---|
 | Disiscrizione da corso pieno | Cloud Function `unsubscribeFromCourse` → `functions/src/enrollment/notify.ts:notifyWaitlistUsers` | Immediato — email a tutti gli utenti in waitlist (utenti nuovo modello mai rimossi per `fineIscrizione` stantio) |
+| Iscrizione utente `ABBONAMENTO_PROVA` (solo modello legacy) | Cloud Function `subscribeToCourse` → `functions/src/enrollment/notify.ts:sendTrialEnrollmentConfirmation` | Immediato — email di conferma con i bottoni "aggiungi al calendario" |
 | Iscrizione utente `ABBONAMENTO_PROVA` (solo modello legacy) | Cloud Function `subscribeToCourse` → `functions/src/enrollment/notify.ts:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 Europe/Rome |
-| Debug manuale (solo `kDebugMode`) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
+| Debug manuale (solo `kDebugMode`) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` / `sendTestTrialConfirmationEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
 
 Le versioni client di `notifyWaitlistUsers`/`scheduleTrialReminder` sono state RIMOSSE (PR4/PR5): il server è l'unica autorità.
+
+**Aggiungi al calendario.** Le email della prova (conferma e promemoria) portano due
+bottoni: un deeplink Google Calendar e un link al file `.ics`. OneSignal **non supporta
+allegati email**, quindi l'`.ics` non può essere allegato: lo serve la function HTTP
+`courseIcs` (`europe-west8`, pubblica e non autenticata — il click arriva da un client
+email, senza credenziali), che rilegge il corso da Firestore a ogni richiesta e risponde
+`text/calendar` con `Cache-Control: no-store`, così un corso spostato o cancellato non
+resta congelato nel link. Il promemoria a **-4h** vive solo nell'`.ics` (`VALARM`): il
+deeplink Google non ha parametri per gli alert, lì valgono i default dell'utente.
+URL e HTML dei bottoni stanno in `functions/src/enrollment/calendarLinks.ts`, il
+documento iCalendar in `functions/src/enrollment/ics.ts`; `lib/services/calendar_links.dart`
+è il mirror client usato solo dalle email di test di `DebugEmailPage`.
+L'indirizzo della palestra (`GYM_ADDRESS` in `calendarLinks.ts`, `gymAddress` nel mirror
+Dart) è duplicato nei due file: se cambia la sede vanno aggiornati entrambi.
 
 **Logout**: la rimozione dell'email da OneSignal al logout è temporaneamente disabilitata (codice commentato in `lib/authentication/logout.dart`).
 
@@ -430,7 +445,7 @@ Su web le email applicative passano via Cloud Function (`ensureOneSignalUser` cr
 
 Ogni `Course` ha due flag configurabili dall'admin in creazione/duplicazione:
 
-- `reminderEnabled` (default true): se false, `scheduleTrialReminder` (server) salta l'invio per questo corso
+- `reminderEnabled` (default true): se false, `scheduleTrialReminder` (server) salta l'invio per questo corso. **Non** blocca `sendTrialEnrollmentConfirmation`: la conferma di iscrizione è transazionale e dipende solo da `emailNotificationsEnabled` dell'utente
 - `waitlistEnabled` (default true): se false, `getCourseState` ritorna `FULL` invece di `CAN_WAITLIST`, `joinWaitlist` (server) rifiuta e `notifyWaitlistUsers` (server) salta l'invio
 
 Entrambi si applicano anche ai corsi creati tramite `RecurringCoursePage`.

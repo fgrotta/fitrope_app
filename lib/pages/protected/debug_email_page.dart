@@ -18,12 +18,15 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   final _courseDateCtrl = TextEditingController(text: 'Lunedì 28 Aprile 2025');
   final _courseTimeCtrl = TextEditingController(text: '10:00');
   final _spotsCtrl = TextEditingController(text: '2');
+  final _courseIdCtrl = TextEditingController();
+  final _salaCtrl = TextEditingController(text: 'Sala 1');
 
   String? _resolvedUid;
   String? _lookupError;
   bool _isLookingUp = false;
   bool _sendingWaitlist = false;
   bool _sendingReminder = false;
+  bool _sendingConfirmation = false;
   bool _sendingCert10 = false;
   bool _sendingCertExpiry = false;
 
@@ -43,7 +46,17 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     _courseDateCtrl.dispose();
     _courseTimeCtrl.dispose();
     _spotsCtrl.dispose();
+    _courseIdCtrl.dispose();
+    _salaCtrl.dispose();
     super.dispose();
+  }
+
+  /// Evento demo per i bottoni calendario: domani 10:00-11:00 ora locale.
+  /// I campi "Data"/"Orario" della pagina sono testo libero (servono al corpo
+  /// dell'email), quindi non sono parsabili in un istante vero.
+  DateTime get _demoEventStart {
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 10);
   }
 
   Future<void> _lookupUser() async {
@@ -122,6 +135,10 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
         courseName: _courseNameCtrl.text,
         courseDate: _courseDateCtrl.text,
         courseTime: _courseTimeCtrl.text,
+        courseId: _courseIdCtrl.text.trim(),
+        eventStart: _demoEventStart,
+        eventEnd: _demoEventStart.add(const Duration(hours: 1)),
+        sala: _salaCtrl.text,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -139,6 +156,39 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
       }
     } finally {
       if (mounted) setState(() => _sendingReminder = false);
+    }
+  }
+
+  Future<void> _sendConfirmationEmail() async {
+    if (_resolvedUid == null) return;
+    setState(() => _sendingConfirmation = true);
+    try {
+      await sendTestTrialConfirmationEmail(
+        userId: _resolvedUid!,
+        courseName: _courseNameCtrl.text,
+        courseDate: _courseDateCtrl.text,
+        courseTime: _courseTimeCtrl.text,
+        courseId: _courseIdCtrl.text.trim(),
+        eventStart: _demoEventStart,
+        eventEnd: _demoEventStart.add(const Duration(hours: 1)),
+        sala: _salaCtrl.text,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email conferma iscrizione prova inviata'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingConfirmation = false);
     }
   }
 
@@ -299,6 +349,25 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             ),
             const SizedBox(height: 16),
             TextField(
+              controller: _salaCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Sala',
+                border: OutlineInputBorder(),
+                helperText: "Finisce nel luogo dell'evento calendario",
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _courseIdCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Course ID (uid)',
+                border: OutlineInputBorder(),
+                helperText: 'Per il link .ics: se vuoto o inesistente il '
+                    'bottone Apple/Outlook risponde 404',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
               controller: _spotsCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
@@ -326,6 +395,23 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                       )
                     : const Icon(Icons.list_alt_outlined),
                 label: const Text('Invia email waitlist'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: canSend && !_sendingConfirmation
+                    ? _sendConfirmationEmail
+                    : null,
+                icon: _sendingConfirmation
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.event_available_outlined),
+                label: const Text('Invia conferma iscrizione prova'),
               ),
             ),
             const SizedBox(height: 12),

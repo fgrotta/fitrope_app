@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:fitrope_app/services/calendar_links.dart';
 import 'package:fitrope_app/services/email_templates.dart';
 
 String _testPrefix(String text) => kDebugMode ? 'TEST - $text' : text;
@@ -104,6 +105,10 @@ Future<void> sendTestTrialReminderEmail({
   required String courseName,
   required String courseDate,
   required String courseTime,
+  required String courseId,
+  required DateTime eventStart,
+  required DateTime eventEnd,
+  String? sala,
 }) {
   assert(kDebugMode);
   return _sendOneSignalRequest('Trial Email Reminder [TEST]', {
@@ -116,6 +121,50 @@ Future<void> sendTestTrialReminderEmail({
       courseName: courseName,
       courseDate: courseDate,
       courseTime: courseTime,
+      sala: sala,
+      googleUrl: googleCalendarUrl(
+        courseName: courseName,
+        start: eventStart,
+        end: eventEnd,
+        sala: sala,
+      ),
+      icsUrl: icsUrl(courseId),
+    ),
+  });
+}
+
+/// Email di conferma iscrizione alla prova (con i bottoni calendario).
+/// In produzione la invia la Cloud Function `subscribeToCourse`: qui serve solo
+/// per la QA visuale del template da `DebugEmailPage`.
+Future<void> sendTestTrialConfirmationEmail({
+  required String userId,
+  required String courseName,
+  required String courseDate,
+  required String courseTime,
+  required String courseId,
+  required DateTime eventStart,
+  required DateTime eventEnd,
+  String? sala,
+}) {
+  assert(kDebugMode);
+  return _sendOneSignalRequest('Trial Email Confirmation [TEST]', {
+    'include_aliases': {
+      'external_id': [userId]
+    },
+    'target_channel': 'email',
+    'email_subject': _testPrefix(trialConfirmationSubject(courseName)),
+    'email_body': trialConfirmationBody(
+      courseName: courseName,
+      courseDate: courseDate,
+      courseTime: courseTime,
+      sala: sala,
+      googleUrl: googleCalendarUrl(
+        courseName: courseName,
+        start: eventStart,
+        end: eventEnd,
+        sala: sala,
+      ),
+      icsUrl: icsUrl(courseId),
     ),
   });
 }

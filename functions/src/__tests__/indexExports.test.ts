@@ -9,6 +9,7 @@ type IndexModule = {
   certificateEmailsDaily: unknown;
   sendOneSignalNotification: unknown;
   subscribeToCourse: unknown;
+  courseIcs: unknown;
 };
 
 function loadIndex(): IndexModule {
@@ -40,6 +41,8 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     // Le callable ordinarie non devono essere toccate dal gate.
     expect(mod.sendOneSignalNotification).toBeDefined();
     expect(mod.subscribeToCourse).toBeDefined();
+    // courseIcs serve i link "aggiungi al calendario" delle email: va in prod.
+    expect(mod.courseIcs).toBeDefined();
   });
 
   test("staging (APP_ENV=staging): certificati esportati", () => {
