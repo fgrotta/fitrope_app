@@ -132,7 +132,7 @@ class _CourseUnsubscribeButtonState extends State<CourseUnsubscribeButton> {
 
   String _getButtonText() {
     if (_unsubscribeInfo['requiresConfirmation']) {
-      return 'Disiscriviti (Perdi Credito)';
+      return 'Disiscriviti (recupera oggi)';
     } else {
       return 'Disiscriviti';
     }

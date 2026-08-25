@@ -447,3 +447,122 @@ describe("integrazione emulatore — write-path enrollment", () => {
     expect((await courseDoc(disabilitato))?.waitlist).toEqual([]);
   });
 });
+
+describe("integrazione emulatore — recupero nella giornata", () => {
+  /**
+   * Origine e rimpiazzo devono cadere nello STESSO giorno UTC (il netting
+   * bucketizza in UTC) e l'origine entro la finestra di 8h da adesso. Se non c'è
+   * spazio per due corsi prima della mezzanotte UTC si parte subito dopo: resta
+   * comunque entro le 8h, quindi il test non dipende dall'ora in cui gira.
+   */
+  function sameDaySlots(): { origin: number; replacement: number } {
+    const now = Date.now();
+    const dayMs = 86400000;
+    const nextMidnight = (Math.floor(now / dayMs) + 1) * dayMs;
+    const base = now + 3 * 3600000 < nextMidnight ? now : nextMidnight + 600000;
+    return { origin: base + 3600000, replacement: base + 2 * 3600000 };
+  }
+
+  test("disdetta tardiva → reiscrizione gratuita in giornata → nessun credito coniato", async () => {
+    const { origin, replacement } = sameDaySlots();
+    const u = uniq("u-recupero");
+    const token = await createUser(u, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 1,
+    });
+    const cOrigin = uniq("c-origine");
+    const cReplacement = uniq("c-rimpiazzo");
+    await createCourse(cOrigin, { startDate: Timestamp.fromMillis(origin) });
+    await createCourse(cReplacement, { startDate: Timestamp.fromMillis(replacement) });
+
+    // 1. Iscrizione: scala l'unico ingresso.
+    expect(
+      (await call("subscribeToCourse", token, { courseId: cOrigin, userId: u })).ok
+    ).toBe(true);
+    expect((await userDoc(u)).entrateDisponibili).toBe(0);
+
+    // 2. Disdetta entro la finestra: senza conferma è rifiutata, con conferma
+    //    l'ingresso non torna e la perdita è registrata come ENTRY.
+    const senzaConferma = await call("unsubscribeFromCourse", token, {
+      courseId: cOrigin,
+      userId: u,
+    });
+    expect(senzaConferma.ok).toBe(false);
+    expect(
+      (
+        await call("unsubscribeFromCourse", token, {
+          courseId: cOrigin,
+          userId: u,
+          confirmedNoRefund: true,
+        })
+      ).ok
+    ).toBe(true);
+    const afterCancel = await userDoc(u);
+    expect(afterCancel.entrateDisponibili).toBe(0);
+    const cancelled = afterCancel.cancelledEnrollments as Array<Record<string, unknown>>;
+    expect(cancelled).toHaveLength(1);
+    expect(cancelled[0].entryLost).toBe(true);
+    expect(cancelled[0].lostKind).toBe("ENTRY");
+
+    // 3. Reiscrizione nella stessa giornata: consentita a credito zero e gratuita.
+    expect(
+      (await call("subscribeToCourse", token, { courseId: cReplacement, userId: u })).ok
+    ).toBe(true);
+    const afterRecovery = await userDoc(u);
+    expect(afterRecovery.entrateDisponibili).toBe(0);
+    const consumption = afterRecovery.enrollmentConsumption as Record<
+      string,
+      { kind: string }
+    >;
+    expect(consumption[cReplacement].kind).toBe("NONE");
+
+    // 4. Disdetta del rimpiazzo: nessun credito coniato, nessuna penalità in più,
+    //    e il recupero resta disponibile per un altro corso della giornata.
+    expect(
+      (
+        await call("unsubscribeFromCourse", token, {
+          courseId: cReplacement,
+          userId: u,
+          confirmedNoRefund: true,
+        })
+      ).ok
+    ).toBe(true);
+    const afterSecondCancel = await userDoc(u);
+    expect(afterSecondCancel.entrateDisponibili).toBe(0);
+    expect(afterSecondCancel.cancelledEnrollments).toHaveLength(1);
+
+    expect(
+      (await call("subscribeToCourse", token, { courseId: cOrigin, userId: u })).ok
+    ).toBe(true);
+    expect((await userDoc(u)).entrateDisponibili).toBe(0);
+  });
+
+  test("il recupero non vale il giorno dopo", async () => {
+    const { origin } = sameDaySlots();
+    const u = uniq("u-recupero-domani");
+    const token = await createUser(u, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 1,
+    });
+    const cOrigin = uniq("c-origine-2");
+    const cTomorrow = uniq("c-domani");
+    await createCourse(cOrigin, { startDate: Timestamp.fromMillis(origin) });
+    await createCourse(cTomorrow, {
+      startDate: Timestamp.fromMillis(origin + 86400000),
+    });
+
+    await call("subscribeToCourse", token, { courseId: cOrigin, userId: u });
+    await call("unsubscribeFromCourse", token, {
+      courseId: cOrigin,
+      userId: u,
+      confirmedNoRefund: true,
+    });
+
+    const domani = await call("subscribeToCourse", token, {
+      courseId: cTomorrow,
+      userId: u,
+    });
+    expect(domani.ok).toBe(false);
+    expect(domani.errorMessage).toContain("ngress");
+  });
+});

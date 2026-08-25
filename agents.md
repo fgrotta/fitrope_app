@@ -212,7 +212,9 @@ lib/
 
 ### CancelledEnrollment (nested in FitropeUser)
 
-Traccia le disiscrizioni con: `courseId`, `cancelledAt`, `entryLost` (se l'ingresso e stato perso), `courseStartDate`.
+Traccia le disiscrizioni con: `courseId`, `cancelledAt`, `entryLost` (se qualcosa e stato perso), `lostKind` (`ENTRY` = un ingresso gia scalato, `WEEKLY_SLOT` = uno slot settimanale; assente sui record vecchi = `WEEKLY_SLOT`), `courseStartDate`.
+
+Una perdita non e definitiva nell'istante della disdetta: e recuperabile nella giornata del corso disdetto (vedi "Recupero nella giornata").
 
 ### Modello multi-abbonamento
 
@@ -326,8 +328,15 @@ Da PR4/PR5 le scritture del dominio iscrizioni sono server-side: il client manti
 ### Disiscrizione
 
 - `unsubscribeFromCourse`: callable transazionale invocata dai wrapper `unsubscribeToCourse` / `forceUnsubscribeWithNoRefund`.
-- **Legacy pacchetto/prova e multi-abbonamento ENTRIES**: rimborso oltre 8 ore; entro 8 ore serve conferma e l'ingresso e perso.
-- **Multi-abbonamento FREQUENCY / abbonamenti temporali legacy**: oltre 4 ore libera solo il posto; entro 4 ore serve conferma e viene registrato `cancelledEnrollments.entryLost`, che conta nel limite settimanale.
+- **Legacy pacchetto/prova e multi-abbonamento ENTRIES**: rimborso oltre 8 ore; entro 8 ore serve conferma e l'ingresso e perso (voce `lostKind: ENTRY`).
+- **Multi-abbonamento FREQUENCY / abbonamenti temporali legacy**: oltre 4 ore libera solo il posto; entro 4 ore serve conferma e viene registrato `cancelledEnrollments.entryLost` con `lostKind: WEEKLY_SLOT`, che conta nel limite settimanale.
+- La penalita segue sempre la fonte REALMENTE consumata (registro consumi): se fu scalato un ingresso, `lostKind` e `ENTRY` anche se l'utente e passato nel frattempo a un piano a frequenza — altrimenti la perdita peserebbe due volte.
+
+### Recupero nella giornata
+
+Una lezione persa per disdetta tardiva e ASSORBITA, uno a uno, da un'iscrizione attiva della **stessa giornata e tipologia**: gli slot consumati in un giorno sono `max(attive, persi)`, non `attive + persi`. Chi disdice alle 17:55 e si iscrive al corso delle 20:00 non paga due volte; se disdice anche il rimpiazzo la penalita ritorna da se. A mezzanotte la perdita diventa definitiva.
+
+Nessuno stato aggiuntivo: la regola e un conteggio derivato, applicato in due punti (`countWeeklyEntries` per i piani a frequenza, `countRecoverableEntries` per la decisione di consumo dei piani a ingressi). Dettagli e invarianti in `lib/api/courses/README_ISCRIZIONI.md`.
 - **Admin/Trainer su altri utenti**: il server riconosce actor diverso da target e rimborsa sempre, ignorando `confirmedNoRefund`.
 - **deleteCourse admin**: callable atomica; corsi futuri rimborsano, corsi gia iniziati sono pulizia storico e non rimborsano.
 

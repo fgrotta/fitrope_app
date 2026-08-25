@@ -17,6 +17,7 @@ import 'package:fitrope_app/api/authentication/get_users_with_expiring_certifica
 import 'package:fitrope_app/api/authentication/get_users_with_expiring_subscriptions.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
 import 'package:fitrope_app/utils/subscription_labels.dart';
+import 'package:fitrope_app/utils/course_recovery.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
@@ -329,6 +330,55 @@ class _HomePageState extends State<HomePage> {
         'Il mio abbonamento',
         textAlign: TextAlign.left,
         style: TextStyle(color: onPrimaryColor, fontSize: 20),
+      ),
+    );
+  }
+
+  /// Avviso per una lezione disdetta in ritardo e non ancora recuperata: si
+  /// recupera iscrivendosi a un altro corso della stessa tipologia entro la fine
+  /// della giornata, altrimenti va persa. Senza questo avviso il recupero
+  /// sarebbe invisibile: l'utente vedrebbe solo il credito già scalato.
+  Widget renderRecoveryBanner() {
+    final Map<String, int> pending = pendingRecoveriesToday(user);
+    if (pending.isEmpty) return const SizedBox.shrink();
+
+    final String detail = pending.entries
+        .map((e) => e.value == 1 ? e.key : '${e.key} (${e.value})')
+        .join(', ');
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.15),
+        border: Border.all(color: Colors.orange),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.restore, color: Colors.orange),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Hai una lezione da recuperare oggi',
+                  style: TextStyle(
+                      color: onPrimaryColor, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Iscriviti a un corso $detail di oggi entro le 23:59: '
+                  'non ti verrà scalato nulla. Altrimenti la lezione va persa.',
+                  style: const TextStyle(color: onPrimaryColor, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1444,6 +1494,9 @@ class _HomePageState extends State<HomePage> {
                 ),
             ],
           ),
+
+          // RECUPERO IN GIORNATA
+          renderRecoveryBanner(),
 
           // ABBONAMENTO
           renderSubscriptionCard(),

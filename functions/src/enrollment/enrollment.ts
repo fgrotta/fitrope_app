@@ -27,12 +27,13 @@ import {
   coveringSubsByType,
   validAtDate,
   countWeeklyEntries,
+  countRecoverableEntries,
   weekBoundsMillis,
   EnrolledCourse,
   CancelledRecord,
   SubscribeReason,
 } from "./eligibility";
-import { decideRefund, decideAdminRefund, CreditMode } from "./refund";
+import { decideRefund, decideAdminRefund, CreditMode, LostKind } from "./refund";
 
 type Firestore = admin.firestore.Firestore;
 type FsData = admin.firestore.DocumentData;
@@ -166,17 +167,26 @@ async function fetchWeekCatalog(
 }
 
 /**
- * Ingressi settimanali usati: corsi iscritti ([userCourses], dal doc utente
- * LETTO IN TRANSAZIONE) + disiscrizioni perse, nello scope [typeTags]
- * (null = globale, legacy temporale).
+ * Conteggi per la valutazione dell'idoneità, calcolati sul doc utente LETTO IN
+ * TRANSAZIONE ([userCourses], [cancelledRaw]) e sul catalogo della settimana:
+ *
+ *  - `weeklyUsed`: ingressi settimanali usati nello scope corretto (0 quando
+ *    nessun limite settimanale si applica, come prima);
+ *  - `recoverableEntriesOnDay`: ingressi persi nella giornata del corso e non
+ *    ancora assorbiti — se > 0 l'iscrizione è gratuita (recupero).
+ *
+ * Condiviso da subscribeToCourse e joinWaitlist: la selezione dello scope
+ * settimanale era duplicata identica nei due handler.
  */
-function weeklyUsedFromCatalog(
+function enrollmentCountsFromCatalog(
   catalog: WeekCatalog,
   courseStartMillis: number,
+  coursePrimaryTag: string,
+  user: FsData,
+  liveRecords: UserSubscriptionRecord[],
   userCourses: string[],
-  cancelledRaw: FsData[],
-  typeTags: Set<string> | null
-): number {
+  cancelledRaw: FsData[]
+): { weeklyUsed: number; recoverableEntriesOnDay: number } {
   const enrolled: EnrolledCourse[] = [];
   for (const id of userCourses) {
     const entry = catalog.byUid.get(id);
@@ -193,9 +203,51 @@ function weeklyUsedFromCatalog(
     entryLost: c.entryLost === true,
     courseStartMillis: toMillis(c.courseStartDate),
     primaryTag: catalog.byUid.get((c.courseId as string) ?? "")?.primaryTag ?? null,
+    // I record scritti prima dell'introduzione del campo esistevano SOLO per i
+    // modelli a frequenza → default WEEKLY_SLOT.
+    lostKind: (c.lostKind === "ENTRY" ? "ENTRY" : "WEEKLY_SLOT") as LostKind,
   }));
 
-  return countWeeklyEntries(courseStartMillis, enrolled, cancelled, typeTags);
+  // Scope del conteggio settimanale: null = globale (legacy temporale), un set =
+  // tipologie coperte dagli abbonamenti a frequenza validi. weeklyScope null =
+  // nessun limite settimanale da valutare.
+  let weeklyScope: { tags: Set<string> | null } | null = null;
+  if (liveRecords.length > 0) {
+    const valid = validAtDate(
+      coveringSubsByType(liveRecords, coursePrimaryTag),
+      courseStartMillis
+    );
+    const freqSub = valid.find(
+      (s) => s.billingMode === "FREQUENCY" && s.weeklyFrequency !== null
+    );
+    if (freqSub) {
+      const tags = new Set<string>();
+      valid
+        .filter((s) => s.billingMode === "FREQUENCY")
+        .forEach((s) => s.courseTypeTags.forEach((t) => tags.add(t)));
+      weeklyScope = { tags };
+    }
+  } else {
+    const tip = (user.tipologiaIscrizione as string | null) ?? null;
+    const temporal =
+      tip !== null && tip.startsWith("ABBONAMENTO_") && tip !== "ABBONAMENTO_PROVA";
+    if (temporal && user.entrateSettimanali != null) {
+      weeklyScope = { tags: null };
+    }
+  }
+
+  return {
+    weeklyUsed:
+      weeklyScope === null
+        ? 0
+        : countWeeklyEntries(courseStartMillis, enrolled, cancelled, weeklyScope.tags),
+    recoverableEntriesOnDay: countRecoverableEntries(
+      courseStartMillis,
+      coursePrimaryTag,
+      enrolled,
+      cancelled
+    ),
+  };
 }
 
 /**
@@ -399,42 +451,15 @@ export async function subscribeToCourseHandler(
     // Conteggio settimanale DENTRO la transazione, con il doc utente fresco:
     // richieste concorrenti dello stesso utente si serializzano sul suo doc,
     // quindi il limite non è bypassabile con doppi tap / device paralleli.
-    let weeklyUsed = 0;
-    if (liveRecords.length > 0) {
-      const valid = validAtDate(
-        coveringSubsByType(liveRecords, coursePrimaryTag),
-        courseStartMillis
-      );
-      const freqSub = valid.find(
-        (s) => s.billingMode === "FREQUENCY" && s.weeklyFrequency !== null
-      );
-      if (freqSub) {
-        const tags = new Set<string>();
-        valid
-          .filter((s) => s.billingMode === "FREQUENCY")
-          .forEach((s) => s.courseTypeTags.forEach((t) => tags.add(t)));
-        weeklyUsed = weeklyUsedFromCatalog(
-          weekCatalog,
-          courseStartMillis,
-          userCourses,
-          cancelledRaw,
-          tags
-        );
-      }
-    } else {
-      const tip = (user.tipologiaIscrizione as string | null) ?? null;
-      const temporal =
-        tip !== null && tip.startsWith("ABBONAMENTO_") && tip !== "ABBONAMENTO_PROVA";
-      if (temporal && user.entrateSettimanali != null) {
-        weeklyUsed = weeklyUsedFromCatalog(
-          weekCatalog,
-          courseStartMillis,
-          userCourses,
-          cancelledRaw,
-          null
-        );
-      }
-    }
+    const { weeklyUsed, recoverableEntriesOnDay } = enrollmentCountsFromCatalog(
+      weekCatalog,
+      courseStartMillis,
+      coursePrimaryTag,
+      user,
+      liveRecords,
+      userCourses,
+      cancelledRaw
+    );
 
     const decision = evaluateSubscribe({
       force,
@@ -454,6 +479,7 @@ export async function subscribeToCourseHandler(
       entrateSettimanali: (user.entrateSettimanali as number | null) ?? null,
       fineIscrizioneMillis: user.fineIscrizione ? toMillis(user.fineIscrizione) : null,
       weeklyUsed,
+      recoverableEntriesOnDay,
     });
 
     if (!decision.allowed) {
@@ -606,6 +632,21 @@ export async function unsubscribeFromCourseHandler(
       nowMillis
     );
 
+    // Fonte da ripristinare: il registro consumi dice cosa fu REALMENTE scalato
+    // a questa prenotazione (sopravvive ai cambi di modello: prenotazione legacy
+    // + abbonamento assegnato dopo → si ripristina l'entrata legacy, non un
+    // ingresso mai consumato; force-subscribe senza consumo → nessun ripristino).
+    // Serve anche a decidere COSA si perde entro finestra, quindi va letto prima
+    // della decisione di rimborso. Prenotazioni pre-registro (campo assente):
+    // `consumedEntry` null → decideRefund deduce dal modello attuale.
+    const consumption = readConsumption(user);
+    const consumedRecord: ConsumptionRecord | undefined = consumption[courseId];
+    const consumedEntry =
+      consumedRecord === undefined
+        ? null
+        : consumedRecord.kind === "LEGACY_ENTRY" ||
+          consumedRecord.kind === "SUBSCRIPTION_ENTRY";
+
     // Operazione ADMIN su un altro utente (il ramo target !== actor è già
     // riservato ai privilegiati): rimborso SEMPRE, `confirmedNoRefund` IGNORATO
     // (un privilegiato non può far perdere il credito a un altro utente),
@@ -613,7 +654,13 @@ export async function unsubscribeFromCourseHandler(
     const minutesToStart = (courseStartMillis - nowMillis) / 60000;
     const refund = adminAction
       ? decideAdminRefund(creditMode, subscriptionId)
-      : decideRefund({ creditMode, subscriptionId, minutesToStart, confirmedNoRefund });
+      : decideRefund({
+          creditMode,
+          subscriptionId,
+          minutesToStart,
+          confirmedNoRefund,
+          consumedEntry,
+        });
     if (refund.requiresConfirmation) {
       throw new HttpsError(
         "failed-precondition",
@@ -621,15 +668,6 @@ export async function unsubscribeFromCourseHandler(
       );
     }
 
-    // Fonte da ripristinare: il registro consumi dice cosa fu REALMENTE scalato
-    // a questa prenotazione (sopravvive ai cambi di modello: prenotazione legacy
-    // + abbonamento assegnato dopo → si ripristina l'entrata legacy, non un
-    // ingresso mai consumato; force-subscribe senza consumo → nessun ripristino).
-    // `lost` (= refund.entryLost) vale per qualunque fonte: entro finestra con
-    // conferma il credito si perde. Prenotazioni pre-registro (campo assente):
-    // fallback alla risoluzione dal modello attuale (refund.restore*).
-    const consumption = readConsumption(user);
-    const consumedRecord: ConsumptionRecord | undefined = consumption[courseId];
     const lost = refund.entryLost;
     const restoreLegacy =
       consumedRecord !== undefined
@@ -643,24 +681,6 @@ export async function unsubscribeFromCourseHandler(
         : refund.restoreSubscriptionEntry
           ? refund.subscriptionId
           : null;
-
-    // La PENALITÀ deve seguire la stessa fonte del rimborso, altrimenti si paga
-    // due volte. Caso concreto: prenotazione fatta col modello legacy (registro
-    // LEGACY_ENTRY), poi l'utente passa a un abbonamento FREQUENCY; alla
-    // disiscrizione entro finestra con conferma il creditMode risolto dal modello
-    // ATTUALE è FREQUENCY_SUB, quindi `refund.trackCancelled` è true → l'utente
-    // perdeva il credito legacy (non ripristinato perché `lost`) E si beccava una
-    // voce `entryLost: true` che pesa sul limite settimanale.
-    // Se il registro dice che è stato consumato un INGRESSO, la penalità è già
-    // "l'ingresso non torna": nessuna voce in cancelledEnrollments. La voce resta
-    // solo quando la fonte consumata era davvero uno slot settimanale
-    // (kind NONE sotto un modello a frequenza) o quando il registro è assente
-    // (prenotazione pre-registro → fallback al modello attuale, invariato).
-    const consumedAnEntry =
-      consumedRecord !== undefined &&
-      (consumedRecord.kind === "LEGACY_ENTRY" ||
-        consumedRecord.kind === "SUBSCRIPTION_ENTRY");
-    const trackCancelled = refund.trackCancelled && !consumedAnEntry;
 
     // Lettura aggiuntiva per il ripristino ingressi abbonamento (prima delle scritture).
     let txRecords: UserSubscriptionRecord[] = [];
@@ -712,7 +732,7 @@ export async function unsubscribeFromCourseHandler(
       }
     }
 
-    if (trackCancelled) {
+    if (refund.trackCancelled) {
       const existing: FsData[] = Array.isArray(user.cancelledEnrollments)
         ? (user.cancelledEnrollments as FsData[])
         : [];
@@ -722,6 +742,10 @@ export async function unsubscribeFromCourseHandler(
           courseId,
           cancelledAt: Timestamp.fromMillis(nowMillis),
           entryLost: refund.entryLost,
+          // Cosa è stato perso, quindi cosa è recuperabile nella giornata:
+          // "ENTRY" (un ingresso già scalato, non pesa sulla settimana) o
+          // "WEEKLY_SLOT" (uno slot settimanale). null = niente perso.
+          lostKind: refund.lostKind,
           courseStartDate: course.data.startDate,
         },
       ];
@@ -826,42 +850,15 @@ export async function joinWaitlistHandler(
       ? (user.cancelledEnrollments as FsData[])
       : [];
 
-    let weeklyUsed = 0;
-    if (liveRecords.length > 0) {
-      const valid = validAtDate(
-        coveringSubsByType(liveRecords, coursePrimaryTag),
-        courseStartMillis
-      );
-      const freqSub = valid.find(
-        (s) => s.billingMode === "FREQUENCY" && s.weeklyFrequency !== null
-      );
-      if (freqSub) {
-        const tags = new Set<string>();
-        valid
-          .filter((s) => s.billingMode === "FREQUENCY")
-          .forEach((s) => s.courseTypeTags.forEach((t) => tags.add(t)));
-        weeklyUsed = weeklyUsedFromCatalog(
-          weekCatalog,
-          courseStartMillis,
-          userCourses,
-          cancelledRaw,
-          tags
-        );
-      }
-    } else {
-      const tip = (user.tipologiaIscrizione as string | null) ?? null;
-      const temporal =
-        tip !== null && tip.startsWith("ABBONAMENTO_") && tip !== "ABBONAMENTO_PROVA";
-      if (temporal && user.entrateSettimanali != null) {
-        weeklyUsed = weeklyUsedFromCatalog(
-          weekCatalog,
-          courseStartMillis,
-          userCourses,
-          cancelledRaw,
-          null
-        );
-      }
-    }
+    const { weeklyUsed, recoverableEntriesOnDay } = enrollmentCountsFromCatalog(
+      weekCatalog,
+      courseStartMillis,
+      coursePrimaryTag,
+      user,
+      liveRecords,
+      userCourses,
+      cancelledRaw
+    );
 
     // Il corso pieno e il prerequisito della waitlist; validiamo qui la sola
     // idoneita, senza consumare crediti e senza trattare FULL come errore.
@@ -882,6 +879,7 @@ export async function joinWaitlistHandler(
       entrateSettimanali: (user.entrateSettimanali as number | null) ?? null,
       fineIscrizioneMillis: user.fineIscrizione ? toMillis(user.fineIscrizione) : null,
       weeklyUsed,
+      recoverableEntriesOnDay,
     });
     if (!decision.allowed) {
       const error = REASON_TO_HTTP[decision.reason as Exclude<SubscribeReason, "OK">];

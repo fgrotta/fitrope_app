@@ -906,8 +906,9 @@ describe("unsubscribeFromCourseHandler", () => {
   test("misto legacy→FREQUENCY entro finestra: penalità UNA volta sola (no doppia)", async () => {
     // Prenotazione fatta col modello legacy (registro LEGACY_ENTRY), poi l'utente
     // passa a un abbonamento FREQUENCY. Disiscrizione entro 4h con conferma: il
-    // credito legacy è perso (penalità applicata), quindi NON va scritta anche una
-    // voce entryLost che peserebbe sul limite settimanale — sarebbe doppia.
+    // credito legacy è perso (penalità applicata), quindi la voce di storico deve
+    // essere marcata "ENTRY" — recuperabile nella giornata, ma senza pesare anche
+    // sul limite settimanale, altrimenti la penalità sarebbe doppia.
     const store: FakeStore = {
       users: {
         u1: subUser({
@@ -931,8 +932,12 @@ describe("unsubscribeFromCourseHandler", () => {
     );
     // Penalità: il credito legacy NON torna.
     expect(store.users.u1.entrateDisponibili).toBe(3);
-    // ...e non se ne aggiunge una seconda sul limite settimanale.
-    expect(store.users.u1.cancelledEnrollments).toBeUndefined();
+    // ...e la voce registrata è quella dell'INGRESSO, non uno slot settimanale:
+    // countWeeklyEntries salta le voci ENTRY, quindi nessuna doppia penalità.
+    const cancelled = store.users.u1.cancelledEnrollments as Array<Record<string, unknown>>;
+    expect(cancelled).toHaveLength(1);
+    expect(cancelled[0].entryLost).toBe(true);
+    expect(cancelled[0].lostKind).toBe("ENTRY");
     expect(store.users.u1.courses).toEqual([]);
   });
 
@@ -1501,5 +1506,195 @@ describe("pruneConsumption (retention 90gg ancorata all'inizio del corso)", () =
     );
     expect(store.users.u1.entrateDisponibili).toBe(5); // rimborsata
     expect(store.users.u1.enrollmentConsumption).toEqual({}); // e ripulita
+  });
+});
+
+// ──────────────────────────────────────────────
+//  Recupero nella giornata (ciclo completo)
+// ──────────────────────────────────────────────
+
+// Stessa giornata di SOON, ma oltre la finestra di 8h da NOW (9 giu 21:00 UTC).
+const LATE_SAME_DAY = Date.UTC(2026, 5, 9, 21);
+
+describe("recupero nella giornata", () => {
+  test("pacchetto entrate: disdetta tardiva → reiscrizione nella giornata gratuita", async () => {
+    const store: FakeStore = {
+      users: {
+        u1: packUser({
+          entrateDisponibili: 4,
+          courses: ["c-soon"],
+          enrollmentConsumption: { "c-soon": { kind: "LEGACY_ENTRY" } },
+        }),
+      },
+      courses: {
+        "c-soon": course({ uid: "c-soon", startDate: Timestamp.fromMillis(SOON) }),
+        "c-late": course({ uid: "c-late", startDate: Timestamp.fromMillis(LATE_SAME_DAY) }),
+      },
+      subs: {},
+    };
+    const db = makeDb(store);
+
+    // 1. Disdetta entro le 8h con conferma: l'ingresso NON torna.
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-soon", userId: "u1", confirmedNoRefund: true } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.entrateDisponibili).toBe(4);
+    const cancelled = store.users.u1.cancelledEnrollments as Array<Record<string, unknown>>;
+    expect(cancelled).toHaveLength(1);
+    expect(cancelled[0].lostKind).toBe("ENTRY");
+
+    // 2. Reiscrizione a un corso della stessa giornata: gratuita, l'ingresso era
+    //    già stato pagato dalla prenotazione disdetta.
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-late", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.entrateDisponibili).toBe(4);
+    const consumption = store.users.u1.enrollmentConsumption as Record<string, ConsumptionRecord>;
+    expect(consumption["c-late"].kind).toBe("NONE");
+  });
+
+  test("la disdetta del rimpiazzo non conia credito e restituisce il recupero", async () => {
+    const store: FakeStore = {
+      users: {
+        u1: packUser({
+          entrateDisponibili: 4,
+          courses: ["c-late"],
+          // Iscrizione ottenuta col recupero: non ha scalato nulla.
+          enrollmentConsumption: { "c-late": { kind: "NONE" } },
+          cancelledEnrollments: [
+            {
+              courseId: "c-soon",
+              cancelledAt: Timestamp.fromMillis(NOW),
+              entryLost: true,
+              lostKind: "ENTRY",
+              courseStartDate: Timestamp.fromMillis(SOON),
+            },
+          ],
+        }),
+      },
+      courses: {
+        "c-soon": course({ uid: "c-soon", startDate: Timestamp.fromMillis(SOON) }),
+        "c-late": course({ uid: "c-late", startDate: Timestamp.fromMillis(LATE_SAME_DAY) }),
+        "c-third": course({ uid: "c-third", startDate: Timestamp.fromMillis(LATE_SAME_DAY + 3600000) }),
+      },
+      subs: {},
+    };
+    const db = makeDb(store);
+
+    // Disdetta FUORI finestra (9h): normalmente sarebbe rimborso pieno, ma qui non
+    // c'era nulla di scalato → nessun credito coniato.
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-late", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.entrateDisponibili).toBe(4);
+    expect(store.users.u1.cancelledEnrollments).toHaveLength(1); // nessuna penalità in più
+
+    // Il recupero è di nuovo disponibile: un altro corso della giornata è gratuito.
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-third", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.entrateDisponibili).toBe(4);
+  });
+
+  test("crediti a zero: il recupero consente comunque l'iscrizione nella giornata", async () => {
+    const store: FakeStore = {
+      users: {
+        u1: packUser({
+          entrateDisponibili: 0,
+          courses: [],
+          cancelledEnrollments: [
+            {
+              courseId: "c-soon",
+              cancelledAt: Timestamp.fromMillis(NOW),
+              entryLost: true,
+              lostKind: "ENTRY",
+              courseStartDate: Timestamp.fromMillis(SOON),
+            },
+          ],
+        }),
+      },
+      courses: {
+        "c-soon": course({ uid: "c-soon", startDate: Timestamp.fromMillis(SOON) }),
+        "c-late": course({ uid: "c-late", startDate: Timestamp.fromMillis(LATE_SAME_DAY) }),
+        c1: course(), // giorno successivo
+      },
+      subs: {},
+    };
+    const db = makeDb(store);
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-late", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.courses).toEqual(["c-late"]);
+
+    // Ma il recupero vale solo nella giornata: il corso di domani resta bloccato.
+    await expectCode(
+      subscribeToCourseHandler({ ...auth("u1"), data: { courseId: "c1", userId: "u1" } }, db, {}, NOW),
+      "failed-precondition"
+    );
+  });
+
+  test("frequenza al limite settimanale: disdetta tardiva e reiscrizione nella giornata", async () => {
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["c-mon", "c-soon"],
+          activeSubscriptions: [snapshotEntry("sub-open", openFreqSubDoc(2))],
+        }),
+      },
+      courses: {
+        "c-mon": course({ uid: "c-mon", startDate: Timestamp.fromMillis(Date.UTC(2026, 5, 8, 10)) }),
+        "c-soon": course({ uid: "c-soon", startDate: Timestamp.fromMillis(SOON) }),
+        "c-late": course({ uid: "c-late", startDate: Timestamp.fromMillis(LATE_SAME_DAY) }),
+        "c-third": course({ uid: "c-third", startDate: Timestamp.fromMillis(LATE_SAME_DAY + 3600000) }),
+      },
+      subs: { "sub-open": openFreqSubDoc(2) },
+    };
+    const db = makeDb(store);
+
+    // 2 corsi su 2 nella settimana: al limite. Disdetta entro 4h con conferma.
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-soon", userId: "u1", confirmedNoRefund: true } },
+      db,
+      {},
+      NOW
+    );
+    const cancelled = store.users.u1.cancelledEnrollments as Array<Record<string, unknown>>;
+    expect(cancelled[0].entryLost).toBe(true);
+    expect(cancelled[0].lostKind).toBe("WEEKLY_SLOT");
+
+    // Senza netting lo slot perso sommato a c-mon farebbe 2/2 → bloccato.
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c-late", userId: "u1" } },
+      db,
+      {},
+      NOW
+    );
+    expect(store.users.u1.courses).toEqual(["c-mon", "c-late"]);
+
+    // Il recupero è uno solo: un terzo corso nella giornata torna a sbattere sul limite.
+    await expectCode(
+      subscribeToCourseHandler(
+        { ...auth("u1"), data: { courseId: "c-third", userId: "u1" } },
+        db,
+        {},
+        NOW
+      ),
+      "failed-precondition"
+    );
   });
 });

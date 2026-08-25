@@ -290,8 +290,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
             DateFormat('dd/MM/yyyy').format(cancelled.courseStartDate.toDate());
         // Determina la tipologia del corso (usa il primo tag o 'Open' come default)
         String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
-        String status =
-            cancelled.entryLost ? 'Ingresso perso' : 'Ingresso non perso';
+        // Cosa è stato perso: un ingresso (credito scalato) o uno slot
+        // settimanale. In entrambi i casi la lezione era recuperabile nella
+        // giornata del corso disdetto (vedi README_ISCRIZIONI).
+        String status = !cancelled.entryLost
+            ? 'Ingresso non perso'
+            : cancelled.lostKindOrDefault == LostKind.ENTRY
+                ? 'Ingresso perso'
+                : 'Ingresso settimanale perso';
         cancelledEnrollments.add({
           'name': courseName,
           'cancelledDate': cancelledDate,

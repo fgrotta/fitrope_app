@@ -389,7 +389,7 @@ void main() {
         expect(result['requiresConfirmation'], true);
         expect(result['isPacchettoEntrate'], true);
         expect(result['message'],
-            'Disiscrizione a meno di 8 ore: perderai il credito');
+            'Disiscrizione a meno di 8 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
       });
     });
   });

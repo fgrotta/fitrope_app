@@ -211,7 +211,10 @@ void main() {
         expect(result['requiresConfirmation'], true);
         expect(result['isTemporalSubscription'], true);
         expect(result['hoursRemaining'], lessThan(4));
-        expect(result['message'], contains('perderai l\'ingresso settimanale'));
+        expect(
+            result['message'],
+            contains(
+                'perdi la lezione se non ti iscrivi a un altro corso di oggi'));
       });
 
       test('should track cancellation with entryLost: true when < 4 hours', () {

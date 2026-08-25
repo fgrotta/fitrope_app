@@ -9,6 +9,7 @@
 
 import { UserSubscriptionRecord } from "./subscription";
 import { canUserAccessCourse, familyForTypeTag } from "./courseTypes";
+import { LostKind } from "./refund";
 
 /** Corso a cui l'utente è attualmente iscritto (per il conteggio settimanale). */
 export interface EnrolledCourse {
@@ -23,6 +24,11 @@ export interface CancelledRecord {
   courseStartMillis: number;
   /** Tipologia primaria del corso originario, se ancora risolvibile; altrimenti null. */
   primaryTag: string | null;
+  /**
+   * Cosa è stato perso. Assente = record scritto prima dell'introduzione del
+   * campo, quando le voci esistevano SOLO per i modelli a frequenza → "WEEKLY_SLOT".
+   */
+  lostKind?: LostKind;
 }
 
 export type SubscribeReason =
@@ -79,14 +85,41 @@ function inWeek(millis: number, bounds: { start: number; end: number }): boolean
 }
 
 /**
- * Conta gli ingressi settimanali usati (corsi attivi + disiscrizioni perse) nella
- * settimana di [courseStartMillis].
+ * Giorno civile (UTC) che contiene [millis]. Stessa convenzione UTC di
+ * [weekBoundsMillis]: il client bucketizza nel fuso locale (Europe/Rome), quindi
+ * le due versioni divergono solo per corsi fra mezzanotte e le 02:00 — la
+ * palestra non programma corsi notturni. Il client resta il gate UX primario.
+ */
+export function dayKeyMillis(millis: number): number {
+  return Math.floor(millis / 86400000);
+}
+
+function bump(counter: Map<number, number>, key: number): void {
+  counter.set(key, (counter.get(key) ?? 0) + 1);
+}
+
+/**
+ * Conta gli ingressi settimanali usati nella settimana di [courseStartMillis].
+ *
+ * REGOLA DI RECUPERO: un ingresso perso in una giornata è ASSORBITO, uno a uno,
+ * da un'iscrizione attiva della stessa giornata (slot consumati in un giorno =
+ * max(attive, persi), non attive + persi). Così chi disdice in ritardo e si
+ * reiscrive a un corso dello stesso giorno non paga due volte, e se poi disdice
+ * anche il rimpiazzo la penalità ritorna da sé — nessuno stato da gestire.
+ *
+ * Il corso CANDIDATO è incluso nel netting e poi sottratto: il gate chiamante è
+ * `weeklyUsed >= limite` e non conta il candidato, quindi senza includerlo un
+ * utente al limite non potrebbe mai assorbire l'ingresso appena perso. Senza
+ * ingressi persi il risultato è algebricamente identico al conteggio precedente
+ * (Σ max(attive, 0) + 1 − 1 = attive).
  *
  * - [typeTags] null  → conteggio GLOBALE (modello legacy temporale).
  * - [typeTags] set   → conta solo i corsi la cui tipologia primaria è in [typeTags]
  *   (scoping per famiglia, modello multi-abbonamento). Le disiscrizioni perse di
  *   corsi non più risolvibili (primaryTag null) vengono comunque contate, per non
- *   sotto-contare il limite (mirror di _countWeeklyEntriesForTags).
+ *   sotto-contare il limite (mirror di _countWeeklyEntriesForTags), ma non sono
+ *   assorbibili: senza la tipologia non sappiamo a quale giornata-tipologia
+ *   appartengano.
  */
 export function countWeeklyEntries(
   courseStartMillis: number,
@@ -98,23 +131,74 @@ export function countWeeklyEntries(
   const matchesType = (tag: string | null): boolean =>
     typeTags === null || (tag !== null && typeTags.has(tag));
 
-  let active = 0;
+  const activeByDay = new Map<number, number>();
+  bump(activeByDay, dayKeyMillis(courseStartMillis)); // il candidato
   for (const c of enrolled) {
-    if (inWeek(c.startMillis, bounds) && matchesType(c.primaryTag)) active += 1;
-  }
-
-  let lost = 0;
-  for (const c of cancelled) {
-    if (!c.entryLost) continue;
-    if (!inWeek(c.courseStartMillis, bounds)) continue;
-    // typeTags null → conta sempre; altrimenti conta se la tipologia combacia
-    // o se il corso non è più risolvibile (primaryTag null).
-    if (typeTags === null || c.primaryTag === null || typeTags.has(c.primaryTag)) {
-      lost += 1;
+    if (inWeek(c.startMillis, bounds) && matchesType(c.primaryTag)) {
+      bump(activeByDay, dayKeyMillis(c.startMillis));
     }
   }
 
-  return active + lost;
+  const lostByDay = new Map<number, number>();
+  let lostNotAbsorbable = 0;
+  for (const c of cancelled) {
+    if (!c.entryLost) continue;
+    // Una penalità su un INGRESSO non pesa sul limite settimanale (il credito
+    // scalato è già la penalità): si recupera via countRecoverableEntries.
+    if (c.lostKind === "ENTRY") continue;
+    if (!inWeek(c.courseStartMillis, bounds)) continue;
+    if (typeTags === null || (c.primaryTag !== null && typeTags.has(c.primaryTag))) {
+      bump(lostByDay, dayKeyMillis(c.courseStartMillis));
+    } else if (c.primaryTag === null) {
+      lostNotAbsorbable += 1;
+    }
+  }
+
+  let total = lostNotAbsorbable;
+  for (const day of new Set([...activeByDay.keys(), ...lostByDay.keys()])) {
+    total += Math.max(activeByDay.get(day) ?? 0, lostByDay.get(day) ?? 0);
+  }
+  return total - 1;
+}
+
+/**
+ * Ingressi (crediti) persi nella giornata del corso candidato e non ancora
+ * assorbiti da un'iscrizione attiva della stessa giornata e tipologia.
+ *
+ * > 0 significa che l'iscrizione al candidato NON deve scalare alcun credito:
+ * quell'ingresso è già stato pagato dalla prenotazione disdetta in ritardo. È
+ * l'equivalente, per i modelli a ingressi, del netting di [countWeeklyEntries]:
+ * lì il credito è un valore derivato, qui è un contatore, quindi la regola si
+ * applica alla decisione di consumo.
+ *
+ * Un record la cui tipologia non è più risolvibile (primaryTag null) non è
+ * assorbibile: preferiamo non regalare una lezione quando non possiamo
+ * verificare che le tipologie combacino.
+ */
+export function countRecoverableEntries(
+  courseStartMillis: number,
+  coursePrimaryTag: string,
+  enrolled: EnrolledCourse[],
+  cancelled: CancelledRecord[]
+): number {
+  const day = dayKeyMillis(courseStartMillis);
+
+  let lost = 0;
+  for (const c of cancelled) {
+    if (!c.entryLost || c.lostKind !== "ENTRY") continue;
+    if (dayKeyMillis(c.courseStartMillis) !== day) continue;
+    if (c.primaryTag !== coursePrimaryTag) continue;
+    lost += 1;
+  }
+  if (lost === 0) return 0;
+
+  let active = 0;
+  for (const c of enrolled) {
+    if (dayKeyMillis(c.startMillis) === day && c.primaryTag === coursePrimaryTag) {
+      active += 1;
+    }
+  }
+  return Math.max(0, lost - active);
 }
 
 /**
@@ -187,6 +271,13 @@ export interface SubscribeInput {
    * concedesse più tag, passare a conteggi per-abbonamento.
    */
   weeklyUsed: number;
+
+  /**
+   * Ingressi persi nella giornata del corso e non ancora assorbiti
+   * ([countRecoverableEntries]). Se > 0 l'iscrizione non scala credito e il
+   * blocco NO_ENTRIES viene sollevato: l'ingresso era già stato pagato.
+   */
+  recoverableEntriesOnDay: number;
 }
 
 /**
@@ -234,6 +325,11 @@ export function evaluateSubscribe(input: SubscribeInput): SubscribeDecision {
   // FREQUENCY → il consumo deve essere NONE, non l'ENTRIES a zero (altrimenti
   // l'handler rifiuterebbe un'iscrizione che evaluateSubscribe ha consentito).
   const consumePlan = (): ConsumePlan => {
+    // Recupero nella giornata: l'ingresso è già stato scalato dalla prenotazione
+    // disdetta in ritardo, quindi questa iscrizione è gratuita. Va controllato
+    // PRIMA del credito disponibile, altrimenti un utente non al limite pagherebbe
+    // due volte la stessa lezione.
+    if (input.recoverableEntriesOnDay > 0) return none;
     if (useSubscriptions) {
       const entrySub = validCovering.find(
         (s) => s.billingMode === "ENTRIES" && (s.remainingEntries ?? 0) > 0
@@ -265,10 +361,16 @@ export function evaluateSubscribe(input: SubscribeInput): SubscribeDecision {
     return { allowed: false, reason: "NO_ACCESS", consume: none };
   }
 
-  // Idoneità (crediti/limiti/scadenza).
-  const limit = useSubscriptions
+  // Idoneità (crediti/limiti/scadenza). Il blocco per crediti esauriti non si
+  // applica se nella giornata c'è un ingresso perso da recuperare: quel posto è
+  // già stato pagato. Il limite settimanale invece è già nettato dentro
+  // weeklyUsed (countWeeklyEntries), quindi qui non va toccato.
+  let limit = useSubscriptions
     ? evaluateCoveringLimit(input, coveringByType, validCovering)
     : evaluateLegacyLimit(input);
+  if (limit === "NO_ENTRIES" && input.recoverableEntriesOnDay > 0) {
+    limit = null;
+  }
   if (limit !== null) {
     return { allowed: false, reason: limit, consume: none };
   }

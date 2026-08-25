@@ -157,7 +157,7 @@ void main() {
         expect(result['requiresConfirmation'], true);
         expect(result['isPacchettoEntrate'], true);
         expect(result['message'],
-            'Disiscrizione a meno di 8 ore: perderai il credito');
+            'Disiscrizione a meno di 8 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
         expect(result['hoursRemaining'], lessThan(8));
       });
 
@@ -171,7 +171,7 @@ void main() {
         expect(result['requiresConfirmation'], true);
         expect(result['isPacchettoEntrate'], true);
         expect(result['message'],
-            'Disiscrizione a meno di 8 ore: perderai il credito');
+            'Disiscrizione a meno di 8 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
         expect(result['hoursRemaining'], 8);
       });
 
@@ -185,7 +185,7 @@ void main() {
         expect(result['requiresConfirmation'], true);
         expect(result['isPacchettoEntrate'], true);
         expect(result['message'],
-            'Disiscrizione a meno di 8 ore: perderai il credito');
+            'Disiscrizione a meno di 8 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
         expect(result['hoursRemaining'], lessThan(0));
       });
 
@@ -332,7 +332,7 @@ void main() {
           CourseUnsubscribeHelper.canUnsubscribe(courseInHours(6), user);
       expect(within['requiresConfirmation'], true);
       expect(within['message'],
-          'Disiscrizione a meno di 8 ore: perderai il credito');
+          'Disiscrizione a meno di 8 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
     });
 
     test('abbonamento FREQUENCY: finestra 4h (non 8h)', () {
@@ -350,7 +350,7 @@ void main() {
       expect(at2h['requiresConfirmation'], true);
       expect(at2h['isTemporalSubscription'], true);
       expect(at2h['message'],
-          'Disiscrizione a meno di 4 ore: perderai l\'ingresso settimanale');
+          'Disiscrizione a meno di 4 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
     });
 
     test('nessun abbonamento copre la tipologia: nessuna finestra', () {
@@ -397,7 +397,7 @@ void main() {
       expect(result['requiresConfirmation'], true);
       expect(result['isPacchettoEntrate'], true);
       expect(result['message'],
-          'Disiscrizione a meno di 8 ore: perderai il credito');
+          'Disiscrizione a meno di 8 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
     });
   });
 }
