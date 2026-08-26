@@ -26,7 +26,8 @@ void main() {
         sala: sala,
       );
 
-  // Giornata di riferimento: 3 tipologie su 4 presenti, un corso senza tag.
+  // Giornata di riferimento: entrambe le tipologie V2 presenti e un corso
+  // senza tag. Hyrox resta un tag descrittivo di un corso Open.
   // La sala resta valorizzata (è ancora un dato della card) ma non filtra più.
   final open1 = course(
       name: 'open1', hour: 9, tags: [CourseTags.OPEN], sala: Sale.SALA_1);
@@ -50,8 +51,8 @@ void main() {
   List<String> namesOf(List<Course> list) => list.map((c) => c.name).toList();
 
   group('courseTypeKeyOf', () {
-    test('risolve la tipologia principale dai tag', () {
-      expect(courseTypeKeyOf(hyroxS1), CourseTags.HYROX);
+    test('un tag descrittivo Hyrox risolve la tipologia Open', () {
+      expect(courseTypeKeyOf(hyroxS1), CourseTags.OPEN);
     });
 
     test('ritorna null per un corso senza tipologia riconosciuta', () {
@@ -85,27 +86,26 @@ void main() {
       expect(namesOf(giornata), before);
     });
 
-    test('filtra per tipologia', () {
+    test('filtra per tipologia includendo i tag descrittivi Open', () {
       expect(
-        namesOf(applyCourseFilters(giornata, types: {CourseTags.HYROX})),
-        ['hyrox-s2', 'hyrox-s1'],
+        namesOf(applyCourseFilters(giornata, types: {CourseTags.OPEN})),
+        ['hyrox-s2', 'open1', 'senza-sala', 'hyrox-s1', 'open2'],
       );
     });
 
     test('la selezione multipla di tipologie è in OR', () {
       expect(
         namesOf(applyCourseFilters(giornata,
-            types: {CourseTags.HYROX, CourseTags.PERSONAL_TRAINER})),
-        ['hyrox-s2', 'pt', 'hyrox-s1'],
+            types: {CourseTags.OPEN, CourseTags.PERSONAL_TRAINER})),
+        ['hyrox-s2', 'open1', 'pt', 'senza-sala', 'hyrox-s1', 'open2'],
       );
     });
 
     test('la sala del corso non influenza il filtro', () {
-      // open1 è in Sala 1, open2 in Sala 2, senza-sala non ne ha: con il filtro
-      // Tipologia "Open" passano tutti e tre.
+      // La sala non conta e i due corsi col tag descrittivo Hyrox sono Open.
       expect(
         namesOf(applyCourseFilters(giornata, types: {CourseTags.OPEN})),
-        ['open1', 'senza-sala', 'open2'],
+        ['hyrox-s2', 'open1', 'senza-sala', 'hyrox-s1', 'open2'],
       );
     });
 
@@ -130,14 +130,14 @@ void main() {
     test('ha una voce per ogni tipologia registrata, anche a zero', () {
       final counts = courseTypeCounts(giornata);
       expect(counts.keys.toSet(), CourseTypes.all.map((t) => t.key).toSet());
-      expect(counts[CourseTags.HEY_MAMMA], 0);
+      expect(counts[CourseTags.HEY_MAMMA], isNull);
     });
 
     test('conta per tipologia principale, ignorando i corsi senza tipologia',
         () {
       final counts = courseTypeCounts(giornata);
-      expect(counts[CourseTags.OPEN], 3);
-      expect(counts[CourseTags.HYROX], 2);
+      expect(counts[CourseTags.OPEN], 5);
+      expect(counts[CourseTags.HYROX], isNull);
       expect(counts[CourseTags.PERSONAL_TRAINER], 1);
       // senza-tag non finisce in nessun conteggio
       expect(counts.values.reduce((a, b) => a + b), giornata.length - 1);

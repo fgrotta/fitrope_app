@@ -95,6 +95,17 @@ describe("runner migrazione contro Firestore Emulator", () => {
     const migratedUser = await db.collection("users").doc("legacy-user").get();
     expect(subscription.exists).toBe(true);
     expect(migratedUser.get("activeSubscriptions")).toHaveLength(1);
+    expect(migratedUser.get("legacySubscriptionMigration")).toMatchObject({
+      source: "BATCH",
+      subscriptionId: "legacy_open_legacy-user",
+      planKey: "open_2x_1m",
+    });
+    expect(
+      readFileSync(
+        path.join(testRoot, "apply-1", "enrollment-integrity-report.csv"),
+        "utf8"
+      )
+    ).toContain("severity");
     const courseUpdateTime = migratedCourse.updateTime!.toMillis();
     const userUpdateTime = migratedUser.updateTime!.toMillis();
 
@@ -171,5 +182,64 @@ describe("runner migrazione contro Firestore Emulator", () => {
       "utf8"
     );
     expect(csv).toContain("TARGET_CONFLICT");
+  });
+
+  test("audit iscrizioni classifica le incoerenze future come blocker", async () => {
+    const future = Timestamp.fromMillis(Date.now() + 7 * 86400 * 1000);
+    await db.collection("courses").doc("audit-future").set({
+      uid: "audit-future",
+      tags: ["Open"],
+      startDate: future,
+      subscribed: 1,
+      waitlist: [],
+    });
+    await db.collection("users").doc("audit-user").set({
+      uid: "audit-user",
+      role: "User",
+      waitlistCourses: ["audit-future"],
+    });
+    run(["--dry-run", "--scope=all", reportArg("audit")]);
+    const csv = readFileSync(
+      path.join(testRoot, "audit", "enrollment-integrity-report.csv"),
+      "utf8"
+    );
+    expect(csv).toContain("BLOCKER;WAITLIST_NOT_RECIPROCAL_USER");
+    expect(csv).toContain("BLOCKER;SUBSCRIBED_COUNT_MISMATCH");
+  });
+
+  test("un marker ADMIN_GUIDED rende il successivo batch idempotente", async () => {
+    const userId = "guided-before-batch";
+    await db.collection("users").doc(userId).set({
+      uid: userId,
+      role: "User",
+      tipologiaCorsoTags: ["Open"],
+      tipologiaIscrizione: "ABBONAMENTO_MENSILE",
+      entrateSettimanali: 2,
+      fineIscrizione: Timestamp.fromMillis(Date.now() + 15 * 86400 * 1000),
+    });
+    run(["--dry-run", "--scope=users", reportArg("guided-dry")]);
+    await db.collection("subscriptions").doc("legacy_guided_guided-before-batch").set({
+      userId,
+      family: "PT",
+      planKey: "pt_10i_1m",
+    });
+    await db.collection("users").doc(userId).update({
+      legacySubscriptionMigration: {
+        version: 1,
+        source: "ADMIN_GUIDED",
+        subscriptionId: "legacy_guided_guided-before-batch",
+      },
+    });
+
+    const applied = run([
+      "--apply",
+      "--scope=users",
+      `--manifest=.context/migrations/${path.basename(testRoot)}/guided-dry/manifest.jsonl`,
+      `--confirm-project=${PROJECT_ID}`,
+      reportArg("guided-apply"),
+    ]);
+    expect((applied.counts as Record<string, number>).ALREADY_APPLIED).toBeGreaterThan(0);
+    expect((await db.collection("subscriptions").doc(`legacy_open_${userId}`).get()).exists)
+      .toBe(false);
   });
 });

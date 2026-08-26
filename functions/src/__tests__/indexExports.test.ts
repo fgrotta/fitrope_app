@@ -10,6 +10,8 @@ type IndexModule = {
   sendOneSignalNotification: unknown;
   subscribeToCourse: unknown;
   courseIcs: unknown;
+  firestoreBackupDaily: unknown;
+  firestoreBackupDailyCheck: unknown;
 };
 
 function loadIndex(): IndexModule {
@@ -43,6 +45,8 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     expect(mod.subscribeToCourse).toBeDefined();
     // courseIcs serve i link "aggiungi al calendario" delle email: va in prod.
     expect(mod.courseIcs).toBeDefined();
+    expect(mod.firestoreBackupDaily).toBeDefined();
+    expect(mod.firestoreBackupDailyCheck).toBeDefined();
   });
 
   test("staging (APP_ENV=staging): certificati esportati", () => {
@@ -51,6 +55,8 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     const mod = loadIndex();
     expect(mod.sendTestCertificateEmail).toBeDefined();
     expect(mod.certificateEmailsDaily).toBeDefined();
+    expect(mod.firestoreBackupDaily).toBeUndefined();
+    expect(mod.firestoreBackupDailyCheck).toBeUndefined();
   });
 
   test("emulatore (FUNCTIONS_EMULATOR=true): certificati esportati", () => {
@@ -59,5 +65,7 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     const mod = loadIndex();
     expect(mod.sendTestCertificateEmail).toBeDefined();
     expect(mod.certificateEmailsDaily).toBeDefined();
+    expect(mod.firestoreBackupDaily).toBeUndefined();
+    expect(mod.firestoreBackupDailyCheck).toBeUndefined();
   });
 });

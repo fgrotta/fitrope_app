@@ -32,6 +32,16 @@ import {
   getCourseByUid,
 } from "./enrollment/notify";
 import { buildCourseIcs } from "./enrollment/ics";
+import {
+  BACKUP_BUCKET,
+  checkFirestoreBackup,
+  runFirestoreBackup,
+} from "./firestoreBackup";
+import { v1 } from "@google-cloud/firestore";
+import {
+  migrateLegacyUserHandler,
+  previewLegacyUserMigrationHandler,
+} from "./migration/userHandler";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -56,8 +66,8 @@ export const sendOneSignalNotification = onCall(
     sendOneSignalNotificationHandler(
       { auth: request.auth ?? null, data: request.data },
       oneSignalApiKey.value(),
-      { db: admin.firestore(), ensure: ensureOneSignalEmailSubscription }
-    )
+      { db: admin.firestore(), ensure: ensureOneSignalEmailSubscription },
+    ),
 );
 
 /**
@@ -76,8 +86,8 @@ export const ensureOneSignalUser = onCall(
   (request) =>
     ensureOneSignalUserHandler(
       { auth: request.auth ?? null, data: request.data },
-      oneSignalApiKey.value()
-    )
+      oneSignalApiKey.value(),
+    ),
 );
 
 /**
@@ -94,8 +104,8 @@ export const removeOneSignalEmail = onCall(
   (request) =>
     removeOneSignalEmailHandler(
       { auth: request.auth ?? null, data: request.data },
-      oneSignalApiKey.value()
-    )
+      oneSignalApiKey.value(),
+    ),
 );
 
 /**
@@ -112,8 +122,28 @@ export const assignSubscription = onCall(
   (request) =>
     assignSubscriptionHandler(
       { auth: request.auth ?? null, data: request.data },
-      admin.firestore()
-    )
+      admin.firestore(),
+    ),
+);
+
+/** Anteprima non mutante della conversione legacy di un singolo utente (Admin). */
+export const previewLegacyUserMigration = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    previewLegacyUserMigrationHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+    ),
+);
+
+/** Conversione esplicita AUTO/GUIDED, protetta da fingerprint e transazione. */
+export const migrateLegacyUser = onCall(
+  { region: "europe-west8", cors: true },
+  (request) =>
+    migrateLegacyUserHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+    ),
 );
 
 /**
@@ -135,7 +165,7 @@ export const subscribeToCourse = onCall(
             oneSignalApiKey.value(),
             userId,
             courseId,
-            Date.now()
+            Date.now(),
           ),
         notifyTrialConfirmation: (userId, courseId) =>
           sendTrialEnrollmentConfirmation(
@@ -143,10 +173,10 @@ export const subscribeToCourse = onCall(
             oneSignalApiKey.value(),
             userId,
             courseId,
-            Date.now()
+            Date.now(),
           ),
-      }
-    )
+      },
+    ),
 );
 
 /**
@@ -230,9 +260,13 @@ export const unsubscribeFromCourse = onCall(
       admin.firestore(),
       {
         notifyWaitlist: (courseId) =>
-          notifyWaitlistUsers(admin.firestore(), oneSignalApiKey.value(), courseId),
-      }
-    )
+          notifyWaitlistUsers(
+            admin.firestore(),
+            oneSignalApiKey.value(),
+            courseId,
+          ),
+      },
+    ),
 );
 
 /**
@@ -245,8 +279,8 @@ export const joinWaitlist = onCall(
   (request) =>
     joinWaitlistHandler(
       { auth: request.auth ?? null, data: request.data },
-      admin.firestore()
-    )
+      admin.firestore(),
+    ),
 );
 
 /**
@@ -259,8 +293,8 @@ export const leaveWaitlist = onCall(
   (request) =>
     leaveWaitlistHandler(
       { auth: request.auth ?? null, data: request.data },
-      admin.firestore()
-    )
+      admin.firestore(),
+    ),
 );
 
 /**
@@ -274,8 +308,8 @@ export const deleteCourse = onCall(
   (request) =>
     deleteCourseHandler(
       { auth: request.auth ?? null, data: request.data },
-      admin.firestore()
-    )
+      admin.firestore(),
+    ),
 );
 
 /**
@@ -289,8 +323,8 @@ export const recountCourseSubscribed = onCall(
   (request) =>
     recountCourseSubscribedHandler(
       { auth: request.auth ?? null, data: request.data },
-      admin.firestore()
-    )
+      admin.firestore(),
+    ),
 );
 
 // ──────────────────────────────────────────────
@@ -312,6 +346,71 @@ function certificateFunctionsEnabled(): boolean {
   );
 }
 
+// I backup PRD devono essere discoverable solo nell'ambiente di produzione:
+// staging ed Emulator non devono mai esportare dati né creare Scheduler job.
+function firestoreBackupEnabled(): boolean {
+  return (
+    process.env.APP_ENV !== "staging" &&
+    process.env.FUNCTIONS_EMULATOR !== "true"
+  );
+}
+
+const firestoreBackupDaily = firestoreBackupEnabled()
+  ? onSchedule(
+      {
+        schedule: "0 2 * * *",
+        timeZone: "UTC",
+        region: "europe-west8",
+        serviceAccount:
+          "fitrope-firestore-backup@fit-rope-app-1f575.iam.gserviceaccount.com",
+        timeoutSeconds: 540,
+        maxInstances: 1,
+        retryCount: 3,
+        minBackoffSeconds: 30,
+      },
+      async (event) => {
+        if (!firestoreBackupEnabled()) return;
+        const bucket = admin.storage().bucket(BACKUP_BUCKET);
+        await runFirestoreBackup({
+          db: admin.firestore(),
+          adminClient: new v1.FirestoreAdminClient(),
+          projectId: process.env.GCLOUD_PROJECT ?? process.env.GCP_PROJECT,
+          now: () => new Date(),
+          scheduledAt: new Date(event.scheduleTime),
+          writeManifest: async (path, body) => {
+            await bucket.file(path).save(`${JSON.stringify(body, null, 2)}\n`, {
+              contentType: "application/json",
+              resumable: false,
+            });
+          },
+        });
+      },
+    )
+  : undefined;
+
+const firestoreBackupDailyCheck = firestoreBackupEnabled()
+  ? onSchedule(
+      {
+        schedule: "0 3 * * *",
+        timeZone: "UTC",
+        region: "europe-west8",
+        serviceAccount:
+          "fitrope-firestore-backup@fit-rope-app-1f575.iam.gserviceaccount.com",
+        timeoutSeconds: 60,
+        maxInstances: 1,
+      },
+      async (event) => {
+        if (!firestoreBackupEnabled()) return;
+        await checkFirestoreBackup(
+          admin.firestore(),
+          new Date(event.scheduleTime),
+        );
+      },
+    )
+  : undefined;
+
+export { firestoreBackupDaily, firestoreBackupDailyCheck };
+
 /**
  * Invio di test delle email certificato (DebugEmailPage, kDebugMode).
  * Payload: { externalId: string, firstName?: string, kind?: "reminder10"|"expiryToday", email?: string }
@@ -323,14 +422,14 @@ export const sendTestCertificateEmail = certificateFunctionsEnabled()
         if (!certificateFunctionsEnabled()) {
           throw new HttpsError(
             "failed-precondition",
-            "Funzione disponibile solo su emulatore e staging"
+            "Funzione disponibile solo su emulatore e staging",
           );
         }
         return sendTestCertificateEmailHandler(
           { auth: request.auth ?? null, data: request.data },
-          oneSignalApiKey.value()
+          oneSignalApiKey.value(),
         );
-      }
+      },
     )
   : undefined;
 
@@ -351,7 +450,7 @@ export const certificateEmailsDaily = certificateFunctionsEnabled()
       async () => {
         if (!certificateFunctionsEnabled()) {
           logger.warn(
-            "certificateEmailsDaily invocata fuori da emulatore/staging: no-op"
+            "certificateEmailsDaily invocata fuori da emulatore/staging: no-op",
           );
           return;
         }
@@ -362,6 +461,6 @@ export const certificateEmailsDaily = certificateFunctionsEnabled()
           ensure: ensureOneSignalEmailSubscription,
           now: new Date(),
         });
-      }
+      },
     )
   : undefined;

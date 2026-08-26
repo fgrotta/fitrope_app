@@ -363,6 +363,7 @@ describe("rules: users — update self (whitelist profilo)", () => {
       { courses: ["c1"] },
       { waitlistCourses: ["c1"] },
       { activeSubscriptions: [{ planKey: "open_10i_3m", remainingEntries: 99 }] },
+      { legacySubscriptionMigration: { version: 1 } },
       { enrollmentConsumption: {} },
       { cancelledEnrollments: [{ courseId: "x" }] },
     ];
@@ -389,6 +390,7 @@ describe("rules: users — update Admin/Trainer", () => {
       { courses: ["c1"] },
       { waitlistCourses: ["c1"] },
       { activeSubscriptions: [{ planKey: "x" }] },
+      { legacySubscriptionMigration: { version: 1 } },
       { enrollmentConsumption: {} },
       { cancelledEnrollments: [{ courseId: "x" }] as unknown[] },
       { email: "altro@test.it" },
@@ -525,5 +527,19 @@ describe("rules: subscriptions", () => {
       as(ADMIN).doc("subscriptions/nuova").set({ userId: USER, planKey: "open_10i_3m" })
     );
     await assertFails(as(ADMIN).doc("subscriptions/s1").delete());
+  });
+});
+
+describe("rules: stato backup server-owned", () => {
+  test("nessun client può leggere o scrivere _systemBackupRuns", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc("_systemBackupRuns/2026-08-26").set({
+        status: "SUCCEEDED",
+      });
+    });
+    await assertFails(as(ADMIN).doc("_systemBackupRuns/2026-08-26").get());
+    await assertFails(
+      as(ADMIN).doc("_systemBackupRuns/2026-08-26").set({ status: "FAILED" })
+    );
   });
 });

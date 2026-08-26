@@ -95,6 +95,23 @@ export function subtractMonthsInRome(endMillis: number, months: number): number 
   });
 }
 
+/** Addizione nominale con clamp di fine mese nel calendario Europe/Rome. */
+export function addMonthsInRome(startMillis: number, months: number): number {
+  const start = zonedParts(startMillis);
+  const zeroBased = start.month - 1 + months;
+  const targetYear = start.year + Math.floor(zeroBased / 12);
+  const targetMonthIndex = ((zeroBased % 12) + 12) % 12;
+  const lastDay = new Date(
+    Date.UTC(targetYear, targetMonthIndex + 1, 0)
+  ).getUTCDate();
+  return fromRomeParts({
+    ...start,
+    year: targetYear,
+    month: targetMonthIndex + 1,
+    day: Math.min(start.day, lastDay),
+  });
+}
+
 export function timestampMillis(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (value instanceof Date) return value.getTime();
@@ -198,4 +215,3 @@ function ignored(
     target: null,
   };
 }
-

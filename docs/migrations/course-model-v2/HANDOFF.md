@@ -1,6 +1,6 @@
 # Handoff operativo — migrazione Course Model V2 e backup Firestore
 
-Aggiornato il 26 agosto 2026. Questo documento permette a un nuovo agente o
+Aggiornato il 26 agosto 2026 (ripresa handoff). Questo documento permette a un nuovo agente o
 operatore di riprendere il lavoro senza ricostruire le decisioni dalla cronologia
 della conversazione.
 
@@ -34,7 +34,7 @@ devono restare sotto `.context/migrations/` o in
 | Ambiente | Bucket | Location |
 |---|---|---|
 | Staging | `gs://fit-rope-staging-firestore-backups` | `europe-west8` |
-| PRD | `gs://fit-rope-app-1f575-firestore-backups` | `eur3` |
+| PRD | `gs://fit-rope-app-1f575-firestore-backups` | `EU` (vicino a Firestore `eur3`) |
 
 Entrambi devono usare Storage Standard, Uniform Bucket-Level Access, Public
 Access Prevention, retention minima 30 giorni, lifecycle delete a 90 giorni e
@@ -137,13 +137,18 @@ Il worktree contiene modifiche da preservare e revisionare:
 - `functions/src/index.ts`: export delle due scheduled functions e delle due
   callable di migrazione utente.
 - `functions/src/migration/userHandler.ts`: preview e migrazione AUTO/GUIDED.
+- `functions/src/migration/marker.ts`: schema unico del marker batch/Admin.
 - `lib/api/subscriptions/legacy_user_migration.dart`: facade callable Flutter.
+- `lib/components/legacy_user_migration_card.dart` e `UserDetailPage`: card
+  Admin desktop con flusso automatico/guidato.
 - `functions/package.json` e lockfile: dipendenza diretta
   `@google-cloud/firestore`.
 - `firestore.rules`: blocco client su `_systemBackupRuns` e
   `legacySubscriptionMigration`.
 - `docs/operations/FIRESTORE_BACKUP_RESTORE.md` e collegamenti dai README.
 - `functions/src/__tests__/indexExports.test.ts`: gate PRD/staging/emulatore.
+- `scripts/backfillCourseModel.js`: marker condiviso, fingerprint degli array
+  iscrizioni e `enrollment-integrity-report.csv`.
 
 `firepit-log.txt` è un artefatto locale non correlato: non includerlo nel
 commit. Prima di modificare qualunque file, rieseguire `git status --short` e
@@ -152,60 +157,60 @@ non scartare il worktree.
 Verifica locale già eseguita sul worktree corrente:
 
 ```text
-cd functions && npm run build && npm test -- --runInBand
-17 suite passate, 315 test passati
+cd functions && npm run build && npm test -- --runInBand --detectOpenHandles
+18 suite passate, 330 test passati
+
+PATH="/usr/local/opt/openjdk@21/bin:$PATH" npm run test:integration
+3 suite passate, 40 test passati
+
+flutter test
+352 test passati
 ```
 
-Jest ha però segnalato un open handle a fine esecuzione; probabilmente il timer
-della `Promise.race` nel backup non viene cancellato quando l'export termina
-subito. Il warning va eliminato, non ignorato.
+La ripresa ha eliminato l'open handle e completato i test mirati con
+`--detectOpenHandles`.
 
 ## 4. Gap e rischi da risolvere prima del commit
 
-### Backup
+### Backup — validazione reale iniziale completata
 
-- La scheduled function usa `new Date()` e ignora `event.scheduleTime`: un retry
-  oltre la mezzanotte potrebbe scrivere nel run del giorno sbagliato.
-- La sequenza `get`/`set` di `_systemBackupRuns` non è transazionale; due
-  invocazioni concorrenti possono avviare due export.
-- Un run `STARTING` senza `operationName` incrementa subito il tentativo invece
-  di riconciliare le operazioni Firestore già avviate.
+- Ora usa `event.scheduleTime`, lease transazionale, riconciliazione degli
+  `STARTING` orfani e timer sempre cancellato.
 - Verificare sul client reale il recupero LRO tramite
   `checkExportDocumentsProgress`; la sola compilazione TypeScript non prova il
   comportamento runtime.
-- Cancellare sempre il timer degli otto minuti per evitare open handle.
-- Ampliare i test con: progetto errato, errore API, resume RUNNING, STARTING
-  orfano, retry FAILED, manifest fallito, concorrenza e uso di `scheduleTime`.
-- Il runbook non contiene ancora un file lifecycle JSON/versionato né tutti i
-  comandi per IAM del Firestore service agent, pulizia controllata e rimozione
-  del database temporaneo.
-- Bucket, IAM, Scheduler, export reali, download e drill di ripristino **non sono
-  ancora stati eseguiti**.
+- I test coprono progetto errato, errore API, resume RUNNING, STARTING orfano,
+  retry FAILED, manifest fallito, concorrenza e `scheduleTime`.
+- Il lifecycle JSON e i comandi IAM/canary sono ora versionati nel runbook.
+- Il 26 agosto 2026 sono stati creati e verificati entrambi i bucket con canary,
+  retention 30 giorni, soft delete 7 giorni e lifecycle delete a 90 giorni.
+- Gli export completi PRD e staging con run ID
+  `first-verification-2026-08-26-1955` sono terminati con successo e sono stati
+  scaricati sotto `/Users/Frank/Backups/FitRope/firestore/` con checksum e
+  permessi privati.
+- Non sono ancora stati eseguiti il deploy delle scheduled Functions, l'IAM del
+  service account runtime dedicato, il drill di ripristino o il rehearsal con
+  clone PRD su staging.
 
-### Migrazione singolo utente
+### Migrazione singolo utente — implementata, integrazione da eseguire
 
-- Mancano test unitari ed Emulator per `userHandler.ts`.
-- `statusFor` dichiara `CONFLICT` ma non lo restituisce: la preview deve leggere
-  le subscription esistenti e distinguere target identico/conflittuale.
-- La classificazione `MANUAL_REQUIRED` corrente può includere ruoli non `User`
-  quando `tipologiaCorsoTags` è una lista; va corretta secondo il piano.
-- Concorrenza e idempotenza devono essere provate con due richieste simultanee.
-- Verificare che `GUIDED` accetti esclusivamente i piani Open/PT ammessi, senza
-  affidarsi implicitamente al contenuto futuro del catalogo.
-- La marca `legacySubscriptionMigration` non è ancora scritta dal runner batch:
-  batch e callable devono usare lo stesso schema.
-- Manca completamente la card desktop in `UserDetailPage`, con preview,
-  selezione guidata, conferma, errori, reload e invalidazione cache.
-- Mancano widget test per Admin/non-Admin e desktop/mobile/tablet.
-- Aggiornare gli smoke test dei workflow con le nuove callable e con l'assenza
-  delle scheduled function di backup in staging.
+- Preview `CONFLICT`, classificazione ruoli, validazione GUIDED, marker condiviso
+  batch/callable, card desktop e smoke test staging sono implementati.
+- I test unitari, widget ed Emulator sono verdi; la doppia richiesta concorrente
+  crea una sola subscription e preserva gli array storici.
 
-### Migrazione e report
+### Migrazione e report — implementata e verificata su Emulator
 
-- `enrollment-integrity-report.csv` non è ancora implementato.
-- Manca la verifica byte-identica degli array/registri di iscrizione.
+- `enrollment-integrity-report.csv` è generato e `--verify` blocca sulle
+  incoerenze future. Il manifest protegge con fingerprint gli array/registri di
+  iscrizione e l'apply rifiuta ogni drift.
 - Le 71 bonifiche manuali e i gate finali devono restare documentati; non
   rimuovere il ramo legacy finché non sono risolte o approvate come eccezioni.
+- I dry-run reali read-only del 26 agosto 2026 sono in
+  `.context/migrations/staging-2026-08-26-2002-dry-run` e
+  `.context/migrations/prod-2026-08-26-2010-dry-run`. Staging ha una sola
+  `WARNING`; PRD ha 5 `BLOCKER` di integrità da risolvere prima di qualunque
+  apply.
 
 ## 5. Ordine raccomandato di ripresa
 
