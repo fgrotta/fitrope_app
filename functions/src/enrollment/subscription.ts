@@ -1,6 +1,11 @@
 import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
-import { SubscriptionPlan, SubscriptionFamily, BillingMode } from "./plansCatalog";
+import {
+  SubscriptionPlan,
+  SubscriptionFamily,
+  BillingMode,
+  planByKey,
+} from "./plansCatalog";
 
 // Record di abbonamento in millis (logica pura, indipendente da Firestore).
 // Mappato su Dart UserSubscription (lib/types/userSubscription.dart).
@@ -67,19 +72,52 @@ type FsData = admin.firestore.DocumentData;
 
 /** Record (millis) da un documento Firestore della collezione `subscriptions`. */
 export function recordFromDoc(id: string, data: FsData): UserSubscriptionRecord {
+  const plan = typeof data.planKey === "string" ? planByKey(data.planKey) : null;
+  if (!plan) {
+    throw new Error(`planKey sconosciuto: ${String(data.planKey)}`);
+  }
+  if (data.family !== plan.family) {
+    throw new Error(`family non valida per ${plan.key}: ${String(data.family)}`);
+  }
+  if (data.billingMode !== plan.billingMode) {
+    throw new Error(
+      `billingMode non valido per ${plan.key}: ${String(data.billingMode)}`
+    );
+  }
+  if (!Array.isArray(data.courseTypeTags) ||
+      data.courseTypeTags.length !== plan.grantedCourseTypeTags.length ||
+      data.courseTypeTags.some(
+        (value: unknown, index: number) =>
+          value !== plan.grantedCourseTypeTags[index]
+      )) {
+    throw new Error(`courseTypeTags non validi per ${plan.key}`);
+  }
+  if (plan.billingMode === "FREQUENCY") {
+    if (data.weeklyFrequency !== plan.weeklyFrequency ||
+        (data.remainingEntries ?? null) !== null) {
+      throw new Error(`limiti FREQUENCY non validi per ${plan.key}`);
+    }
+  } else if ((data.weeklyFrequency ?? null) !== null ||
+      typeof data.remainingEntries !== "number" ||
+      !Number.isInteger(data.remainingEntries) || data.remainingEntries < 0) {
+    throw new Error(`crediti ENTRIES non validi per ${plan.key}`);
+  }
   const start = data.startDate;
   const end = data.endDate;
+  if (!start || typeof start.toMillis !== "function" ||
+      !end || typeof end.toMillis !== "function") {
+    throw new Error(`date non valide per ${plan.key}`);
+  }
   return {
     id,
     planKey: data.planKey,
     family: data.family,
     billingMode: data.billingMode,
-    courseTypeTags: data.courseTypeTags ?? [],
+    courseTypeTags: data.courseTypeTags,
     weeklyFrequency: data.weeklyFrequency ?? null,
     remainingEntries: data.remainingEntries ?? null,
-    startDateMillis:
-      start && typeof start.toMillis === "function" ? start.toMillis() : 0,
-    endDateMillis: end && typeof end.toMillis === "function" ? end.toMillis() : 0,
+    startDateMillis: start.toMillis(),
+    endDateMillis: end.toMillis(),
   };
 }
 

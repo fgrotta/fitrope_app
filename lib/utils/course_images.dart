@@ -1,5 +1,6 @@
 import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 
 /// Mappatura delle immagini stock disponibili per ogni tipologia di corso.
 /// Le immagini vanno aggiunte in assets/course_images/.
@@ -41,12 +42,45 @@ class CourseImages {
         'assets/course_images/pt_personal_trainer.webp',
   };
 
+  static const Map<String, List<String>> imagesByTag = {
+    CourseTags.PERSONAL_TRAINER: [
+      'assets/course_images/pt_personal_trainer.webp',
+      'assets/course_images/pt_personal_trainer_2.webp',
+      'assets/course_images/pt_1.webp',
+      'assets/course_images/pt_2.webp',
+      'assets/course_images/pt_3.webp',
+    ],
+    CourseTags.HYROX: [
+      'assets/course_images/open_1.webp',
+      'assets/course_images/open_2.webp',
+      'assets/course_images/open_3.webp',
+    ],
+    CourseTags.YOGA: ['assets/course_images/open_yoga.webp'],
+    CourseTags.PILATES: [
+      'assets/course_images/open_pilates_funzionale.webp',
+      'assets/course_images/open_pilates_matwork.webp',
+    ],
+    CourseTags.CALISTHENICS: ['assets/course_images/open_calisthenics.webp'],
+    CourseTags.POSTURALE: [
+      'assets/course_images/open_posturale_1.webp',
+      'assets/course_images/open_posturale_2.webp',
+    ],
+    CourseTags.TABATA: ['assets/course_images/open_tabata.webp'],
+    CourseTags.FITROPE: [
+      'assets/course_images/open_fitrope.webp',
+      'assets/course_images/open_fitrope_2.webp',
+    ],
+  };
+
   /// Tutte le immagini disponibili (indipendentemente dal tipo)
   static List<String> get all =>
       imagesByType.values.expand((list) => list).toList();
 
   /// Immagini disponibili per un dato tipo di corso
   static List<String> forType(CourseType type) => imagesByType[type] ?? [];
+
+  static List<String> forTag(String? tag, CourseType type) =>
+      tag == null ? forType(type) : (imagesByTag[tag] ?? forType(type));
 
   /// Immagine di default per un dato tipo di corso.
   /// Usa il default esplicito di [defaultByType] se presente, altrimenti la
@@ -66,6 +100,11 @@ class CourseImages {
     if (key != null && key.isNotEmpty && all.contains(key)) {
       return key;
     }
-    return getDefaultImage(course.courseType);
+    final tag = course.displayTag;
+    if (tag == null) return getDefaultImage(course.resolvedCourseType);
+    final tagImages = forTag(tag, course.resolvedCourseType);
+    return tagImages.isNotEmpty
+        ? tagImages.first
+        : getDefaultImage(course.resolvedCourseType);
   }
 }

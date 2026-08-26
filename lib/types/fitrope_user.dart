@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 
@@ -208,17 +209,24 @@ enum TipologiaIscrizione {
   ABBONAMENTO_PROVA, // Nuovo abbonamento di prova
 }
 
-/// Parsa lo snapshot degli abbonamenti scartando i singoli elementi malformati,
-/// così uno snapshot sporco non fa fallire l'intera deserializzazione dell'utente
-/// (FitropeUser.fromJson è usato anche su liste admin di tutti gli utenti).
+/// Parsa lo snapshot senza mai trasformare un errore di schema in un fallback
+/// legacy. Il chiamante può loggare/scartare l'intero documento, ma non deve
+/// calcolare eligibility usando crediti legacy al posto di un piano corrotto.
 List<UserSubscription> _parseActiveSubscriptions(dynamic raw) {
-  if (raw is! List) return const [];
+  if (raw == null) return const [];
+  if (raw is! List) {
+    const error = FormatException('activeSubscriptions non e una lista');
+    debugPrint('Snapshot abbonamenti non valido: $error');
+    throw error;
+  }
   final result = <UserSubscription>[];
   for (final item in raw) {
     try {
       result.add(UserSubscription.fromJson(item as Map<String, dynamic>));
-    } catch (_) {
-      // Abbonamento illeggibile: salta invece di propagare l'eccezione.
+    } catch (error) {
+      debugPrint('Snapshot abbonamento non valido: $error');
+      throw FormatException(
+          'activeSubscriptions contiene un piano invalido', error);
     }
   }
   return result;

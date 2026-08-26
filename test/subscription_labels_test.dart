@@ -30,7 +30,7 @@ void main() {
   group('getSubscriptionFamilyLabel', () {
     test('etichetta per ogni famiglia', () {
       expect(getSubscriptionFamilyLabel(SubscriptionFamily.OPEN), 'Open');
-      expect(getSubscriptionFamilyLabel(SubscriptionFamily.HYROX), 'Hyrox');
+      expect(getSubscriptionFamilyLabel(SubscriptionFamily.OPEN), 'Open');
       expect(getSubscriptionFamilyLabel(SubscriptionFamily.PT),
           'Personal Trainer');
     });
@@ -45,13 +45,13 @@ void main() {
           'Open 3 volte/sett · 1 mese');
       expect(
           getSubscriptionTitle(_sub(
-            planKey: 'hyrox_10i_3m',
-            family: SubscriptionFamily.HYROX,
+            planKey: 'open_10i_3m',
+            family: SubscriptionFamily.OPEN,
             billingMode: BillingMode.ENTRIES,
             weeklyFrequency: null,
             remainingEntries: 10,
           )),
-          'Hyrox 10 ingressi · 3 mesi');
+          'Open 10 ingressi · 3 mesi');
     });
 
     test(
@@ -91,16 +91,16 @@ void main() {
             remainingEntries: 4,
           )),
           'Personal Trainer · pacchetto ingressi');
-      // ENTRIES fuori catalogo con HYROX e residui null.
+      // ENTRIES fuori catalogo Open con residui null.
       expect(
           getSubscriptionTitle(_sub(
             planKey: 'fuori',
-            family: SubscriptionFamily.HYROX,
+            family: SubscriptionFamily.OPEN,
             billingMode: BillingMode.ENTRIES,
             weeklyFrequency: null,
             remainingEntries: null,
           )),
-          'Hyrox · pacchetto ingressi');
+          'Open · pacchetto ingressi');
     });
   });
 

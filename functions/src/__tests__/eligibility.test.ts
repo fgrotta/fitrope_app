@@ -111,7 +111,7 @@ describe("countWeeklyEntries", () => {
 describe("coveringSubsByType / validAtDate", () => {
   test("copertura per tag tipologia, validità per finestra date", () => {
     const s1 = sub({ id: "a", courseTypeTags: ["Open"] });
-    const s2 = sub({ id: "b", courseTypeTags: ["Hyrox"] });
+    const s2 = sub({ id: "b", courseTypeTags: ["Personal Trainer"] });
     const s3 = sub({
       id: "c",
       courseTypeTags: ["Open"],
@@ -154,9 +154,13 @@ describe("evaluateSubscribe — legacy (snapshot vuoto)", () => {
     expect(d.reason).toBe("EXPIRED");
   });
 
-  test("senza accesso tag → NO_ACCESS", () => {
+  test("il legacy non puo usare crediti Open su un corso PT", () => {
     const d = evaluateSubscribe(
-      input({ userTags: ["Open"], courseTags: ["Hyrox"], coursePrimaryTag: "Hyrox" })
+      input({
+        userTags: ["Personal Trainer"],
+        courseTags: ["Personal Trainer"],
+        coursePrimaryTag: "Personal Trainer",
+      })
     );
     expect(d.reason).toBe("NO_ACCESS");
   });
@@ -251,14 +255,14 @@ describe("evaluateSubscribe — multi-abbonamento", () => {
       input({
         userTags: [],
         courseTags: ["Hyrox"],
-        coursePrimaryTag: "Hyrox",
+        coursePrimaryTag: "Open",
         activeSubscriptions: [
           sub({ id: "open-sub" }),
           sub({
             id: "hyrox-sub",
-            family: "HYROX",
+            family: "OPEN",
             billingMode: "ENTRIES",
-            courseTypeTags: ["Hyrox"],
+            courseTypeTags: ["Open"],
             weeklyFrequency: null,
             remainingEntries: 5,
           }),
@@ -273,13 +277,13 @@ describe("evaluateSubscribe — multi-abbonamento", () => {
     const d = evaluateSubscribe(
       input({
         courseTags: ["Hyrox"],
-        coursePrimaryTag: "Hyrox",
+        coursePrimaryTag: "Open",
         userTags: ["Hyrox"],
         activeSubscriptions: [
           sub({
             billingMode: "ENTRIES",
-            family: "HYROX",
-            courseTypeTags: ["Hyrox"],
+            family: "OPEN",
+            courseTypeTags: ["Open"],
             weeklyFrequency: null,
             remainingEntries: 0,
           }),
@@ -341,9 +345,9 @@ describe("evaluateSubscribe — multi-abbonamento", () => {
         weeklyUsed: 0,
         activeSubscriptions: [
           sub({
-            family: "HYROX",
+            family: "OPEN",
             billingMode: "ENTRIES",
-            courseTypeTags: ["Hyrox"],
+            courseTypeTags: ["Open"],
             weeklyFrequency: null,
             remainingEntries: 0,
             endDateMillis: NOW - 1000,
@@ -359,12 +363,12 @@ describe("evaluateSubscribe — multi-abbonamento", () => {
       input({
         userTags: [], // nessun tag legacy
         courseTags: ["Hyrox"],
-        coursePrimaryTag: "Hyrox",
+        coursePrimaryTag: "Open",
         activeSubscriptions: [
           sub({
-            family: "HYROX",
+            family: "OPEN",
             billingMode: "ENTRIES",
-            courseTypeTags: ["Hyrox"],
+            courseTypeTags: ["Open"],
             weeklyFrequency: null,
             remainingEntries: 3,
           }),
@@ -374,16 +378,16 @@ describe("evaluateSubscribe — multi-abbonamento", () => {
     expect(d.allowed).toBe(true);
   });
 
-  test("tag legacy ok ma nessun abbonamento copre tipologia CON famiglia → NOT_ELIGIBLE", () => {
+  test("tag legacy non sblocca un tipo non coperto", () => {
     const d = evaluateSubscribe(
       input({
         userTags: ["Hyrox"],
-        courseTags: ["Hyrox"],
-        coursePrimaryTag: "Hyrox",
-        activeSubscriptions: [sub()], // copre solo Open
+        courseTags: ["Personal Trainer"],
+        coursePrimaryTag: "Personal Trainer",
+        activeSubscriptions: [sub()],
       })
     );
-    expect(d.reason).toBe("NOT_ELIGIBLE");
+    expect(d.reason).toBe("NO_ACCESS");
   });
 
   test("tipologia SENZA famiglia (Hey Mamma) accessibile via tag → OK senza limiti", () => {
@@ -399,12 +403,12 @@ describe("evaluateSubscribe — multi-abbonamento", () => {
     expect(d.consume.kind).toBe("NONE");
   });
 
-  test("né tag né copertura → NO_ACCESS", () => {
+  test("nessuna copertura del tipo PT → NO_ACCESS", () => {
     const d = evaluateSubscribe(
       input({
         userTags: ["Open"],
-        courseTags: ["Hyrox"],
-        coursePrimaryTag: "Hyrox",
+        courseTags: ["Personal Trainer"],
+        coursePrimaryTag: "Personal Trainer",
         activeSubscriptions: [sub()],
       })
     );

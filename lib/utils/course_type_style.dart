@@ -1,5 +1,6 @@
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
+import 'package:fitrope_app/types/course.dart';
 import 'package:flutter/material.dart';
 
 /// Identità visiva di una tipologia di corso: un colore e un'icona.
@@ -32,13 +33,30 @@ const Map<String, CourseTypeStyle> _courseTypeStyles = {
     color: Color(0xFF7C3AED),
     icon: Icons.person,
   ),
-  CourseTags.HYROX: CourseTypeStyle(
-    color: Color(0xFFC2410C),
-    icon: Icons.bolt,
+  CourseTags.HYROX: CourseTypeStyle(color: Color(0xFFC2410C), icon: Icons.bolt),
+  CourseTags.YOGA: CourseTypeStyle(
+    color: Color(0xFF047857),
+    icon: Icons.self_improvement,
   ),
-  CourseTags.HEY_MAMMA: CourseTypeStyle(
+  CourseTags.PILATES: CourseTypeStyle(
     color: Color(0xFFBE185D),
-    icon: Icons.favorite,
+    icon: Icons.accessibility_new,
+  ),
+  CourseTags.CALISTHENICS: CourseTypeStyle(
+    color: Color(0xFF0F766E),
+    icon: Icons.sports_gymnastics,
+  ),
+  CourseTags.POSTURALE: CourseTypeStyle(
+    color: Color(0xFF4338CA),
+    icon: Icons.airline_seat_recline_normal,
+  ),
+  CourseTags.TABATA: CourseTypeStyle(
+    color: Color(0xFFB91C1C),
+    icon: Icons.timer,
+  ),
+  CourseTags.FITROPE: CourseTypeStyle(
+    color: Color(0xFF6D28D9),
+    icon: Icons.fitness_center,
   ),
 };
 
@@ -57,4 +75,10 @@ CourseTypeStyle courseTypeStyleForKey(String? key) => key == null
 /// Stile della tipologia "principale" ricavata dai [tags] di un corso
 /// (stessa risoluzione di `CourseTypes.primaryForTags`).
 CourseTypeStyle courseTypeStyleForTags(List<String> tags) =>
-    courseTypeStyleForKey(CourseTypes.primaryForTags(tags)?.key);
+    courseTypeStyleForKey(
+      CourseTags.descriptiveTagFromLegacy(tags) ??
+          CourseTypes.primaryForTags(tags)?.key,
+    );
+
+CourseTypeStyle courseTypeStyleForCourse(Course course) =>
+    courseTypeStyleForKey(course.displayTag ?? course.resolvedTypeTag);

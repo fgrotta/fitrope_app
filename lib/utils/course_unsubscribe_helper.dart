@@ -4,7 +4,6 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/course_recovery.dart';
-import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 
@@ -18,7 +17,10 @@ class CourseUnsubscribeHelper {
   ///
   /// Restituisce true se la disiscrizione è avvenuta con successo
   static Future<bool> handleUnsubscribe(
-      Course course, FitropeUser user, BuildContext context) async {
+    Course course,
+    FitropeUser user,
+    BuildContext context,
+  ) async {
     debugPrint('🔍 CourseUnsubscribeHelper.handleUnsubscribe chiamato');
     debugPrint('📅 Corso: ${course.name} (${course.uid})');
     debugPrint('👤 Utente: ${user.name} ${user.lastName}');
@@ -46,7 +48,8 @@ class CourseUnsubscribeHelper {
 
       // L'utente conferma di voler perdere il credito/ingresso settimanale
       debugPrint(
-          '🔥 Esecuzione disiscrizione forzata (credito/ingresso perso)');
+        '🔥 Esecuzione disiscrizione forzata (credito/ingresso perso)',
+      );
       try {
         await forceUnsubscribeWithNoRefund(course.uid, user.uid);
         debugPrint('✅ Disiscrizione forzata completata');
@@ -119,7 +122,8 @@ class CourseUnsubscribeHelper {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                      'Stai per disiscriverti dal corso "${course.name}" del $courseDate alle $courseTime'),
+                    'Stai per disiscriverti dal corso "${course.name}" del $courseDate alle $courseTime',
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     warningMessage,
@@ -169,8 +173,9 @@ class CourseUnsubscribeHelper {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Errore'),
-          content:
-              Text('Impossibile completare la disiscrizione: $errorMessage'),
+          content: Text(
+            'Impossibile completare la disiscrizione: $errorMessage',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -223,8 +228,7 @@ class CourseUnsubscribeHelper {
     // Tipologia primaria del corso, con lo STESSO fallback del conteggio
     // (get_course_state.dart / eligibility.ts): un corso senza tag riconosciuti
     // è un corso Open, quindi anche il messaggio deve dire "Open".
-    final String primaryTag =
-        CourseTypes.primaryForTags(course.tags)?.key ?? CourseTags.OPEN;
+    final String primaryTag = course.resolvedTypeTag;
     final String courseTypeLabel =
         CourseTypes.byKey(primaryTag)?.displayName ?? primaryTag;
 
@@ -238,13 +242,16 @@ class CourseUnsubscribeHelper {
       // nessuna copertura → nessuna finestra (libera solo il posto).
       final DateTime courseDate = course.startDate.toDate();
       final List<UserSubscription> validCovering = liveSubscriptions
-          .where((s) =>
-              s.courseTypeTags.contains(primaryTag) &&
-              !courseDate.isBefore(s.startDate.toDate()) &&
-              !courseDate.isAfter(s.endDate.toDate()))
+          .where(
+            (s) =>
+                s.courseTypeTags.contains(primaryTag) &&
+                !courseDate.isBefore(s.startDate.toDate()) &&
+                !courseDate.isAfter(s.endDate.toDate()),
+          )
           .toList();
-      isPacchettoEntrate =
-          validCovering.any((s) => s.billingMode == BillingMode.ENTRIES);
+      isPacchettoEntrate = validCovering.any(
+        (s) => s.billingMode == BillingMode.ENTRIES,
+      );
       isAbbonamentoProva = false;
       isTemporalSubscription = !isPacchettoEntrate &&
           validCovering.any((s) => s.billingMode == BillingMode.FREQUENCY);

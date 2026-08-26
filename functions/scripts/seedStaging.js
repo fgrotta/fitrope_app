@@ -47,12 +47,8 @@ const PASSWORD = "test1234";
 const MEMBER_UID = "stg_member";
 const MEMBER_SUBSCRIPTIONS = [
   {
-    planKey: "open_3x_3m",
-    subscriptionId: "stg_member_open_3x_3m",
-  },
-  {
-    planKey: "hyrox_10i_3m",
-    subscriptionId: "stg_member_hyrox_10i_3m",
+    planKey: "open_10i_3m",
+    subscriptionId: "stg_member_open_10i_3m",
   },
   {
     planKey: "pt_10i_3m",
@@ -121,6 +117,15 @@ async function ensureSubscription(planKey, subscriptionId, userId = MEMBER_UID) 
 }
 
 async function main() {
+  // Bonifica l'id deterministico creato dalle versioni precedenti del seed.
+  await db
+    .collection("subscriptions")
+    .doc("stg_member_hyrox_10i_3m")
+    .delete();
+  await db
+    .collection("subscriptions")
+    .doc("stg_member_open_3x_3m")
+    .delete();
   const users = [
     ["stg_admin", "test.staging@example.com", "Admin"],
     ["stg_trainer", "trainer.staging@example.com", "Trainer"],
@@ -159,6 +164,8 @@ async function main() {
     {
       id: "stg_open",
       name: "[STAGING] Open",
+      courseType: "open",
+      tag: null,
       tags: ["Open"],
       capacity: 10,
       subscribed: 0,
@@ -166,13 +173,17 @@ async function main() {
     {
       id: "stg_hyrox",
       name: "[STAGING] Hyrox",
-      tags: ["Hyrox"],
+      courseType: "open",
+      tag: "Hyrox",
+      tags: ["Open", "Hyrox"],
       capacity: 8,
       subscribed: 0,
     },
     {
       id: "stg_pt",
       name: "[STAGING] Personal Training",
+      courseType: "personal_trainer",
+      tag: "Personal Trainer",
       tags: ["Personal Trainer"],
       capacity: 1,
       subscribed: 0,
@@ -180,6 +191,8 @@ async function main() {
     {
       id: "stg_open_full",
       name: "[STAGING] Open waitlist",
+      courseType: "open",
+      tag: null,
       tags: ["Open"],
       capacity: 1,
       subscribed: 1,
@@ -199,8 +212,11 @@ async function main() {
           capacity: course.capacity,
           subscribed: course.subscribed,
           trainerId: "stg_trainer",
+          courseType: course.courseType,
+          tag: course.tag,
+          courseModelV2: true,
           tags: course.tags,
-          sala: course.tags.includes("Hyrox") ? "Sala 2" : "Sala 1",
+          sala: course.tag === "Hyrox" ? "Sala 2" : "Sala 1",
           waitlist: course.waitlist ?? [],
           reminderEnabled: true,
           waitlistEnabled: true,

@@ -6,7 +6,6 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
-import 'package:fitrope_app/utils/course_types.dart';
 
 CourseState getCourseState(Course course, FitropeUser user) {
   int courseDay = course.startDate.millisecondsSinceEpoch;
@@ -50,10 +49,10 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.EXPIRED;
   }
 
-  final bool hasTagAccess = CourseTags.canUserAccessCourse(
-    user.tipologiaCorsoTags,
-    course.tags,
-  );
+  final bool legacyReadOnlyAccess =
+      course.resolvedTypeTag == CourseTags.HEY_MAMMA &&
+          (user.tipologiaCorsoTags.contains(CourseTags.HEY_MAMMA) ||
+              user.tipologiaCorsoTags.contains('Tutti i corsi'));
 
   // Abbonamenti che coprono la tipologia del corso (solo modello multi-abbonamento).
   final List<UserSubscription> covering = useSubscriptions
@@ -70,12 +69,12 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.EXPIRED;
   }
 
-  // Accesso: legacy = solo tag; multi-abbonamento = tag OPPURE copertura
-  // abbonamento (un abbonamento valido sblocca il corso anche se i tag legacy
-  // non sono allineati, evitando falsi "Non disponibile").
+  // Il tipo e l'unica base dell'accesso. I tag sono descrittivi e non possono
+  // sbloccare corsi. Hey Mamma resta una sola eccezione V1 in lettura.
   if (useSubscriptions) {
-    if (!hasTagAccess && covering.isEmpty) return CourseState.NULL;
-  } else if (!hasTagAccess) {
+    if (covering.isEmpty && !legacyReadOnlyAccess) return CourseState.NULL;
+  } else if (course.resolvedTypeTag != CourseTags.OPEN &&
+      !legacyReadOnlyAccess) {
     return CourseState.NULL;
   }
 
@@ -86,12 +85,8 @@ CourseState getCourseState(Course course, FitropeUser user) {
   CourseState? limitState;
   if (useSubscriptions) {
     if (covering.isEmpty) {
-      // Accessibile via tag ma nessun abbonamento copre la tipologia: se la
-      // tipologia ha una famiglia (Open/Hyrox/PT) serve un abbonamento coprente
-      // → non idoneo (NULL); se è una tipologia senza famiglia (es. Hey Mamma)
-      // → nessun limite.
-      final family = CourseTypes.byKey(_coursePrimaryTypeTag(course))?.family;
-      limitState = family == null ? null : CourseState.NULL;
+      // Solo lo storico Hey Mamma non richiede una famiglia.
+      limitState = legacyReadOnlyAccess ? null : CourseState.NULL;
     } else {
       limitState = _evaluateCovering(covering, user, courseDate);
     }
@@ -129,11 +124,9 @@ CourseState getCourseState(Course course, FitropeUser user) {
   return CourseState.CAN_SUBSCRIBE;
 }
 
-/// Tipologia "primaria" del corso: primo tag riconosciuto (o OPEN se nessuno).
-/// Determina in modo DETERMINISTICO quale famiglia "consuma" il corso, così un
-/// corso multi-tag non viene servito da più famiglie (no bypass di un limite).
-String _coursePrimaryTypeTag(Course course) =>
-    CourseTypes.primaryForTags(course.tags)?.key ?? CourseTags.OPEN;
+/// Tipo autoritativo V2 (o tipo risolto dal documento V1 durante il rollout).
+/// Il tag descrittivo non può cambiare la famiglia che consuma il corso.
+String _coursePrimaryTypeTag(Course course) => course.resolvedTypeTag;
 
 /// Abbonamenti (tra quelli non scaduti) che coprono la tipologia primaria del corso.
 List<UserSubscription> _coveringSubscriptions(

@@ -42,6 +42,9 @@ function courseDoc(extra: Record<string, unknown> = {}) {
     name: "Corso",
     capacity: 10,
     subscribed: 3,
+    courseType: "open",
+    tag: null,
+    courseModelV2: true,
     tags: ["Open"],
     waitlist: [],
     trainerId: TRAINER,
@@ -91,7 +94,13 @@ beforeEach(async () => {
     );
     await db.doc(`users/${OTHER}`).set(userDoc("User", { uid: OTHER }));
     await db.doc("courses/c1").set(courseDoc());
-    await db.doc("subscriptions/s1").set({ userId: USER, planKey: "hyrox_10i_3m" });
+    await db.doc("courses/legacy-hey-mamma").set({
+      ...courseDoc({ uid: "legacy-hey-mamma", id: "legacy-hey-mamma" }),
+      courseType: "open",
+      tags: ["Hey Mamma"],
+      courseModelV2: false,
+    });
+    await db.doc("subscriptions/s1").set({ userId: USER, planKey: "open_10i_3m" });
     await db.doc("subscriptions/s2").set({ userId: OTHER, planKey: "open_2x_1m" });
   });
 });
@@ -154,7 +163,7 @@ describe("rules: users — lettura e registrazione", () => {
     );
     // Campo server-owned aggiunto: hasOnly lo esclude per costruzione.
     await assertFails(
-      as("evil").doc("users/evil").set(registrationDoc("evil", { activeSubscriptions: [{ planKey: "hyrox_10i_3m" }] }))
+      as("evil").doc("users/evil").set(registrationDoc("evil", { activeSubscriptions: [{ planKey: "open_10i_3m" }] }))
     );
     await assertFails(
       as("evil").doc("users/evil").set(registrationDoc("evil", { enrollmentConsumption: {} }))
@@ -353,7 +362,7 @@ describe("rules: users — update self (whitelist profilo)", () => {
       { tipologiaCorsoTags: ["Tutti i corsi"] },
       { courses: ["c1"] },
       { waitlistCourses: ["c1"] },
-      { activeSubscriptions: [{ planKey: "hyrox_10i_3m", remainingEntries: 99 }] },
+      { activeSubscriptions: [{ planKey: "open_10i_3m", remainingEntries: 99 }] },
       { enrollmentConsumption: {} },
       { cancelledEnrollments: [{ courseId: "x" }] },
     ];
@@ -420,6 +429,58 @@ describe("rules: courses", () => {
     await assertFails(as(TRAINER).doc("courses/altrui").set(courseDoc({ uid: "altrui", id: "altrui", subscribed: 0, trainerId: "altro-trainer" })));
   });
 
+  test("create accetta solo le tre shape V2 canoniche", async () => {
+    await assertSucceeds(
+      as(ADMIN).doc("courses/open-tag").set(courseDoc({
+        uid: "open-tag",
+        id: "open-tag",
+        subscribed: 0,
+        tag: "Hyrox",
+        tags: ["Open", "Hyrox"],
+      }))
+    );
+    await assertSucceeds(
+      as(ADMIN).doc("courses/pt").set(courseDoc({
+        uid: "pt",
+        id: "pt",
+        subscribed: 0,
+        courseType: "personal_trainer",
+        tag: "Personal Trainer",
+        tags: ["Personal Trainer"],
+      }))
+    );
+
+    const missingMarker: Record<string, unknown> = courseDoc({
+      uid: "missing-marker",
+      id: "missing-marker",
+      subscribed: 0,
+    });
+    delete missingMarker.courseModelV2;
+    await assertFails(
+      as(ADMIN).doc("courses/missing-marker").set(missingMarker)
+    );
+
+    const invalidShapes = [
+      { courseModelV2: false },
+      { tag: "Personal Trainer", tags: ["Open", "Personal Trainer"] },
+      { courseType: "personal_trainer", tag: "Yoga", tags: ["Personal Trainer"] },
+      { tag: "Hyrox", tags: ["Hyrox", "Open"] },
+      { tag: "Hyrox", tags: ["Open"] },
+      { tag: "Hyrox", tags: ["Open", "Hyrox", "Yoga"] },
+    ];
+    for (const [index, shape] of invalidShapes.entries()) {
+      const id = `invalid-${index}`;
+      await assertFails(
+        as(ADMIN).doc(`courses/${id}`).set(courseDoc({
+          uid: id,
+          id,
+          subscribed: 0,
+          ...shape,
+        }))
+      );
+    }
+  });
+
   test("update: Admin ok; Trainer solo sui propri e senza riassegnare; subscribed/waitlist intoccabili", async () => {
     await assertSucceeds(as(ADMIN).doc("courses/c1").update({ name: "Rinominato", capacity: 12 }));
     await assertSucceeds(as(ADMIN).doc("courses/c1").update({ trainerId: "altro-trainer" })); // Admin può riassegnare
@@ -440,6 +501,13 @@ describe("rules: courses", () => {
   test("delete corso dal client → NEGATA anche per Admin (passa dalla callable)", async () => {
     await assertFails(as(ADMIN).doc("courses/c1").delete());
   });
+
+  test("un corso storico Hey Mamma resta leggibile ma non modificabile", async () => {
+    await assertSucceeds(as(ADMIN).doc("courses/legacy-hey-mamma").get());
+    await assertFails(
+      as(ADMIN).doc("courses/legacy-hey-mamma").update({ name: "Tentativo" })
+    );
+  });
 });
 
 describe("rules: subscriptions", () => {
@@ -454,7 +522,7 @@ describe("rules: subscriptions", () => {
       as(USER).doc("subscriptions/s1").update({ remainingEntries: 999 })
     );
     await assertFails(
-      as(ADMIN).doc("subscriptions/nuova").set({ userId: USER, planKey: "hyrox_10i_3m" })
+      as(ADMIN).doc("subscriptions/nuova").set({ userId: USER, planKey: "open_10i_3m" })
     );
     await assertFails(as(ADMIN).doc("subscriptions/s1").delete());
   });

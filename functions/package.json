@@ -12,7 +12,8 @@
     "test": "jest",
     "test:integration": "npm run build && cd .. && firebase emulators:exec --only auth,firestore,functions --project demo-fitrope \"cd functions && npx jest -c jest.integration.config.js\"",
     "seed:emulator": "node scripts/seedEmulator.js",
-    "seed:staging": "node scripts/seedStaging.js --confirm-staging"
+    "seed:staging": "node scripts/seedStaging.js --confirm-staging",
+    "migration:course-model": "npm run build && node ../scripts/backfillCourseModel.js"
   },
   "engines": {
     "node": ">=22 <25"
