@@ -150,9 +150,9 @@ void main() {
         tags: [CourseTags.HYROX],
         subs: [
           sub(
-              family: SubscriptionFamily.HYROX,
+              family: SubscriptionFamily.OPEN,
               mode: BillingMode.ENTRIES,
-              tags: {CourseTags.HYROX},
+              tags: {CourseTags.OPEN},
               remainingEntries: 3)
         ],
       );
@@ -166,9 +166,9 @@ void main() {
         tags: [CourseTags.HYROX],
         subs: [
           sub(
-              family: SubscriptionFamily.HYROX,
+              family: SubscriptionFamily.OPEN,
               mode: BillingMode.ENTRIES,
-              tags: {CourseTags.HYROX},
+              tags: {CourseTags.OPEN},
               remainingEntries: 0)
         ],
       );
@@ -228,7 +228,7 @@ void main() {
       expect(getCourseState(target, u), CourseState.EXPIRED);
     });
 
-    test('nessun accesso (no tag, no copertura) -> NULL', () {
+    test('Hyrox e un tag Open ed e coperto dall abbonamento Open', () {
       final target = course(uid: 'h1', tags: [CourseTags.HYROX]);
       store.dispatch(SetAllCoursesAction([target]));
       final u = user(
@@ -241,7 +241,7 @@ void main() {
               weeklyFrequency: 2) // l'abbonamento Open non copre Hyrox
         ],
       );
-      expect(getCourseState(target, u), CourseState.NULL);
+      expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
     });
   });
 
@@ -279,9 +279,9 @@ void main() {
         tags: [CourseTags.OPEN],
         subs: [
           sub(
-              family: SubscriptionFamily.HYROX,
+              family: SubscriptionFamily.OPEN,
               mode: BillingMode.ENTRIES,
-              tags: {CourseTags.HYROX},
+              tags: {CourseTags.OPEN},
               remainingEntries: 5)
         ],
       );
@@ -304,7 +304,7 @@ void main() {
       expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
     });
 
-    test('al limite Open ma target Hyrox -> CAN_SUBSCRIBE (scoping reale)', () {
+    test('Hyrox conta nello stesso limite settimanale Open', () {
       final o1 = course(uid: 'o1', tags: [CourseTags.OPEN], dayOffset: 0);
       final o2 = course(uid: 'o2', tags: [CourseTags.OPEN], dayOffset: 1);
       final hTarget = course(uid: 'h1', tags: [CourseTags.HYROX], dayOffset: 2);
@@ -318,15 +318,9 @@ void main() {
               mode: BillingMode.FREQUENCY,
               tags: {CourseTags.OPEN},
               weeklyFrequency: 2),
-          sub(
-              family: SubscriptionFamily.HYROX,
-              mode: BillingMode.ENTRIES,
-              tags: {CourseTags.HYROX},
-              remainingEntries: 5),
         ],
       );
-      // I 2 corsi Open (al limite) NON contano nello scope Hyrox.
-      expect(getCourseState(hTarget, u), CourseState.CAN_SUBSCRIBE);
+      expect(getCourseState(hTarget, u), CourseState.LIMIT);
     });
 
     test('disiscrizione persa Open conta verso il limite Open', () {
@@ -414,9 +408,9 @@ void main() {
         tags: [CourseTags.HYROX],
         subs: [
           sub(
-              family: SubscriptionFamily.HYROX,
+              family: SubscriptionFamily.OPEN,
               mode: BillingMode.ENTRIES,
-              tags: {CourseTags.HYROX},
+              tags: {CourseTags.OPEN},
               remainingEntries: null)
         ],
       );
@@ -607,9 +601,9 @@ void main() {
         CourseTags.HYROX
       ], subs: [
         sub(
-            family: SubscriptionFamily.HYROX,
+            family: SubscriptionFamily.OPEN,
             mode: BillingMode.ENTRIES,
-            tags: {CourseTags.HYROX},
+            tags: {CourseTags.OPEN},
             remainingEntries: 1)
       ]);
       expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
@@ -678,20 +672,13 @@ void main() {
               mode: BillingMode.FREQUENCY,
               tags: {CourseTags.OPEN},
               weeklyFrequency: 2),
-          sub(
-              family: SubscriptionFamily.HYROX,
-              mode: BillingMode.ENTRIES,
-              tags: {CourseTags.HYROX},
-              remainingEntries: 5),
         ],
       );
       // Tipologia primaria = Open (primo tag): si valuta solo l'Open, al limite -> LIMIT.
       expect(getCourseState(multi, u), CourseState.LIMIT);
     });
 
-    test(
-        'tag-access ma famiglia non coperta da abbonamento -> NULL (niente accesso gratis)',
-        () {
+    test('il tag Hyrox usa la copertura Open', () {
       final target = course(uid: 'h1', tags: [CourseTags.HYROX]);
       store.dispatch(SetAllCoursesAction([target]));
       final u = user(
@@ -704,8 +691,7 @@ void main() {
               weeklyFrequency: 2),
         ],
       );
-      // Hyrox HA una famiglia ma manca l'abbonamento Hyrox -> non idoneo (non gratis).
-      expect(getCourseState(target, u), CourseState.NULL);
+      expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
     });
   });
 
@@ -736,9 +722,9 @@ void main() {
         fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
         activeSubscriptions: [
           sub(
-              family: SubscriptionFamily.HYROX,
+              family: SubscriptionFamily.OPEN,
               mode: BillingMode.ENTRIES,
-              tags: {CourseTags.HYROX},
+              tags: {CourseTags.OPEN},
               remainingEntries: 0,
               validFor: const Duration(days: -1)), // scaduta ieri
         ],

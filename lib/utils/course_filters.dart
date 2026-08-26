@@ -1,5 +1,6 @@
 import 'package:fitrope_app/types/course.dart';
-import 'package:fitrope_app/utils/course_types.dart';
+import 'package:fitrope_app/types/course_type.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/sale.dart';
 
 /// Dimensione su cui agiscono i chip di filtro del calendario.
@@ -12,6 +13,10 @@ enum CourseFilterDimension { tipologia, sala }
 /// (`Course.sala == null`). Non è un nome di sala valido, quindi non può
 /// collidere con i valori di [Sale].
 const String kNoSalaFilterKey = '__senza_sala__';
+const String kNoTagFilterKey = 'tag:__senza_tag__';
+
+String typeFilterKey(CourseType type) => 'type:${type.firestoreValue}';
+String tagFilterKey(String tag) => 'tag:$tag';
 
 /// Chiave di filtro "sala" di un corso: il nome della sala, oppure
 /// [kNoSalaFilterKey] se il corso non ne ha una.
@@ -19,8 +24,19 @@ String salaFilterKeyOf(Course course) => course.sala ?? kNoSalaFilterKey;
 
 /// Chiave della tipologia "principale" del corso, o `null` se nessuno dei suoi
 /// tag è una tipologia registrata in [CourseTypes].
-String? courseTypeKeyOf(Course course) =>
-    CourseTypes.primaryForTags(course.tags)?.key;
+String? courseTypeKeyOf(Course course) => course.hasLegacyReadOnlyTag
+    ? null
+    : typeFilterKey(course.resolvedCourseType);
+
+String courseTagKeyOf(Course course) => course.displayTag == null
+    ? kNoTagFilterKey
+    : tagFilterKey(course.displayTag!);
+
+Set<String> courseTypeAndTagKeysOf(Course course) {
+  final type = courseTypeKeyOf(course);
+  if (type == null) return const {};
+  return {type, courseTagKeyOf(course)};
+}
 
 /// Un set di filtri vuoto significa "tutti": non filtra nulla.
 bool courseMatchesFilters(
@@ -29,10 +45,7 @@ bool courseMatchesFilters(
   required Set<String> sale,
 }) {
   if (types.isNotEmpty) {
-    final key = courseTypeKeyOf(course);
-    // Un corso senza tipologia riconosciuta non corrisponde a nessun filtro
-    // di tipologia: meglio non mostrarlo che mostrarlo sotto quella sbagliata.
-    if (key == null || !types.contains(key)) return false;
+    if (!courseTypeAndTagKeysOf(course).any(types.contains)) return false;
   }
   if (sale.isNotEmpty && !sale.contains(salaFilterKeyOf(course))) return false;
   return true;
@@ -62,12 +75,15 @@ Map<String, int> courseTypeCounts(
   required Set<String> sale,
 }) {
   final counts = <String, int>{
-    for (final type in CourseTypes.all) type.key: 0,
+    for (final type in CourseType.values) typeFilterKey(type): 0,
+    for (final tag in CourseTags.selectable) tagFilterKey(tag): 0,
+    kNoTagFilterKey: 0,
   };
   for (final course in courses) {
     if (sale.isNotEmpty && !sale.contains(salaFilterKeyOf(course))) continue;
-    final key = courseTypeKeyOf(course);
-    if (key != null && counts.containsKey(key)) counts[key] = counts[key]! + 1;
+    for (final key in courseTypeAndTagKeysOf(course)) {
+      if (counts.containsKey(key)) counts[key] = counts[key]! + 1;
+    }
   }
   return counts;
 }
@@ -84,8 +100,7 @@ Map<String, int> salaCounts(
   };
   for (final course in courses) {
     if (types.isNotEmpty) {
-      final key = courseTypeKeyOf(course);
-      if (key == null || !types.contains(key)) continue;
+      if (!courseTypeAndTagKeysOf(course).any(types.contains)) continue;
     }
     final key = salaFilterKeyOf(course);
     // Una sala fuori dalla lista chiusa (dato legacy) non genera un chip

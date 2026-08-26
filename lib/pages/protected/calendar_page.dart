@@ -651,10 +651,8 @@ class _CalendarPageState extends State<CalendarPage> {
           Icons.event_busy, 'Nessun corso programmato in questa giornata');
     }
 
-    // Ordine cronologico, senza raggruppare per `courseType`: quell'enum ha
-    // solo open/personal_trainer, quindi un corso Hyrox o Hey Mamma finiva
-    // sotto l'intestazione sbagliata. La tipologia reale (dai `tags`) è ora
-    // sulla card, come colore di accento e badge.
+    // Ordine cronologico: tipo e tag descrittivo sono mostrati direttamente
+    // sulla card come colore di accento e badge.
     final visible = applyCourseFilters(selectedCourses,
         types: _typeFilter, sale: _salaFilter);
     if (visible.isEmpty) return _buildFilteredEmptyState();

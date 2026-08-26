@@ -5,14 +5,21 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/utils/course_images.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 
 /// Test per la categorizzazione dei corsi: enum CourseType, mappatura immagini
 /// CourseImages e serializzazione dei campi courseType/imageKey nel modello Course.
 void main() {
   final now = DateTime.now();
 
-  Course buildCourse(
-      {CourseType courseType = CourseType.open, String? imageKey}) {
+  Course buildCourse({
+    CourseType courseType = CourseType.open,
+    String? tag,
+    String? imageKey,
+  }) {
+    final resolvedTag = courseType == CourseType.personal_trainer
+        ? CourseTags.PERSONAL_TRAINER
+        : tag;
     return Course(
       id: 'c1',
       uid: 'c1',
@@ -22,6 +29,9 @@ void main() {
       capacity: 10,
       subscribed: 0,
       courseType: courseType,
+      tag: resolvedTag,
+      courseModelV2: true,
+      tags: CourseTags.legacyTagsMirror(courseType.typeTag, resolvedTag),
       imageKey: imageKey,
     );
   }
@@ -43,11 +53,10 @@ void main() {
           CourseType.personal_trainer);
     });
 
-    test('fromString ritorna open come fallback per null o valori sconosciuti',
-        () {
-      expect(CourseType.fromString(null), CourseType.open);
-      expect(CourseType.fromString(''), CourseType.open);
-      expect(CourseType.fromString('inesistente'), CourseType.open);
+    test('fromString rifiuta null e valori sconosciuti senza fallback', () {
+      expect(() => CourseType.fromString(null), throwsFormatException);
+      expect(() => CourseType.fromString(''), throwsFormatException);
+      expect(() => CourseType.fromString('inesistente'), throwsFormatException);
     });
   });
 
@@ -163,10 +172,43 @@ void main() {
       expect(parsed.imageKey, 'assets/course_images/pt_3.webp');
     });
 
-    test('fromJson usa open come default quando courseType manca', () {
+    test('fromJson V2 rifiuta courseType mancante', () {
       final json = buildCourse().toJson()..remove('courseType');
-      final parsed = Course.fromJson(json);
-      expect(parsed.courseType, CourseType.open);
+      expect(() => Course.fromJson(json), throwsFormatException);
+    });
+
+    test('fromJson V2 rifiuta mirror invertiti, incompleti o aggiuntivi', () {
+      final base = buildCourse(tag: CourseTags.HYROX).toJson();
+      for (final invalidTags in [
+        [CourseTags.HYROX, CourseTags.OPEN],
+        [CourseTags.OPEN],
+        [CourseTags.OPEN, CourseTags.HYROX, CourseTags.YOGA],
+      ]) {
+        expect(
+          () => Course.fromJson({...base, 'tags': invalidTags}),
+          throwsFormatException,
+        );
+      }
+    });
+
+    test('fromJson V2 rifiuta combinazioni tipo/tag incoerenti', () {
+      final open = buildCourse().toJson();
+      expect(
+        () => Course.fromJson({
+          ...open,
+          'tag': CourseTags.PERSONAL_TRAINER,
+          'tags': [CourseTags.OPEN, CourseTags.PERSONAL_TRAINER],
+        }),
+        throwsFormatException,
+      );
+
+      final pt = buildCourse(
+        courseType: CourseType.personal_trainer,
+      ).toJson();
+      expect(
+        () => Course.fromJson({...pt, 'tag': CourseTags.YOGA}),
+        throwsFormatException,
+      );
     });
 
     test('round-trip preserva imageKey null', () {

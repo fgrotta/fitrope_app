@@ -46,6 +46,29 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    function isSelectableOpenTag(tag) {
+      return tag in ['Hyrox', 'Yoga', 'Pilates', 'Calisthenics',
+                     'Posturale', 'Tabata', 'Fitrope'];
+    }
+
+    // Shape V2 esatta. `tags` e un mirror temporaneo per i client precedenti:
+    // type tag in prima posizione e nessun valore aggiuntivo.
+    function validCourseV2(data) {
+      return data.keys().hasAll(['courseType', 'tag', 'courseModelV2', 'tags'])
+        && data.courseModelV2 == true
+        && (
+          (data.courseType == 'open'
+            && (
+              (data.tag == null && data.tags == ['Open'])
+              || (isSelectableOpenTag(data.tag)
+                  && data.tags == ['Open', data.tag])
+            ))
+          || (data.courseType == 'personal_trainer'
+              && data.tag == 'Personal Trainer'
+              && data.tags == ['Personal Trainer'])
+        );
+    }
+
     match /users/{userId} {
       // Liste utenti/trainer/iscritti sono lette da tutta l'app autenticata.
       allow read: if isSignedIn();
@@ -136,6 +159,7 @@ service cloud.firestore {
       // I contatori server-owned nascono azzerati; il Trainer può creare solo
       // corsi propri (la UI auto-assegna trainerId = uid); id e uid coerenti col doc.
       allow create: if (isAdmin() || isTrainer())
+        && validCourseV2(request.resource.data)
         && request.resource.data.subscribed == 0
         && request.resource.data.waitlist == []
         && request.resource.data.id == courseId
@@ -144,11 +168,15 @@ service cloud.firestore {
 
       // Edit Admin: tutto tranne i campi server-owned/identità.
       allow update: if isAdmin()
+        && resource.data.courseModelV2 == true
+        && validCourseV2(request.resource.data)
         && !affected().hasAny(['subscribed', 'waitlist', 'uid', 'id']);
 
       // Edit Trainer: solo sui PROPRI corsi e SENZA riassegnare la ownership
       // (mirror della UI: "i Trainer non possono cambiare il trainer assegnato").
       allow update: if isTrainer()
+        && resource.data.courseModelV2 == true
+        && validCourseV2(request.resource.data)
         && resource.data.trainerId == request.auth.uid
         && !affected().hasAny(['subscribed', 'waitlist', 'uid', 'id', 'trainerId']);
 

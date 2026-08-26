@@ -3,7 +3,7 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/capacity_color.dart';
 import 'package:fitrope_app/utils/course_images.dart';
 import 'package:fitrope_app/utils/course_type_style.dart';
-import 'package:fitrope_app/utils/course_types.dart';
+import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/courses/subscribe_to_course.dart';
@@ -128,7 +128,8 @@ class _CourseCardState extends State<CourseCard> {
         backgroundColor: backgroundColor,
         title: const Text('Elimina Corso'),
         content: Text(
-            'Sei sicuro di voler eliminare il corso "${widget.title}"?\n\nQuesta azione eliminerà anche tutte le iscrizioni al corso.'),
+          'Sei sicuro di voler eliminare il corso "${widget.title}"?\n\nQuesta azione eliminerà anche tutte le iscrizioni al corso.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -154,9 +155,7 @@ class _CourseCardState extends State<CourseCard> {
   void _showUserDetails(BuildContext context, FitropeUser user) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => UserDetailPage(user: user),
-      ),
+      MaterialPageRoute(builder: (context) => UserDetailPage(user: user)),
     );
   }
 
@@ -178,15 +177,18 @@ class _CourseCardState extends State<CourseCard> {
   }
 
   void _showRemoveUserConfirmationDialog(
-      BuildContext context, FitropeUser user) async {
+    BuildContext context,
+    FitropeUser user,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: backgroundColor,
         title: const Text('Rimuovi Iscrizione'),
         content: Text(
-            'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dal corso "${widget.title}"?\n\n'
-            'L\'utente riceverà il rimborso del credito se ha un pacchetto entrate.'),
+          'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dal corso "${widget.title}"?\n\n'
+          'L\'utente riceverà il rimborso del credito se ha un pacchetto entrate.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -284,14 +286,18 @@ class _CourseCardState extends State<CourseCard> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annulla',
-                  style: TextStyle(color: onPrimaryColor)),
+              child: const Text(
+                'Annulla',
+                style: TextStyle(color: onPrimaryColor),
+              ),
             ),
             ElevatedButton(
               onPressed: () => _correctSubscribedCount(context),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              child:
-                  const Text('Correggi', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Correggi',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -346,10 +352,12 @@ class _CourseCardState extends State<CourseCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                          'Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):',
-                          style: const TextStyle(
-                              color: onPrimaryColor,
-                              fontWeight: FontWeight.bold)),
+                        'Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):',
+                        style: const TextStyle(
+                          color: onPrimaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       Icon(
                         _subscribersExpanded
                             ? Icons.expand_less
@@ -361,25 +369,36 @@ class _CourseCardState extends State<CourseCard> {
                   ),
                 ),
                 // Icona + per aggiungere iscritti (solo per Admin)
-                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  if (widget.capacity != null && widget.capacity! > 0)
-                    _capacityPill(
-                        widget.subscribersUsers!.length, widget.capacity!),
-                  if (widget.isAdmin)
-                    IconButton(
-                      icon: const Icon(Icons.add,
-                          color: onPrimaryColor, size: 20),
-                      onPressed: () => _showAddSubscriberDialog(context),
-                      tooltip: 'Aggiungi iscritto',
-                    ),
-                  if (widget.userRole == 'Admin' && _hasEnrollmentMismatch())
-                    IconButton(
-                      icon: const Icon(Icons.sync_problem,
-                          color: Colors.red, size: 20),
-                      onPressed: () => _showCorrectCountDialog(context),
-                      tooltip: 'Correggi conteggio iscritti',
-                    ),
-                ])
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (widget.capacity != null && widget.capacity! > 0)
+                      _capacityPill(
+                        widget.subscribersUsers!.length,
+                        widget.capacity!,
+                      ),
+                    if (widget.isAdmin)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add,
+                          color: onPrimaryColor,
+                          size: 20,
+                        ),
+                        onPressed: () => _showAddSubscriberDialog(context),
+                        tooltip: 'Aggiungi iscritto',
+                      ),
+                    if (widget.userRole == 'Admin' && _hasEnrollmentMismatch())
+                      IconButton(
+                        icon: const Icon(
+                          Icons.sync_problem,
+                          color: Colors.red,
+                          size: 20,
+                        ),
+                        onPressed: () => _showCorrectCountDialog(context),
+                        tooltip: 'Correggi conteggio iscritti',
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -389,8 +408,10 @@ class _CourseCardState extends State<CourseCard> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: (widget.subscribersUsers!.length / widget.capacity!)
-                  .clamp(0.0, 1.0),
+              value: (widget.subscribersUsers!.length / widget.capacity!).clamp(
+                0.0,
+                1.0,
+              ),
               minHeight: 6,
               backgroundColor: Colors.black12,
               // Rende la barra leggibile dagli screen reader. Il valore
@@ -400,7 +421,9 @@ class _CourseCardState extends State<CourseCard> {
                   'Capienza corso, ${capacityPillLabel(widget.subscribersUsers!.length, widget.capacity!)}',
               valueColor: AlwaysStoppedAnimation<Color>(
                 capacityColor(
-                    widget.subscribersUsers!.length, widget.capacity!),
+                  widget.subscribersUsers!.length,
+                  widget.capacity!,
+                ),
               ),
             ),
           ),
@@ -409,9 +432,13 @@ class _CourseCardState extends State<CourseCard> {
         if (_subscribersExpanded) ...[
           const SizedBox(height: 6),
           if (widget.subscribersUsers!.isEmpty)
-            const Text('Nessun iscritto',
-                style: TextStyle(
-                    color: onPrimaryColor, fontStyle: FontStyle.italic)),
+            const Text(
+              'Nessun iscritto',
+              style: TextStyle(
+                color: onPrimaryColor,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
           ...widget.subscribersUsers!.map((user) {
             String displayName = getDisplayName(user);
             return Padding(
@@ -436,8 +463,11 @@ class _CourseCardState extends State<CourseCard> {
                   // Pulsante di rimozione per admin/trainer
                   if (widget.isAdmin || widget.userRole == 'Trainer')
                     IconButton(
-                      icon: const Icon(Icons.remove_circle_outline,
-                          color: Colors.red, size: 16),
+                      icon: const Icon(
+                        Icons.remove_circle_outline,
+                        color: Colors.red,
+                        size: 16,
+                      ),
                       onPressed: () =>
                           _showRemoveUserConfirmationDialog(context, user),
                       tooltip: 'Rimuovi iscrizione',
@@ -467,7 +497,9 @@ class _CourseCardState extends State<CourseCard> {
         Text(
           'Lista d\'attesa (${widget.waitlistUsers!.length}):',
           style: const TextStyle(
-              color: _waitlistColor, fontWeight: FontWeight.bold),
+            color: _waitlistColor,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
         ...widget.waitlistUsers!.map((user) {
@@ -493,8 +525,11 @@ class _CourseCardState extends State<CourseCard> {
                 ),
                 if (widget.isAdmin || widget.userRole == 'Trainer')
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline,
-                        color: Colors.red, size: 16),
+                    icon: const Icon(
+                      Icons.remove_circle_outline,
+                      color: Colors.red,
+                      size: 16,
+                    ),
                     onPressed: () => _removeFromWaitlist(context, user),
                     tooltip: 'Rimuovi dalla lista d\'attesa',
                     padding: EdgeInsets.zero,
@@ -515,12 +550,15 @@ class _CourseCardState extends State<CourseCard> {
         backgroundColor: backgroundColor,
         title: const Text('Rimuovi dalla lista d\'attesa'),
         content: Text(
-            'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dalla lista d\'attesa di "${widget.title}"?'),
+          'Sei sicuro di voler rimuovere ${user.name} ${user.lastName} dalla lista d\'attesa di "${widget.title}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child:
-                const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
+            child: const Text(
+              'Annulla',
+              style: TextStyle(color: onPrimaryColor),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -637,16 +675,21 @@ class _CourseCardState extends State<CourseCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 16, color: Colors.white, shadows: const [
-                  Shadow(blurRadius: 4, color: Colors.black54),
-                ]),
+                Icon(
+                  icon,
+                  size: 16,
+                  color: Colors.white,
+                  shadows: const [Shadow(blurRadius: 4, color: Colors.black54)],
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(value,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
-                      )),
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -656,16 +699,18 @@ class _CourseCardState extends State<CourseCard> {
     );
   }
 
-  // Identità visiva della tipologia reale del corso, ricavata dai `tags`.
-  CourseTypeStyle get _typeStyle => courseTypeStyleForTags(widget.course.tags);
+  // Identità visiva del tipo/tag V2 (o del tipo risolto per i documenti V1).
+  CourseTypeStyle get _typeStyle => courseTypeStyleForCourse(widget.course);
 
   // Badge della tipologia: colore + icona + nome. Il nome c'è sempre perché il
   // colore da solo non basta a distinguerlo dalle tonalità della capienza.
   // Assente se nessun tag del corso è una tipologia registrata: meglio niente
   // che un'etichetta inventata.
   Widget _buildTypeBadge() {
-    final type = CourseTypes.primaryForTags(widget.course.tags);
-    if (type == null) return const SizedBox.shrink();
+    final label = widget.course.displayTag ??
+        (widget.course.resolvedCourseType == CourseType.open
+            ? 'Open'
+            : 'Personal Trainer');
 
     return Padding(
       padding: const EdgeInsets.only(top: 6),
@@ -683,11 +728,12 @@ class _CourseCardState extends State<CourseCard> {
               Icon(_typeStyle.icon, size: 13, color: Colors.white),
               const SizedBox(width: 4),
               Text(
-                type.displayName,
+                label,
                 style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -707,7 +753,10 @@ class _CourseCardState extends State<CourseCard> {
       child: Text(
         capacityPillLabel(subscribed, capacity),
         style: const TextStyle(
-            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -782,18 +831,16 @@ class _CourseCardState extends State<CourseCard> {
             }
           : null,
       style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.all(buttonColor),
-          minimumSize: WidgetStateProperty.all(Size.zero),
-          padding: WidgetStateProperty.all(
-              const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 10)),
-          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-              RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ))),
-      child: Text(
-        buttonText,
-        style: TextStyle(color: buttonTextColor),
+        backgroundColor: WidgetStateProperty.all(buttonColor),
+        minimumSize: WidgetStateProperty.all(Size.zero),
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 10),
+        ),
+        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       ),
+      child: Text(buttonText, style: TextStyle(color: buttonTextColor)),
     );
   }
 
@@ -823,7 +870,9 @@ class _CourseCardState extends State<CourseCard> {
                 // Se l'asset non carica, ricadi sull'immagine di default del tipo;
                 // se manca anche quella, mostra un fondo scuro coerente (no card "vuota").
                 errorBuilder: (context, error, stackTrace) => Image.asset(
-                  CourseImages.getDefaultImage(widget.course.courseType),
+                  CourseImages.getDefaultImage(
+                    widget.course.resolvedCourseType,
+                  ),
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) =>
                       const ColoredBox(color: primaryDarkColor),
@@ -859,7 +908,11 @@ class _CourseCardState extends State<CourseCard> {
             Padding(
               // `left` maggiore per lasciare respiro all'accento colore.
               padding: const EdgeInsets.only(
-                  left: 16, right: 12, top: 12, bottom: 12),
+                left: 16,
+                right: 12,
+                top: 12,
+                bottom: 12,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -885,9 +938,7 @@ class _CourseCardState extends State<CourseCard> {
                   if (!widget.isAdmin)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        renderButtonSubscribe(),
-                      ],
+                      children: [renderButtonSubscribe()],
                     ),
                   // Mostra la lista cliccabile degli iscritti se richiesto
                   if (widget.showClickableSubscribers)
@@ -904,10 +955,11 @@ class _CourseCardState extends State<CourseCard> {
                                 ? Border(
                                     left: BorderSide(
                                       color: capacityColor(
-                                          widget.subscribersUsers?.length ??
-                                              widget.subscribed ??
-                                              0,
-                                          widget.capacity!),
+                                        widget.subscribersUsers?.length ??
+                                            widget.subscribed ??
+                                            0,
+                                        widget.capacity!,
+                                      ),
                                       width: 4,
                                     ),
                                   )
@@ -937,11 +989,15 @@ class _CourseCardState extends State<CourseCard> {
         if (widget.capacity != null && widget.capacity! > 0)
           _capacityPill(widget.subscribed ?? 0, widget.capacity!)
         else
-          Text("${widget.subscribed}/${widget.capacity}",
-              style: const TextStyle(color: Colors.white)),
+          Text(
+            "${widget.subscribed}/${widget.capacity}",
+            style: const TextStyle(color: Colors.white),
+          ),
         if (waitlistCount > 0)
-          Text(" +$waitlistCount",
-              style: const TextStyle(color: Colors.orange, fontSize: 12)),
+          Text(
+            " +$waitlistCount",
+            style: const TextStyle(color: Colors.orange, fontSize: 12),
+          ),
         const SizedBox(width: 7.5),
         IconButton(
           icon: const Icon(Icons.people),
@@ -1027,9 +1083,11 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
       if (!mounted) return;
       setState(() {
         allUsers = users
-            .where((user) =>
-                user.isActive &&
-                !widget.existingSubscribers.any((sub) => sub.uid == user.uid))
+            .where(
+              (user) =>
+                  user.isActive &&
+                  !widget.existingSubscribers.any((sub) => sub.uid == user.uid),
+            )
             .toList();
         filteredUsers = allUsers;
         isLoading = false;
@@ -1144,10 +1202,7 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text(
-            'Chiudi',
-            style: TextStyle(color: onPrimaryColor),
-          ),
+          child: const Text('Chiudi', style: TextStyle(color: onPrimaryColor)),
         ),
       ],
     );

@@ -388,7 +388,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       ),
       items: [
         const DropdownMenuItem(value: null, child: Text('Tutti i tag')),
-        ...CourseTags.all
+        ...CourseTags.legacyUserTypeTags
             .map((tag) => DropdownMenuItem(value: tag, child: Text(tag))),
       ],
       onChanged: (value) {

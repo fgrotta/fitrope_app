@@ -468,7 +468,7 @@ class _SectionCorsi extends StatelessWidget {
 
     final byTag = <String, int>{};
     for (final c in courses) {
-      final tag = c.tags.isNotEmpty ? c.tags.first : 'Nessun tag';
+      final tag = c.displayTag ?? c.resolvedTypeTag;
       byTag[tag] = (byTag[tag] ?? 0) + 1;
     }
     final tagEntries = byTag.entries.toList()
@@ -490,8 +490,7 @@ class _SectionCorsi extends StatelessWidget {
           .where((u) => u.courses.any((courseId) {
                 final c = courses.where((c) => c.uid == courseId).firstOrNull;
                 if (c == null) return false;
-                final courseTag =
-                    c.tags.isNotEmpty ? c.tags.first : 'Nessun tag';
+                final courseTag = c.displayTag ?? c.resolvedTypeTag;
                 return courseTag == tag;
               }))
           .toList();

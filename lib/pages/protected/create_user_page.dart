@@ -423,7 +423,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: CourseTags.all.map((tag) {
+                        children: CourseTags.legacyUserTypeTags.map((tag) {
                           final isSelected =
                               _selectedTipologiaCorsoTags.contains(tag);
                           return FilterChip(

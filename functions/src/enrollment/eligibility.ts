@@ -8,7 +8,12 @@
 // critici: l'autorità del server diventa EFFETTIVA solo con PR6 deployata.
 
 import { UserSubscriptionRecord } from "./subscription";
-import { canUserAccessCourse, familyForTypeTag } from "./courseTypes";
+import {
+  canAccessLegacyReadOnlyCourse,
+  familyForTypeTag,
+  TAG_HEY_MAMMA,
+  TAG_OPEN,
+} from "./courseTypes";
 
 /** Corso a cui l'utente è attualmente iscritto (per il conteggio settimanale). */
 export interface EnrolledCourse {
@@ -154,6 +159,7 @@ export interface SubscribeInput {
   courseFull: boolean;
 
   userTags: string[];
+  /** Conservato nel payload interno durante il rollout; non governa accesso. */
   courseTags: string[];
   coursePrimaryTag: string;
   courseStartMillis: number;
@@ -225,7 +231,10 @@ export function evaluateSubscribe(input: SubscribeInput): SubscribeDecision {
     return { allowed: false, reason: "ALREADY_SUBSCRIBED", consume: none };
   }
 
-  const hasTagAccess = canUserAccessCourse(input.userTags, input.courseTags);
+  const legacyReadOnlyAccess = canAccessLegacyReadOnlyCourse(
+    input.userTags,
+    input.coursePrimaryTag
+  );
 
   // Risolve il piano di consumo (quale credito scalare) ignorando i gate: serve
   // sia per il path normale sia per il force admin. Consuma solo un abbonamento
@@ -256,12 +265,16 @@ export function evaluateSubscribe(input: SubscribeInput): SubscribeDecision {
     return { allowed: true, reason: "OK", consume: consumePlan() };
   }
 
-  // Accesso: legacy = solo tag; multi-abbonamento = tag OPPURE copertura (no data).
+  // Il tipo del corso e l'unica base dell'accesso. I tag descrittivi non
+  // concedono permessi. Hey Mamma resta una sola eccezione V1 temporanea.
   if (useSubscriptions) {
-    if (!hasTagAccess && coveringByType.length === 0) {
+    if (coveringByType.length === 0 && !legacyReadOnlyAccess) {
       return { allowed: false, reason: "NO_ACCESS", consume: none };
     }
-  } else if (!hasTagAccess) {
+  } else if (
+    input.coursePrimaryTag !== TAG_OPEN &&
+    !(input.coursePrimaryTag === TAG_HEY_MAMMA && legacyReadOnlyAccess)
+  ) {
     return { allowed: false, reason: "NO_ACCESS", consume: none };
   }
 
@@ -287,9 +300,7 @@ function evaluateCoveringLimit(
   validCovering: UserSubscriptionRecord[]
 ): SubscribeReason | null {
   if (coveringByType.length === 0) {
-    // Accessibile via tag ma nessun abbonamento copre la tipologia: se la tipologia
-    // ha una famiglia (Open/Hyrox/PT) serve un abbonamento → non idoneo; se non ha
-    // famiglia (es. Hey Mamma) → nessun limite.
+    // Nessuna subscription coprente: solo lo storico Hey Mamma non ha famiglia.
     const family = familyForTypeTag(input.coursePrimaryTag);
     return family === null ? null : "NOT_ELIGIBLE";
   }

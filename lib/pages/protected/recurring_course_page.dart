@@ -33,7 +33,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   String? selectedTrainerId;
   String? errorMsg;
   bool isLoading = false;
-  List<String> selectedTags = [];
+  String? selectedTag;
   CourseType selectedCourseType = CourseType.open;
   String? selectedImageKey;
   bool reminderEnabled = true;
@@ -101,7 +101,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     } catch (e) {
       if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
-          context, 'Errore nel caricamento dei dati');
+        context,
+        'Errore nel caricamento dei dati',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -148,7 +150,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     selectedTrainerId = null;
 
     // Inizializza i tag (tipo di corso)
-    selectedTags = [];
+    selectedTag = null;
 
     // Inizializza tipologia corso e immagine
     selectedCourseType = CourseType.open;
@@ -173,17 +175,19 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     if (!mounted || picked == null) return;
     setState(() {
       startDate = DateTime(
-          picked.year,
-          picked.month,
-          picked.day,
-          startDate?.hour ?? defaultTimeOfDay.hour,
-          startDate?.minute ?? defaultTimeOfDay.minute);
+        picked.year,
+        picked.month,
+        picked.day,
+        startDate?.hour ?? defaultTimeOfDay.hour,
+        startDate?.minute ?? defaultTimeOfDay.minute,
+      );
       // Se la fine programmazione è precedente al nuovo inizio, spostala
       // avanti (inizio + 30 giorni, limitata al massimo consentito): evita
       // lo stato incoerente che mandava in crash il picker di fine.
       final startDay = DateTime(picked.year, picked.month, picked.day);
-      final maxDay =
-          DateUtils.dateOnly(DateTime.now().add(const Duration(days: 150)));
+      final maxDay = DateUtils.dateOnly(
+        DateTime.now().add(const Duration(days: 150)),
+      );
       if (endDate == null || DateUtils.dateOnly(endDate!).isBefore(startDay)) {
         final shifted = startDay.add(const Duration(days: 30));
         endDate = shifted.isAfter(maxDay) ? maxDay : shifted;
@@ -196,8 +200,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     // firstDate <= initialDate <= lastDate: normalizzo e clampo per non far
     // mai cadere l'assertion (es. inizio spostato oltre la fine corrente).
     final firstDay = DateUtils.dateOnly(startDate ?? DateTime.now());
-    final lastDay =
-        DateUtils.dateOnly(DateTime.now().add(const Duration(days: 150)));
+    final lastDay = DateUtils.dateOnly(
+      DateTime.now().add(const Duration(days: 150)),
+    );
     var initialDay = endDate != null
         ? DateUtils.dateOnly(endDate!)
         : firstDay.add(const Duration(days: 30));
@@ -236,11 +241,12 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     if (!mounted || pickedTime == null) return;
     setState(() {
       startDate = DateTime(
-          startDate?.year ?? DateTime.now().year,
-          startDate?.month ?? DateTime.now().month,
-          startDate?.day ?? DateTime.now().day,
-          pickedTime.hour,
-          pickedTime.minute);
+        startDate?.year ?? DateTime.now().year,
+        startDate?.month ?? DateTime.now().month,
+        startDate?.day ?? DateTime.now().day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
     });
   }
 
@@ -264,13 +270,15 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
         currentDate.isAtSameMomentAs(endDate!)) {
       int weekday = currentDate.weekday;
       if (selectedDays[weekday] == true) {
-        dates.add(DateTime(
-          currentDate.year,
-          currentDate.month,
-          currentDate.day,
-          startDate!.hour,
-          startDate!.minute,
-        ));
+        dates.add(
+          DateTime(
+            currentDate.year,
+            currentDate.month,
+            currentDate.day,
+            startDate!.hour,
+            startDate!.minute,
+          ),
+        );
       }
       currentDate = currentDate.add(const Duration(days: 1));
     }
@@ -395,8 +403,13 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
           capacity: capacity,
           subscribed: 0,
           trainerId: trainerId,
-          tags: List.from(selectedTags),
+          tags: CourseTags.legacyTagsMirror(
+            selectedCourseType.typeTag,
+            selectedTag,
+          ),
           courseType: selectedCourseType,
+          tag: selectedTag,
+          courseModelV2: true,
           imageKey: selectedImageKey,
           sala: selectedSala,
           reminderEnabled: reminderEnabled,
@@ -497,8 +510,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                                   const SizedBox(height: 4),
                                   Text(
                                     startDate != null
-                                        ? DateFormat('dd/MM/yyyy')
-                                            .format(startDate!)
+                                        ? DateFormat(
+                                            'dd/MM/yyyy',
+                                          ).format(startDate!)
                                         : 'Non selezionata',
                                     style: const TextStyle(fontSize: 16),
                                   ),
@@ -569,8 +583,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                                   const SizedBox(height: 4),
                                   Text(
                                     endDate != null
-                                        ? DateFormat('dd/MM/yyyy')
-                                            .format(endDate!)
+                                        ? DateFormat(
+                                            'dd/MM/yyyy',
+                                          ).format(endDate!)
                                         : 'Non selezionata',
                                     style: const TextStyle(fontSize: 16),
                                   ),
@@ -681,18 +696,27 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                                 if (selected) {
                                   setState(() {
                                     selectedCourseType = type;
+                                    if (type == CourseType.personal_trainer) {
+                                      selectedTag = CourseTags.PERSONAL_TRAINER;
+                                    } else if (selectedTag ==
+                                        CourseTags.PERSONAL_TRAINER) {
+                                      selectedTag = null;
+                                    }
                                     // Azzera l'immagine solo se non valida per il nuovo tipo.
                                     if (selectedImageKey != null &&
-                                        !CourseImages.forType(type)
-                                            .contains(selectedImageKey)) {
+                                        !CourseImages.forTag(
+                                          selectedTag,
+                                          type,
+                                        ).contains(selectedImageKey)) {
                                       selectedImageKey = null;
                                       selectedSala = null;
                                     }
                                   });
                                 }
                               },
-                              selectedColor:
-                                  primaryColor.withValues(alpha: 0.3),
+                              selectedColor: primaryColor.withValues(
+                                alpha: 0.3,
+                              ),
                               checkmarkColor: primaryColor,
                             );
                           }).toList(),
@@ -704,7 +728,10 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                 const SizedBox(height: 20),
 
                 // Selezione Immagine Corso
-                if (CourseImages.forType(selectedCourseType).isNotEmpty)
+                if (CourseImages.forTag(
+                  selectedTag,
+                  selectedCourseType,
+                ).isNotEmpty)
                   Card(
                     color: surfaceVariantColor,
                     child: Padding(
@@ -722,24 +749,24 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                           const SizedBox(height: 8),
                           const Text(
                             'Seleziona un\'immagine per questo corso',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
                           ),
                           const SizedBox(height: 12),
                           SizedBox(
                             height: 100,
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
-                              itemCount:
-                                  CourseImages.forType(selectedCourseType)
-                                      .length,
+                              itemCount: CourseImages.forTag(
+                                selectedTag,
+                                selectedCourseType,
+                              ).length,
                               separatorBuilder: (_, __) =>
                                   const SizedBox(width: 10),
                               itemBuilder: (context, index) {
-                                final imagePath = CourseImages.forType(
-                                    selectedCourseType)[index];
+                                final imagePath = CourseImages.forTag(
+                                  selectedTag,
+                                  selectedCourseType,
+                                )[index];
                                 final isSelected =
                                     selectedImageKey == imagePath;
                                 return GestureDetector(
@@ -773,8 +800,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                                               alpha: 0.3),
                                           child: const Center(
                                             child: Icon(
-                                                Icons.image_not_supported,
-                                                color: Colors.grey),
+                                              Icons.image_not_supported,
+                                              color: Colors.grey,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -788,7 +816,10 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                       ),
                     ),
                   ),
-                if (CourseImages.forType(selectedCourseType).isNotEmpty)
+                if (CourseImages.forTag(
+                  selectedTag,
+                  selectedCourseType,
+                ).isNotEmpty)
                   const SizedBox(height: 20),
 
                 // Selezione Tipo di corso (Tag accesso)
@@ -800,7 +831,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Tag di Accesso',
+                          'Tag descrittivo',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -808,32 +839,33 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Seleziona i tag che limitano l\'accesso a questo corso (opzionale)',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
+                          'Scegli una sola etichetta per presentazione e filtri (opzionale)',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
                         ),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: CourseTags.all.map((tag) {
-                            final isSelected = selectedTags.contains(tag);
-                            return FilterChip(
+                          children: CourseTags.selectable.map((tag) {
+                            final isSelected = selectedTag == tag;
+                            final enabled = selectedCourseType ==
+                                    CourseType.personal_trainer
+                                ? tag == CourseTags.PERSONAL_TRAINER
+                                : tag != CourseTags.PERSONAL_TRAINER;
+                            return ChoiceChip(
                               label: Text(tag),
                               selected: isSelected,
-                              onSelected: (selected) {
-                                setState(() {
-                                  if (selected) {
-                                    selectedTags.add(tag);
-                                  } else {
-                                    selectedTags.remove(tag);
-                                  }
-                                });
-                              },
-                              selectedColor:
-                                  primaryColor.withValues(alpha: 0.3),
+                              onSelected: !enabled
+                                  ? null
+                                  : (selected) {
+                                      setState(() {
+                                        selectedTag = selected ? tag : null;
+                                        selectedImageKey = null;
+                                      });
+                                    },
+                              selectedColor: primaryColor.withValues(
+                                alpha: 0.3,
+                              ),
                               checkmarkColor: primaryColor,
                             );
                           }).toList(),
@@ -878,7 +910,8 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                                 return DropdownMenuItem<String>(
                                   value: trainer.uid,
                                   child: Text(
-                                      '${trainer.name} ${trainer.lastName}'),
+                                    '${trainer.name} ${trainer.lastName}',
+                                  ),
                                 );
                               }),
                             ],
@@ -906,7 +939,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                         const Text(
                           'Notifiche e Lista d\'Attesa',
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         SwitchListTile(
@@ -984,8 +1019,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                               itemBuilder: (context, index) {
                                 final date = courseDates[index];
                                 return Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 2,
+                                  ),
                                   child: Row(
                                     children: [
                                       Icon(
