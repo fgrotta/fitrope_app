@@ -1,6 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import {
   scheduleTrialReminder,
+  sendTrialEnrollmentConfirmation,
   notifyWaitlistUsers,
 } from "../enrollment/notify";
 
@@ -166,6 +167,69 @@ describe("scheduleTrialReminder (orchestrazione)", () => {
     const payloads = sentPayloads();
     expect(payloads).toHaveLength(1);
     expect(payloads[0].target_channel).toBe("email");
+  });
+});
+
+describe("sendTrialEnrollmentConfirmation (orchestrazione)", () => {
+  test("invia UNA email immediata, senza send_after", async () => {
+    const { db } = makeNotifyDb({
+      users: { u1: { uid: "u1" } },
+      courses: { c1: courseDoc() },
+    });
+    await sendTrialEnrollmentConfirmation(db, "key", "u1", "c1", NOW);
+    const payloads = sentPayloads();
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0].target_channel).toBe("email");
+    expect(payloads[0].send_after).toBeUndefined();
+    expect((payloads[0].include_aliases as Data).external_id).toEqual(["u1"]);
+    expect(payloads[0].app_id).toBeDefined(); // iniettato server-side
+    expect(payloads[0].email_body).toContain("Aggiungi a Google Calendar");
+  });
+
+  test("è transazionale: invia anche con reminderEnabled=false", async () => {
+    const { db } = makeNotifyDb({
+      users: { u1: { uid: "u1" } },
+      courses: { c1: courseDoc({ reminderEnabled: false }) },
+    });
+    await sendTrialEnrollmentConfirmation(db, "key", "u1", "c1", NOW);
+    expect(sentPayloads()).toHaveLength(1);
+  });
+
+  test("emailNotificationsEnabled=false → nessun invio", async () => {
+    const { db } = makeNotifyDb({
+      users: { u1: { uid: "u1", emailNotificationsEnabled: false } },
+      courses: { c1: courseDoc() },
+    });
+    await sendTrialEnrollmentConfirmation(db, "key", "u1", "c1", NOW);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("lezione già iniziata → nessun invio", async () => {
+    const { db } = makeNotifyDb({
+      users: { u1: { uid: "u1" } },
+      courses: { c1: courseDoc() },
+    });
+    await sendTrialEnrollmentConfirmation(db, "key", "u1", "c1", COURSE_START + 1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("iscrizione a lezione imminente: la conferma parte comunque, il promemoria no", async () => {
+    // 9 giu 20:00 Rome (18:00Z): trialReminderSendAtMillis (19:00 Rome) è passato.
+    const late = Date.UTC(2026, 5, 9, 18);
+    const { db } = makeNotifyDb({
+      users: { u1: { uid: "u1" } },
+      courses: { c1: courseDoc() },
+    });
+    await scheduleTrialReminder(db, "key", "u1", "c1", late);
+    expect(fetchMock).not.toHaveBeenCalled();
+    await sendTrialEnrollmentConfirmation(db, "key", "u1", "c1", late);
+    expect(sentPayloads()).toHaveLength(1);
+  });
+
+  test("corso inesistente → nessun invio (no throw)", async () => {
+    const { db } = makeNotifyDb({ users: {}, courses: {} });
+    await sendTrialEnrollmentConfirmation(db, "key", "u1", "manca", NOW);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

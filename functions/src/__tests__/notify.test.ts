@@ -6,11 +6,18 @@ import {
   formatCourseTime,
 } from "../enrollment/notify";
 import {
+  trialConfirmationSubject,
+  trialConfirmationBody,
   trialReminderSubject,
   trialReminderBody,
   waitlistSpotAvailableSubject,
   waitlistSpotAvailableBody,
 } from "../enrollment/emailTemplates";
+
+const CALENDAR_URLS = {
+  googleUrl: "https://calendar.google.com/calendar/render?action=TEMPLATE&text=CrossFit",
+  icsUrl: "https://europe-west8-p.cloudfunctions.net/courseIcs?courseId=c1",
+};
 
 // Europe/Rome 2026: CET (UTC+1) d'inverno; CEST (UTC+2) dal 29 mar al 25 ott.
 
@@ -96,12 +103,62 @@ describe("emailTemplates (mirror del client Dart)", () => {
       courseName: "CrossFit",
       courseDate: "Mercoledì 10 Giugno",
       courseTime: "10:00 - 11:00",
+      sala: "Sala 2",
+      ...CALENDAR_URLS,
     });
     expect(body).toContain("CrossFit");
     expect(body).toContain("Mercoledì 10 Giugno");
     expect(body).toContain("10:00 - 11:00");
+    expect(body).toContain("Sala 2");
     expect(body).toContain("app.fithousemonza.it");
     expect(body).toContain("<html>");
+  });
+
+  test("trial reminder: bottoni calendario con href HTML-escaped", () => {
+    const body = trialReminderBody({
+      courseName: "CrossFit",
+      courseDate: "Mercoledì 10 Giugno",
+      courseTime: "10:00 - 11:00",
+      ...CALENDAR_URLS,
+    });
+    expect(body).toContain("Aggiungi a Google Calendar");
+    expect(body).toContain("Apple / Outlook / altro");
+    // Gli & nei query string vanno &amp; dentro l'attributo href.
+    expect(body).toContain(
+      'href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=CrossFit"'
+    );
+    expect(body).toContain(
+      'href="https://europe-west8-p.cloudfunctions.net/courseIcs?courseId=c1"'
+    );
+  });
+
+  test("trial confirmation: subject e body con dettagli e bottoni", () => {
+    expect(trialConfirmationSubject("CrossFit")).toBe(
+      'Iscrizione confermata: lezione di prova "CrossFit"'
+    );
+    const body = trialConfirmationBody({
+      courseName: "CrossFit",
+      courseDate: "Mercoledì 10 Giugno",
+      courseTime: "10:00 - 11:00",
+      sala: "Sala 1",
+      ...CALENDAR_URLS,
+    });
+    expect(body).toContain("Iscrizione confermata");
+    expect(body).toContain("Mercoledì 10 Giugno");
+    expect(body).toContain("Sala 1");
+    expect(body).toContain("Aggiungi a Google Calendar");
+    expect(body).toContain("Apple / Outlook / altro");
+  });
+
+  test("sala assente: nessuna riga Sala nel body", () => {
+    const body = trialConfirmationBody({
+      courseName: "CrossFit",
+      courseDate: "Mercoledì 10 Giugno",
+      courseTime: "10:00 - 11:00",
+      sala: "   ",
+      ...CALENDAR_URLS,
+    });
+    expect(body).not.toContain("<strong>Sala:</strong>");
   });
 
   test("waitlist: singolare/plurale posti disponibili", () => {

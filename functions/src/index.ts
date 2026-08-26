@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
@@ -27,8 +27,11 @@ import {
 } from "./enrollment/admin";
 import {
   scheduleTrialReminder,
+  sendTrialEnrollmentConfirmation,
   notifyWaitlistUsers,
+  getCourseByUid,
 } from "./enrollment/notify";
+import { buildCourseIcs } from "./enrollment/ics";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -134,8 +137,82 @@ export const subscribeToCourse = onCall(
             courseId,
             Date.now()
           ),
+        notifyTrialConfirmation: (userId, courseId) =>
+          sendTrialEnrollmentConfirmation(
+            admin.firestore(),
+            oneSignalApiKey.value(),
+            userId,
+            courseId,
+            Date.now()
+          ),
       }
     )
+);
+
+/**
+ * Serve il file iCalendar della lezione, linkato dal bottone "Apple / Outlook /
+ * altro" nelle email della prova. Endpoint HTTP e non callable perché il click
+ * arriva da un client email: nessun SDK, solo una GET.
+ *
+ * Pubblico e non autenticato per necessità (le email non portano credenziali),
+ * ma espone solo nome corso, orario e sala — dati che qualsiasi socio già vede —
+ * e il `courseId` è un auto-ID Firestore a 20 caratteri, non enumerabile.
+ */
+export const courseIcs = onRequest(
+  { region: "europe-west8", cors: true },
+  async (req, res) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      res.status(405).set("Allow", "GET, HEAD").send("Metodo non consentito");
+      return;
+    }
+
+    const raw = req.query.courseId;
+    const courseId = typeof raw === "string" ? raw.trim() : "";
+    if (!courseId) {
+      res.status(400).send("Parametro courseId mancante");
+      return;
+    }
+
+    let course: Awaited<ReturnType<typeof getCourseByUid>>;
+    try {
+      course = await getCourseByUid(admin.firestore(), courseId);
+    } catch (err) {
+      logger.error("courseIcs: lettura corso fallita", err);
+      res.status(500).send("Errore interno");
+      return;
+    }
+    if (!course) {
+      res.status(404).send("Corso non trovato");
+      return;
+    }
+
+    const data = course.data;
+    const startMillis = data.startDate?.toMillis?.();
+    const endMillis = data.endDate?.toMillis?.();
+    if (typeof startMillis !== "number" || typeof endMillis !== "number") {
+      logger.warn("courseIcs: corso senza date valide", { courseId });
+      res.status(404).send("Corso senza date valide");
+      return;
+    }
+
+    const ics = buildCourseIcs({
+      courseId,
+      courseName: (data.name as string) ?? "Lezione",
+      startMillis,
+      endMillis,
+      sala: (data.sala as string | undefined) ?? null,
+      nowMillis: Date.now(),
+    });
+
+    // no-store: il corso può essere spostato o cancellato dopo l'invio
+    // dell'email, l'.ics deve riflettere Firestore e non una copia congelata.
+    res
+      .status(200)
+      .set("Content-Type", "text/calendar; charset=utf-8")
+      .set("Content-Disposition", 'attachment; filename="lezione.ics"')
+      .set("Cache-Control", "no-store")
+      .send(ics);
+  }
 );
 
 /**

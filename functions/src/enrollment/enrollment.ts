@@ -48,6 +48,7 @@ export interface EnrollmentRequest {
 /** Notifiche best-effort, iniettabili (no-op nei test). */
 export interface EnrollmentDeps {
   notifyTrialReminder?: (userId: string, courseId: string) => Promise<void>;
+  notifyTrialConfirmation?: (userId: string, courseId: string) => Promise<void>;
   notifyWaitlist?: (courseId: string) => Promise<void>;
 }
 
@@ -556,8 +557,17 @@ export async function subscribeToCourseHandler(
     tx.update(userRef, userUpdate);
   });
 
-  if (isTrialUser && deps.notifyTrialReminder) {
-    await deps.notifyTrialReminder(targetUserId, courseId).catch(() => undefined);
+  if (isTrialUser) {
+    // Best-effort e in parallelo: conferma immediata + promemoria schedulato.
+    // Un errore di notifica non deve far fallire un'iscrizione già committata.
+    await Promise.all([
+      deps.notifyTrialConfirmation
+        ? deps.notifyTrialConfirmation(targetUserId, courseId).catch(() => undefined)
+        : Promise.resolve(),
+      deps.notifyTrialReminder
+        ? deps.notifyTrialReminder(targetUserId, courseId).catch(() => undefined)
+        : Promise.resolve(),
+    ]);
   }
 
   return { ok: true };

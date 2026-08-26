@@ -185,6 +185,9 @@ void main() {
         courseName: 'Pilates',
         courseDate: 'Lunedì 1 Gennaio 2027',
         courseTime: '10:00 - 11:00',
+        googleUrl:
+            'https://calendar.google.com/calendar/render?action=TEMPLATE',
+        icsUrl: 'https://example.test/courseIcs?courseId=c1',
       );
       expect(body, contains('<img'));
       expect(body, contains('src="https://'));
