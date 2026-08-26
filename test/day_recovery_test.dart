@@ -53,7 +53,9 @@ void main() {
   final cEveningLate =
       course('c-evening-2', evening.add(const Duration(hours: 1)));
   final cTomorrow = course('c-tomorrow', tomorrow);
-  final cHyroxEvening = course('c-hyrox', evening, tags: ['Hyrox']);
+  // Nel modello migrato Hyrox è un tag descrittivo Open: l'unica altra
+  // tipologia reale è Personal Trainer.
+  final cPtEvening = course('c-pt', evening, tags: ['Personal Trainer']);
   final cFull = course('c-full', evening, capacity: 5, subscribed: 5);
 
   setUp(() {
@@ -62,7 +64,7 @@ void main() {
       cEvening,
       cEveningLate,
       cTomorrow,
-      cHyroxEvening,
+      cPtEvening,
       cFull,
     ]));
   });
@@ -207,7 +209,7 @@ void main() {
     });
 
     test('ingresso perso di un altra tipologia → bloccato', () {
-      final u = pack(cancelled: [lost('c-hyrox', evening, LostKind.ENTRY)]);
+      final u = pack(cancelled: [lost('c-pt', evening, LostKind.ENTRY)]);
       expect(getCourseState(cEvening, u), CourseState.SUBSCRIBE_LIMIT);
     });
 
@@ -241,7 +243,7 @@ void main() {
       final u = user(courses: ['c-morning', 'c-evening']);
       final candidates = recoveryCandidates(cMorning, u, now: morning);
       // Esclusi: c-morning (è il corso disdetto), c-evening (già iscritto),
-      // c-tomorrow (altro giorno), c-hyrox (altra tipologia), c-full (pieno).
+      // c-tomorrow (altro giorno), c-pt (altra tipologia), c-full (pieno).
       expect(candidates.map((c) => c.uid), ['c-evening-2']);
     });
 

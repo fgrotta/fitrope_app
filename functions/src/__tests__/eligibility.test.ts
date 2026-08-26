@@ -762,9 +762,11 @@ describe("evaluateSubscribe: recupero nella giornata", () => {
         })
       ).reason
     ).toBe("EXPIRED");
+    // Nel modello migrato l'accesso dipende dal tipo del corso, non dai tag:
+    // per un utente legacy il caso negato è un corso Personal Trainer.
     expect(
       evaluateSubscribe(
-        input({ userTags: ["Hyrox"], courseTags: ["Open"], recoverableEntriesOnDay: 1 })
+        input({ coursePrimaryTag: "Personal Trainer", recoverableEntriesOnDay: 1 })
       ).reason
     ).toBe("NO_ACCESS");
   });
