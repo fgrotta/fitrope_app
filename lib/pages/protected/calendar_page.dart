@@ -45,14 +45,13 @@ class _CalendarPageState extends State<CalendarPage> {
   var pattern = "yyyy-MM-dd";
   final defaultTimeOfDay = const TimeOfDay(hour: 19, minute: 0);
 
-  // Filtri della lista corsi. Le due dimensioni (Tipologia e Sala) restano
-  // entrambe attive e si combinano in AND; il selettore decide solo quale
-  // gruppo di chip è visibile. Set vuoto = "tutti".
-  // I filtri NON si azzerano al cambio giorno: così si può seguire una
-  // tipologia lungo la settimana senza riselezionarla ogni volta.
+  // Filtro della lista corsi, su un'unica dimensione: la tipologia. Set vuoto
+  // = "tutti" (lo stato che il chip "Tutti" mostra come selezionato); più
+  // tipologie selezionate si combinano in OR.
+  // Il valore iniziale dipende dagli abbonamenti (vedi initState); da lì in poi
+  // comanda l'utente, e il filtro NON si azzera al cambio giorno: così si può
+  // seguire una tipologia lungo la settimana senza riselezionarla ogni volta.
   final Set<String> _typeFilter = {};
-  final Set<String> _salaFilter = {};
-  CourseFilterDimension _filterDimension = CourseFilterDimension.tipologia;
   // null = default in base al layout (mese su desktop, settimana su mobile);
   // una volta che l'utente usa il toggle, il valore esplicito resta per la sessione.
   bool? _monthExpanded;
@@ -60,10 +59,9 @@ class _CalendarPageState extends State<CalendarPage> {
 
   bool get _isStaff => user.role == 'Admin' || user.role == 'Trainer';
 
-  void _clearFilters() => setState(() {
-        _typeFilter.clear();
-        _salaFilter.clear();
-      });
+  // Usato solo dall'empty state del filtro: nella barra si deseleziona
+  // toccando di nuovo il chip.
+  void _clearFilters() => setState(() => _typeFilter.clear());
 
   static void _toggle(Set<String> set, String key) =>
       set.contains(key) ? set.remove(key) : set.add(key);
@@ -72,6 +70,10 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     currentDate = DateTime.now();
     user = store.state.user!;
+    // Una volta sola, all'apertura: chi ha solo abbonamenti PT parte filtrato
+    // su Personal Trainer. Dopo, ogni tocco sui chip ha la precedenza.
+    _typeFilter
+        .addAll(defaultTypeFilterForSubscriptions(user.activeSubscriptions));
     getTrainers().then((List<FitropeUser> response) {
       if (!mounted) return;
       setState(() {
@@ -598,13 +600,8 @@ class _CalendarPageState extends State<CalendarPage> {
   Widget _buildFilterBar() => CourseFilterBar(
         courses: selectedCourses,
         selectedTypes: _typeFilter,
-        selectedSale: _salaFilter,
-        dimension: _filterDimension,
-        onDimensionChanged: (dimension) =>
-            setState(() => _filterDimension = dimension),
         onToggleType: (key) => setState(() => _toggle(_typeFilter, key)),
-        onToggleSala: (key) => setState(() => _toggle(_salaFilter, key)),
-        onClearFilters: _clearFilters,
+        onShowAll: _clearFilters,
       );
 
   // Numero di colonne in base alla larghezza disponibile: 1 su mobile,
@@ -655,8 +652,7 @@ class _CalendarPageState extends State<CalendarPage> {
     // solo open/personal_trainer, quindi un corso Hyrox o Hey Mamma finiva
     // sotto l'intestazione sbagliata. La tipologia reale (dai `tags`) è ora
     // sulla card, come colore di accento e badge.
-    final visible = applyCourseFilters(selectedCourses,
-        types: _typeFilter, sale: _salaFilter);
+    final visible = applyCourseFilters(selectedCourses, types: _typeFilter);
     if (visible.isEmpty) return _buildFilteredEmptyState();
 
     return LayoutBuilder(

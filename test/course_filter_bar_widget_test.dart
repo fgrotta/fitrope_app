@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/components/course_filter_bar.dart';
 import 'package:fitrope_app/types/course.dart';
-import 'package:fitrope_app/utils/course_filters.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
 import 'package:fitrope_app/utils/sale.dart';
@@ -40,41 +39,43 @@ void main() {
     course(name: 'senza-sala', hour: 18, tags: [CourseTags.OPEN]),
   ];
 
-  /// Monta la barra con una larghezza realistica di telefono (390 px): un
-  /// overflow farebbe fallire il test, che è il punto.
+  /// Monta la barra con una larghezza realistica di telefono (390 px).
+  ///
+  /// La `width` pilota **sia** il `MediaQuery` (che è quello che legge
+  /// `isDesktop`, e quindi decide fra `Wrap` e riga scrollabile) **sia** il box
+  /// che contiene la barra: se i due divergessero il test verificherebbe un
+  /// layout che non esiste.
   Future<void> pump(
     WidgetTester tester, {
     List<Course>? courses,
     Set<String>? types,
-    Set<String>? sale,
-    CourseFilterDimension dimension = CourseFilterDimension.tipologia,
     void Function(String)? onToggleType,
-    void Function(String)? onToggleSala,
-    void Function(CourseFilterDimension)? onDimensionChanged,
-    VoidCallback? onClear,
+    VoidCallback? onShowAll,
     double width = 390,
   }) async {
     await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: width,
-            child: SingleChildScrollView(
-              child: CourseFilterBar(
-                courses: courses ?? giornata,
-                selectedTypes: types ?? <String>{},
-                selectedSale: sale ?? <String>{},
-                dimension: dimension,
-                onDimensionChanged: onDimensionChanged ?? (_) {},
-                onToggleType: onToggleType ?? (_) {},
-                onToggleSala: onToggleSala ?? (_) {},
-                onClearFilters: onClear ?? () {},
+      home: MediaQuery(
+        data: MediaQueryData(size: Size(width, 800)),
+        child: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: width,
+              child: SingleChildScrollView(
+                child: CourseFilterBar(
+                  courses: courses ?? giornata,
+                  selectedTypes: types ?? <String>{},
+                  onToggleType: onToggleType ?? (_) {},
+                  onShowAll: onShowAll ?? () {},
+                ),
               ),
             ),
           ),
         ),
       ),
     ));
+    // La prima notifica di metrica arriva in un microtask dopo il primo frame:
+    // un pump in più fa assestare lo stato dei bordi sfumati.
+    await tester.pump();
   }
 
   bool chipEnabled(WidgetTester tester, String label) =>
@@ -82,6 +83,19 @@ void main() {
           .widget<FilterChip>(find.byKey(Key('calendar-filter-chip-$label')))
           .onSelected !=
       null;
+
+  Finder horizontalScroll() => find.byWidgetPredicate((w) =>
+      w is SingleChildScrollView && w.scrollDirection == Axis.horizontal);
+
+  /// Nella riga scrollabile i chip in coda restano fuori dal viewport: senza
+  /// portarli in vista il tap cade nel vuoto, come per un dito che non ha
+  /// ancora scrollato.
+  Future<void> tapChip(WidgetTester tester, String label) async {
+    final finder = find.byKey(Key('calendar-filter-chip-$label'));
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.tap(finder);
+  }
 
   group('CourseFilterBar - chip tipologia', () {
     testWidgets('mostra sempre tutte le tipologie di CourseTypes.all',
@@ -113,7 +127,7 @@ void main() {
           types: {CourseTags.HEY_MAMMA}, onToggleType: (key) => toggled = key);
 
       expect(chipEnabled(tester, 'Hey Mamma'), isTrue);
-      await tester.tap(find.byKey(const Key('calendar-filter-chip-Hey Mamma')));
+      await tapChip(tester, 'Hey Mamma');
       expect(toggled, CourseTags.HEY_MAMMA);
     });
 
@@ -129,108 +143,133 @@ void main() {
       );
     });
 
-    testWidgets('i conteggi tengono conto del filtro Sala già attivo',
-        (tester) async {
-      await pump(tester, sale: {Sale.SALA_1});
-      // In Sala 1 c'è un solo corso Open, e nessun Hyrox.
-      expect(chipEnabled(tester, 'Hyrox'), isFalse);
-      expect(chipEnabled(tester, 'Open'), isTrue);
-    });
-
     testWidgets('toccare un chip notifica la chiave della tipologia',
         (tester) async {
       String? toggled;
       await pump(tester, onToggleType: (key) => toggled = key);
-      await tester.tap(find.byKey(const Key('calendar-filter-chip-Hyrox')));
+      await tapChip(tester, 'Hyrox');
       expect(toggled, CourseTags.HYROX);
     });
   });
 
-  group('CourseFilterBar - dimensione Sala', () {
-    testWidgets('mostra le sale della lista chiusa più "Senza sala"',
-        (tester) async {
-      await pump(tester, dimension: CourseFilterDimension.sala);
-      for (final sala in Sale.all) {
-        expect(find.byKey(Key('calendar-filter-chip-$sala')), findsOneWidget);
-      }
-      expect(find.byKey(const Key('calendar-filter-chip-Senza sala')),
-          findsOneWidget);
-      // I chip tipologia non sono più a schermo: una dimensione alla volta.
-      expect(find.byKey(const Key('calendar-filter-chip-Open')), findsNothing);
+  group('CourseFilterBar - chip Tutti', () {
+    testWidgets('è il primo chip della barra', (tester) async {
+      await pump(tester, width: 1000); // Wrap: tutti i chip sono a schermo
+      final chips = tester.widgetList<FilterChip>(find.byType(FilterChip));
+      expect((chips.first.key as ValueKey<String>?)?.value,
+          'calendar-filter-chip-Tutti');
+      expect(chips.length, CourseTypes.all.length + 1);
     });
 
-    testWidgets('toccare un chip sala notifica la chiave giusta',
+    testWidgets('conta TUTTI i corsi della giornata, anche i senza tipologia',
         (tester) async {
-      String? toggled;
-      await pump(tester,
-          dimension: CourseFilterDimension.sala,
-          onToggleSala: (key) => toggled = key);
-      await tester
-          .tap(find.byKey(const Key('calendar-filter-chip-Senza sala')));
-      expect(toggled, kNoSalaFilterKey);
-    });
-  });
-
-  group('CourseFilterBar - selettore di dimensione', () {
-    testWidgets('cambia dimensione al tocco', (tester) async {
-      CourseFilterDimension? changed;
-      await pump(tester, onDimensionChanged: (d) => changed = d);
-      await tester.tap(find.text('Sala'));
-      expect(changed, CourseFilterDimension.sala);
-    });
-
-    testWidgets(
-        'il badge segnala i filtri attivi sulla dimensione NON visibile',
-        (tester) async {
-      // Sala 1 selezionata mentre è visibile la dimensione Tipologia: senza il
-      // badge il filtro nascosto restringerebbe la lista senza spiegazione.
-      await pump(tester, sale: {Sale.SALA_1});
+      // Un corso senza tag non finisce in nessun conteggio per tipologia, ma
+      // resta una card visibile: "Tutti" deve contarlo.
+      final conSenzaTag = [...giornata, course(name: 'boh', hour: 20)];
+      await pump(tester, courses: conSenzaTag, width: 1000);
       expect(
         find.descendant(
-          of: find.byKey(const Key('calendar-filter-dimension')),
-          matching: find.text('1'),
+          of: find.byKey(const Key('calendar-filter-chip-Tutti')),
+          matching: find.textContaining('${conSenzaTag.length}'),
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('senza filtri attivi non compare nessun badge', (tester) async {
-      await pump(tester);
+    testWidgets('è selezionato quando non c\'è nessun filtro', (tester) async {
+      await pump(tester, width: 1000);
       expect(
-        find.descendant(
-          of: find.byKey(const Key('calendar-filter-dimension')),
-          matching: find.text('1'),
-        ),
-        findsNothing,
-      );
+          tester
+              .widget<FilterChip>(
+                  find.byKey(const Key('calendar-filter-chip-Tutti')))
+              .selected,
+          isTrue);
+    });
+
+    testWidgets('si deseleziona quando una tipologia è attiva', (tester) async {
+      await pump(tester, types: {CourseTags.OPEN}, width: 1000);
+      expect(
+          tester
+              .widget<FilterChip>(
+                  find.byKey(const Key('calendar-filter-chip-Tutti')))
+              .selected,
+          isFalse);
+    });
+
+    testWidgets('toccarlo azzera la selezione', (tester) async {
+      var shownAll = false;
+      await pump(tester,
+          types: {CourseTags.OPEN},
+          onShowAll: () => shownAll = true,
+          width: 1000);
+      await tapChip(tester, 'Tutti');
+      expect(shownAll, isTrue);
+    });
+
+    testWidgets('resta abilitato anche già selezionato (non si intrappola)',
+        (tester) async {
+      await pump(tester, width: 1000);
+      expect(chipEnabled(tester, 'Tutti'), isTrue);
     });
   });
 
-  group('CourseFilterBar - azzera filtri', () {
-    testWidgets('assente senza filtri attivi', (tester) async {
-      await pump(tester);
-      expect(find.byKey(const Key('calendar-clear-filters')), findsNothing);
+  group('CourseFilterBar - layout', () {
+    testWidgets('sotto i 900 px i chip scorrono in orizzontale, senza Wrap',
+        (tester) async {
+      await pump(tester, width: 390);
+      expect(horizontalScroll(), findsOneWidget);
+      expect(find.byType(Wrap), findsNothing);
     });
 
-    testWidgets('presente e funzionante con un filtro attivo', (tester) async {
-      var cleared = false;
-      await pump(tester,
-          types: {CourseTags.OPEN}, onClear: () => cleared = true);
-      await tester.tap(find.byKey(const Key('calendar-clear-filters')));
-      expect(cleared, isTrue);
+    testWidgets('da 900 px in su i chip vanno a capo in un Wrap',
+        (tester) async {
+      await pump(tester, width: 1000);
+      expect(find.byType(Wrap), findsOneWidget);
+      expect(horizontalScroll(), findsNothing);
     });
+
+    testWidgets('"Tutti" + i 4 chip ci sono in entrambe le modalità',
+        (tester) async {
+      for (final width in [390.0, 1000.0]) {
+        await pump(tester, width: width);
+        expect(
+            find.byType(FilterChip), findsNWidgets(CourseTypes.all.length + 1),
+            reason: 'larghezza $width');
+      }
+    });
+
+    testWidgets('un drag orizzontale muove la posizione di scroll',
+        (tester) async {
+      await pump(tester, width: 390);
+      final scrollable = find.descendant(
+        of: horizontalScroll(),
+        matching: find.byType(Scrollable),
+      );
+      final before = tester.state<ScrollableState>(scrollable).position.pixels;
+      await tester.drag(horizontalScroll(), const Offset(-120, 0));
+      await tester.pumpAndSettle();
+      expect(tester.state<ScrollableState>(scrollable).position.pixels,
+          greaterThan(before));
+    });
+
+    testWidgets('non va in overflow su un tablet stretto (600 px)',
+        (tester) async {
+      await pump(tester, types: {CourseTags.OPEN}, width: 600);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('la barra non ha un pulsante "Azzera filtri"', (tester) async {
+    // Con una dimensione sola si deseleziona toccando il chip; il pulsante
+    // resta soltanto nell'empty state del filtro, in CalendarPage.
+    await pump(tester, types: {CourseTags.OPEN});
+    expect(find.byKey(const Key('calendar-clear-filters')), findsNothing);
+    expect(find.text('Azzera filtri'), findsNothing);
   });
 
   testWidgets('senza corsi la barra non si disegna', (tester) async {
     await pump(tester, courses: []);
-    expect(find.byKey(const Key('calendar-filter-dimension')), findsNothing);
     expect(find.byType(FilterChip), findsNothing);
-  });
-
-  testWidgets('non va in overflow su un tablet stretto (600 px)',
-      (tester) async {
-    await pump(tester,
-        types: {CourseTags.OPEN}, sale: {Sale.SALA_1}, width: 600);
-    expect(tester.takeException(), isNull);
+    expect(horizontalScroll(), findsNothing);
   });
 }

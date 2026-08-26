@@ -79,7 +79,7 @@ lib/
 │   └── protected/                         # Area autenticata
 │       ├── protected.dart                 # Scaffold principale con endDrawer admin
 │       ├── home_page.dart                 # Dashboard con abbonamenti/certificati in scadenza
-│       ├── calendar_page.dart             # Calendario corsi: filtri Tipologia/Sala, card in ordine cronologico
+│       ├── calendar_page.dart             # Calendario corsi: filtro Tipologia, card in ordine cronologico
 │       ├── course_management_page.dart    # CRUD corsi (crea/modifica/duplica)
 │       ├── recurring_course_page.dart     # Gestione corsi ricorrenti
 │       ├── admin_users_page.dart          # Lista utenti admin

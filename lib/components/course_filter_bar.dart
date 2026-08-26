@@ -1,159 +1,175 @@
+import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/utils/course_filters.dart';
 import 'package:fitrope_app/utils/course_type_style.dart';
 import 'package:fitrope_app/utils/course_types.dart';
-import 'package:fitrope_app/utils/sale.dart';
 import 'package:flutter/material.dart';
 
-/// Barra filtri della lista corsi: un selettore Tipologia|Sala scambia la
-/// dimensione mostrata, e una sola riga di chip resta visibile.
+/// Barra filtri della lista corsi: una sola riga di chip — "Tutti" più una per
+/// tipologia.
 ///
-/// I filtri delle due dimensioni si combinano comunque in AND, quindi il
-/// selettore porta un badge con il numero di selezioni attive: altrimenti un
-/// filtro sulla dimensione nascosta continuerebbe a restringere la lista senza
-/// che si veda perché.
+/// Sotto i 900 px i chip scorrono in orizzontale invece di andare a capo: su
+/// mobile lo spazio verticale serve alle card. Da 900 in su restano in un
+/// [Wrap], dove stanno comodamente su una riga e lo scroll orizzontale col
+/// mouse sarebbe scomodo.
+///
+/// Non c'è un pulsante "Azzera filtri": ci pensa il chip "Tutti", che è lo
+/// stato "nessun filtro" reso visibile. Il pulsante resta solo nell'empty state
+/// del filtro, dove è la via d'uscita quando la selezione non lascia passare
+/// nulla.
 ///
 /// Lo stato dei filtri sta nel chiamante: questo widget disegna e notifica.
-class CourseFilterBar extends StatelessWidget {
+class CourseFilterBar extends StatefulWidget {
   /// Corsi del giorno selezionato: è la base su cui si calcolano i conteggi.
   final List<Course> courses;
   final Set<String> selectedTypes;
-  final Set<String> selectedSale;
-  final CourseFilterDimension dimension;
-  final ValueChanged<CourseFilterDimension> onDimensionChanged;
 
-  /// Chiamati con la chiave del chip toccato; l'inversione la fa il chiamante.
+  /// Chiamato con la chiave del chip toccato; l'inversione la fa il chiamante.
   final ValueChanged<String> onToggleType;
-  final ValueChanged<String> onToggleSala;
-  final VoidCallback onClearFilters;
+
+  /// Chiamato dal chip "Tutti": azzera la selezione.
+  final VoidCallback onShowAll;
 
   const CourseFilterBar({
     super.key,
     required this.courses,
     required this.selectedTypes,
-    required this.selectedSale,
-    required this.dimension,
-    required this.onDimensionChanged,
     required this.onToggleType,
-    required this.onToggleSala,
-    required this.onClearFilters,
+    required this.onShowAll,
   });
 
-  bool get _hasActiveFilters =>
-      selectedTypes.isNotEmpty || selectedSale.isNotEmpty;
+  @override
+  State<CourseFilterBar> createState() => _CourseFilterBarState();
+}
+
+class _CourseFilterBarState extends State<CourseFilterBar> {
+  late final ScrollController _scroll;
+
+  // Da che lato sfumare: si sfuma solo dove c'è ancora contenuto da scorrere.
+  // Partono entrambi a `true` (= nessuna sfumatura) perché prima del primo
+  // layout non si sa se ci sia qualcosa da scorrere: meglio nessun gradiente
+  // che uno sbagliato per un frame.
+  bool _atStart = true;
+  bool _atEnd = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// `setState` solo se qualcosa cambia davvero: altrimenti ogni frame di
+  /// scroll ricostruirebbe la barra.
+  void _syncEdges(ScrollMetrics m) {
+    final atStart = m.pixels <= m.minScrollExtent;
+    final atEnd = m.pixels >= m.maxScrollExtent;
+    if (atStart == _atStart && atEnd == _atEnd) return;
+    // Le notifiche di metrica arrivano in un microtask, quindi fuori dal frame:
+    // il widget può già essere smontato.
+    if (!mounted) return;
+    setState(() {
+      _atStart = atStart;
+      _atEnd = atEnd;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (courses.isEmpty) return const SizedBox.shrink();
-    final isTipologia = dimension == CourseFilterDimension.tipologia;
+    if (widget.courses.isEmpty) return const SizedBox.shrink();
+    final chips = _buildChips();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildDimensionSelector(),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ...(isTipologia ? _buildTypeChips() : _buildSalaChips()),
-              if (_hasActiveFilters)
-                TextButton(
-                  key: const Key('calendar-clear-filters'),
-                  onPressed: onClearFilters,
-                  style: TextButton.styleFrom(
-                    foregroundColor: primaryColor,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    textStyle: const TextStyle(
-                        fontSize: 12.5, fontWeight: FontWeight.w600),
-                  ),
-                  child: const Text('Azzera filtri'),
-                ),
+      child: isDesktop(context)
+          ? Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: chips,
+            )
+          : _buildScrollableRow(chips),
+    );
+  }
+
+  Widget _buildScrollableRow(List<Widget> chips) {
+    return NotificationListener<ScrollMetricsNotification>(
+      // Primo layout e resize: la posizione non cambia ma l'estensione sì.
+      onNotification: (n) {
+        _syncEdges(n.metrics);
+        return false;
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          _syncEdges(n.metrics);
+          return false;
+        },
+        // `BlendMode.dstIn` maschera l'alfa dei chip, quindi la sfumatura
+        // funziona su qualunque sfondo — a differenza di un overlay che sfuma
+        // verso un colore fisso. Il mask avvolge lo scroll view, non il Row
+        // interno: là dentro il gradiente seguirebbe il contenuto invece di
+        // restare ancorato ai bordi visibili.
+        child: ShaderMask(
+          shaderCallback: (rect) => LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              _atStart ? Colors.white : Colors.transparent,
+              Colors.white,
+              Colors.white,
+              _atEnd ? Colors.white : Colors.transparent,
             ],
+            stops: const [0.0, 0.05, 0.95, 1.0],
+          ).createShader(rect),
+          blendMode: BlendMode.dstIn,
+          child: SingleChildScrollView(
+            controller: _scroll,
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < chips.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  chips[i],
+                ],
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildDimensionSelector() {
-    Widget segmentLabel(String text, IconData icon, int activeCount) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16),
-            const SizedBox(width: 6),
-            Text(text),
-            if (activeCount > 0) ...[
-              const SizedBox(width: 6),
-              _buildFilterBadge(activeCount),
-            ],
-          ],
-        );
+  /// Chip a set FISSO: "Tutti" e poi sempre tutte le tipologie di
+  /// `CourseTypes.all`, anche a zero corsi. Un elenco che cambia forma ogni
+  /// giorno impedisce di imparare dove sta il filtro che si usa sempre.
+  List<Widget> _buildChips() => [_buildAllChip(), ..._buildTypeChips()];
 
-    return SegmentedButton<CourseFilterDimension>(
-      key: const Key('calendar-filter-dimension'),
-      segments: [
-        ButtonSegment(
-          value: CourseFilterDimension.tipologia,
-          label: segmentLabel(
-              'Tipologia', Icons.filter_list, selectedTypes.length),
-        ),
-        ButtonSegment(
-          value: CourseFilterDimension.sala,
-          label: segmentLabel(
-              'Sala', Icons.meeting_room_outlined, selectedSale.length),
-        ),
-      ],
-      selected: {dimension},
-      showSelectedIcon: false,
-      onSelectionChanged: (selection) => onDimensionChanged(selection.first),
-      style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        textStyle: WidgetStateProperty.all(
-            const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-        backgroundColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.selected)
-                ? primaryColor.withValues(alpha: 0.12)
-                : null),
-        foregroundColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.selected)
-                ? primaryDarkColor
-                : onSurfaceVariantColor),
-        side: WidgetStateProperty.all(
-            const BorderSide(color: outlineVariantColor)),
-      ),
-    );
-  }
-
-  /// Pallino con il numero di filtri attivi su una dimensione.
-  Widget _buildFilterBadge(int count) => Container(
-        constraints: const BoxConstraints(minWidth: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-          color: primaryColor,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text('$count',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold)),
+  /// "Tutti" non è una tipologia: è lo stato "nessun filtro" reso visibile e
+  /// toccabile. È selezionato quando il set è vuoto, e toccarlo azzera — quindi
+  /// ritoccarlo da selezionato non fa nulla, perché "mostra niente" non esiste.
+  /// Il suo conteggio è il totale della giornata, corsi senza tipologia
+  /// riconosciuta compresi: sono esattamente le card che si vedono.
+  Widget _buildAllChip() => _buildFilterChip(
+        label: 'Tutti',
+        icon: Icons.apps,
+        color: primaryColor,
+        count: widget.courses.length,
+        selected: widget.selectedTypes.isEmpty,
+        enabled: true,
+        onToggle: widget.onShowAll,
       );
 
-  /// Chip a set FISSO: sempre tutte le tipologie di `CourseTypes.all`, anche a
-  /// zero corsi. Un elenco che cambia forma ogni giorno impedisce di imparare
-  /// dove sta il filtro che si usa sempre.
   List<Widget> _buildTypeChips() {
-    final counts = courseTypeCounts(courses, sale: selectedSale);
+    final counts = courseTypeCounts(widget.courses);
     return CourseTypes.all.map((type) {
       final count = counts[type.key] ?? 0;
-      final selected = selectedTypes.contains(type.key);
+      final selected = widget.selectedTypes.contains(type.key);
       final style = courseTypeStyleForKey(type.key);
       return _buildFilterChip(
         label: type.displayName,
@@ -162,32 +178,9 @@ class CourseFilterBar extends StatelessWidget {
         count: count,
         selected: selected,
         enabled: count > 0 || selected,
-        onToggle: () => onToggleType(type.key),
+        onToggle: () => widget.onToggleType(type.key),
       );
     }).toList();
-  }
-
-  List<Widget> _buildSalaChips() {
-    final counts = salaCounts(courses, types: selectedTypes);
-
-    Widget chipFor(String key, String label) {
-      final count = counts[key] ?? 0;
-      final selected = selectedSale.contains(key);
-      return _buildFilterChip(
-        label: label,
-        icon: Icons.meeting_room_outlined,
-        color: primaryColor,
-        count: count,
-        selected: selected,
-        enabled: count > 0 || selected,
-        onToggle: () => onToggleSala(key),
-      );
-    }
-
-    return [
-      ...Sale.all.map((sala) => chipFor(sala, sala)),
-      chipFor(kNoSalaFilterKey, 'Senza sala'),
-    ];
   }
 
   Widget _buildFilterChip({

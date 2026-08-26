@@ -163,6 +163,18 @@ flutter run -d chrome --dart-define=USE_EMULATOR=true
   può leggere/scrivere i dati emulati e invocare le functions. Accettabile
   perché i dati sono sintetici ed effimeri; su reti non fidate cambiare gli
   host in `localhost` in `firebase.json`.
+- **⚠️ Mai incapsulare l'app in un `<iframe>` per provare i breakpoint.** Dentro
+  un iframe `useAuthEmulator()` non si aggancia: l'app inizializza Firebase con
+  le opzioni di **produzione** e le chiamate di login finiscono su
+  `identitytoolkit.googleapis.com`, cioè sul progetto vero. Il sintomo visibile
+  è che **sparisce il banner rosso "Running in emulator mode"** — se non lo vedi,
+  non sei sull'emulatore, fermati. Riscontrato il 26 agosto 2026 usando un iframe
+  a larghezza fissa per fotografare il calendario alle varie risoluzioni: le
+  credenziali seed sono state rifiutate (400) proprio perché l'account esiste solo
+  nell'emulatore. Per pilotare la larghezza del viewport ridimensiona la **finestra
+  del browser** e verifica `window.innerWidth`, oppure genera le immagini con i
+  golden di `flutter test --update-goldens`, che rendono il widget alla dimensione
+  esatta senza toccare Firebase.
 
 ### Smoke test eseguito al setup (2026-06-10)
 
