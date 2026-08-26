@@ -21,7 +21,7 @@ import {
   recordToSnapshotEntry,
   computeActiveSnapshot,
 } from "./subscription";
-import { primaryTypeTagForTags } from "./courseTypes";
+import { typeTagOf } from "./courseTypes";
 import {
   evaluateSubscribe,
   coveringSubsByType,
@@ -94,7 +94,10 @@ async function getRole(tx: Transaction, db: Firestore, uid: string): Promise<str
 
 export function snapshotRecords(userData: FsData): UserSubscriptionRecord[] {
   const raw = userData.activeSubscriptions;
-  if (!Array.isArray(raw)) return [];
+  if (raw === null || raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    throw new Error("activeSubscriptions deve essere una lista");
+  }
   return raw.map((e: FsData) => recordFromDoc((e.id as string) ?? "", e));
 }
 
@@ -155,11 +158,10 @@ async function fetchWeekCatalog(
   for (const doc of snap.docs) {
     const c = doc.data();
     const uid = (c.uid as string) ?? doc.id;
-    const tags = Array.isArray(c.tags) ? (c.tags as string[]) : [];
     byUid.set(uid, {
       uid,
       startMillis: toMillis(c.startDate),
-      primaryTag: primaryTypeTagForTags(tags),
+      primaryTag: typeTagOf(c),
     });
   }
   return { byUid, weekStart, weekEnd };
@@ -353,7 +355,7 @@ export async function subscribeToCourseHandler(
 
     const courseStartMillis = toMillis(course.data.startDate);
     const courseTags = Array.isArray(course.data.tags) ? (course.data.tags as string[]) : [];
-    const coursePrimaryTag = primaryTypeTagForTags(courseTags);
+    const coursePrimaryTag = typeTagOf(course.data);
 
     // Corso già iniziato/passato → CLOSED (mirror del primo gate di
     // getCourseState). Force admin può comunque registrare presenze a posteriori.
@@ -593,8 +595,7 @@ export async function unsubscribeFromCourseHandler(
     if (courseAlreadyStarted && targetUserId === actor) {
       throw new HttpsError("failed-precondition", "Il corso è già iniziato");
     }
-    const courseTags = Array.isArray(course.data.tags) ? (course.data.tags as string[]) : [];
-    const coursePrimaryTag = primaryTypeTagForTags(courseTags);
+    const coursePrimaryTag = typeTagOf(course.data);
 
     // Risolvi il creditMode dal modello ATTUALE: determina finestra (8h/4h) e
     // tracciamento cancelledEnrollments. La fonte da RIPRISTINARE invece viene
@@ -819,7 +820,7 @@ export async function joinWaitlistHandler(
     }
 
     const courseTags = Array.isArray(course.data.tags) ? (course.data.tags as string[]) : [];
-    const coursePrimaryTag = primaryTypeTagForTags(courseTags);
+    const coursePrimaryTag = typeTagOf(course.data);
     const records = snapshotRecords(user);
     const liveRecords = records.filter((r) => r.endDateMillis >= nowMillis);
     const cancelledRaw: FsData[] = Array.isArray(user.cancelledEnrollments)

@@ -1,6 +1,6 @@
-// Mirror server-side del registry tipologie/tag Dart
-// (lib/utils/course_types.dart + lib/utils/course_tags.dart).
-// Le chiavi/tag DEVONO restare identiche tra client e server.
+// Resolver centralizzato del modello corso, mirror di lib/types/course.dart.
+// `courseType` e autoritativo solo sui documenti marcati courseModelV2=true;
+// i documenti V1 continuano a essere risolti dai tag durante il rollout.
 
 import { SubscriptionFamily } from "./plansCatalog";
 
@@ -9,67 +9,104 @@ export const TAG_PERSONAL_TRAINER = "Personal Trainer";
 export const TAG_HYROX = "Hyrox";
 export const TAG_HEY_MAMMA = "Hey Mamma";
 
-/** Tutti i tag/tipologie noti. */
-export const ALL_TAGS = [
+export const SELECTABLE_TAGS = [
   TAG_PERSONAL_TRAINER,
-  TAG_OPEN,
   TAG_HYROX,
-  TAG_HEY_MAMMA,
-];
+  "Yoga",
+  "Pilates",
+  "Calisthenics",
+  "Posturale",
+  "Tabata",
+  "Fitrope",
+] as const;
 
-/**
- * Famiglia di abbonamento che "consuma" una tipologia di corso (null = nessun
- * abbonamento dedicato, es. Hey Mamma). Mirror di `CourseTypes.*.family`.
- */
-const FAMILY_BY_TAG: Record<string, SubscriptionFamily | null> = {
+export const ALL_TAGS = [...SELECTABLE_TAGS];
+
+export type CourseTypeValue = "open" | "personal_trainer";
+export type CourseDocument = Record<string, unknown>;
+
+const FAMILY_BY_TYPE_TAG: Record<string, SubscriptionFamily | null> = {
   [TAG_OPEN]: "OPEN",
   [TAG_PERSONAL_TRAINER]: "PT",
-  [TAG_HYROX]: "HYROX",
+  // Storico V1 in sola lettura: conserva l'assenza di limiti finche l'admin
+  // non bonifica i documenti Hey Mamma esclusi dal backfill.
   [TAG_HEY_MAMMA]: null,
 };
 
-/** True se [tag] è una tipologia di corso registrata. */
 export function isKnownTypeTag(tag: string): boolean {
-  return Object.prototype.hasOwnProperty.call(FAMILY_BY_TAG, tag);
+  return Object.prototype.hasOwnProperty.call(FAMILY_BY_TYPE_TAG, tag);
 }
 
-/** Famiglia che sblocca/consuma la tipologia [tag], o null. */
 export function familyForTypeTag(tag: string): SubscriptionFamily | null {
-  return FAMILY_BY_TAG[tag] ?? null;
+  if (!isKnownTypeTag(tag)) {
+    throw new Error(`type tag sconosciuto: ${tag}`);
+  }
+  return FAMILY_BY_TYPE_TAG[tag];
+}
+
+export function typeTagForCourseType(value: unknown): string {
+  if (value === "open") return TAG_OPEN;
+  if (value === "personal_trainer") return TAG_PERSONAL_TRAINER;
+  throw new Error(`courseType sconosciuto: ${String(value)}`);
 }
 
 /**
- * Tipologia "primaria" di un corso: primo tag riconosciuto, altrimenti `Open`.
- * Determina in modo DETERMINISTICO quale famiglia consuma il corso (mirror di
- * `_coursePrimaryTypeTag` in getCourseState.dart: primaryForTags() ?? OPEN).
+ * Resolver storico. Hyrox e ora un tag descrittivo di Open; Hey Mamma resta
+ * riconoscibile solo per conservare il comportamento dei documenti esclusi.
  */
 export function primaryTypeTagForTags(tags: string[]): string {
-  for (const tag of tags) {
-    if (isKnownTypeTag(tag)) return tag;
+  if (tags.includes(TAG_HEY_MAMMA)) return TAG_HEY_MAMMA;
+  if (tags.includes(TAG_PERSONAL_TRAINER) && !tags.includes(TAG_OPEN)) {
+    return TAG_PERSONAL_TRAINER;
   }
   return TAG_OPEN;
 }
 
-/**
- * Mirror di `CourseTags.canUserAccessCourse` (lib/utils/course_tags.dart):
- * accesso al corso basato sui tag legacy dell'utente.
- */
-export function canUserAccessCourse(
-  userTags: string[],
-  courseTags: string[]
-): boolean {
-  if (userTags.includes("Tutti i corsi")) return true;
+export function legacyTagsOf(course: CourseDocument): string[] {
+  const raw = course.tags;
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.some((value) => typeof value !== "string")) {
+    throw new Error("tags deve essere una lista di stringhe");
+  }
+  return raw as string[];
+}
 
-  const userEmpty = userTags.length === 0;
-  const courseEmpty = courseTags.length === 0;
+export function tagsMirror(typeTag: string, tag: string | null): string[] {
+  return tag === null || tag === typeTag ? [typeTag] : [typeTag, tag];
+}
 
-  if (
-    (userEmpty && courseEmpty) ||
-    (userEmpty && courseTags.includes(TAG_OPEN)) ||
-    (userTags.includes(TAG_OPEN) && courseEmpty)
-  ) {
-    return true;
+/** Tipo effettivo usato da eligibility, waitlist, refund e conteggi. */
+export function typeTagOf(course: CourseDocument): string {
+  if (course.courseModelV2 !== true) {
+    return primaryTypeTagForTags(legacyTagsOf(course));
   }
 
-  return userTags.some((t) => courseTags.includes(t));
+  const typeTag = typeTagForCourseType(course.courseType);
+  const tag = course.tag;
+  if (tag !== null &&
+      (typeof tag !== "string" || !SELECTABLE_TAGS.includes(tag as typeof SELECTABLE_TAGS[number]))) {
+    throw new Error(`tag corso V2 sconosciuto: ${String(tag)}`);
+  }
+  if (typeTag === TAG_PERSONAL_TRAINER && tag !== TAG_PERSONAL_TRAINER) {
+    throw new Error("shape V2 PT senza tag Personal Trainer");
+  }
+  if (typeTag === TAG_OPEN && tag === TAG_PERSONAL_TRAINER) {
+    throw new Error("shape V2 Open con tag Personal Trainer");
+  }
+
+  const actual = legacyTagsOf(course);
+  const expected = tagsMirror(typeTag, tag as string | null);
+  if (actual.length !== expected.length || actual.some((v, i) => v !== expected[i])) {
+    throw new Error(`mirror tags V2 invalido: ${JSON.stringify(actual)}`);
+  }
+  return typeTag;
+}
+
+/** Compatibilita limitata ai corsi storici Hey Mamma. */
+export function canAccessLegacyReadOnlyCourse(
+  userTags: string[],
+  courseTypeTag: string
+): boolean {
+  return courseTypeTag === TAG_HEY_MAMMA &&
+    (userTags.includes(TAG_HEY_MAMMA) || userTags.includes("Tutti i corsi"));
 }

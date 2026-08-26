@@ -168,7 +168,7 @@ describe("assignSubscriptionHandler", () => {
   test("happy path: crea doc subscription + snapshot sul doc utente", async () => {
     const { db, writes } = makeFakeDb({ callerRole: "Admin" });
     const res = await assignSubscriptionHandler(
-      { auth, data: { userId: "u1", planKey: "hyrox_10i_1m", startDateMillis: Date.now() } },
+      { auth, data: { userId: "u1", planKey: "open_10i_1m", startDateMillis: Date.now() } },
       db
     );
     expect(res.ok).toBe(true);
@@ -176,7 +176,7 @@ describe("assignSubscriptionHandler", () => {
 
     const snap = writes.users["u1"] as { activeSubscriptions: any[] };
     expect(snap.activeSubscriptions.length).toBe(1);
-    expect(snap.activeSubscriptions[0].family).toBe("HYROX");
+    expect(snap.activeSubscriptions[0].family).toBe("OPEN");
     expect(snap.activeSubscriptions[0].remainingEntries).toBe(10);
     expect(snap.activeSubscriptions[0].id).toBe(res.subscriptionId);
   });
@@ -187,11 +187,11 @@ describe("assignSubscriptionHandler", () => {
       existingSubs: [activeOpenDoc("u1")],
     });
     await assignSubscriptionHandler(
-      { auth, data: { userId: "u1", planKey: "hyrox_10i_1m" } },
+      { auth, data: { userId: "u1", planKey: "pt_10i_1m" } },
       db
     );
     const snap = writes.users["u1"] as { activeSubscriptions: any[] };
     const families = snap.activeSubscriptions.map((s) => s.family).sort();
-    expect(families).toEqual(["HYROX", "OPEN"]);
+    expect(families).toEqual(["OPEN", "PT"]);
   });
 });

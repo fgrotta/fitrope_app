@@ -65,10 +65,10 @@ function tempUser(over: Data = {}): Data {
 function hyroxSubDoc(remaining: number): Data {
   return {
     userId: "u1",
-    planKey: "hyrox_10i_3m",
-    family: "HYROX",
+    planKey: "open_10i_3m",
+    family: "OPEN",
     billingMode: "ENTRIES",
-    courseTypeTags: ["Hyrox"],
+    courseTypeTags: ["Open"],
     weeklyFrequency: null,
     remainingEntries: remaining,
     startDate: Timestamp.fromMillis(Date.UTC(2026, 0, 1)),
@@ -389,7 +389,7 @@ describe("subscribeToCourseHandler", () => {
     // consente, il consumo deve essere NONE (non l'ENTRIES a zero).
     const zeroEntries: Data = {
       ...openFreqSubDoc(2),
-      planKey: "open_entries_test",
+      planKey: "open_10i_3m",
       billingMode: "ENTRIES",
       weeklyFrequency: null,
       remainingEntries: 0,
@@ -555,7 +555,7 @@ describe("subscribeToCourseHandler", () => {
     expect(res.ok).toBe(true);
   });
 
-  test("FREQUENCY multi-abbonamento: scope per tipologia (lo Hyrox in settimana non conta sul limite Open)", async () => {
+  test("FREQUENCY Open: un corso col tag Hyrox conta nello stesso limite", async () => {
     const store: FakeStore = {
       users: {
         u1: subUser({
@@ -578,14 +578,15 @@ describe("subscribeToCourseHandler", () => {
       subs: { "sub-open": openFreqSubDoc(2) },
     };
     const db = makeDb(store);
-    // 1 solo corso Open usato (lo Hyrox non rientra nello scope) → sotto il limite 2x.
-    const res = await subscribeToCourseHandler(
-      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
-      db,
-      {},
-      NOW
+    await expectCode(
+      subscribeToCourseHandler(
+        { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+        db,
+        {},
+        NOW
+      ),
+      "failed-precondition"
     );
-    expect(res.ok).toBe(true);
   });
 
   test("FREQUENCY multi-abbonamento al limite settimanale → failed-precondition", async () => {
@@ -1061,7 +1062,7 @@ describe("unsubscribeFromCourseHandler", () => {
         }),
       },
       courses: { ch: course({ uid: "ch", tags: ["Hyrox"] }) },
-      subs: { "sub-hyrox": hyroxSubDoc(10) }, // piano hyrox_10i_3m → max 10
+      subs: { "sub-hyrox": hyroxSubDoc(10) }, // piano open_10i_3m → max 10
     };
     const db = makeDb(store);
     await unsubscribeFromCourseHandler(
@@ -1218,7 +1219,7 @@ describe("joinWaitlistHandler", () => {
   test("rifiuta chi non ha accesso al corso", async () => {
     const db = makeDb({
       users: { u1: packUser() },
-      courses: { c1: course({ subscribed: 10, tags: ["Hyrox"] }) },
+      courses: { c1: course({ subscribed: 10, tags: ["Personal Trainer"] }) },
       subs: {},
     });
     await expectCode(

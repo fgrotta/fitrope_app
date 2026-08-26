@@ -3,17 +3,15 @@ import 'package:fitrope_app/utils/course_tags.dart';
 
 /// Tipologia di corso (registry in codice).
 ///
-/// La [key] coincide con il tag usato in `Course.tags` e in
-/// `FitropeUser.tipologiaCorsoTags`: così il controllo accessi esistente
-/// (`CourseTags.canUserAccessCourse`) resta invariato e non serve alcuna
-/// migrazione dei corsi.
+/// La [key] coincide con il type tag del mirror `Course.tags`. Nei documenti
+/// V2 il campo autoritativo resta `Course.courseType`; i tag descrittivi non
+/// partecipano mai al controllo accessi.
 class CourseType {
   final String key;
   final String displayName;
 
-  /// Famiglia di abbonamento che sblocca questa tipologia (null = nessun
-  /// abbonamento dedicato, es. Hey Mamma).
-  final SubscriptionFamily? family;
+  /// Famiglia di abbonamento che sblocca questa tipologia.
+  final SubscriptionFamily family;
 
   /// Sala di default della tipologia. PREVISTO per il futuro (mappatura
   /// automatica tipologia→sala). Non utilizzato nella v1: la sala si imposta
@@ -23,7 +21,7 @@ class CourseType {
   const CourseType({
     required this.key,
     required this.displayName,
-    this.family,
+    required this.family,
     this.defaultSala,
   });
 }
@@ -43,17 +41,7 @@ class CourseTypes {
     displayName: 'Personal Trainer',
     family: SubscriptionFamily.PT,
   );
-  static const CourseType hyrox = CourseType(
-    key: CourseTags.HYROX,
-    displayName: 'Hyrox',
-    family: SubscriptionFamily.HYROX,
-  );
-  static const CourseType heyMamma = CourseType(
-    key: CourseTags.HEY_MAMMA,
-    displayName: 'Hey Mamma',
-  );
-
-  static const List<CourseType> all = [open, personalTrainer, hyrox, heyMamma];
+  static const List<CourseType> all = [open, personalTrainer];
 
   /// Ritorna la tipologia con la [key] indicata, o `null` se non registrata.
   static CourseType? byKey(String key) {
@@ -63,12 +51,13 @@ class CourseTypes {
     return null;
   }
 
-  /// Risolve la tipologia "principale" di un corso a partire dai suoi [tags]
-  /// (primo tag riconosciuto). Ritorna `null` se nessun tag è una tipologia nota.
+  /// Resolver legacy V1. Hyrox e un tag descrittivo Open; Hey Mamma resta un
+  /// valore storico speciale e viene gestito dal resolver sul modello Course.
   static CourseType? primaryForTags(List<String> tags) {
     for (final tag in tags) {
       final type = byKey(tag);
       if (type != null) return type;
+      if (tag == CourseTags.HYROX) return open;
     }
     return null;
   }

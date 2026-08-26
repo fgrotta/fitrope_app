@@ -42,7 +42,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   String? selectedTrainerId;
   String? errorMsg;
   bool isLoading = false;
-  List<String> selectedTags = [];
+  String? selectedTag;
   CourseType selectedCourseType = CourseType.open;
   String? selectedImageKey;
   bool reminderEnabled = true;
@@ -84,6 +84,18 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       }
     }
 
+    if (widget.mode == 'edit' &&
+        widget.courseToEdit?.isLegacyReadOnly == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pop(context);
+        SnackBarUtils.showErrorSnackBar(
+          context,
+          'I corsi storici non migrati sono disponibili in sola lettura',
+        );
+      });
+      return;
+    }
+
     _initializeData();
   }
 
@@ -105,7 +117,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     } catch (e) {
       if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
-          context, 'Errore nel caricamento dei dati');
+        context,
+        'Errore nel caricamento dei dati',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -127,8 +141,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     // Per la creazione di nuovi corsi, non permettere date nel passato
     if (widget.mode == 'create' && startDate!.isBefore(DateTime.now())) {
       DateTime now = DateTime.now();
-      startDate = DateTime(now.year, now.month, now.day, defaultTimeOfDay.hour,
-          defaultTimeOfDay.minute);
+      startDate = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        defaultTimeOfDay.hour,
+        defaultTimeOfDay.minute,
+      );
     }
     // Per la modifica, permettere date future anche se il corso originale era nel passato
 
@@ -169,13 +188,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     }
 
     // Inizializza i tag
-    selectedTags =
-        widget.courseToEdit?.tags ?? widget.courseToDuplicate?.tags ?? [];
+    final source = widget.courseToEdit ?? widget.courseToDuplicate;
+    selectedTag = source?.displayTag;
 
     // Inizializza tipologia corso
-    selectedCourseType = widget.courseToEdit?.courseType ??
-        widget.courseToDuplicate?.courseType ??
-        CourseType.open;
+    selectedCourseType = source?.resolvedCourseType ?? CourseType.open;
 
     // Inizializza immagine
     selectedImageKey =
@@ -236,11 +253,12 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     if (picked != null) {
       setState(() {
         startDate = DateTime(
-            picked.year,
-            picked.month,
-            picked.day,
-            startDate?.hour ?? defaultTimeOfDay.hour,
-            startDate?.minute ?? defaultTimeOfDay.minute);
+          picked.year,
+          picked.month,
+          picked.day,
+          startDate?.hour ?? defaultTimeOfDay.hour,
+          startDate?.minute ?? defaultTimeOfDay.minute,
+        );
       });
     }
   }
@@ -262,11 +280,12 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     if (pickedTime != null) {
       setState(() {
         startDate = DateTime(
-            startDate?.year ?? DateTime.now().year,
-            startDate?.month ?? DateTime.now().month,
-            startDate?.day ?? DateTime.now().day,
-            pickedTime.hour,
-            pickedTime.minute);
+          startDate?.year ?? DateTime.now().year,
+          startDate?.month ?? DateTime.now().month,
+          startDate?.day ?? DateTime.now().day,
+          pickedTime.hour,
+          pickedTime.minute,
+        );
       });
     }
   }
@@ -350,8 +369,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           capacity: capacity,
           subscribed: widget.courseToEdit!.subscribed,
           trainerId: trainerId,
-          tags: selectedTags,
+          tags: CourseTags.legacyTagsMirror(
+            selectedCourseType.typeTag,
+            selectedTag,
+          ),
           courseType: selectedCourseType,
+          tag: selectedTag,
+          courseModelV2: true,
           imageKey: selectedImageKey,
           sala: selectedSala,
           waitlist: widget.courseToEdit!.waitlist,
@@ -362,7 +386,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         await updateCourse(updatedCourse);
         if (!mounted) return;
         SnackBarUtils.showSuccessSnackBar(
-            context, 'Corso modificato con successo');
+          context,
+          'Corso modificato con successo',
+        );
       } else {
         // Crea nuovo corso (creazione o duplicazione)
         // I Trainer vengono automaticamente assegnati ai corsi che creano
@@ -377,8 +403,13 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           capacity: capacity,
           subscribed: 0,
           trainerId: trainerId,
-          tags: selectedTags,
+          tags: CourseTags.legacyTagsMirror(
+            selectedCourseType.typeTag,
+            selectedTag,
+          ),
           courseType: selectedCourseType,
+          tag: selectedTag,
+          courseModelV2: true,
           imageKey: selectedImageKey,
           sala: selectedSala,
           reminderEnabled: reminderEnabled,
@@ -406,7 +437,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       if (!mounted) return;
       // Torna alla pagina precedente
       Navigator.pop(
-          context, true); // true indica che è stato fatto un salvataggio
+        context,
+        true,
+      ); // true indica che è stato fatto un salvataggio
     } catch (e) {
       if (!mounted) return;
       final action = widget.mode == 'edit'
@@ -482,8 +515,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                   const SizedBox(height: 4),
                                   Text(
                                     startDate != null
-                                        ? DateFormat('dd/MM/yyyy')
-                                            .format(startDate!)
+                                        ? DateFormat(
+                                            'dd/MM/yyyy',
+                                          ).format(startDate!)
                                         : 'Non selezionata',
                                     style: const TextStyle(fontSize: 16),
                                   ),
@@ -589,7 +623,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                 return DropdownMenuItem<String>(
                                   value: trainer.uid,
                                   child: Text(
-                                      '${trainer.name} ${trainer.lastName}'),
+                                    '${trainer.name} ${trainer.lastName}',
+                                  ),
                                 );
                               }),
                             ],
@@ -639,19 +674,28 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                 if (selected) {
                                   setState(() {
                                     selectedCourseType = type;
+                                    if (type == CourseType.personal_trainer) {
+                                      selectedTag = CourseTags.PERSONAL_TRAINER;
+                                    } else if (selectedTag ==
+                                        CourseTags.PERSONAL_TRAINER) {
+                                      selectedTag = null;
+                                    }
                                     // Azzera l'immagine solo se non è valida per il
                                     // nuovo tipo: così tornando al tipo originale in
                                     // modifica non si perde l'immagine già scelta.
                                     if (selectedImageKey != null &&
-                                        !CourseImages.forType(type)
-                                            .contains(selectedImageKey)) {
+                                        !CourseImages.forTag(
+                                          selectedTag,
+                                          type,
+                                        ).contains(selectedImageKey)) {
                                       selectedImageKey = null;
                                     }
                                   });
                                 }
                               },
-                              selectedColor:
-                                  primaryColor.withValues(alpha: 0.3),
+                              selectedColor: primaryColor.withValues(
+                                alpha: 0.3,
+                              ),
                               checkmarkColor: primaryColor,
                             );
                           }).toList(),
@@ -663,7 +707,10 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                 const SizedBox(height: 20),
 
                 // Selezione Immagine Corso
-                if (CourseImages.forType(selectedCourseType).isNotEmpty)
+                if (CourseImages.forTag(
+                  selectedTag,
+                  selectedCourseType,
+                ).isNotEmpty)
                   Card(
                     color: surfaceVariantColor,
                     child: Padding(
@@ -681,24 +728,24 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           const SizedBox(height: 8),
                           const Text(
                             'Seleziona un\'immagine per questo corso',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
                           ),
                           const SizedBox(height: 12),
                           SizedBox(
                             height: 100,
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
-                              itemCount:
-                                  CourseImages.forType(selectedCourseType)
-                                      .length,
+                              itemCount: CourseImages.forTag(
+                                selectedTag,
+                                selectedCourseType,
+                              ).length,
                               separatorBuilder: (_, __) =>
                                   const SizedBox(width: 10),
                               itemBuilder: (context, index) {
-                                final imagePath = CourseImages.forType(
-                                    selectedCourseType)[index];
+                                final imagePath = CourseImages.forTag(
+                                  selectedTag,
+                                  selectedCourseType,
+                                )[index];
                                 final isSelected =
                                     selectedImageKey == imagePath;
                                 return GestureDetector(
@@ -732,8 +779,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                               alpha: 0.3),
                                           child: const Center(
                                             child: Icon(
-                                                Icons.image_not_supported,
-                                                color: Colors.grey),
+                                              Icons.image_not_supported,
+                                              color: Colors.grey,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -747,7 +795,10 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                       ),
                     ),
                   ),
-                if (CourseImages.forType(selectedCourseType).isNotEmpty)
+                if (CourseImages.forTag(
+                  selectedTag,
+                  selectedCourseType,
+                ).isNotEmpty)
                   const SizedBox(height: 20),
 
                 // Selezione Tag
@@ -759,7 +810,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Tag del Corso',
+                          'Tag descrittivo',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -767,32 +818,33 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Seleziona i tag che limitano l\'accesso a questo corso',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
+                          'Scegli una sola etichetta per presentazione e filtri',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
                         ),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: CourseTags.all.map((tag) {
-                            final isSelected = selectedTags.contains(tag);
-                            return FilterChip(
+                          children: CourseTags.selectable.map((tag) {
+                            final isSelected = selectedTag == tag;
+                            final enabled = selectedCourseType ==
+                                    CourseType.personal_trainer
+                                ? tag == CourseTags.PERSONAL_TRAINER
+                                : tag != CourseTags.PERSONAL_TRAINER;
+                            return ChoiceChip(
                               label: Text(tag),
                               selected: isSelected,
-                              onSelected: (selected) {
-                                setState(() {
-                                  if (selected) {
-                                    selectedTags.add(tag);
-                                  } else {
-                                    selectedTags.remove(tag);
-                                  }
-                                });
-                              },
-                              selectedColor:
-                                  primaryColor.withValues(alpha: 0.3),
+                              onSelected: !enabled
+                                  ? null
+                                  : (selected) {
+                                      setState(() {
+                                        selectedTag = selected ? tag : null;
+                                        selectedImageKey = null;
+                                      });
+                                    },
+                              selectedColor: primaryColor.withValues(
+                                alpha: 0.3,
+                              ),
                               checkmarkColor: primaryColor,
                             );
                           }).toList(),
@@ -814,7 +866,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         const Text(
                           'Notifiche e Lista d\'Attesa',
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         SwitchListTile(

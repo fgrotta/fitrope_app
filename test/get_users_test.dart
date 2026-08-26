@@ -46,7 +46,7 @@ void main() {
             activeSubscriptions: [
               UserSubscription(
                 id: 's1',
-                planKey: 'open_2x',
+                planKey: 'open_2x_1m',
                 family: SubscriptionFamily.OPEN,
                 billingMode: BillingMode.FREQUENCY,
                 courseTypeTags: const {'Open'},
@@ -63,7 +63,7 @@ void main() {
       final u = users.first;
       // I campi che la mappatura manuale dimenticava.
       expect(u.activeSubscriptions, hasLength(1));
-      expect(u.activeSubscriptions.first.planKey, 'open_2x');
+      expect(u.activeSubscriptions.first.planKey, 'open_2x_1m');
       expect(u.activeSubscriptions.first.family, SubscriptionFamily.OPEN);
       expect(u.waitlistCourses, ['c2']);
       expect(u.emailNotificationsEnabled, isFalse);
@@ -118,7 +118,7 @@ void main() {
       await db.collection('users').doc('u1').set(userDoc(
             activeSubscriptions: [
               UserSubscription(
-                planKey: 'pt_10',
+                planKey: 'pt_10i_1m',
                 family: SubscriptionFamily.PT,
                 billingMode: BillingMode.ENTRIES,
                 courseTypeTags: const {'Personal Trainer'},

@@ -216,7 +216,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         String courseName = course.name;
         String courseDate =
             DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
-        String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
+        String tipologia = course.displayTag ?? course.resolvedTypeTag;
         userCourses.add({
           'name': courseName,
           'date': courseDate,
@@ -288,8 +288,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             .format(cancelled.cancelledAt.toDate());
         String courseDate =
             DateFormat('dd/MM/yyyy').format(cancelled.courseStartDate.toDate());
-        // Determina la tipologia del corso (usa il primo tag o 'Open' come default)
-        String tipologia = course.tags.isNotEmpty ? course.tags.first : 'Open';
+        String tipologia = course.displayTag ?? course.resolvedTypeTag;
         String status =
             cancelled.entryLost ? 'Ingresso perso' : 'Ingresso non perso';
         cancelledEnrollments.add({
@@ -1788,7 +1787,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                                   ? Wrap(
                                                       spacing: 8,
                                                       runSpacing: 8,
-                                                      children: CourseTags.all
+                                                      children: CourseTags
+                                                          .legacyUserTypeTags
                                                           .map((tag) {
                                                         final isSelected =
                                                             selectedTipologiaCorsoTags

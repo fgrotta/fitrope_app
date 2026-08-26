@@ -1,8 +1,9 @@
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/utils/course_filters.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_type_style.dart';
-import 'package:fitrope_app/utils/course_types.dart';
 import 'package:fitrope_app/utils/sale.dart';
 import 'package:flutter/material.dart';
 
@@ -70,7 +71,9 @@ class CourseFilterBar extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     textStyle: const TextStyle(
-                        fontSize: 12.5, fontWeight: FontWeight.w600),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   child: const Text('Azzera filtri'),
                 ),
@@ -101,12 +104,18 @@ class CourseFilterBar extends StatelessWidget {
         ButtonSegment(
           value: CourseFilterDimension.tipologia,
           label: segmentLabel(
-              'Tipologia', Icons.filter_list, selectedTypes.length),
+            'Tipologia',
+            Icons.filter_list,
+            selectedTypes.length,
+          ),
         ),
         ButtonSegment(
           value: CourseFilterDimension.sala,
           label: segmentLabel(
-              'Sala', Icons.meeting_room_outlined, selectedSale.length),
+            'Sala',
+            Icons.meeting_room_outlined,
+            selectedSale.length,
+          ),
         ),
       ],
       selected: {dimension},
@@ -115,17 +124,21 @@ class CourseFilterBar extends StatelessWidget {
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
         textStyle: WidgetStateProperty.all(
-            const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-        backgroundColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.selected)
-                ? primaryColor.withValues(alpha: 0.12)
-                : null),
-        foregroundColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.selected)
-                ? primaryDarkColor
-                : onSurfaceVariantColor),
+          const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? primaryColor.withValues(alpha: 0.12)
+              : null,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? primaryDarkColor
+              : onSurfaceVariantColor,
+        ),
         side: WidgetStateProperty.all(
-            const BorderSide(color: outlineVariantColor)),
+          const BorderSide(color: outlineVariantColor),
+        ),
       ),
     );
   }
@@ -138,33 +151,72 @@ class CourseFilterBar extends StatelessWidget {
           color: primaryColor,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text('$count',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold)),
+        child: Text(
+          '$count',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       );
 
-  /// Chip a set FISSO: sempre tutte le tipologie di `CourseTypes.all`, anche a
-  /// zero corsi. Un elenco che cambia forma ogni giorno impedisce di imparare
-  /// dove sta il filtro che si usa sempre.
+  /// Set fisso: i due tipi, gli otto tag descrittivi e "Senza tag".
   List<Widget> _buildTypeChips() {
     final counts = courseTypeCounts(courses, sale: selectedSale);
-    return CourseTypes.all.map((type) {
-      final count = counts[type.key] ?? 0;
-      final selected = selectedTypes.contains(type.key);
-      final style = courseTypeStyleForKey(type.key);
-      return _buildFilterChip(
-        label: type.displayName,
-        icon: style.icon,
-        color: style.color,
-        count: count,
-        selected: selected,
-        enabled: count > 0 || selected,
-        onToggle: () => onToggleType(type.key),
+    final chips = <Widget>[];
+    for (final type in CourseType.values) {
+      final key = typeFilterKey(type);
+      final count = counts[key] ?? 0;
+      final selected = selectedTypes.contains(key);
+      final style = courseTypeStyleForKey(type.typeTag);
+      chips.add(
+        _buildFilterChip(
+          filterKey: key,
+          label: type.label,
+          icon: style.icon,
+          color: style.color,
+          count: count,
+          selected: selected,
+          enabled: count > 0 || selected,
+          onToggle: () => onToggleType(key),
+        ),
       );
-    }).toList();
+    }
+    for (final tag in CourseTags.selectable) {
+      final key = tagFilterKey(tag);
+      final count = counts[key] ?? 0;
+      final selected = selectedTypes.contains(key);
+      final style = courseTypeStyleForKey(tag);
+      chips.add(
+        _buildFilterChip(
+          filterKey: key,
+          label: tag,
+          icon: style.icon,
+          color: style.color,
+          count: count,
+          selected: selected,
+          enabled: count > 0 || selected,
+          onToggle: () => onToggleType(key),
+        ),
+      );
+    }
+    final noTagCount = counts[kNoTagFilterKey] ?? 0;
+    final noTagSelected = selectedTypes.contains(kNoTagFilterKey);
+    chips.add(
+      _buildFilterChip(
+        filterKey: kNoTagFilterKey,
+        label: 'Senza tag',
+        icon: Icons.label_off_outlined,
+        color: primaryColor,
+        count: noTagCount,
+        selected: noTagSelected,
+        enabled: noTagCount > 0 || noTagSelected,
+        onToggle: () => onToggleType(kNoTagFilterKey),
+      ),
+    );
+    return chips;
   }
 
   List<Widget> _buildSalaChips() {
@@ -174,6 +226,7 @@ class CourseFilterBar extends StatelessWidget {
       final count = counts[key] ?? 0;
       final selected = selectedSale.contains(key);
       return _buildFilterChip(
+        filterKey: key,
         label: label,
         icon: Icons.meeting_room_outlined,
         color: primaryColor,
@@ -191,6 +244,7 @@ class CourseFilterBar extends StatelessWidget {
   }
 
   Widget _buildFilterChip({
+    required String filterKey,
     required String label,
     required IconData icon,
     required Color color,
@@ -204,19 +258,24 @@ class CourseFilterBar extends StatelessWidget {
         : (selected ? Colors.white : onSurfaceColor);
 
     return FilterChip(
-      key: Key('calendar-filter-chip-$label'),
+      key: Key('calendar-filter-chip-$filterKey'),
       avatar: Icon(icon, size: 16, color: selected ? Colors.white : color),
-      label: Text.rich(TextSpan(children: [
-        TextSpan(text: label),
+      label: Text.rich(
         TextSpan(
-          text: '  $count',
-          style: TextStyle(
-            color:
-                selected ? Colors.white70 : contentColor.withValues(alpha: 0.7),
-            fontWeight: FontWeight.bold,
-          ),
+          children: [
+            TextSpan(text: label),
+            TextSpan(
+              text: '  $count',
+              style: TextStyle(
+                color: selected
+                    ? Colors.white70
+                    : contentColor.withValues(alpha: 0.7),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-      ])),
+      ),
       selected: selected,
       showCheckmark: false,
       // Un chip selezionato non viene MAI disabilitato: cambiando giorno
@@ -231,11 +290,12 @@ class CourseFilterBar extends StatelessWidget {
         color: contentColor,
       ),
       side: BorderSide(
-          color: selected
-              ? color
-              : (enabled
-                  ? outlineVariantColor
-                  : outlineVariantColor.withValues(alpha: 0.5))),
+        color: selected
+            ? color
+            : (enabled
+                ? outlineVariantColor
+                : outlineVariantColor.withValues(alpha: 0.5)),
+      ),
       visualDensity: VisualDensity.compact,
     );
   }

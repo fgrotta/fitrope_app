@@ -74,8 +74,10 @@ function baseUser(uid, email, name, lastName, role, extra = {}) {
   };
 }
 
-function course(uid, name, tags, start, capacity, subscribed, extra = {}) {
+function course(uid, name, courseType, tag, start, capacity, subscribed, extra = {}) {
   const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const typeTag = courseType === "personal_trainer" ? "Personal Trainer" : "Open";
+  const tags = tag && tag !== typeTag ? [typeTag, tag] : [typeTag];
   return {
     id: uid,
     uid,
@@ -85,11 +87,14 @@ function course(uid, name, tags, start, capacity, subscribed, extra = {}) {
     capacity,
     subscribed,
     trainerId: "trainer-test",
+    courseType,
+    tag,
+    courseModelV2: true,
     tags,
     waitlist: [],
     reminderEnabled: true,
     waitlistEnabled: true,
-    sala: tags.includes("Hyrox") ? "Sala 2" : "Sala 1",
+    sala: tag === "Hyrox" ? "Sala 2" : "Sala 1",
     ...extra,
   };
 }
@@ -172,11 +177,11 @@ async function main() {
     console.log(`  ${u.email} (${u.doc.role})`);
   }
 
-  // Abbonamenti nuovo modello per abbonato-test: Open 3x + Hyrox 10 ingressi.
+  // Abbonamenti nuovo modello per abbonato-test: Open ingressi + PT ingressi.
   // Riusa il catalogo/logica compilati (stesse chiavi e date di produzione).
   console.log("Abbonamenti (collezione subscriptions + snapshot)…");
   const snapshot = [];
-  for (const planKey of ["open_3x_3m", "hyrox_10i_3m"]) {
+  for (const planKey of ["open_10i_3m", "pt_10i_3m"]) {
     const plan = planByKey(planKey);
     if (!plan) throw new Error(`piano sconosciuto nel catalogo: ${planKey}`);
     const record = buildSubscriptionFromPlan(plan, Date.now() - 86400000);
@@ -194,25 +199,24 @@ async function main() {
   // Corsi: settimana prossima (lun-sab), tutte le tipologie + casi limite.
   console.log("Corsi…");
   const courses = [
-    course("open-lun", "Open mattina", ["Open"], nextWeekDayAt(9), 10, 0),
-    course("open-mer", "Open sera", ["Open"], nextWeekDayAt(19, 2), 10, 0),
-    course("open-ven", "Open pranzo", ["Open"], nextWeekDayAt(13, 4), 10, 0),
+    course("open-lun", "Open mattina", "open", null, nextWeekDayAt(9), 10, 0),
+    course("open-mer", "Open sera", "open", "Fitrope", nextWeekDayAt(19, 2), 10, 0),
+    course("open-ven", "Open pranzo", "open", "Tabata", nextWeekDayAt(13, 4), 10, 0),
     // Pieno con un posto in waitlist già occupato: per testare CAN_WAITLIST.
     // NB: i contatori subscribed dei corsi "pieni" sono volutamente sintetici
     // (nessun utente seed è iscritto): bastano per gli stati FULL/CAN_WAITLIST;
     // le viste partecipanti/"Correggi conteggio" li vedrebbero senza iscritti.
-    course("open-pieno", "Open PIENO", ["Open"], nextWeekDayAt(18, 1), 2, 2, {
+    course("open-pieno", "Open PIENO", "open", null, nextWeekDayAt(18, 1), 2, 2, {
       waitlist: ["mensile-test"],
     }),
-    course("hyrox-mar", "Hyrox", ["Hyrox"], nextWeekDayAt(18, 1), 8, 0),
-    course("hyrox-gio", "Hyrox avanzato", ["Hyrox"], nextWeekDayAt(18, 3), 8, 0),
-    course("pt-mer", "Personal Training", ["Personal Trainer"], nextWeekDayAt(15, 2), 1, 0),
-    course("heymamma-sab", "Hey Mamma", ["Hey Mamma"], nextWeekDayAt(10, 5), 12, 0),
+    course("hyrox-mar", "Hyrox", "open", "Hyrox", nextWeekDayAt(18, 1), 8, 0),
+    course("hyrox-gio", "Hyrox avanzato", "open", "Hyrox", nextWeekDayAt(18, 3), 8, 0),
+    course("pt-mer", "Personal Training", "personal_trainer", "Personal Trainer", nextWeekDayAt(15, 2), 1, 0),
     // Flag spenti: per testare i gate reminder/waitlist.
-    course("open-no-waitlist", "Open senza lista d'attesa", ["Open"], nextWeekDayAt(7, 3), 1, 1, {
+    course("open-no-waitlist", "Open senza lista d'attesa", "open", null, nextWeekDayAt(7, 3), 1, 1, {
       waitlistEnabled: false,
     }),
-    course("open-no-reminder", "Open senza promemoria", ["Open"], nextWeekDayAt(8, 4), 10, 0, {
+    course("open-no-reminder", "Open senza promemoria", "open", null, nextWeekDayAt(8, 4), 10, 0, {
       reminderEnabled: false,
     }),
   ];

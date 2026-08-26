@@ -186,7 +186,7 @@ void main() {
       expect(getCourseState(course, user), CourseState.NULL);
     });
 
-    test('utente OPEN non puo accedere a corso Hyrox -> NULL', () {
+    test('utente OPEN accede a Hyrox perche e un tag descrittivo Open', () {
       final course = makeCourse(tags: [CourseTags.HYROX]);
       store.dispatch(SetAllCoursesAction([course]));
       final user = makeUser(
@@ -196,7 +196,7 @@ void main() {
         tipologiaCorsoTags: [CourseTags.OPEN],
       );
 
-      expect(getCourseState(course, user), CourseState.NULL);
+      expect(getCourseState(course, user), CourseState.CAN_SUBSCRIBE);
     });
 
     test(
@@ -234,7 +234,7 @@ void main() {
       expect(getCourseState(course, user), CourseState.NULL);
     });
 
-    test('utente con "Tutti i corsi" bypassa i tag del corso', () {
+    test('"Tutti i corsi" legacy non bypassa il tipo Personal Trainer', () {
       final course = makeCourse(tags: [CourseTags.PERSONAL_TRAINER]);
       store.dispatch(SetAllCoursesAction([course]));
       final user = makeUser(
@@ -244,7 +244,7 @@ void main() {
         tipologiaCorsoTags: ['Tutti i corsi'],
       );
 
-      expect(getCourseState(course, user), CourseState.CAN_SUBSCRIBE);
+      expect(getCourseState(course, user), CourseState.NULL);
     });
   });
 
