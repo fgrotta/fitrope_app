@@ -10,6 +10,7 @@ import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/components/assign_subscription_card.dart';
 import 'package:fitrope_app/components/active_subscription_card.dart';
+import 'package:fitrope_app/components/legacy_user_migration_card.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -23,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:fitrope_app/utils/user_cache_manager.dart';
 
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
@@ -870,6 +872,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
             // server-side (subscribe/unsubscribe) applica eligibility e
             // decremento ingressi, quindi assegnare abbonamenti è sicuro.
             if (store.state.user?.role == 'Admin') ...[
+              if (shouldShowLegacyUserMigration(
+                  context, store.state.user?.role)) ...[
+                LegacyUserMigrationCard(
+                  userId: widget.user.uid,
+                  onMigrated: () {
+                    invalidateAllUserCaches();
+                    _reloadSubscriptions();
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
               AssignSubscriptionCard(
                 userId: widget.user.uid,
                 onAssigned: () {

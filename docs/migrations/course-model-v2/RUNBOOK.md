@@ -11,7 +11,8 @@ Con `--apply`, il runner può effettuare due classi di scrittura:
 - `courses`: aggiunge o normalizza `courseType`, `tag`, `tags` e
   `courseModelV2` tramite `BulkWriter`;
 - `users` e `subscriptions`: crea una subscription OPEN con ID deterministico e
-  aggiorna `activeSubscriptions` nella stessa transazione.
+  aggiorna `activeSubscriptions` e il marker server-owned
+  `legacySubscriptionMigration` nella stessa transazione.
 
 Il runner non elimina i campi legacy dell'utente. I corsi e gli utenti esclusi
 rimangono invariati e vengono elencati nei report.
@@ -177,6 +178,7 @@ La directory deve contenere:
 manifest.jsonl
 users-migration-report.csv
 courses-migration-report.csv
+enrollment-integrity-report.csv
 ```
 
 Verificare proprietario e permessi:
@@ -213,6 +215,14 @@ La revisione deve includere:
 6. conferma che Hey Mamma rimanga escluso e invariato;
 7. verifica dei `FUTURE_START` e delle date calcolate in Europe/Rome;
 8. conferma del piano target, frequenza e intervallo di ogni utente convertibile.
+
+`enrollment-integrity-report.csv` non contiene modifiche proposte: è un audit
+dei riferimenti esistenti. Le anomalie su corsi futuri (`BLOCKER`) impediscono
+il successo di `--verify`; le anomalie esclusivamente storiche (`WARNING`)
+devono comunque essere revisionate. Il fingerprint del manifest include
+`courses`, `waitlistCourses`, `cancelledEnrollments` ed
+`enrollmentConsumption`: se uno di questi campi cambia prima dell'apply,
+l'utente viene classificato `SOURCE_DRIFT` e non viene scritto.
 
 Codici di esclusione utente attesi:
 

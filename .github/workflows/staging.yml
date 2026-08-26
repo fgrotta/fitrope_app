@@ -222,10 +222,18 @@ jobs:
           for fn in subscribeToCourse unsubscribeFromCourse joinWaitlist \
                     leaveWaitlist assignSubscription deleteCourse \
                     recountCourseSubscribed sendOneSignalNotification \
+                    previewLegacyUserMigration migrateLegacyUser \
                     sendTestCertificateEmail certificateEmailsDaily; do
             if ! grep -q "$fn" functions.json; then
               echo "::error::callable mancante su staging: $fn"
               exit 1
             fi
             echo "ok: $fn"
+          done
+          for fn in firestoreBackupDaily firestoreBackupDailyCheck; do
+            if grep -q "$fn" functions.json; then
+              echo "::error::funzione backup PRD presente per errore su staging: $fn"
+              exit 1
+            fi
+            echo "ok assente su staging: $fn"
           done

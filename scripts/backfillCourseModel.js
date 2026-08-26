@@ -19,6 +19,9 @@ const {
   timestampMillis,
 } = require("../functions/lib/migration/userTransform");
 const {
+  legacySubscriptionMigrationMarker,
+} = require("../functions/lib/migration/marker");
+const {
   writePrivateCsv,
 } = require("../functions/lib/migration/csv");
 
@@ -37,6 +40,11 @@ const COURSE_COLUMNS = [
   "source_course_type", "source_course_model_v2", "conversion_status", "reason_code",
   "reason_detail", "target_course_type", "target_tag", "target_tags",
   "target_course_model_v2", "apply_status",
+];
+
+const ENROLLMENT_INTEGRITY_COLUMNS = [
+  "run_id", "evaluated_at", "project_id", "severity", "code", "user_id",
+  "course_id", "course_start_date", "detail",
 ];
 
 function parseArgs(argv) {
@@ -92,8 +100,18 @@ function userSource(data) {
     role: data.role,
     tipologiaCorsoTags: data.tipologiaCorsoTags,
     tipologiaIscrizione: data.tipologiaIscrizione,
+    entrateDisponibili: data.entrateDisponibili,
     entrateSettimanali: data.entrateSettimanali,
     fineIscrizione: data.fineIscrizione,
+  };
+}
+
+function enrollmentSource(data) {
+  return {
+    courses: data.courses,
+    waitlistCourses: data.waitlistCourses,
+    cancelledEnrollments: data.cancelledEnrollments,
+    enrollmentConsumption: data.enrollmentConsumption,
   };
 }
 
@@ -241,6 +259,125 @@ function courseReport(run, id, data, decision, applyStatus = "NOT_APPLIED") {
   };
 }
 
+function integrityRow(run, severity, code, userId, courseId, start, detail) {
+  return {
+    run_id: run.runId,
+    evaluated_at: new Date(run.evaluatedAtMillis).toISOString(),
+    project_id: run.projectId,
+    severity,
+    code,
+    user_id: userId ?? "",
+    course_id: courseId ?? "",
+    course_start_date: start === null ? "" : new Date(start).toISOString(),
+    detail,
+  };
+}
+
+async function auditEnrollmentIntegrity(db, run) {
+  const [courseSnapshot, userSnapshot] = await Promise.all([
+    db.collection("courses").get(),
+    db.collection("users").get(),
+  ]);
+  const courses = new Map(courseSnapshot.docs.map((doc) => [doc.id, doc.data()]));
+  const users = new Map(userSnapshot.docs.map((doc) => [doc.id, doc.data()]));
+  const rows = [];
+  const bookingsByCourse = new Map();
+  const severityFor = (course) =>
+    timestampMillis(course?.startDate) >= run.evaluatedAtMillis
+      ? "BLOCKER" : "WARNING";
+
+  for (const [userId, user] of users) {
+    const enrolled = Array.isArray(user.courses) ? user.courses : [];
+    for (const courseId of enrolled) {
+      if (typeof courseId !== "string") continue;
+      const list = bookingsByCourse.get(courseId) ?? [];
+      list.push(userId);
+      bookingsByCourse.set(courseId, list);
+      if (!courses.has(courseId)) {
+        rows.push(integrityRow(
+          run, "WARNING", "BOOKING_COURSE_MISSING", userId, courseId, null,
+          "riferimento in users.courses senza documento corso; data non determinabile"
+        ));
+      }
+    }
+
+    const userWaitlist = Array.isArray(user.waitlistCourses)
+      ? user.waitlistCourses : [];
+    for (const courseId of userWaitlist) {
+      if (typeof courseId !== "string") continue;
+      const course = courses.get(courseId);
+      if (!course) {
+        rows.push(integrityRow(
+          run, "BLOCKER", "WAITLIST_COURSE_MISSING", userId, courseId, null,
+          "waitlist utente attiva senza documento corso"
+        ));
+      } else if (!Array.isArray(course.waitlist) ||
+          !course.waitlist.includes(userId)) {
+        const start = timestampMillis(course.startDate);
+        rows.push(integrityRow(
+          run, severityFor(course), "WAITLIST_NOT_RECIPROCAL_USER", userId,
+          courseId, start,
+          "users.waitlistCourses non presente in courses.waitlist"
+        ));
+      }
+    }
+
+    const cancelled = Array.isArray(user.cancelledEnrollments)
+      ? user.cancelledEnrollments : [];
+    for (const item of cancelled) {
+      if (!item || typeof item.courseId !== "string" || courses.has(item.courseId)) continue;
+      const start = timestampMillis(item.courseStartDate);
+      rows.push(integrityRow(
+        run,
+        start !== null && start >= run.evaluatedAtMillis ? "BLOCKER" : "WARNING",
+        "CANCELLED_COURSE_MISSING", userId, item.courseId, start,
+        "disiscrizione riferita a un corso assente"
+      ));
+    }
+
+    const consumption = user.enrollmentConsumption;
+    if (consumption && typeof consumption === "object" && !Array.isArray(consumption)) {
+      for (const courseId of Object.keys(consumption)) {
+        if (!courses.has(courseId)) {
+          rows.push(integrityRow(
+            run, "WARNING", "CONSUMPTION_COURSE_MISSING", userId, courseId,
+            null, "registro consumo riferito a un corso assente"
+          ));
+        }
+      }
+    }
+  }
+
+  for (const [courseId, course] of courses) {
+    const start = timestampMillis(course.startDate);
+    const severity = severityFor(course);
+    const waitlist = Array.isArray(course.waitlist) ? course.waitlist : [];
+    for (const userId of waitlist) {
+      const user = users.get(userId);
+      if (!user) {
+        rows.push(integrityRow(
+          run, severity, "WAITLIST_USER_MISSING", userId, courseId, start,
+          "courses.waitlist contiene un utente assente"
+        ));
+      } else if (!Array.isArray(user.waitlistCourses) ||
+          !user.waitlistCourses.includes(courseId)) {
+        rows.push(integrityRow(
+          run, severity, "WAITLIST_NOT_RECIPROCAL_COURSE", userId, courseId,
+          start, "courses.waitlist non presente in users.waitlistCourses"
+        ));
+      }
+    }
+    const actual = (bookingsByCourse.get(courseId) ?? []).length;
+    if (typeof course.subscribed === "number" && course.subscribed !== actual) {
+      rows.push(integrityRow(
+        run, severity, "SUBSCRIBED_COUNT_MISMATCH", null, courseId, start,
+        `courses.subscribed=${course.subscribed}; riferimenti users.courses=${actual}`
+      ));
+    }
+  }
+  return rows;
+}
+
 function writeJsonl(file, entries) {
   const content = entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n";
   fs.writeFileSync(file, content, { encoding: "utf8", mode: 0o600 });
@@ -303,7 +440,11 @@ async function scan(db, run, scope) {
         ).length;
       }
       const decision = transformUser(doc.id, data, run.evaluatedAtMillis);
-      if (decision.target) {
+      if (data.legacySubscriptionMigration) {
+        decision.conversionStatus = "ALREADY_APPLIED";
+        decision.reasonCode = "ALREADY_APPLIED";
+        decision.reasonDetail = "marker legacySubscriptionMigration presente";
+      } else if (decision.target) {
         const existing = subsByUser.get(doc.id) || [];
         const deterministic = existing.find((sub) => sub.id === decision.target.id);
         const otherOpen = existing.some(
@@ -328,6 +469,7 @@ async function scan(db, run, scope) {
         kind: "user",
         documentId: doc.id,
         sourceFingerprint: fingerprint(userSource(data)),
+        enrollmentFingerprint: fingerprint(enrollmentSource(data)),
         decision,
         report: userReport(run, doc.id, data, decision),
       };
@@ -335,10 +477,13 @@ async function scan(db, run, scope) {
       userRows.push(entry.report);
     }
   }
-  return { entries, userRows, courseRows, subscriptions, hyroxSnapshots };
+  const integrityRows = scope === "all"
+    ? await auditEnrollmentIntegrity(db, run)
+    : [];
+  return { entries, userRows, courseRows, integrityRows, subscriptions, hyroxSnapshots };
 }
 
-function writeReports(reportDir, userRows, courseRows) {
+function writeReports(reportDir, userRows, courseRows, integrityRows = null) {
   if (userRows.length > 0) {
     writePrivateCsv(path.join(reportDir, "users-migration-report.csv"), USER_COLUMNS, userRows);
   }
@@ -347,6 +492,13 @@ function writeReports(reportDir, userRows, courseRows) {
       path.join(reportDir, "courses-migration-report.csv"),
       COURSE_COLUMNS,
       courseRows
+    );
+  }
+  if (integrityRows !== null) {
+    writePrivateCsv(
+      path.join(reportDir, "enrollment-integrity-report.csv"),
+      ENROLLMENT_INTEGRITY_COLUMNS,
+      integrityRows
     );
   }
 }
@@ -446,15 +598,28 @@ async function applyManifest(db, entries) {
       const targetRef = db.collection("subscriptions").doc(target.id);
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) return "SOURCE_DRIFT";
+      const userData = userSnap.data();
+      if (userData.legacySubscriptionMigration) return "ALREADY_APPLIED";
       const targetSnap = await tx.get(targetRef);
       if (targetSnap.exists && subscriptionMatches(targetSnap.data(), target)) {
-        return snapshotMatchesTarget(
-          userSnap.data(),
-          target,
-          entry.evaluatedAtMillis
-        ) ? "ALREADY_APPLIED" : "TARGET_CONFLICT";
+        if (!snapshotMatchesTarget(userData, target, entry.evaluatedAtMillis)) {
+          return "TARGET_CONFLICT";
+        }
+        if (fingerprint(userSource(userData)) !== entry.sourceFingerprint ||
+            fingerprint(enrollmentSource(userData)) !== entry.enrollmentFingerprint) {
+          return "SOURCE_DRIFT";
+        }
+        tx.update(userRef, {
+          legacySubscriptionMigration: legacySubscriptionMigrationMarker(
+            "BATCH", target.id, target.planKey, `batch:${entry.projectId}`
+          ),
+        });
+        return "APPLIED";
       }
-      if (fingerprint(userSource(userSnap.data())) !== entry.sourceFingerprint) {
+      if (fingerprint(userSource(userData)) !== entry.sourceFingerprint) {
+        return "SOURCE_DRIFT";
+      }
+      if (fingerprint(enrollmentSource(userData)) !== entry.enrollmentFingerprint) {
         return "SOURCE_DRIFT";
       }
       const subsSnap = await tx.get(
@@ -468,10 +633,17 @@ async function applyManifest(db, entries) {
       const all = subsSnap.docs.map((doc) => ({ id: doc.id, data: doc.data() }));
       all.push({ id: target.id, data: targetData });
       const activeSubscriptions = all
-        .filter((item) => timestampMillis(item.data.endDate) >= entry.evaluatedAtMillis)
+        .filter((item) =>
+          timestampMillis(item.data.startDate) <= entry.evaluatedAtMillis &&
+          timestampMillis(item.data.endDate) >= entry.evaluatedAtMillis)
         .map((item) => snapshotEntry(item.id, item.data));
       tx.create(targetRef, targetData);
-      tx.update(userRef, { activeSubscriptions });
+      tx.update(userRef, {
+        activeSubscriptions,
+        legacySubscriptionMigration: legacySubscriptionMigrationMarker(
+          "BATCH", target.id, target.planKey, `batch:${entry.projectId}`
+        ),
+      });
       return "APPLIED";
     });
     statuses.set(`user:${entry.documentId}`, status);
@@ -523,7 +695,15 @@ async function main() {
     const courseRows = scoped
       .filter((entry) => entry.kind === "course")
       .map((entry) => reportRow(entry, "course"));
-    writeReports(reportDir, userRows, courseRows);
+    const auditRun = {
+      runId,
+      evaluatedAtMillis: Date.now(),
+      projectId: args.project,
+    };
+    const integrityRows = args.scope === "all"
+      ? await auditEnrollmentIntegrity(db, auditRun)
+      : null;
+    writeReports(reportDir, userRows, courseRows, integrityRows);
     const counts = {};
     for (const status of statuses.values()) counts[status] = (counts[status] || 0) + 1;
     console.log(JSON.stringify({ mode: "apply", project: args.project, counts }));
@@ -540,7 +720,12 @@ async function main() {
   if (args.mode === "dry-run") {
     const manifest = path.join(reportDir, "manifest.jsonl");
     writeJsonl(manifest, result.entries);
-    writeReports(reportDir, result.userRows, result.courseRows);
+    writeReports(
+      reportDir,
+      result.userRows,
+      result.courseRows,
+      args.scope === "all" ? result.integrityRows : null
+    );
     console.log(JSON.stringify({
       mode: "dry-run",
       project: args.project,
@@ -569,17 +754,28 @@ async function main() {
       ? "VERIFIED"
       : row.conversion_status === "IGNORED" ? "EXCLUDED" : "NEEDS_MIGRATION";
   }
-  writeReports(reportDir, result.userRows, result.courseRows);
+  writeReports(
+    reportDir,
+    result.userRows,
+    result.courseRows,
+    args.scope === "all" ? result.integrityRows : null
+  );
+  const enrollmentBlockers = result.integrityRows.filter(
+    (row) => row.severity === "BLOCKER"
+  ).length;
   console.log(JSON.stringify({
     mode: "verify",
     project: args.project,
     failures: failures.length,
     hyroxSubscriptions: hyrox.length,
     hyroxSnapshots: result.hyroxSnapshots,
+    enrollmentBlockers,
+    enrollmentWarnings: result.integrityRows.length - enrollmentBlockers,
     reportDir: path.relative(repoRoot, reportDir),
     counts: summarize(result.entries),
   }));
-  if (failures.length > 0 || hyrox.length > 0 || result.hyroxSnapshots > 0) {
+  if (failures.length > 0 || hyrox.length > 0 ||
+      result.hyroxSnapshots > 0 || enrollmentBlockers > 0) {
     process.exitCode = 2;
   }
 }

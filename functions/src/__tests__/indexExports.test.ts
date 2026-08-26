@@ -9,6 +9,8 @@ type IndexModule = {
   certificateEmailsDaily: unknown;
   sendOneSignalNotification: unknown;
   subscribeToCourse: unknown;
+  firestoreBackupDaily: unknown;
+  firestoreBackupDailyCheck: unknown;
 };
 
 function loadIndex(): IndexModule {
@@ -40,6 +42,8 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     // Le callable ordinarie non devono essere toccate dal gate.
     expect(mod.sendOneSignalNotification).toBeDefined();
     expect(mod.subscribeToCourse).toBeDefined();
+    expect(mod.firestoreBackupDaily).toBeDefined();
+    expect(mod.firestoreBackupDailyCheck).toBeDefined();
   });
 
   test("staging (APP_ENV=staging): certificati esportati", () => {
@@ -48,6 +52,8 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     const mod = loadIndex();
     expect(mod.sendTestCertificateEmail).toBeDefined();
     expect(mod.certificateEmailsDaily).toBeDefined();
+    expect(mod.firestoreBackupDaily).toBeUndefined();
+    expect(mod.firestoreBackupDailyCheck).toBeUndefined();
   });
 
   test("emulatore (FUNCTIONS_EMULATOR=true): certificati esportati", () => {
@@ -56,5 +62,7 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     const mod = loadIndex();
     expect(mod.sendTestCertificateEmail).toBeDefined();
     expect(mod.certificateEmailsDaily).toBeDefined();
+    expect(mod.firestoreBackupDaily).toBeUndefined();
+    expect(mod.firestoreBackupDailyCheck).toBeUndefined();
   });
 });

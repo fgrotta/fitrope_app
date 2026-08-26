@@ -117,7 +117,8 @@ service cloud.firestore {
             || !('tipologiaCorsoTags' in request.resource.data)
             || !request.resource.data.tipologiaCorsoTags.hasAny(['Tutti i corsi']))
         && !request.resource.data.keys().hasAny(
-             ['activeSubscriptions', 'enrollmentConsumption', 'waitlistCourses'])
+             ['activeSubscriptions', 'enrollmentConsumption', 'waitlistCourses',
+              'legacySubscriptionMigration'])
         && (!('cancelledEnrollments' in request.resource.data)
             || request.resource.data.cancelledEnrollments == []);
 
@@ -140,7 +141,8 @@ service cloud.firestore {
         && !affected().hasAny(
              ['uid', 'email', 'createdAt', 'regolamentoAccettatoIl',
               'courses', 'waitlistCourses', 'activeSubscriptions',
-              'enrollmentConsumption', 'cancelledEnrollments']);
+              'enrollmentConsumption', 'cancelledEnrollments',
+              'legacySubscriptionMigration']);
 
       // TRAINER su utenti con ruolo User: solo anagrafica (mirror della UI
       // _canEditSpecificField in UserDetailPage).
@@ -192,6 +194,11 @@ service cloud.firestore {
       // resta consentita per usi futuri (storico in UserDetailPage, PR7).
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create, update, delete: if false;
+    }
+
+    // Stato backup e marca di migrazione sono sempre server-owned.
+    match /_systemBackupRuns/{runId} {
+      allow read, write: if false;
     }
 
     // Tutto il resto: negato.

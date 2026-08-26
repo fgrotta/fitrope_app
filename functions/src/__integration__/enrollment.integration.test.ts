@@ -447,3 +447,45 @@ describe("integrazione emulatore — write-path enrollment", () => {
     expect((await courseDoc(disabilitato))?.waitlist).toEqual([]);
   });
 });
+
+describe("integrazione emulatore — migrazione utente legacy", () => {
+  test("due AUTO concorrenti creano una sola subscription e preservano lo storico", async () => {
+    const adminUid = uniq("u-migration-admin");
+    const adminToken = await createUser(adminUid, { role: "Admin" });
+    const userId = uniq("u-migration-target");
+    const courseId = uniq("historical-course");
+    await createUser(userId, {
+      tipologiaIscrizione: "ABBONAMENTO_MENSILE",
+      entrateSettimanali: 2,
+      fineIscrizione: Timestamp.fromMillis(Date.now() + 15 * 86400 * 1000),
+      courses: [courseId],
+      waitlistCourses: ["future-waitlist"],
+      cancelledEnrollments: [{ courseId, entryLost: false }],
+      enrollmentConsumption: { [courseId]: { kind: "NONE" } },
+    });
+
+    const preview = await call("previewLegacyUserMigration", adminToken, { userId });
+    expect(preview.ok).toBe(true);
+    expect(preview.result?.status).toBe("AUTO_CONVERTIBLE");
+    const expectedFingerprint = preview.result?.expectedFingerprint;
+    expect(typeof expectedFingerprint).toBe("string");
+
+    const [first, second] = await Promise.all([
+      call("migrateLegacyUser", adminToken, { userId, mode: "AUTO", expectedFingerprint }),
+      call("migrateLegacyUser", adminToken, { userId, mode: "AUTO", expectedFingerprint }),
+    ]);
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+
+    const subscriptions = await db.collection("subscriptions").where("userId", "==", userId).get();
+    expect(subscriptions.size).toBe(1);
+    const migrated = await userDoc(userId);
+    expect(migrated.legacySubscriptionMigration).toEqual(
+      expect.objectContaining({ source: "ADMIN_AUTO", actor: adminUid })
+    );
+    expect(migrated.courses).toEqual([courseId]);
+    expect(migrated.waitlistCourses).toEqual(["future-waitlist"]);
+    expect(migrated.cancelledEnrollments).toEqual([{ courseId, entryLost: false }]);
+    expect(migrated.enrollmentConsumption).toEqual({ [courseId]: { kind: "NONE" } });
+  });
+});

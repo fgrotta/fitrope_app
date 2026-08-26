@@ -57,7 +57,9 @@ export function computeActiveSnapshot(
   records: UserSubscriptionRecord[],
   nowMillis: number
 ): UserSubscriptionRecord[] {
-  return records.filter((r) => r.endDateMillis >= nowMillis);
+  return records.filter(
+    (r) => r.startDateMillis <= nowMillis && r.endDateMillis >= nowMillis
+  );
 }
 
 /** True se per la famiglia esiste già un abbonamento attivo (vincolo: max 1 per famiglia). */

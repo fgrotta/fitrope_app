@@ -10,36 +10,71 @@ svuotare prima il database destinazione.
 
 | Ambiente | Bucket | Location |
 |---|---|---|
-| Produzione | `gs://fit-rope-app-1f575-firestore-backups` | `eur3` |
+| Produzione | `gs://fit-rope-app-1f575-firestore-backups` | `EU` (vicino a Firestore `eur3`) |
 | Staging | `gs://fit-rope-staging-firestore-backups` | `europe-west8` |
 
 I bucket usano Storage Standard, Uniform Bucket-Level Access e Public Access
 Prevention. Impostare retention minima di 30 giorni (senza lock nel primo
 rollout), lifecycle delete a 90 giorni e soft delete a 7 giorni. Eseguire
 questi comandi con un'identità autorizzata e mantenere sempre il project
-esplicito:
+esplicito. Il file lifecycle versionato è
+[`firestore-backup-lifecycle.json`](firestore-backup-lifecycle.json).
+
+### Creazione e canary
 
 ```bash
-gcloud storage buckets create gs://fit-rope-app-1f575-firestore-backups --location=eur3 --default-storage-class=STANDARD --uniform-bucket-level-access --public-access-prevention --project=fit-rope-app-1f575
-gcloud storage buckets update gs://fit-rope-app-1f575-firestore-backups --retention-period=30d --project=fit-rope-app-1f575
-gcloud storage buckets update gs://fit-rope-app-1f575-firestore-backups --soft-delete-duration=7d --project=fit-rope-app-1f575
+gcloud storage buckets create gs://fit-rope-app-1f575-firestore-backups --location=EU --default-storage-class=STANDARD --uniform-bucket-level-access --public-access-prevention --project=fit-rope-app-1f575
+gcloud storage buckets create gs://fit-rope-staging-firestore-backups --location=europe-west8 --default-storage-class=STANDARD --uniform-bucket-level-access --public-access-prevention --project=fit-rope-staging
+
+canary_dir=$(mktemp -d)
+printf 'fitrope-backup-canary\n' > "$canary_dir/canary.txt"
+shasum -a 256 "$canary_dir/canary.txt" > "$canary_dir/expected.sha256"
+gcloud storage cp "$canary_dir/canary.txt" gs://fit-rope-app-1f575-firestore-backups/canary/canary.txt --project=fit-rope-app-1f575
+gcloud storage cp gs://fit-rope-app-1f575-firestore-backups/canary/canary.txt "$canary_dir/downloaded.txt" --project=fit-rope-app-1f575
+cmp "$canary_dir/canary.txt" "$canary_dir/downloaded.txt"
+gcloud storage rm gs://fit-rope-app-1f575-firestore-backups/canary/canary.txt --project=fit-rope-app-1f575
+```
+
+Ripetere il canary sul bucket staging. Solo dopo upload/download/delete riusciti
+applicare retention, soft delete e lifecycle:
+
+```bash
+gcloud storage buckets update gs://fit-rope-app-1f575-firestore-backups --retention-period=30d --soft-delete-duration=7d --lifecycle-file=docs/operations/firestore-backup-lifecycle.json --project=fit-rope-app-1f575
+gcloud storage buckets update gs://fit-rope-staging-firestore-backups --retention-period=30d --soft-delete-duration=7d --lifecycle-file=docs/operations/firestore-backup-lifecycle.json --project=fit-rope-staging
+```
+
+Non aggiungere `--lock-retention-period`. Verificare la configurazione restituita
+prima di procedere:
+
+```bash
+gcloud storage buckets describe gs://fit-rope-app-1f575-firestore-backups --format=json --project=fit-rope-app-1f575
+gcloud storage buckets describe gs://fit-rope-staging-firestore-backups --format=json --project=fit-rope-staging
+```
+
+La sintassi dei flag e del lifecycle JSON è quella documentata da
+[Google Cloud Storage](https://cloud.google.com/sdk/gcloud/reference/storage/buckets/update).
+
+### IAM
+
+```bash
 gcloud iam service-accounts create fitrope-firestore-backup --project=fit-rope-app-1f575
 gcloud projects add-iam-policy-binding fit-rope-app-1f575 --member=serviceAccount:fitrope-firestore-backup@fit-rope-app-1f575.iam.gserviceaccount.com --role=roles/datastore.importExportAdmin
 gcloud storage buckets add-iam-policy-binding gs://fit-rope-app-1f575-firestore-backups --member=serviceAccount:fitrope-firestore-backup@fit-rope-app-1f575.iam.gserviceaccount.com --role=roles/storage.admin
+gcloud storage buckets add-iam-policy-binding gs://fit-rope-app-1f575-firestore-backups --member=serviceAccount:service-30076380522@gcp-sa-firestore.iam.gserviceaccount.com --role=roles/storage.admin
+gcloud storage buckets add-iam-policy-binding gs://fit-rope-staging-firestore-backups --member=serviceAccount:service-289611080024@gcp-sa-firestore.iam.gserviceaccount.com --role=roles/storage.admin --project=fit-rope-staging
 ```
 
-Concedere inoltre al Firestore service agent l'accesso al bucket e al deployer
-`iam.serviceAccounts.actAs` sul service account. Testare prima con un canary
-eliminabile; aggiungere la lifecycle policy con la console o un file JSON
-versionato nel runbook del change. Non attivare il retention lock nel rollout
-iniziale.
+Concedere al deployer `roles/iam.serviceAccountUser` limitato al service account
+runtime (include `iam.serviceAccounts.actAs`). I managed export usano il
+[Firestore service agent](https://cloud.google.com/firestore/docs/manage-data/export-import#service_agent_permissions)
+per l'accesso effettivo al bucket.
 
 ## Export e controllo
 
 La function `firestoreBackupDaily` viene esportata solo in PRD: alle 02:00 UTC
 crea `automatic/YYYY/MM/DD/firestore-<timestamp>-attempt-N`, registra lo stato
 in `_systemBackupRuns/YYYY-MM-DD` e salva il manifest
-`_manifests/YYYY-MM-DD.json`. Il check delle 03:00 UTC fallisce se il run non è
+`_manifests/YYYY/MM/DD.json`. Il check delle 03:00 UTC fallisce se il run non è
 `SUCCEEDED`. Staging ed Emulator non devono elencare queste funzioni.
 
 ```bash
@@ -47,7 +82,7 @@ gcloud firestore export gs://fit-rope-app-1f575-firestore-backups/manual/<run-id
 gcloud firestore operations list --database='(default)' --project=fit-rope-app-1f575
 gcloud firestore operations describe <operation-name> --project=fit-rope-app-1f575
 gcloud storage ls gs://fit-rope-app-1f575-firestore-backups/automatic/
-gcloud storage cat gs://fit-rope-app-1f575-firestore-backups/_manifests/YYYY-MM-DD.json
+gcloud storage cat gs://fit-rope-app-1f575-firestore-backups/_manifests/YYYY/MM/DD.json
 ```
 
 Per lanciare il job manualmente, individuarlo e forzarlo dal progetto PRD:
@@ -64,10 +99,10 @@ manifest (gli export e i CSV con PII non entrano mai in Git):
 backup_dir=/Users/Frank/Backups/FitRope/firestore/prod/$(date +%F)
 mkdir -p "$backup_dir" && chmod 700 "$backup_dir"
 gcloud storage cp --recursive gs://fit-rope-app-1f575-firestore-backups/manual/<run-id> "$backup_dir/"
-gcloud storage cp gs://fit-rope-app-1f575-firestore-backups/_manifests/YYYY-MM-DD.json "$backup_dir/manifest.json"
+gcloud storage cp gs://fit-rope-app-1f575-firestore-backups/_manifests/YYYY/MM/DD.json "$backup_dir/manifest.json"
 chmod -R go-rwx "$backup_dir"
-shasum -a 256 "$backup_dir/manifest.json" > "$backup_dir/manifest.sha256"
-chmod 600 "$backup_dir/manifest.sha256"
+(cd "$backup_dir" && find . -type f ! -name checksums.sha256 -print0 | sort -z | xargs -0 shasum -a 256 > checksums.sha256)
+chmod 600 "$backup_dir/checksums.sha256"
 ```
 
 ## Ripristino
