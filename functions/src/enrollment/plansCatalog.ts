@@ -1,7 +1,7 @@
 // Mirror server-side del catalogo piani Dart (lib/utils/subscription_plans.dart).
 // Le CHIAVI devono restare identiche tra client e server.
 
-export type SubscriptionFamily = "OPEN" | "HYROX" | "PT";
+export type SubscriptionFamily = "OPEN" | "PT";
 export type BillingMode = "FREQUENCY" | "ENTRIES";
 
 export interface SubscriptionPlan {
@@ -20,7 +20,6 @@ export const ENTRIES_PER_PACKAGE = 10;
 
 // Devono combaciare con CourseTags (lib/utils/course_tags.dart).
 export const TAG_OPEN = "Open";
-export const TAG_HYROX = "Hyrox";
 export const TAG_PT = "Personal Trainer";
 
 function durLabel(m: number): string {
@@ -37,6 +36,16 @@ function openPlans(): SubscriptionPlan[] {
       billingMode: "FREQUENCY",
       weeklyFrequency: 2,
       entries: null,
+      durationMonths: d,
+      grantedCourseTypeTags: [TAG_OPEN],
+    });
+    plans.push({
+      key: `open_${ENTRIES_PER_PACKAGE}i_${d}m`,
+      displayName: `Open ${ENTRIES_PER_PACKAGE} ingressi · ${durLabel(d)}`,
+      family: "OPEN",
+      billingMode: "ENTRIES",
+      weeklyFrequency: null,
+      entries: ENTRIES_PER_PACKAGE,
       durationMonths: d,
       grantedCourseTypeTags: [TAG_OPEN],
     });
@@ -84,7 +93,6 @@ function entriesPlans(
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   ...openPlans(),
-  ...entriesPlans("HYROX", "hyrox", "Hyrox", TAG_HYROX),
   ...entriesPlans("PT", "pt", "PT", TAG_PT),
 ];
 

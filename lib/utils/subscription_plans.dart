@@ -33,15 +33,15 @@ class SubscriptionPlan {
   });
 }
 
-/// Catalogo dei piani. Open: {2x, 3x, illimitato} × {1,3,6,12} = 12;
-/// Hyrox e PT: 10 ingressi × {1,3,6,12} = 4 ciascuno (D3).
+/// Catalogo dei piani. Open: {2x, 3x, illimitato, 10 ingressi} ×
+/// {1,3,6,12} = 16; PT: 10 ingressi × {1,3,6,12} = 4.
 class SubscriptionPlans {
   static const List<int> durations = [1, 3, 6, 12];
   static const int entriesPerPackage = 10;
 
   static String _durLabel(int m) => m == 1 ? '1 mese' : '$m mesi';
 
-  static List<SubscriptionPlan> get all => [...open, ...hyrox, ...pt];
+  static List<SubscriptionPlan> get all => [...open, ...pt];
 
   static List<SubscriptionPlan> get open => [
         for (final d in durations) ...[
@@ -72,20 +72,16 @@ class SubscriptionPlans {
             durationMonths: d,
             grantedCourseTypeTags: const {CourseTags.OPEN},
           ),
-        ],
-      ];
-
-  static List<SubscriptionPlan> get hyrox => [
-        for (final d in durations)
           SubscriptionPlan(
-            key: 'hyrox_${entriesPerPackage}i_${d}m',
-            displayName: 'Hyrox $entriesPerPackage ingressi · ${_durLabel(d)}',
-            family: SubscriptionFamily.HYROX,
+            key: 'open_${entriesPerPackage}i_${d}m',
+            displayName: 'Open $entriesPerPackage ingressi · ${_durLabel(d)}',
+            family: SubscriptionFamily.OPEN,
             billingMode: BillingMode.ENTRIES,
             entries: entriesPerPackage,
             durationMonths: d,
-            grantedCourseTypeTags: const {CourseTags.HYROX},
+            grantedCourseTypeTags: const {CourseTags.OPEN},
           ),
+        ],
       ];
 
   static List<SubscriptionPlan> get pt => [

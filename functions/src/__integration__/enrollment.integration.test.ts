@@ -246,7 +246,7 @@ describe("integrazione emulatore — write-path enrollment", () => {
     const tSub = await createUser(uSub, { tipologiaCorsoTags: [] });
     const assign = await call("assignSubscription", bossToken, {
       userId: uSub,
-      planKey: "hyrox_10i_3m",
+      planKey: "open_10i_3m",
     });
     expect(assign.ok).toBe(true);
     expect((await call("subscribeToCourse", tSub, { courseId: c, userId: uSub })).ok).toBe(true);

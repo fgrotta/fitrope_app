@@ -22,7 +22,7 @@ import {
   recordToSnapshotEntry,
   computeActiveSnapshot,
 } from "./subscription";
-import { primaryTypeTagForTags } from "./courseTypes";
+import { typeTagOf } from "./courseTypes";
 import { decideAdminRefund } from "./refund";
 import {
   EnrollmentRequest,
@@ -123,8 +123,7 @@ export async function deleteCourseHandler(
     // Corso già iniziato/concluso (pulizia calendario/storico): i partecipanti
     // hanno frequentato — nessun rimborso, si rimuovono solo iscrizioni/waitlist.
     const refundable = courseStartMillis > nowMillis;
-    const courseTags = Array.isArray(course.data.tags) ? (course.data.tags as string[]) : [];
-    const coursePrimaryTag = primaryTypeTagForTags(courseTags);
+    const coursePrimaryTag = typeTagOf(course.data);
 
     // Piano di rimborso per ogni iscritto: registro consumi se presente,
     // altrimenti fallback dal modello attuale (admin rimborsa sempre).
