@@ -52,6 +52,8 @@ L'app si adatta automaticamente:
 La migrazione del modello corsi V2 e degli abbonamenti legacy è documentata in
 [`docs/migrations/course-model-v2/`](docs/migrations/course-model-v2/README.md),
 con piano decisionale e runbook operativo passo passo.
+Il backup e il ripristino Firestore sono descritti nel relativo
+[runbook operativo](docs/operations/FIRESTORE_BACKUP_RESTORE.md).
 
 ## Avvio locale
 

@@ -7,6 +7,10 @@ dalla PR dedicata al modello corsi V2.
   conversione, scelte di modello, vincoli e sequenza di rollout.
 - [RUNBOOK.md](RUNBOOK.md): procedura operativa passo passo per preparare,
   simulare, applicare e verificare la migrazione.
+- [HANDOFF.md](HANDOFF.md): stato del worktree, decisioni approvate, gap e
+  ordine esatto con cui riprendere l'implementazione e le operazioni cloud.
+- [Backup e ripristino Firestore](../../operations/FIRESTORE_BACKUP_RESTORE.md):
+  prerequisito obbligatorio, drill e procedura di rollback.
 
 Il codice eseguibile si trova in:
 
