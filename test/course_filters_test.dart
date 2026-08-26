@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/course_filters.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
@@ -25,7 +26,8 @@ void main() {
         sala: sala,
       );
 
-  // Giornata di riferimento: 4 tipologie, entrambe le sale e un corso senza.
+  // Giornata di riferimento: 3 tipologie su 4 presenti, un corso senza tag.
+  // La sala resta valorizzata (è ancora un dato della card) ma non filtra più.
   final open1 = course(
       name: 'open1', hour: 9, tags: [CourseTags.OPEN], sala: Sale.SALA_1);
   final open2 = course(
@@ -47,21 +49,6 @@ void main() {
 
   List<String> namesOf(List<Course> list) => list.map((c) => c.name).toList();
 
-  group('salaFilterKeyOf', () {
-    test('usa il nome della sala quando presente', () {
-      expect(salaFilterKeyOf(open1), Sale.SALA_1);
-    });
-
-    test('usa la chiave dedicata quando la sala è nulla', () {
-      expect(salaFilterKeyOf(senzaSala), kNoSalaFilterKey);
-    });
-
-    test('la chiave "senza sala" non collide con una sala valida', () {
-      expect(Sale.all, isNot(contains(kNoSalaFilterKey)));
-      expect(Sale.isValid(kNoSalaFilterKey), isFalse);
-    });
-  });
-
   group('courseTypeKeyOf', () {
     test('risolve la tipologia principale dai tag', () {
       expect(courseTypeKeyOf(hyroxS1), CourseTags.HYROX);
@@ -73,14 +60,13 @@ void main() {
   });
 
   group('applyCourseFilters', () {
-    test('set vuoti significano "tutti"', () {
-      expect(applyCourseFilters(giornata, types: {}, sale: {}).length,
-          giornata.length);
+    test('un set vuoto significa "tutti"', () {
+      expect(applyCourseFilters(giornata, types: {}).length, giornata.length);
     });
 
     test('ordina sempre in ordine cronologico', () {
       expect(
-        namesOf(applyCourseFilters(giornata, types: {}, sale: {})),
+        namesOf(applyCourseFilters(giornata, types: {})),
         [
           'senza-tag',
           'hyrox-s2',
@@ -95,14 +81,13 @@ void main() {
 
     test('non muta la lista di partenza', () {
       final before = namesOf(giornata);
-      applyCourseFilters(giornata, types: {}, sale: {});
+      applyCourseFilters(giornata, types: {});
       expect(namesOf(giornata), before);
     });
 
     test('filtra per tipologia', () {
       expect(
-        namesOf(
-            applyCourseFilters(giornata, types: {CourseTags.HYROX}, sale: {})),
+        namesOf(applyCourseFilters(giornata, types: {CourseTags.HYROX})),
         ['hyrox-s2', 'hyrox-s1'],
       );
     });
@@ -110,31 +95,17 @@ void main() {
     test('la selezione multipla di tipologie è in OR', () {
       expect(
         namesOf(applyCourseFilters(giornata,
-            types: {CourseTags.HYROX, CourseTags.PERSONAL_TRAINER}, sale: {})),
+            types: {CourseTags.HYROX, CourseTags.PERSONAL_TRAINER})),
         ['hyrox-s2', 'pt', 'hyrox-s1'],
       );
     });
 
-    test('filtra per sala', () {
+    test('la sala del corso non influenza il filtro', () {
+      // open1 è in Sala 1, open2 in Sala 2, senza-sala non ne ha: con il filtro
+      // Tipologia "Open" passano tutti e tre.
       expect(
-        namesOf(applyCourseFilters(giornata, types: {}, sale: {Sale.SALA_2})),
-        ['hyrox-s2', 'open2'],
-      );
-    });
-
-    test('filtra i corsi senza sala', () {
-      expect(
-        namesOf(
-            applyCourseFilters(giornata, types: {}, sale: {kNoSalaFilterKey})),
-        ['senza-sala'],
-      );
-    });
-
-    test('tipologia e sala si combinano in AND', () {
-      expect(
-        namesOf(applyCourseFilters(giornata,
-            types: {CourseTags.HYROX}, sale: {Sale.SALA_2})),
-        ['hyrox-s2'],
+        namesOf(applyCourseFilters(giornata, types: {CourseTags.OPEN})),
+        ['open1', 'senza-sala', 'open2'],
       );
     });
 
@@ -143,31 +114,28 @@ void main() {
         () {
       for (final type in CourseTypes.all) {
         expect(
-          namesOf(applyCourseFilters([senzaTag], types: {type.key}, sale: {})),
+          namesOf(applyCourseFilters([senzaTag], types: {type.key})),
           isEmpty,
           reason: 'tipologia ${type.key}',
         );
       }
     });
 
-    test('un corso senza tipologia resta visibile con solo il filtro sala', () {
-      expect(
-        namesOf(applyCourseFilters([senzaTag], types: {}, sale: {Sale.SALA_1})),
-        ['senza-tag'],
-      );
+    test('un corso senza tipologia resta visibile senza filtri', () {
+      expect(namesOf(applyCourseFilters([senzaTag], types: {})), ['senza-tag']);
     });
   });
 
   group('courseTypeCounts', () {
     test('ha una voce per ogni tipologia registrata, anche a zero', () {
-      final counts = courseTypeCounts(giornata, sale: {});
+      final counts = courseTypeCounts(giornata);
       expect(counts.keys.toSet(), CourseTypes.all.map((t) => t.key).toSet());
       expect(counts[CourseTags.HEY_MAMMA], 0);
     });
 
     test('conta per tipologia principale, ignorando i corsi senza tipologia',
         () {
-      final counts = courseTypeCounts(giornata, sale: {});
+      final counts = courseTypeCounts(giornata);
       expect(counts[CourseTags.OPEN], 3);
       expect(counts[CourseTags.HYROX], 2);
       expect(counts[CourseTags.PERSONAL_TRAINER], 1);
@@ -175,20 +143,12 @@ void main() {
       expect(counts.values.reduce((a, b) => a + b), giornata.length - 1);
     });
 
-    test('applica il filtro Sala: il numero dice cosa vedrei selezionando', () {
-      final counts = courseTypeCounts(giornata, sale: {Sale.SALA_2});
-      expect(counts[CourseTags.OPEN], 1);
-      expect(counts[CourseTags.HYROX], 1);
-      expect(counts[CourseTags.PERSONAL_TRAINER], 0);
-    });
-
     test('il conteggio coincide con il risultato del filtro corrispondente',
         () {
-      final counts = courseTypeCounts(giornata, sale: {Sale.SALA_1});
+      final counts = courseTypeCounts(giornata);
       for (final type in CourseTypes.all) {
         expect(
-          applyCourseFilters(giornata, types: {type.key}, sale: {Sale.SALA_1})
-              .length,
+          applyCourseFilters(giornata, types: {type.key}).length,
           counts[type.key],
           reason: 'tipologia ${type.key}',
         );
@@ -196,45 +156,75 @@ void main() {
     });
   });
 
-  group('salaCounts', () {
-    test('ha una voce per ogni sala più "senza sala"', () {
-      final counts = salaCounts(giornata, types: {});
-      expect(counts.keys.toSet(), {...Sale.all, kNoSalaFilterKey});
-    });
+  group('defaultTypeFilterForSubscriptions', () {
+    final now = DateTime(2026, 8, 21, 12);
 
-    test('conta tutti i corsi, compresi quelli senza tipologia', () {
-      final counts = salaCounts(giornata, types: {});
-      expect(counts[Sale.SALA_1], 4); // open1, hyrox-s1, pt, senza-tag
-      expect(counts[Sale.SALA_2], 2); // open2, hyrox-s2
-      expect(counts[kNoSalaFilterKey], 1); // senza-sala
-      expect(counts.values.reduce((a, b) => a + b), giornata.length);
-    });
-
-    test('applica il filtro Tipologia', () {
-      final counts = salaCounts(giornata, types: {CourseTags.OPEN});
-      expect(counts[Sale.SALA_1], 1);
-      expect(counts[Sale.SALA_2], 1);
-      expect(counts[kNoSalaFilterKey], 1);
-    });
-
-    test('il conteggio coincide con il risultato del filtro corrispondente',
-        () {
-      final types = {CourseTags.HYROX};
-      final counts = salaCounts(giornata, types: types);
-      for (final key in counts.keys) {
-        expect(
-          applyCourseFilters(giornata, types: types, sale: {key}).length,
-          counts[key],
-          reason: 'sala $key',
+    UserSubscription sub(SubscriptionFamily family, {int endOffsetDays = 30}) =>
+        UserSubscription(
+          planKey: '${family.name}-test',
+          family: family,
+          billingMode: BillingMode.FREQUENCY,
+          courseTypeTags: const {},
+          startDate: Timestamp.fromDate(now.subtract(const Duration(days: 1))),
+          endDate: Timestamp.fromDate(now.add(Duration(days: endOffsetDays))),
         );
-      }
+
+    test('senza abbonamenti si parte da "Tutti"', () {
+      expect(defaultTypeFilterForSubscriptions([], now: now), isEmpty);
     });
 
-    test('una sala fuori dalla lista chiusa non crea un chip fantasma', () {
-      final legacy = course(name: 'legacy', hour: 6, sala: 'Sala 99');
-      final counts = salaCounts([legacy], types: {});
-      expect(counts.keys.toSet(), {...Sale.all, kNoSalaFilterKey});
-      expect(counts.values.every((v) => v == 0), isTrue);
+    test('con il solo abbonamento PT si parte filtrato su Personal Trainer',
+        () {
+      expect(
+        defaultTypeFilterForSubscriptions([sub(SubscriptionFamily.PT)],
+            now: now),
+        {CourseTags.PERSONAL_TRAINER},
+      );
+    });
+
+    test('più abbonamenti, tutti PT: resta il default PT', () {
+      expect(
+        defaultTypeFilterForSubscriptions(
+            [sub(SubscriptionFamily.PT), sub(SubscriptionFamily.PT)],
+            now: now),
+        {CourseTags.PERSONAL_TRAINER},
+      );
+    });
+
+    test('PT insieme a un\'altra famiglia: si parte da "Tutti"', () {
+      expect(
+        defaultTypeFilterForSubscriptions(
+            [sub(SubscriptionFamily.PT), sub(SubscriptionFamily.OPEN)],
+            now: now),
+        isEmpty,
+      );
+    });
+
+    test('senza PT si parte da "Tutti"', () {
+      expect(
+        defaultTypeFilterForSubscriptions([sub(SubscriptionFamily.OPEN)],
+            now: now),
+        isEmpty,
+      );
+    });
+
+    test('un PT SCADUTO non filtra: lo snapshot può essere stantio', () {
+      expect(
+        defaultTypeFilterForSubscriptions(
+            [sub(SubscriptionFamily.PT, endOffsetDays: -1)],
+            now: now),
+        isEmpty,
+      );
+    });
+
+    test('fra PT vivo e Open scaduto vince il default PT', () {
+      expect(
+        defaultTypeFilterForSubscriptions([
+          sub(SubscriptionFamily.PT),
+          sub(SubscriptionFamily.OPEN, endOffsetDays: -3),
+        ], now: now),
+        {CourseTags.PERSONAL_TRAINER},
+      );
     });
   });
 }
