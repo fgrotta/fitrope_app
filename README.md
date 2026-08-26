@@ -49,6 +49,10 @@ L'app si adatta automaticamente:
 - `integration_test/`: suite E2E Flutter (vedi `integration_test/README.md`)
 - `docs/`: piani e runbook (staging, ambienti di test, avanzamento)
 
+La migrazione del modello corsi V2 e degli abbonamenti legacy è documentata in
+[`docs/migrations/course-model-v2/`](docs/migrations/course-model-v2/README.md),
+con piano decisionale e runbook operativo passo passo.
+
 ## Avvio locale
 
 ```bash
