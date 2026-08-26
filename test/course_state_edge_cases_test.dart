@@ -384,7 +384,7 @@ void main() {
     });
 
     test(
-        'ABBONAMENTO_PROVA <= 8 ore: conferma richiesta con messaggio "perderai il credito"',
+        'ABBONAMENTO_PROVA <= 8 ore: conferma richiesta con messaggio "perdi la lezione se non ti iscrivi oggi"',
         () {
       final course = Course(
         id: 'c1',
@@ -413,7 +413,7 @@ void main() {
       expect(result['requiresConfirmation'], true);
       expect(result['isPacchettoEntrate'], true);
       expect(result['message'],
-          'Disiscrizione a meno di 8 ore: perderai il credito');
+          'Disiscrizione a meno di 8 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
     });
   });
 
@@ -516,7 +516,7 @@ void main() {
       expect(result['requiresConfirmation'], true);
       expect(result['isTemporalSubscription'], true);
       expect(result['message'],
-          'Disiscrizione a meno di 4 ore: perderai l\'ingresso settimanale');
+          'Disiscrizione a meno di 4 ore: perdi la lezione se non ti iscrivi a un altro corso di oggi');
     });
   });
 }

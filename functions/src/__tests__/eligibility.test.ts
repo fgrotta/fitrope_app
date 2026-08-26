@@ -1,6 +1,7 @@
 import {
   weekBoundsMillis,
   countWeeklyEntries,
+  countRecoverableEntries,
   coveringSubsByType,
   validAtDate,
   evaluateSubscribe,
@@ -48,6 +49,7 @@ function input(over: Partial<SubscribeInput> = {}): SubscribeInput {
     entrateSettimanali: null,
     fineIscrizioneMillis: Date.UTC(2026, 11, 31),
     weeklyUsed: 0,
+    recoverableEntriesOnDay: 0,
     ...over,
   };
 }
@@ -562,5 +564,204 @@ describe("boundary di scadenza al millisecondo", () => {
     );
     expect(fallback.reason).toBe("OK");
     expect(fallback.consume).toEqual({ kind: "LEGACY_ENTRY" });
+  });
+});
+
+// ──────────────────────────────────────────────
+//  Recupero nella giornata
+// ──────────────────────────────────────────────
+
+// Giornata del corso candidato (mer 10 giu) e un altro giorno della stessa settimana.
+const SAME_DAY_EARLY = Date.UTC(2026, 5, 10, 7);
+const SAME_DAY_LATE = Date.UTC(2026, 5, 10, 19);
+const OTHER_DAY = Date.UTC(2026, 5, 11, 10);
+
+const lostSlot = (startMillis: number, primaryTag: string | null = "Open"): CancelledRecord => ({
+  entryLost: true,
+  courseStartMillis: startMillis,
+  primaryTag,
+  lostKind: "WEEKLY_SLOT",
+});
+
+const lostEntry = (startMillis: number, primaryTag: string | null = "Open"): CancelledRecord => ({
+  entryLost: true,
+  courseStartMillis: startMillis,
+  primaryTag,
+  lostKind: "ENTRY",
+});
+
+const active = (startMillis: number, primaryTag = "Open", uid = "c"): EnrolledCourse => ({
+  uid,
+  startMillis,
+  primaryTag,
+});
+
+describe("countWeeklyEntries: netting del recupero nella giornata", () => {
+  const OPEN = new Set(["Open"]);
+
+  test("lo slot perso nella giornata del candidato è assorbito dal candidato stesso", () => {
+    // Senza netting sarebbero 1 (perso) + 1 (candidato, non contato dal gate) → 1.
+    // Con il netting il candidato assorbe il perso → 0 slot già usati.
+    expect(countWeeklyEntries(COURSE_AT, [], [lostSlot(SAME_DAY_EARLY)], OPEN)).toBe(0);
+  });
+
+  test("lo slot perso in un ALTRO giorno non è assorbito", () => {
+    expect(countWeeklyEntries(COURSE_AT, [], [lostSlot(OTHER_DAY)], OPEN)).toBe(1);
+  });
+
+  test("due slot persi nella giornata: uno assorbito dal candidato, l'altro resta", () => {
+    expect(
+      countWeeklyEntries(COURSE_AT, [], [lostSlot(SAME_DAY_EARLY), lostSlot(SAME_DAY_LATE)], OPEN)
+    ).toBe(1);
+  });
+
+  test("un'iscrizione già attiva nella giornata assorbe il secondo slot perso", () => {
+    expect(
+      countWeeklyEntries(
+        COURSE_AT,
+        [active(SAME_DAY_LATE)],
+        [lostSlot(SAME_DAY_EARLY), lostSlot(SAME_DAY_LATE)],
+        OPEN
+      )
+    ).toBe(1);
+  });
+
+  test("uno slot perso fuori dallo scope della tipologia non entra nel conteggio", () => {
+    expect(countWeeklyEntries(COURSE_AT, [], [lostSlot(SAME_DAY_EARLY, "Hyrox")], OPEN)).toBe(0);
+  });
+
+  test("scope globale: l'assorbimento è uno a uno, non azzera la giornata", () => {
+    // Due tipologie diverse nella giornata del candidato, conteggio legacy globale:
+    // il candidato assorbe UN solo slot perso.
+    expect(
+      countWeeklyEntries(
+        COURSE_AT,
+        [],
+        [lostSlot(SAME_DAY_EARLY, "Open"), lostSlot(SAME_DAY_LATE, "Hyrox")],
+        null
+      )
+    ).toBe(1);
+  });
+
+  test("perdita di un INGRESSO: non pesa mai sul limite settimanale", () => {
+    expect(countWeeklyEntries(COURSE_AT, [], [lostEntry(OTHER_DAY)], OPEN)).toBe(0);
+  });
+
+  test("tipologia non risolvibile: conta ma non è assorbibile", () => {
+    expect(countWeeklyEntries(COURSE_AT, [], [lostSlot(SAME_DAY_EARLY, null)], OPEN)).toBe(1);
+    // Nello scope globale (legacy) la tipologia è irrilevante → assorbibile.
+    expect(countWeeklyEntries(COURSE_AT, [], [lostSlot(SAME_DAY_EARLY, null)], null)).toBe(0);
+  });
+
+  test("senza ingressi persi il conteggio è identico a prima (nessuna regressione)", () => {
+    const enrolled = [active(SAME_DAY_EARLY), active(SAME_DAY_LATE), active(OTHER_DAY)];
+    expect(countWeeklyEntries(COURSE_AT, enrolled, [], OPEN)).toBe(3);
+    expect(countWeeklyEntries(COURSE_AT, enrolled, [], null)).toBe(3);
+  });
+});
+
+describe("countRecoverableEntries", () => {
+  test("ingresso perso nella giornata e tipologia del candidato → recuperabile", () => {
+    expect(countRecoverableEntries(COURSE_AT, "Open", [], [lostEntry(SAME_DAY_EARLY)])).toBe(1);
+  });
+
+  test("già assorbito da un'iscrizione attiva della giornata → 0", () => {
+    expect(
+      countRecoverableEntries(COURSE_AT, "Open", [active(SAME_DAY_LATE)], [lostEntry(SAME_DAY_EARLY)])
+    ).toBe(1 - 1);
+  });
+
+  test("giornata diversa, tipologia diversa o slot settimanale → 0", () => {
+    expect(countRecoverableEntries(COURSE_AT, "Open", [], [lostEntry(OTHER_DAY)])).toBe(0);
+    expect(countRecoverableEntries(COURSE_AT, "Open", [], [lostEntry(SAME_DAY_EARLY, "Hyrox")])).toBe(0);
+    expect(countRecoverableEntries(COURSE_AT, "Open", [], [lostSlot(SAME_DAY_EARLY)])).toBe(0);
+  });
+
+  test("tipologia non risolvibile: non assorbibile (non regaliamo lezioni)", () => {
+    expect(countRecoverableEntries(COURSE_AT, "Open", [], [lostEntry(SAME_DAY_EARLY, null)])).toBe(0);
+  });
+
+  test("due ingressi persi e una iscrizione attiva → 1 ancora recuperabile", () => {
+    expect(
+      countRecoverableEntries(
+        COURSE_AT,
+        "Open",
+        [active(SAME_DAY_LATE)],
+        [lostEntry(SAME_DAY_EARLY), lostEntry(SAME_DAY_LATE)]
+      )
+    ).toBe(1);
+  });
+});
+
+describe("evaluateSubscribe: recupero nella giornata", () => {
+  test("crediti legacy esauriti ma ingresso recuperabile → consentito e gratuito", () => {
+    const d = evaluateSubscribe(
+      input({
+        tipologia: "PACCHETTO_ENTRATE",
+        entrateDisponibili: 0,
+        recoverableEntriesOnDay: 1,
+      })
+    );
+    expect(d).toEqual({ allowed: true, reason: "OK", consume: { kind: "NONE" } });
+  });
+
+  test("senza recupero gli stessi input restano NO_ENTRIES", () => {
+    const d = evaluateSubscribe(
+      input({ tipologia: "PACCHETTO_ENTRATE", entrateDisponibili: 0 })
+    );
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toBe("NO_ENTRIES");
+  });
+
+  test("credito disponibile ma recupero pendente → non si scala nulla", () => {
+    // Chi ha già pagato la lezione con la disdetta tardiva non deve pagarla due volte.
+    const d = evaluateSubscribe(
+      input({
+        tipologia: "PACCHETTO_ENTRATE",
+        entrateDisponibili: 5,
+        recoverableEntriesOnDay: 1,
+      })
+    );
+    expect(d.consume).toEqual({ kind: "NONE" });
+  });
+
+  test("abbonamento a ingressi esaurito ma recupero pendente → consentito e gratuito", () => {
+    const d = evaluateSubscribe(
+      input({
+        activeSubscriptions: [
+          sub({ billingMode: "ENTRIES", remainingEntries: 0, weeklyFrequency: null }),
+        ],
+        recoverableEntriesOnDay: 1,
+      })
+    );
+    expect(d.allowed).toBe(true);
+    expect(d.consume).toEqual({ kind: "NONE" });
+  });
+
+  test("il recupero NON supera capienza, scadenza e accesso", () => {
+    expect(
+      evaluateSubscribe(
+        input({
+          tipologia: "PACCHETTO_ENTRATE",
+          entrateDisponibili: 0,
+          courseFull: true,
+          recoverableEntriesOnDay: 1,
+        })
+      ).reason
+    ).toBe("FULL");
+    expect(
+      evaluateSubscribe(
+        input({
+          activeSubscriptions: [sub({ endDateMillis: Date.UTC(2026, 0, 2) })],
+          nowMillis: Date.UTC(2026, 0, 1),
+          recoverableEntriesOnDay: 1,
+        })
+      ).reason
+    ).toBe("EXPIRED");
+    expect(
+      evaluateSubscribe(
+        input({ userTags: ["Hyrox"], courseTags: ["Open"], recoverableEntriesOnDay: 1 })
+      ).reason
+    ).toBe("NO_ACCESS");
   });
 });

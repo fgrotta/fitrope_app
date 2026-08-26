@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -48,8 +50,10 @@ CourseState getCourseState(Course course, FitropeUser user) {
     return CourseState.EXPIRED;
   }
 
-  final bool hasTagAccess =
-      CourseTags.canUserAccessCourse(user.tipologiaCorsoTags, course.tags);
+  final bool hasTagAccess = CourseTags.canUserAccessCourse(
+    user.tipologiaCorsoTags,
+    course.tags,
+  );
 
   // Abbonamenti che coprono la tipologia del corso (solo modello multi-abbonamento).
   final List<UserSubscription> covering = useSubscriptions
@@ -58,9 +62,11 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   if (useSubscriptions &&
       covering.isNotEmpty &&
-      !covering.any((s) =>
-          !courseDate.isBefore(s.startDate.toDate()) &&
-          !courseDate.isAfter(s.endDate.toDate()))) {
+      !covering.any(
+        (s) =>
+            !courseDate.isBefore(s.startDate.toDate()) &&
+            !courseDate.isAfter(s.endDate.toDate()),
+      )) {
     return CourseState.EXPIRED;
   }
 
@@ -93,6 +99,16 @@ CourseState getCourseState(Course course, FitropeUser user) {
     limitState = _getSubscriptionLimitState(user, courseDate);
   }
 
+  // Recupero nella giornata: un ingresso perso e non ancora assorbito ha già
+  // pagato questa iscrizione, quindi il blocco per crediti esauriti non si
+  // applica. Il limite settimanale invece è già nettato dentro
+  // _countWeeklyEntries, quindi qui non va toccato.
+  // Mirror server: evaluateSubscribe / countRecoverableEntries in eligibility.ts.
+  if (limitState == CourseState.SUBSCRIBE_LIMIT &&
+      recoverableEntriesOnDay(course, user) > 0) {
+    limitState = null;
+  }
+
   if (courseFull) {
     // Se la waitlist è disabilitata per questo corso, non proporla.
     if (!course.waitlistEnabled) {
@@ -121,7 +137,9 @@ String _coursePrimaryTypeTag(Course course) =>
 
 /// Abbonamenti (tra quelli non scaduti) che coprono la tipologia primaria del corso.
 List<UserSubscription> _coveringSubscriptions(
-    Course course, List<UserSubscription> liveSubscriptions) {
+  Course course,
+  List<UserSubscription> liveSubscriptions,
+) {
   final String primary = _coursePrimaryTypeTag(course);
   return liveSubscriptions
       .where((s) => s.courseTypeTags.contains(primary))
@@ -131,13 +149,18 @@ List<UserSubscription> _coveringSubscriptions(
 /// Valuta scadenza + limiti nello scope degli abbonamenti che coprono il corso.
 /// Precondizione: [covering] non vuoto. Ritorna null se l'utente è idoneo.
 CourseState? _evaluateCovering(
-    List<UserSubscription> covering, FitropeUser user, DateTime courseDate) {
+  List<UserSubscription> covering,
+  FitropeUser user,
+  DateTime courseDate,
+) {
   // Tieni solo gli abbonamenti validi alla data del corso: già iniziati
   // (startDate) e non ancora scaduti (endDate).
   final valid = covering
-      .where((s) =>
-          !courseDate.isBefore(s.startDate.toDate()) &&
-          !courseDate.isAfter(s.endDate.toDate()))
+      .where(
+        (s) =>
+            !courseDate.isBefore(s.startDate.toDate()) &&
+            !courseDate.isAfter(s.endDate.toDate()),
+      )
       .toList();
   if (valid.isEmpty) return CourseState.EXPIRED;
 
@@ -148,8 +171,7 @@ CourseState? _evaluateCovering(
     } else {
       // FREQUENCY: null = illimitato.
       if (s.weeklyFrequency == null) return null;
-      final used =
-          _countWeeklyEntriesForTags(courseDate, user, s.courseTypeTags);
+      final used = _countWeeklyEntries(courseDate, user, s.courseTypeTags);
       if (used < s.weeklyFrequency!) return null;
     }
   }
@@ -178,7 +200,7 @@ CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
     if (user.entrateSettimanali == null) {
       return null; // nessun limite settimanale
     }
-    int weeklyEntriesUsed = _countWeeklyEntries(courseDate, user);
+    int weeklyEntriesUsed = _countWeeklyEntries(courseDate, user, null);
     if (weeklyEntriesUsed >= user.entrateSettimanali!) {
       return CourseState.LIMIT;
     }
@@ -192,73 +214,135 @@ CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
 ({int start, int end}) _weekBoundsMillis(DateTime courseDate) {
   DateTime startOfWeek =
       courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
-  startOfWeek =
-      DateTime.utc(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-  DateTime endOfWeek = startOfWeek.add(const Duration(
-      days: 6, hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
+  startOfWeek = DateTime.utc(
+    startOfWeek.year,
+    startOfWeek.month,
+    startOfWeek.day,
+  );
+  DateTime endOfWeek = startOfWeek.add(
+    const Duration(
+      days: 6,
+      hours: 23,
+      minutes: 59,
+      seconds: 59,
+      milliseconds: 999,
+    ),
+  );
   return (
     start: startOfWeek.millisecondsSinceEpoch,
-    end: endOfWeek.millisecondsSinceEpoch
+    end: endOfWeek.millisecondsSinceEpoch,
   );
 }
 
-/// Conta gli ingressi settimanali usati (corsi attivi + disiscrizioni perse) nel
-/// modello legacy: tutti i corsi della settimana, senza distinzione di tipologia.
-int _countWeeklyEntries(DateTime courseDate, FitropeUser user) {
-  final bounds = _weekBoundsMillis(courseDate);
-  final List<Course> allCourses = store.state.allCourses;
+/// Giorno civile (UTC) che contiene [millis]. Stessa convenzione del server
+/// (`dayKeyMillis` in functions/src/enrollment/eligibility.ts): allineare i due
+/// lati vale più che allineare il giorno locale dell'utente, e la palestra non
+/// programma corsi fra mezzanotte e le 02:00.
+int dayKeyMillis(int millis) => millis ~/ Duration.millisecondsPerDay;
 
-  int activeCoursesCount = 0;
+void _bump(Map<int, int> counter, int key) =>
+    counter[key] = (counter[key] ?? 0) + 1;
+
+Course? _courseById(String? id) =>
+    store.state.allCourses.where((c) => c.uid == id).firstOrNull;
+
+/// Conta gli ingressi settimanali usati nella settimana di [courseDate].
+///
+/// REGOLA DI RECUPERO: un ingresso perso in una giornata è ASSORBITO, uno a uno,
+/// da un'iscrizione attiva della stessa giornata (slot consumati in un giorno =
+/// max(attive, persi), non attive + persi). Così chi disdice in ritardo e si
+/// reiscrive a un corso dello stesso giorno non paga due volte, e se disdice
+/// anche il rimpiazzo la penalità ritorna da sé.
+///
+/// Il corso CANDIDATO è incluso nel netting e poi sottratto: il chiamante
+/// confronta il risultato con il limite SENZA contare il candidato, quindi senza
+/// includerlo un utente al limite non potrebbe mai assorbire l'ingresso appena
+/// perso. Senza ingressi persi il risultato è identico al conteggio precedente.
+///
+/// [typeTags] null = conteggio globale (modello legacy temporale); altrimenti
+/// conta solo i corsi la cui tipologia primaria è in [typeTags].
+///
+/// Mirror di countWeeklyEntries in functions/src/enrollment/eligibility.ts.
+int _countWeeklyEntries(
+  DateTime courseDate,
+  FitropeUser user,
+  Set<String>? typeTags,
+) {
+  final bounds = _weekBoundsMillis(courseDate);
+  bool matchesType(String? tag) =>
+      typeTags == null || (tag != null && typeTags.contains(tag));
+
+  final Map<int, int> activeByDay = {};
+  _bump(activeByDay, dayKeyMillis(courseDate.millisecondsSinceEpoch));
   for (final id in user.courses) {
-    final Course? course = allCourses.where((c) => c.uid == id).firstOrNull;
+    final Course? course = _courseById(id);
     if (course == null) continue;
     final int start = course.startDate.millisecondsSinceEpoch;
-    if (start >= bounds.start && start <= bounds.end) activeCoursesCount += 1;
+    if (start < bounds.start || start > bounds.end) continue;
+    if (!matchesType(_coursePrimaryTypeTag(course))) continue;
+    _bump(activeByDay, dayKeyMillis(start));
   }
 
-  // Le disiscrizioni perse (entryLost: true) contano come ingressi usati.
-  int lostEntriesCount = 0;
+  final Map<int, int> lostByDay = {};
+  int lostNotAbsorbable = 0;
   for (final cancelled in user.cancelledEnrollments) {
     if (!cancelled.entryLost) continue;
+    // Una penalità su un INGRESSO non pesa sul limite settimanale (il credito
+    // scalato è già la penalità): si recupera via [recoverableEntriesOnDay].
+    if (cancelled.lostKindOrDefault == LostKind.ENTRY) continue;
     final int start = cancelled.courseStartDate.toDate().millisecondsSinceEpoch;
-    if (start >= bounds.start && start <= bounds.end) lostEntriesCount += 1;
-  }
-
-  return activeCoursesCount + lostEntriesCount;
-}
-
-/// Come [_countWeeklyEntries], ma conta solo i corsi la cui tipologia rientra in
-/// [typeTags] (scoping per famiglia, modello multi-abbonamento). Le disiscrizioni
-/// perse contano solo se il corso originario è ancora risolvibile e della tipologia.
-int _countWeeklyEntriesForTags(
-    DateTime courseDate, FitropeUser user, Set<String> typeTags) {
-  final bounds = _weekBoundsMillis(courseDate);
-  final List<Course> allCourses = store.state.allCourses;
-
-  bool matchesType(Course c) => typeTags.contains(_coursePrimaryTypeTag(c));
-
-  int activeCoursesCount = 0;
-  for (final id in user.courses) {
-    final Course? course = allCourses.where((c) => c.uid == id).firstOrNull;
-    if (course == null) continue;
-    final int start = course.startDate.millisecondsSinceEpoch;
-    if (start >= bounds.start && start <= bounds.end && matchesType(course)) {
-      activeCoursesCount += 1;
+    if (start < bounds.start || start > bounds.end) continue;
+    // Se il corso non è più risolvibile non possiamo determinarne la tipologia:
+    // contiamo comunque l'ingresso perso (per non sotto-contare il limite) ma
+    // non è assorbibile, perché non sappiamo a quale giornata-tipologia
+    // appartenga. TODO(PR3): denormalizzare i tag in CancelledEnrollment.
+    final Course? course = _courseById(cancelled.courseId);
+    final String? tag = course == null ? null : _coursePrimaryTypeTag(course);
+    if (typeTags == null || (tag != null && typeTags.contains(tag))) {
+      _bump(lostByDay, dayKeyMillis(start));
+    } else if (tag == null) {
+      lostNotAbsorbable += 1;
     }
   }
 
-  int lostEntriesCount = 0;
+  int total = lostNotAbsorbable;
+  for (final day in {...activeByDay.keys, ...lostByDay.keys}) {
+    total += max(activeByDay[day] ?? 0, lostByDay[day] ?? 0);
+  }
+  return total - 1;
+}
+
+/// Ingressi (crediti) persi nella giornata di [course] e non ancora assorbiti da
+/// un'iscrizione attiva della stessa giornata e tipologia. > 0 significa che
+/// l'iscrizione a [course] non scala credito: quell'ingresso è già stato pagato
+/// dalla prenotazione disdetta in ritardo.
+///
+/// Mirror di countRecoverableEntries in functions/src/enrollment/eligibility.ts.
+int recoverableEntriesOnDay(Course course, FitropeUser user) {
+  final String primaryTag = _coursePrimaryTypeTag(course);
+  final int day = dayKeyMillis(course.startDate.millisecondsSinceEpoch);
+
+  int lost = 0;
   for (final cancelled in user.cancelledEnrollments) {
     if (!cancelled.entryLost) continue;
+    if (cancelled.lostKindOrDefault != LostKind.ENTRY) continue;
     final int start = cancelled.courseStartDate.toDate().millisecondsSinceEpoch;
-    if (start < bounds.start || start > bounds.end) continue;
-    final Course? course =
-        allCourses.where((c) => c.uid == cancelled.courseId).firstOrNull;
-    // Se il corso non è più risolvibile non possiamo determinarne la tipologia:
-    // contiamo comunque l'ingresso perso (come il modello legacy) per non
-    // sotto-contare il limite. TODO(PR3): denormalizzare i tag in CancelledEnrollment.
-    if (course == null || matchesType(course)) lostEntriesCount += 1;
+    if (dayKeyMillis(start) != day) continue;
+    // Tipologia non risolvibile → non assorbibile: non regaliamo lezioni.
+    final Course? origin = _courseById(cancelled.courseId);
+    if (origin == null || _coursePrimaryTypeTag(origin) != primaryTag) continue;
+    lost += 1;
   }
+  if (lost == 0) return 0;
 
-  return activeCoursesCount + lostEntriesCount;
+  int active = 0;
+  for (final id in user.courses) {
+    final Course? enrolled = _courseById(id);
+    if (enrolled == null) continue;
+    if (dayKeyMillis(enrolled.startDate.millisecondsSinceEpoch) == day &&
+        _coursePrimaryTypeTag(enrolled) == primaryTag) {
+      active += 1;
+    }
+  }
+  return max(0, lost - active);
 }

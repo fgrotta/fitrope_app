@@ -16,7 +16,7 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 | Callable | Handler | Cosa fa |
 |---|---|---|
 | `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, promemoria prova |
-| `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, `entryLost` + `cancelledEnrollments`. **La penalità segue la fonte realmente consumata** (registro `enrollmentConsumption`): se fu scalato un ingresso la penalità è "l'ingresso non torna" e NON si scrive `cancelledEnrollments`; la voce `entryLost` resta solo se la prenotazione consumò davvero uno slot settimanale (`kind: NONE` sotto un modello a frequenza). **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
+| `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, voce `cancelledEnrollments` con `entryLost` + `lostKind`. **La penalità segue la fonte realmente consumata** (registro `enrollmentConsumption`): se fu scalato un ingresso `lostKind` è `ENTRY` (non pesa sul limite settimanale), altrimenti `WEEKLY_SLOT`. La perdita **non è definitiva**: è recuperabile nella giornata (vedi "Recupero nella giornata"). **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
 | `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze). **`joinWaitlist` richiede l'idoneità**: esegue `evaluateSubscribe` con `courseFull: false` e rifiuta chi non potrebbe iscriversi (crediti esauriti, limite settimanale, scadenza, tag) |
 | `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot, max 1 attivo per famiglia |
 | `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Niente email waitlist |
@@ -76,6 +76,61 @@ Garanzie aggiuntive del write-path server (oltre il porting 1:1):
   admin può registrare presenze a posteriori); `joinWaitlist` rispetta
   `waitlistEnabled`.
 
+## Recupero nella giornata
+
+> **Una lezione persa per disdetta tardiva è ASSORBITA, uno a uno, da
+> un'iscrizione attiva della stessa giornata e tipologia.**
+
+Gli slot consumati in una giornata sono `max(attive, persi)`, non
+`attive + persi`. Chi disdice il corso delle 18:00 alle 17:55 e si iscrive a
+quello delle 20:00 non paga due volte la stessa lezione; se non si iscrive a
+nulla, a mezzanotte la perdita diventa definitiva.
+
+**È una regola derivata, non uno stato.** Non esistono token, scadenze da
+schedulare né job notturni: scadenza a mezzanotte, "il recupero torna se disdici
+il rimpiazzo", due disdette = due recuperi e monouso sono tutti conseguenze del
+conteggio. Su una giornata senza perdite `max(attive, 0) == attive`, quindi per
+chi non ha penalità il comportamento è identico a prima.
+
+Applicata in due punti, perché i due modelli rappresentano il credito in modo
+diverso:
+
+- **Frequenza** — `countWeeklyEntries` (`eligibility.ts`) e
+  `_countWeeklyEntries` (`get_course_state.dart`): netting per giorno. Il corso
+  CANDIDATO è incluso nel netting e poi sottratto, perché il gate chiamante
+  (`weeklyUsed >= limite`) non lo conta: senza includerlo un utente al limite non
+  potrebbe mai assorbire l'ingresso appena perso.
+- **Ingressi** — `countRecoverableEntries` / `recoverableEntriesOnDay`: il
+  credito è un contatore, quindi la regola si applica alla *decisione di
+  consumo*. Se nella giornata c'è una perdita `ENTRY` non assorbita, l'iscrizione
+  non scala credito (`consume: NONE`) e il blocco `NO_ENTRIES` viene sollevato.
+
+**Invarianti**
+
+- *Mai coniare credito.* Un'iscrizione di recupero registra `kind: NONE` nel
+  registro consumi, quindi la logica di rimborso esistente non restituisce nulla
+  quando viene disdetta — nemmeno fuori finestra. Nessun codice dedicato.
+- *Il recupero non supera capienza, accesso e scadenza.* Solleva solo i blocchi
+  per credito/limite: `FULL`, `NO_ACCESS`, `EXPIRED`, `NOT_ELIGIBLE` restano.
+- *Solo la stessa tipologia primaria.* Il credito appartiene a una famiglia di
+  abbonamento; un ingresso Hyrox non si recupera su un corso Open.
+- *Una perdita di cui non si riesce a risolvere la tipologia* (corso cancellato)
+  continua a contare ma non è assorbibile: preferiamo non regalare una lezione
+  quando non possiamo verificare che le tipologie combacino.
+
+**Scelta deliberata: l'assorbimento non guarda *quando* è stata fatta
+l'iscrizione.** Quindi assorbe anche una prenotazione preesistente: chi aveva già
+sia le 18:00 sia le 20:00 e disdice tardi le 18:00 non viene penalizzato. Il
+deterrente resta che i due slot erano comunque già consumati sul limite
+settimanale. Stringere la regola (assorbire solo iscrizioni successive a
+`cancelledAt`) non richiede migrazioni: `cancelledAt` e
+`enrollmentConsumption.atMillis` sono già persistiti.
+
+**Bordo giornata.** Il giorno è bucketizzato in UTC su entrambi i lati
+(`dayKeyMillis`), coerentemente con la convenzione già usata per i bordi
+settimana. Divergerebbe da Europe/Rome solo per corsi fra mezzanotte e le 02:00,
+che la palestra non programma.
+
 Differenze deliberate rispetto al vecchio client (fix di bug, non regressioni):
 - il vecchio `subscribeToCourse` client decrementava `entrateDisponibili` **per
   tutti** (anche abbonamenti temporali, andando in negativo); il server decrementa
@@ -129,10 +184,12 @@ Da PR5 i flussi admin sono server-side e i caveat interim di PR4 sono risolti:
 
 ### Disiscrizione
 - **Più di 8 ore prima**: Credito completamente rimborsato
-- **Entro 8 ore prima**: 
+- **Entro 8 ore prima**:
   - Richiede conferma utente tramite dialog
   - **NON** rimborsa il credito
-  - L'utente perde definitivamente l'ingresso
+  - L'ingresso resta recuperabile iscrivendosi a un corso della stessa
+    tipologia nella stessa giornata (vedi "Recupero nella giornata"); a
+    mezzanotte la perdita diventa definitiva
 
 ### Funzioni Disponibili
 
@@ -202,8 +259,11 @@ if (unsubscribeInfo['requiresConfirmation']) {
 - **Colori diversi**: 
   - 🟠 Arancione: Richiede conferma (≤ 8 ore)
   - 🔴 Rosso: Disiscrizione normale (> 8 ore)
-- **Testo dinamico**: "Disiscriviti (Perdi Credito)" vs "Disiscriviti"
-- **Messaggi informativi** con icone appropriate
+- **Testo dinamico**: "Disiscriviti (recupera oggi)" vs "Disiscriviti"
+- **Messaggi informativi** con icone appropriate; entro finestra il dialog dice
+  quanti corsi della giornata hanno ancora posti liberi per il recupero
+  (`recoveryCandidates` in `lib/utils/course_recovery.dart`), così chi disdice
+  l'ultimo corso della giornata lo scopre prima di confermare
 
 ### CourseUnsubscribeHelper
 - **Verifica preventiva** se serve conferma

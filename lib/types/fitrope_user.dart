@@ -2,24 +2,45 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 
+/// Cosa è stato perso con una disiscrizione, quindi cosa è recuperabile nella
+/// giornata del corso disdetto (mirror di LostKind in functions/src/enrollment/refund.ts).
+enum LostKind {
+  /// Un ingresso già scalato (credito legacy o `remainingEntries`): NON pesa sul
+  /// limite settimanale, si recupera non riscalando il credito.
+  ENTRY,
+
+  /// Uno slot settimanale di un piano a frequenza: pesa sul limite settimanale,
+  /// si recupera per netting del conteggio.
+  WEEKLY_SLOT,
+}
+
 class CancelledEnrollment {
   final String courseId;
   final Timestamp cancelledAt;
-  final bool entryLost; // true se l'ingresso settimanale è stato perso
+  final bool entryLost; // true se qualcosa è stato perso
   final Timestamp courseStartDate; // per calcolare la settimana
+
+  /// Cosa è stato perso. `null` sui record scritti prima dell'introduzione del
+  /// campo, che esistevano SOLO per i modelli a frequenza → vanno letti come
+  /// [LostKind.WEEKLY_SLOT] (vedi [lostKindOrDefault]).
+  final LostKind? lostKind;
 
   const CancelledEnrollment({
     required this.courseId,
     required this.cancelledAt,
     required this.entryLost,
     required this.courseStartDate,
+    this.lostKind,
   });
+
+  LostKind get lostKindOrDefault => lostKind ?? LostKind.WEEKLY_SLOT;
 
   Map<String, dynamic> toJson() {
     return {
       'courseId': courseId,
       'cancelledAt': cancelledAt,
       'entryLost': entryLost,
+      'lostKind': lostKind?.name,
       'courseStartDate': courseStartDate,
     };
   }
@@ -29,6 +50,11 @@ class CancelledEnrollment {
       courseId: json['courseId'] as String,
       cancelledAt: json['cancelledAt'] as Timestamp,
       entryLost: json['entryLost'] as bool,
+      lostKind: switch (json['lostKind']) {
+        'ENTRY' => LostKind.ENTRY,
+        'WEEKLY_SLOT' => LostKind.WEEKLY_SLOT,
+        _ => null,
+      },
       courseStartDate: json['courseStartDate'] as Timestamp,
     );
   }
@@ -129,8 +155,10 @@ class FitropeUser {
           [],
       tipologiaIscrizione: json['tipologiaIscrizione'] != null
           ? TipologiaIscrizione.values
-              .where((e) =>
-                  e.toString().split('.').last == json['tipologiaIscrizione'])
+              .where(
+                (e) =>
+                    e.toString().split('.').last == json['tipologiaIscrizione'],
+              )
               .firstOrNull
           : null,
       entrateDisponibili: json['entrateDisponibili'] as int?,
@@ -149,8 +177,10 @@ class FitropeUser {
               .toList() ??
           CourseTags.defaultUserTags,
       cancelledEnrollments: (json['cancelledEnrollments'] as List<dynamic>?)
-              ?.map((item) =>
-                  CancelledEnrollment.fromJson(item as Map<String, dynamic>))
+              ?.map(
+                (item) =>
+                    CancelledEnrollment.fromJson(item as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       regolamentoAccettatoIl: json['regolamentoAccettatoIl'] as Timestamp?,
@@ -162,8 +192,9 @@ class FitropeUser {
           json['emailNotificationsEnabled'] as bool? ?? true,
       pushNotificationsEnabled:
           json['pushNotificationsEnabled'] as bool? ?? true,
-      activeSubscriptions:
-          _parseActiveSubscriptions(json['activeSubscriptions']),
+      activeSubscriptions: _parseActiveSubscriptions(
+        json['activeSubscriptions'],
+      ),
     );
   }
 }
@@ -174,7 +205,7 @@ enum TipologiaIscrizione {
   ABBONAMENTO_TRIMESTRALE,
   ABBONAMENTO_SEMESTRALE,
   ABBONAMENTO_ANNUALE,
-  ABBONAMENTO_PROVA // Nuovo abbonamento di prova
+  ABBONAMENTO_PROVA, // Nuovo abbonamento di prova
 }
 
 /// Parsa lo snapshot degli abbonamenti scartando i singoli elementi malformati,

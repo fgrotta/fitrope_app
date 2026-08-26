@@ -3,6 +3,7 @@ import 'package:fitrope_app/api/courses/unsubscribe_to_course.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
+import 'package:fitrope_app/utils/course_recovery.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
@@ -34,6 +35,8 @@ class CourseUnsubscribeHelper {
         course,
         isTemporalSubscription:
             unsubscribeInfo['isTemporalSubscription'] ?? false,
+        courseTypeLabel: unsubscribeInfo['courseTypeLabel'] as String,
+        recoveryCount: unsubscribeInfo['recoveryCount'] as int,
       );
 
       if (!confirmed) {
@@ -72,10 +75,20 @@ class CourseUnsubscribeHelper {
     }
   }
 
-  /// Mostra il dialog di conferma per la perdita del credito o ingresso settimanale
+  /// Mostra il dialog di conferma per la perdita della lezione.
+  ///
+  /// La perdita NON è più definitiva nell'istante della disdetta: la lezione si
+  /// recupera iscrivendosi a un altro corso della stessa tipologia nella stessa
+  /// giornata. Il dialog dice quanto spazio di recupero c'è DAVVERO, così chi
+  /// disdice l'ultimo corso della giornata lo scopre prima di confermare e non
+  /// dopo.
   static Future<bool> _showConfirmationDialog(
-      BuildContext context, Course course,
-      {required bool isTemporalSubscription}) async {
+    BuildContext context,
+    Course course, {
+    required bool isTemporalSubscription,
+    required String courseTypeLabel,
+    required int recoveryCount,
+  }) async {
     // Orario ITALIANO, non quello del dispositivo: il dialog deve mostrare la
     // stessa data/ora di CalendarPage e delle email (Europe/Rome).
     final courseStart = toItalianTime(course.startDate.toDate());
@@ -84,17 +97,16 @@ class CourseUnsubscribeHelper {
     String courseDate =
         '${courseStart.day}/${courseStart.month}/${courseStart.year}';
 
-    // Determina il messaggio in base al tipo di abbonamento
-    String warningMessage;
-    int hoursThreshold = isTemporalSubscription ? 4 : 8;
-
-    if (isTemporalSubscription) {
-      warningMessage =
-          'ATTENZIONE: Mancano meno di $hoursThreshold ore all\'inizio del corso, confermando la disiscrizione perderai definitivamente l\'ingresso settimanale per questa settimana.';
-    } else {
-      warningMessage =
-          'ATTENZIONE: Mancano meno di $hoursThreshold ore all\'inizio del corso, confermando la disiscrizione perderai definitivamente l\'ingresso.';
-    }
+    final int hoursThreshold = isTemporalSubscription ? 4 : 8;
+    final String warningMessage =
+        'ATTENZIONE: mancano meno di $hoursThreshold ore all\'inizio del corso. '
+        'Per non perdere la lezione devi iscriverti a un altro corso '
+        '$courseTypeLabel di oggi entro le 23:59.';
+    final String recoveryMessage = recoveryCount == 0
+        ? 'Oggi non ci sono altri corsi $courseTypeLabel con posti liberi: confermando perderai la lezione.'
+        : recoveryCount == 1
+            ? 'Oggi c\'è ancora 1 corso $courseTypeLabel con posti liberi.'
+            : 'Oggi ci sono ancora $recoveryCount corsi $courseTypeLabel con posti liberi.';
 
     return await showDialog<bool>(
           context: context,
@@ -114,6 +126,13 @@ class CourseUnsubscribeHelper {
                     style: const TextStyle(
                       color: Colors.red,
                       fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    recoveryMessage,
+                    style: TextStyle(
+                      color: recoveryCount == 0 ? Colors.red : Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -201,6 +220,14 @@ class CourseUnsubscribeHelper {
         .where((s) => !now.isAfter(s.endDate.toDate()))
         .toList();
 
+    // Tipologia primaria del corso, con lo STESSO fallback del conteggio
+    // (get_course_state.dart / eligibility.ts): un corso senza tag riconosciuti
+    // è un corso Open, quindi anche il messaggio deve dire "Open".
+    final String primaryTag =
+        CourseTypes.primaryForTags(course.tags)?.key ?? CourseTags.OPEN;
+    final String courseTypeLabel =
+        CourseTypes.byKey(primaryTag)?.displayName ?? primaryTag;
+
     bool isPacchettoEntrate;
     bool isAbbonamentoProva;
     bool isTemporalSubscription;
@@ -209,8 +236,6 @@ class CourseUnsubscribeHelper {
       // copre la tipologia del corso (stesse regole del server, refund.ts):
       // ENTRIES → 8h ("credito"), FREQUENCY → 4h ("ingresso settimanale"),
       // nessuna copertura → nessuna finestra (libera solo il posto).
-      final String primaryTag =
-          CourseTypes.primaryForTags(course.tags)?.key ?? CourseTags.OPEN;
       final DateTime courseDate = course.startDate.toDate();
       final List<UserSubscription> validCovering = liveSubscriptions
           .where((s) =>
@@ -250,14 +275,17 @@ class CourseUnsubscribeHelper {
     debugPrint('📅 È abbonamento temporale: $isTemporalSubscription');
     debugPrint('⚠️ Richiede conferma: $requiresConfirmation');
 
+    // Quanti corsi della giornata possono ancora ospitare il recupero. Calcolato
+    // solo quando serve al messaggio: scorre il catalogo dei corsi in memoria.
+    final int recoveryCount = requiresConfirmation
+        ? recoveryCandidates(course, user, now: now).length
+        : 0;
+
     String message = '';
     if (requiresConfirmation) {
-      if (isTemporalSubscription) {
-        message =
-            'Disiscrizione a meno di 4 ore: perderai l\'ingresso settimanale';
-      } else {
-        message = 'Disiscrizione a meno di 8 ore: perderai il credito';
-      }
+      final int hoursThreshold = isTemporalSubscription ? 4 : 8;
+      message = 'Disiscrizione a meno di $hoursThreshold ore: perdi la lezione '
+          'se non ti iscrivi a un altro corso di oggi';
     } else if (isPacchettoEntrate || isAbbonamentoProva) {
       message = 'Disiscrizione: il credito ti sarà rimborsato';
     } else {
@@ -273,6 +301,8 @@ class CourseUnsubscribeHelper {
       'isPacchettoEntrate': isPacchettoEntrate || isAbbonamentoProva,
       'isTemporalSubscription': isTemporalSubscription,
       'hoursRemaining': hoursDifference,
+      'courseTypeLabel': courseTypeLabel,
+      'recoveryCount': recoveryCount,
     };
   }
 }
