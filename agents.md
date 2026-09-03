@@ -308,6 +308,7 @@ Se tocchi queste aree, aggiorna o aggiungi test in `test/`.
 
 - `users` - documenti utente con dati abbonamento, iscrizioni, waitlist, preferenze notifiche
 - `courses` - documenti corso con orario, capacita e waitlist
+- `demoLessonWebhookLog` - log degli invii WhatsApp verso Make, uno per messaggio, id `{kind}_{userId}_{courseId}`. Contiene **solo identificativi**: serve da idempotenza (claim con `create()` prima della POST) e da audit trail
 
 ### Pattern
 
@@ -338,6 +339,9 @@ La REST API key **non e mai esposta al client**. Il client chiama la Cloud Funct
 | Disiscrizione da corso pieno | `lib/services/notification_service.dart:notifyWaitlistUsers` | Immediato — push + email a tutti gli utenti in waitlist |
 | Iscrizione utente `ABBONAMENTO_PROVA` | `lib/services/notification_service.dart:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 (produzione) o +30s (debug) |
 | Debug manuale (solo `kDebugMode`) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
+| Iscrizione utente `ABBONAMENTO_PROVA` | `lib/services/notification_service.dart:notifyDemoLessonBooked` → callable `notifyDemoLessonBooked` | Immediato — WhatsApp `tipo: conferma` via webhook Make |
+| Lezione di prova il giorno dopo | cron `sendDemoLessonWhatsappReminders` (`functions/src/makeWebhook.ts:runDemoLessonReminders`) | Schedulato — 19:00 Europe/Rome, WhatsApp `tipo: promemoria` via webhook Make |
+| Scadenza certificato medico | cron `sendCertificateExpiryEmails` (`functions/src/certificateEmails.ts`) | Schedulato — 09:00 Europe/Rome, email a 10 giorni dalla scadenza e il giorno stesso |
 
 In debug (`kDebugMode`) il promemoria viene inviato a **tutti** gli utenti, non solo prova, con prefisso `TEST - ` nei testi.
 
@@ -360,12 +364,37 @@ Ogni `Course` ha due flag configurabili dall'admin in creazione/duplicazione:
 
 Entrambi si applicano anche ai corsi creati tramite `RecurringCoursePage`.
 
+### WhatsApp lezioni demo (webhook Make)
+
+```
+Flutter                      Cloud Scheduler (19:00 Europe/Rome)
+  │ httpsCallable                      │
+  │ notifyDemoLessonBooked             │ sendDemoLessonWhatsappReminders
+  ▼                                    ▼
+        functions/src/makeWebhook.ts
+  │ header Demo-Reminder + body {tipo, nome, numero_di_telefono, corso, giorno, orario}
+  ▼
+Custom webhook Make → template WhatsApp approvato Meta
+```
+
+Il messaggio non lo compone l'app: lo scenario Make instrada su `tipo` (`conferma` / `promemoria`) e applica il template. Il testo si cambia in Make, senza deploy.
+
+Punti da conoscere prima di toccare questo codice:
+
+- **Il body è un contratto**: sei chiavi, tutte stringhe non vuote. Make impara lo schema dal primo payload, quindi aggiungere o rinominare un campo richiede un "Redetermine data structure" sul webhook. I parametri dei template WhatsApp non ammettono valori vuoti, newline, tab o 4+ spazi.
+- **Le iscrizioni vivono solo su `users/{uid}.courses`** (il documento corso ha solo il contatore `subscribed`): il cron parte dagli utenti `ABBONAMENTO_PROVA` e li incrocia in memoria con i corsi di domani. Due query a filtro singolo, nessun indice composito. Se `trialUsersRead` nei log cresce oltre qualche centinaio conviene filtrare anche in query con `array-contains-any` — servirebbero però `firestore.indexes.json` (oggi assente) e il chunking a 30 valori.
+- **Idempotenza e doppioni**: il claim in `demoLessonWebhookLog` è creato prima della POST e rilasciato se questa fallisce. Chi si iscrive il giorno prima riceverebbe due messaggi ravvicinati, quindi il cron salta con `already_notified_today` se la conferma è già partita nello stesso giorno di Roma.
+- **Il gate lato client non usa `kDebugMode`** (`lib/utils/is_demo_lesson_user.dart`): ogni WhatsApp è reale e a pagamento. Email e push invece in debug partono per qualunque utente.
+- **Gli errori a valle non tornano indietro**: il webhook risponde `200 Accepted` anche se il numero non è su WhatsApp o il template non è approvato. Servono le notifiche di errore dello scenario Make.
+
+Secret: `MAKE_WEBHOOK_URL` e `MAKE_WEBHOOK_KEY` in Google Secret Manager. L'URL è a tutti gli effetti una credenziale.
+
 ### Cloud Function
 
 - Source: `functions/src/`
 - Build: TypeScript → `functions/lib/`
 - Test: Jest in `functions/src/__tests__/`
-- Secret: `firebase functions:secrets:set ONESIGNAL_REST_API_KEY`
+- Secret: `firebase functions:secrets:set ONESIGNAL_REST_API_KEY` / `MAKE_WEBHOOK_URL` / `MAKE_WEBHOOK_KEY`
 - Deploy: `firebase deploy --only functions`
 
 ### Preferenze utente
@@ -404,11 +433,14 @@ Framework: `flutter_test` con `group()` e `setUp()`. Totale: ~97 test.
 
 ### Cloud Functions (functions/src/__tests__/)
 
-Test Jest sull'handler della function `sendOneSignalNotification`:
+Test Jest sugli handler, isolati dai wrapper `onCall`/`onSchedule` per girare senza emulatori:
 
 | File | Focus |
 |---|---|
 | `handler.test.ts` | Auth, validazione payload, inoltro a OneSignal, errori |
+| `certificateEmails.test.ts` | Finestre giorno DST-aware, selezione destinatari, payload, resilienza del cron |
+| `romeTime.test.ts` | Formattazione italiana di data/ora, confini DST, asimmetria nota di `romeDayWindow` |
+| `makeWebhook.test.ts` | Normalizzazione telefono, contratto del body Make, autorizzazione della callable, idempotenza, selezione del cron |
 
 Framework: `jest` + `ts-jest`. Esegui con `cd functions && npm test`.
 
@@ -456,13 +488,16 @@ flutter run -d chrome
 cd functions
 npm install            # installa dipendenze Node
 npm run build          # compila TypeScript
-npm test               # esegue test Jest (14 test)
+npm test               # esegue test Jest
 npm run serve          # avvia emulatore Firebase Functions
 
 # Deploy
 firebase deploy --only functions                        # deploy in produzione
 firebase functions:secrets:set ONESIGNAL_REST_API_KEY   # setup/aggiorna secret
+firebase functions:secrets:set MAKE_WEBHOOK_URL         # webhook Make (è una credenziale)
+firebase functions:secrets:set MAKE_WEBHOOK_KEY         # chiave header Demo-Reminder
 firebase functions:log --only sendOneSignalNotification # vedi log runtime
+firebase functions:log --only sendDemoLessonWhatsappReminders
 firebase functions:delete sendOneSignalNotification     # elimina la function
 ```
 

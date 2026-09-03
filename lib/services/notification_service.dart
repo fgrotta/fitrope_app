@@ -379,3 +379,73 @@ Future<void> sendTestCertificateExpiryEmail({
     rethrow;
   }
 }
+
+/// Notifica al webhook Make la prenotazione di una lezione di prova, per far
+/// partire il messaggio WhatsApp di conferma.
+///
+/// Passa solo gli identificativi: la Cloud Function rilegge utente e corso da
+/// Firestore ed è lei l'autorità su chi sia un utente di prova. Come il resto
+/// del file non rilancia: un webhook non raggiungibile non deve far fallire
+/// l'iscrizione, che è già andata a buon fine.
+Future<void> notifyDemoLessonBooked(String userId, String courseId) async {
+  debugPrint('📲 [Make] demoLessonBooked — userId: $userId, courseId: $courseId');
+
+  try {
+    final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
+        .httpsCallable('notifyDemoLessonBooked');
+    final result = await callable.call({
+      'userId': userId,
+      'courseId': courseId,
+    });
+    debugPrint('📲 [Make] demoLessonBooked — RESPONSE: ${result.data}');
+  } on FirebaseFunctionsException catch (e) {
+    debugPrint('📲 [Make] demoLessonBooked — ERROR ${e.code}: ${e.message}');
+  } catch (e) {
+    debugPrint('📲 [Make] demoLessonBooked — ERROR: $e');
+  }
+}
+
+/// Manda un payload di prova al webhook Make verso [numeroTelefono] e
+/// restituisce il body effettivamente inviato, così la UI di debug può
+/// mostrarlo.
+///
+/// Serve a far apprendere lo schema a Make e a provare i template WhatsApp sul
+/// proprio numero: non tocca Firestore e non registra nulla nel log degli invii.
+/// [kind] vale `'booked'` (tipo `conferma`) o `'reminder'` (tipo `promemoria`).
+/// I campi lasciati vuoti ricadono su valori di default lato function.
+Future<Map<String, String>> sendTestDemoLessonWebhook({
+  required String numeroTelefono,
+  String kind = 'booked',
+  String? nome,
+  String? corso,
+  String? giorno,
+  String? orario,
+}) async {
+  assert(kDebugMode);
+  debugPrint('📲 [Make] test webhook — kind: $kind, numero: $numeroTelefono');
+
+  try {
+    final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
+        .httpsCallable('sendTestDemoLessonWebhook');
+    final result = await callable.call({
+      'numeroTelefono': numeroTelefono,
+      'kind': kind,
+      'nome': nome ?? '',
+      'corso': corso ?? '',
+      'giorno': giorno ?? '',
+      'orario': orario ?? '',
+    });
+    debugPrint('📲 [Make] test webhook — RESPONSE: ${result.data}');
+
+    final data = result.data as Map<Object?, Object?>?;
+    final payload = data?['payload'] as Map<Object?, Object?>?;
+    if (payload == null) return const {};
+    return payload.map((key, value) => MapEntry('$key', '$value'));
+  } on FirebaseFunctionsException catch (e) {
+    debugPrint('📲 [Make] test webhook — ERROR ${e.code}: ${e.message}');
+    rethrow;
+  } catch (e) {
+    debugPrint('📲 [Make] test webhook — ERROR: $e');
+    rethrow;
+  }
+}

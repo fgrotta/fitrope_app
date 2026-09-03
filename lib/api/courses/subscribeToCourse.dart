@@ -7,6 +7,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitropeUser.dart';
 import 'package:fitrope_app/api/authentication/getUsers.dart';
 import 'package:fitrope_app/api/courses/getCourses.dart';
+import 'package:fitrope_app/utils/is_demo_lesson_user.dart';
 
 Future<void> subscribeToCourse(String courseId, String userId, {bool force = false, String? userRole}) async {
   if (userRole == 'Admin' || userRole == 'Trainer') {
@@ -123,6 +124,13 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
         } else {
           print('🔔 [subscribeToCourse] Non è ABBONAMENTO_PROVA, skip promemoria');
         }
+
+        // Conferma WhatsApp via Make. Il gate NON include kDebugMode: ogni
+        // messaggio è reale e a pagamento, a differenza di email e push.
+        if (isDemoLessonUser(updatedUser)) {
+          print('🔔 [subscribeToCourse] Utente PROVA → notifyDemoLessonBooked');
+          notifyDemoLessonBooked(userId, courseId);
+        }
       } else {
         print('🔔 [subscribeToCourse] userData null per userId: $userId');
       }
@@ -137,6 +145,12 @@ Future<void> subscribeToCourse(String courseId, String userId, {bool force = fal
           scheduleTrialReminder(userId, courseId);
         } else {
           print('🔔 [subscribeToCourse] Non è ABBONAMENTO_PROVA, skip promemoria');
+        }
+
+        // Vedi il ramo self-service: nessun bypass in debug.
+        if (isDemoLessonUser(subscribedUser)) {
+          print('🔔 [subscribeToCourse] Utente PROVA → notifyDemoLessonBooked');
+          notifyDemoLessonBooked(userId, courseId);
         }
       } else {
         print('🔔 [subscribeToCourse] subscribedUserData null per userId: $userId');

@@ -12,11 +12,37 @@ import {
   sendTestCertificateEmailHandler,
   runCertificateEmails,
 } from "./certificateEmails";
+import {
+  MakeDeps,
+  notifyDemoLessonBookedHandler,
+  postToMake,
+  runDemoLessonReminders,
+  sendTestDemoLessonWebhookHandler,
+} from "./makeWebhook";
 import { db } from "./firebaseAdmin";
 
-// Secret gestito da Google Secret Manager.
+// Secret gestiti da Google Secret Manager.
 // Setup: firebase functions:secrets:set ONESIGNAL_REST_API_KEY
 const oneSignalApiKey = defineSecret("ONESIGNAL_REST_API_KEY");
+
+// URL del Custom webhook Make e chiave inviata nell'header `Demo-Reminder`.
+// L'URL è a tutti gli effetti una credenziale: chi lo conosce può iniettare
+// messaggi WhatsApp a nostro nome, quindi non va mai in chiaro nel repo.
+// Setup: firebase functions:secrets:set MAKE_WEBHOOK_URL
+//        firebase functions:secrets:set MAKE_WEBHOOK_KEY
+const makeWebhookUrl = defineSecret("MAKE_WEBHOOK_URL");
+const makeWebhookKey = defineSecret("MAKE_WEBHOOK_KEY");
+
+const makeSecrets = [makeWebhookUrl, makeWebhookKey];
+
+/** Dipendenze del modulo Make, risolte a runtime (i secret non sono leggibili a import-time). */
+const makeDeps = (): MakeDeps => ({
+  db,
+  webhookUrl: makeWebhookUrl.value(),
+  apiKey: makeWebhookKey.value(),
+  post: postToMake,
+  now: new Date(),
+});
 
 /**
  * Proxy verso OneSignal REST API.
@@ -122,5 +148,72 @@ export const sendCertificateExpiryEmails = onSchedule(
       ensure: ensureOneSignalEmailSubscription,
       now: new Date(),
     });
+  }
+);
+
+/**
+ * Notifica via webhook Make la prenotazione di una lezione di prova, per far
+ * partire il messaggio WhatsApp di conferma.
+ *
+ * Il client passa solo gli identificativi: utente e corso vengono riletti da
+ * Firestore server-side, che è anche l'unica autorità su "è un utente di prova".
+ *
+ * Payload atteso: { userId: string, courseId: string }
+ */
+export const notifyDemoLessonBooked = onCall(
+  {
+    secrets: makeSecrets,
+    region: "europe-west8",
+    cors: true,
+  },
+  (request) =>
+    notifyDemoLessonBookedHandler(
+      { auth: request.auth ?? null, data: request.data },
+      makeDeps()
+    )
+);
+
+/**
+ * Manda un payload di prova al webhook Make, al numero indicato dal chiamante
+ * (usata dalla DebugEmailPage). Non tocca Firestore e non registra l'invio.
+ *
+ * Payload atteso: { numeroTelefono: string, kind?: "booked" | "reminder", nome?: string, corso?: string }
+ */
+export const sendTestDemoLessonWebhook = onCall(
+  {
+    secrets: makeSecrets,
+    region: "europe-west8",
+    cors: true,
+  },
+  (request) =>
+    sendTestDemoLessonWebhookHandler(
+      { auth: request.auth ?? null, data: request.data },
+      makeDeps()
+    )
+);
+
+/**
+ * Cloud Function schedulata: ogni sera alle 19:00 (ora di Roma) manda il
+ * promemoria WhatsApp agli utenti di prova iscritti a una lezione di domani.
+ *
+ * A differenza del promemoria email/push — programmato su OneSignal dal
+ * dispositivo al momento dell'iscrizione, e quindi non più annullabile — qui i
+ * destinatari sono decisi al momento dell'invio: chi si è disiscritto, o il cui
+ * corso è stato cancellato, semplicemente non compare nella query.
+ */
+export const sendDemoLessonWhatsappReminders = onSchedule(
+  {
+    schedule: "0 19 * * *",
+    timeZone: "Europe/Rome",
+    // NB: come sendCertificateExpiryEmails — Cloud Scheduler non supporta
+    // europe-west8 (Milano), quindi la schedulata sta in europe-west1. La
+    // region è ininfluente (Firestore + HTTPS) e il timeZone garantisce lo
+    // scatto alle 19:00 ora di Roma.
+    region: "europe-west1",
+    secrets: makeSecrets,
+    timeoutSeconds: 300,
+  },
+  async () => {
+    await runDemoLessonReminders(makeDeps());
   }
 );

@@ -18,6 +18,11 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   final _courseDateCtrl = TextEditingController(text: 'Lunedì 28 Aprile 2025');
   final _courseTimeCtrl = TextEditingController(text: '10:00');
   final _spotsCtrl = TextEditingController(text: '2');
+  final _phoneCtrl = TextEditingController();
+  final _whatsappNameCtrl = TextEditingController();
+  // Il WhatsApp usa un formato data diverso da quello delle email
+  // ("28 aprile 2026" vs "Lunedì 28 Aprile 2025"), quindi ha un campo suo.
+  final _whatsappDayCtrl = TextEditingController(text: '28 aprile 2026');
 
   String? _resolvedUid;
   String? _lookupError;
@@ -26,6 +31,8 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   bool _sendingReminder = false;
   bool _sendingCert10 = false;
   bool _sendingCertExpiry = false;
+  bool _sendingWhatsapp = false;
+  Map<String, String>? _lastWhatsappPayload;
 
   @override
   void initState() {
@@ -43,6 +50,9 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     _courseDateCtrl.dispose();
     _courseTimeCtrl.dispose();
     _spotsCtrl.dispose();
+    _phoneCtrl.dispose();
+    _whatsappNameCtrl.dispose();
+    _whatsappDayCtrl.dispose();
     super.dispose();
   }
 
@@ -71,9 +81,15 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
         final data = snapshot.docs.first.data();
         final uid = data['uid'] as String? ?? snapshot.docs.first.id;
         final name = data['name'] as String? ?? '';
+        final lastName = data['lastName'] as String? ?? '';
+        final phone = data['numeroTelefono'] as String? ?? '';
         setState(() {
           _resolvedUid = uid;
           if (name.isNotEmpty) _firstNameCtrl.text = name;
+          // Il WhatsApp usa nome e cognome, come il payload reale.
+          final fullName = '$name $lastName'.trim();
+          if (fullName.isNotEmpty) _whatsappNameCtrl.text = fullName;
+          if (phone.isNotEmpty) _phoneCtrl.text = phone;
         });
       }
     } catch (e) {
@@ -139,6 +155,47 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
       }
     } finally {
       if (mounted) setState(() => _sendingReminder = false);
+    }
+  }
+
+  /// Manda un payload di prova al webhook Make. A differenza degli invii email
+  /// non passa da `_resolvedUid`: il destinatario è il numero digitato qui,
+  /// così si possono provare i template WhatsApp sul proprio telefono.
+  Future<void> _sendWhatsappTest({required String kind}) async {
+    final numero = _phoneCtrl.text.trim();
+    if (numero.isEmpty) return;
+
+    setState(() {
+      _sendingWhatsapp = true;
+      _lastWhatsappPayload = null;
+    });
+    try {
+      final payload = await sendTestDemoLessonWebhook(
+        numeroTelefono: numero,
+        kind: kind,
+        nome: _whatsappNameCtrl.text,
+        corso: _courseNameCtrl.text,
+        giorno: _whatsappDayCtrl.text,
+        orario: _courseTimeCtrl.text,
+      );
+      if (mounted) {
+        setState(() => _lastWhatsappPayload = payload);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Webhook Make chiamato (tipo: '
+                '${kind == 'reminder' ? 'promemoria' : 'conferma'})'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingWhatsapp = false);
     }
   }
 
@@ -369,6 +426,113 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                 label: const Text('Certificato — scadenza oggi'),
               ),
             ),
+            const SizedBox(height: 32),
+
+            // --- WhatsApp via webhook Make ---
+            const Text('WhatsApp (webhook Make)',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Numero di telefono',
+                border: OutlineInputBorder(),
+                helperText: 'Destinatario del messaggio di prova (es. 3331234567)',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _whatsappNameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nome e cognome',
+                border: OutlineInputBorder(),
+                helperText: 'Campo `nome` del payload — vuoto = "Test Test"',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _whatsappDayCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Giorno',
+                border: OutlineInputBorder(),
+                helperText: 'Formato WhatsApp: "28 aprile 2026" (mese minuscolo, con anno)',
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Usa anche "Nome corso" e "Orario" qui sopra. '
+              'I campi vuoti ricadono su un default lato Cloud Function.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: !_sendingWhatsapp
+                    ? () => _sendWhatsappTest(kind: 'booked')
+                    : null,
+                icon: _sendingWhatsapp
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: const Text('WhatsApp — conferma prenotazione'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: !_sendingWhatsapp
+                    ? () => _sendWhatsappTest(kind: 'reminder')
+                    : null,
+                icon: _sendingWhatsapp
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.alarm_on_outlined),
+                label: const Text('WhatsApp — promemoria lezione'),
+              ),
+            ),
+            if (_lastWhatsappPayload != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Body inviato a Make',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    ..._lastWhatsappPayload!.entries.map(
+                      (e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          '${e.key}: ${e.value}',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
