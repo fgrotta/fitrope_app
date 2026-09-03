@@ -13,6 +13,11 @@ import {
   certificateReminderBody,
   certificateExpiryTodayBody,
 } from "./certificateEmailTemplates";
+import { romeDayWindow, RomeDayWindow } from "./romeTime";
+
+// Ri-esportati per compatibilità: erano definiti qui prima dell'estrazione in ./romeTime.
+export { romeDayWindow };
+export type { RomeDayWindow };
 
 // ──────────────────────────────────────────────
 //  Tipi
@@ -29,70 +34,9 @@ export interface CandidateUser {
   certificatoScadenza: Timestamp | null;
 }
 
-export interface RomeDayWindow {
-  startMs: number;
-  endMs: number;
-}
-
 interface UserDocLike {
   id: string;
   data: () => Record<string, unknown> | undefined;
-}
-
-// ──────────────────────────────────────────────
-//  Finestre giorno in Europe/Rome (DST-aware)
-// ──────────────────────────────────────────────
-
-/** Offset (in minuti) di Europe/Rome rispetto a UTC nell'istante `atUtc`. */
-function romeOffsetMinutes(atUtc: Date): number {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Rome",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  const parts: Record<string, string> = {};
-  for (const p of dtf.formatToParts(atUtc)) parts[p.type] = p.value;
-  const hour = parts.hour === "24" ? "0" : parts.hour;
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(hour),
-    Number(parts.minute),
-    Number(parts.second)
-  );
-  return (asUtc - atUtc.getTime()) / 60000;
-}
-
-/**
- * Restituisce la finestra UTC `[00:00, 23:59:59.999]` (ora di Roma) del giorno
- * `now + dayOffset` giorni civili. I certificati sono salvati a 23:59 ora di
- * Roma, quindi questa finestra li seleziona correttamente.
- */
-export function romeDayWindow(now: Date, dayOffset: number): RomeDayWindow {
-  const offNow = romeOffsetMinutes(now);
-  // Sposto `now` di modo che i campi UTC corrispondano all'orologio di Roma.
-  const romeNow = new Date(now.getTime() + offNow * 60000);
-  const y = romeNow.getUTCFullYear();
-  const mo = romeNow.getUTCMonth();
-  const d = romeNow.getUTCDate() + dayOffset;
-
-  const wallStart = Date.UTC(y, mo, d, 0, 0, 0, 0);
-  const wallEnd = Date.UTC(y, mo, d, 23, 59, 59, 999);
-
-  // Ricavo l'offset effettivo del giorno target (CET/CEST possono differire da oggi).
-  const approx = new Date(wallStart - offNow * 60000);
-  const offTarget = romeOffsetMinutes(approx);
-
-  return {
-    startMs: wallStart - offTarget * 60000,
-    endMs: wallEnd - offTarget * 60000,
-  };
 }
 
 // ──────────────────────────────────────────────
