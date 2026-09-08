@@ -38,6 +38,14 @@ class ExpandableCourseTile extends StatelessWidget {
   /// Stato aperto: la card con la foto.
   final Widget expandedChild;
 
+  /// Chiamata toccando la card aperta. Serve perché aprendo la riga sparisce:
+  /// senza questo non ci sarebbe modo di tornare alla lista.
+  ///
+  /// Il tocco NON viene rubato ai pulsanti dentro la card: nell'arena dei
+  /// gesti vincono loro sulla propria area, quindi "Prenotati" prenota e il
+  /// resto della card chiude.
+  final VoidCallback? onCollapse;
+
   final Duration duration;
 
   const ExpandableCourseTile({
@@ -45,6 +53,7 @@ class ExpandableCourseTile extends StatelessWidget {
     required this.expanded,
     required this.collapsed,
     required this.expandedChild,
+    this.onCollapse,
     this.duration = kCourseTileAnimationDuration,
   });
 
@@ -58,7 +67,13 @@ class ExpandableCourseTile extends StatelessWidget {
           ? _ZoomFromTopLeft(
               key: const Key('tile-card'),
               duration: duration,
-              child: expandedChild,
+              child: onCollapse == null
+                  ? expandedChild
+                  : GestureDetector(
+                      key: const Key('tile-card-collapse'),
+                      onTap: onCollapse,
+                      child: expandedChild,
+                    ),
             )
           : KeyedSubtree(key: const Key('tile-row'), child: collapsed),
     );

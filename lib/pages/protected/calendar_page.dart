@@ -547,6 +547,8 @@ class _CalendarPageState extends State<CalendarPage> {
         onTap: () => setState(() => _accordion.toggle(course.uid)),
         onAction: () => _onAgendaRowAction(course),
       ),
+      // La riga che l'ha aperta non c'è più: toccare la card la richiude.
+      onCollapse: () => setState(() => _accordion.collapse()),
       expandedChild: _cappedOnDesktop(_buildCourseCard(course)),
     );
   }

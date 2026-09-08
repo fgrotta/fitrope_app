@@ -9,16 +9,30 @@ void main() {
     WidgetTester tester, {
     required bool expanded,
     VoidCallback? onTap,
+    VoidCallback? onCollapse,
+    VoidCallback? onCardButton,
   }) async {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: ExpandableCourseTile(
           expanded: expanded,
+          onCollapse: onCollapse,
           collapsed: GestureDetector(
             onTap: onTap ?? () {},
             child: const SizedBox(height: 64, child: Text('riga')),
           ),
-          expandedChild: const SizedBox(height: 210, child: Text('card')),
+          expandedChild: SizedBox(
+            height: 210,
+            child: Column(
+              children: [
+                const Text('card'),
+                ElevatedButton(
+                  onPressed: onCardButton ?? () {},
+                  child: const Text('Prenotati'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     ));
@@ -111,5 +125,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('riga'), findsNothing);
     expect(tapped, 0);
+  });
+
+  group('chiusura al tocco sulla card', () {
+    testWidgets('toccare la card aperta la richiude', (tester) async {
+      // La riga che l'aveva aperta non c'è più: senza questo, la card resta
+      // aperta e non c'è modo di tornare alla lista.
+      var closed = 0;
+      await pump(tester, expanded: true, onCollapse: () => closed++);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('card'));
+      expect(closed, 1);
+    });
+
+    testWidgets('un pulsante dentro la card riceve il tocco, non la chiusura',
+        (tester) async {
+      // "Prenotati" deve prenotare: se la chiusura mangiasse il tocco, dalla
+      // card aperta non si potrebbe più agire sul corso.
+      var closed = 0, pressed = 0;
+      await pump(
+        tester,
+        expanded: true,
+        onCollapse: () => closed++,
+        onCardButton: () => pressed++,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Prenotati'));
+      await tester.pump();
+      expect(pressed, 1);
+      expect(closed, 0);
+    });
+
+    testWidgets('chiusa, la card non è nell\'albero e non chiude nulla',
+        (tester) async {
+      var closed = 0;
+      await pump(tester, expanded: false, onCollapse: () => closed++);
+      await tester.pumpAndSettle();
+      expect(find.text('card'), findsNothing);
+      expect(closed, 0);
+    });
+
+    testWidgets('senza onCollapse la card resta semplicemente non toccabile',
+        (tester) async {
+      await pump(tester, expanded: true);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('card'));
+      expect(tester.takeException(), isNull);
+    });
   });
 }

@@ -754,11 +754,12 @@ class _CourseCardState extends State<CourseCard> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (widget.onClick != null) {
-          widget.onClick!();
-        }
-      },
+      // `onTap` deve essere NULL quando non c'è un `onClick`, non una callback
+      // che controlla il null al suo interno: con un handler sempre presente
+      // questo GestureDetector vince l'arena dei gesti e ingoia i tocchi
+      // destinati a un genitore. È così che la tile espandibile del calendario
+      // non riusciva più a richiudersi al tocco sulla card.
+      onTap: widget.onClick == null ? null : () => widget.onClick!(),
       child: Container(
         decoration: const BoxDecoration(
           color: primaryLightColor,

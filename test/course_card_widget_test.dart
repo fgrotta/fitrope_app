@@ -169,4 +169,50 @@ void main() {
       expect(find.text('Nessun iscritto'), findsOneWidget);
     });
   });
+
+  group('senza onClick la card non intercetta i tocchi', () {
+    // La tile espandibile del calendario avvolge la card in un GestureDetector
+    // per richiuderla al tocco. Se la card tiene un onTap sempre non-null
+    // (una callback che controlla `onClick` al suo interno) vince l'arena dei
+    // gesti e quel wrapper non riceve mai nulla: la riga aperta resta aperta.
+    testWidgets('un tocco arriva al genitore', (tester) async {
+      var esterno = 0;
+      await _pump(
+        tester,
+        GestureDetector(
+          onTap: () => esterno++,
+          child: CourseCard(
+            courseId: 'c1',
+            course: _course(),
+            title: 'Corso Test',
+            onRefresh: () {},
+          ),
+        ),
+      );
+      await tester.tap(find.text('Corso Test'));
+      await tester.pump();
+      expect(esterno, 1);
+    });
+
+    testWidgets('con onClick il tocco resta alla card', (tester) async {
+      var esterno = 0, interno = 0;
+      await _pump(
+        tester,
+        GestureDetector(
+          onTap: () => esterno++,
+          child: CourseCard(
+            courseId: 'c1',
+            course: _course(),
+            title: 'Corso Test',
+            onClick: () => interno++,
+            onRefresh: () {},
+          ),
+        ),
+      );
+      await tester.tap(find.text('Corso Test'));
+      await tester.pump();
+      expect(interno, 1);
+      expect(esterno, 0);
+    });
+  });
 }
