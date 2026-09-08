@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
-/// Durata della transizione riga ↔ card.
+/// Durata dell'**apertura**.
 ///
 /// Tarata sulla POC (variante "A2 · Zoom dalla riga"). Vive in una costante
-/// sola perché è il numero che più probabilmente verrà ritoccato a occhio dopo
-/// averlo visto sull'app vera.
+/// sola perché è il numero che più probabilmente verrà ritoccato a occhio.
 const Duration kCourseTileAnimationDuration = Duration(milliseconds: 320);
 
-/// Decelera in fondo: l'apertura "si posa" invece di fermarsi di colpo.
+/// Durata della **chiusura**: l'inversa dell'apertura, un po' più rapida.
+/// Chi chiude ha già visto la card e vuole tornare alla lista: farlo aspettare
+/// quanto all'apertura fa sembrare l'interfaccia lenta.
+const Duration kCourseTileCloseDuration = Duration(milliseconds: 240);
+
+/// Decelera in fondo: il movimento "si posa" invece di fermarsi di colpo.
 const Curve kCourseTileAnimationCurve = Cubic(0.22, 0.61, 0.36, 1.0);
 
 /// Scala di partenza della card. Non parte da zero: il salto 0→1 legge come un
@@ -18,18 +22,20 @@ const double kCourseTileCardStartScale = 0.94;
 /// trasformandosi, non aprendo un secondo blocco sotto di sé.
 ///
 /// L'animazione è la variante "A2 · Zoom dalla riga" scelta in POC: la card
-/// entra scalando **dal vertice in alto a sinistra**, che è l'unico punto che i
-/// due stati hanno in comune, mentre [AnimatedSize] porta l'altezza da quella
-/// della riga a quella della card. È l'origine condivisa a far leggere il
-/// passaggio come una trasformazione: la prima versione impilava i due stati in
-/// verticale e sembrava che si aprisse *un'altra* riga.
+/// entra scalando **dal vertice in alto a sinistra**, l'unico punto che i due
+/// stati hanno in comune, mentre l'altezza va da quella della riga a quella
+/// della card. È l'origine condivisa a far leggere il passaggio come una
+/// trasformazione. La chiusura ripercorre la stessa strada al contrario, in
+/// [kCourseTileCloseDuration].
 ///
-/// **Un solo layer per volta.** Tenerli entrambi in uno `Stack` e scambiarne lo
-/// slot a seconda di chi dimensiona faceva ricostruire l'albero del layer
-/// entrante, e l'animazione non partiva affatto (bug preso da
-/// `expandable_course_tile_test.dart`). Con un figlio solo la card viene
-/// montata al momento dell'apertura e la sua animazione parte davvero.
-class ExpandableCourseTile extends StatelessWidget {
+/// **Perché un AnimationController e non le animazioni implicite.** In
+/// chiusura la card deve restare montata mentre esce, e nello stesso momento
+/// deve essere la riga a dettare l'altezza — quindi i due layer si scambiano di
+/// posto nello `Stack`. Cambiando slot, un `AnimatedScale`/`AnimatedOpacity`
+/// viene ricostruito e perde lo stato: l'animazione non parte (bug preso dai
+/// test di questo file). I valori calcolati da un controller esplicito, invece,
+/// sopravvivono a qualunque rebuild.
+class ExpandableCourseTile extends StatefulWidget {
   final bool expanded;
 
   /// Stato chiuso: la riga d'agenda.
@@ -47,6 +53,7 @@ class ExpandableCourseTile extends StatelessWidget {
   final VoidCallback? onCollapse;
 
   final Duration duration;
+  final Duration closeDuration;
 
   const ExpandableCourseTile({
     super.key,
@@ -55,65 +62,116 @@ class ExpandableCourseTile extends StatelessWidget {
     required this.expandedChild,
     this.onCollapse,
     this.duration = kCourseTileAnimationDuration,
+    this.closeDuration = kCourseTileCloseDuration,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: duration,
-      curve: kCourseTileAnimationCurve,
-      alignment: Alignment.topCenter,
-      child: expanded
-          ? _ZoomFromTopLeft(
-              key: const Key('tile-card'),
-              duration: duration,
-              child: onCollapse == null
-                  ? expandedChild
-                  : GestureDetector(
-                      key: const Key('tile-card-collapse'),
-                      onTap: onCollapse,
-                      child: expandedChild,
-                    ),
-            )
-          : KeyedSubtree(key: const Key('tile-row'), child: collapsed),
-    );
-  }
+  State<ExpandableCourseTile> createState() => _ExpandableCourseTileState();
 }
 
-/// Entra scalando dal vertice in alto a sinistra, con l'opacità agganciata
-/// **allo stesso avanzamento** della scala: due animazioni separate sulla
-/// stessa transizione finiscono per sfasarsi.
-class _ZoomFromTopLeft extends StatelessWidget {
-  final Widget child;
-  final Duration duration;
+class _ExpandableCourseTileState extends State<ExpandableCourseTile>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _curved;
 
-  const _ZoomFromTopLeft({
-    super.key,
-    required this.child,
-    required this.duration,
-  });
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+      reverseDuration: widget.closeDuration,
+      value: widget.expanded ? 1 : 0,
+    );
+    _curved = CurvedAnimation(
+      parent: _controller,
+      curve: kCourseTileAnimationCurve,
+      reverseCurve: kCourseTileAnimationCurve.flipped,
+    );
+  }
+
+  @override
+  void didUpdateWidget(ExpandableCourseTile old) {
+    super.didUpdateWidget(old);
+    _controller.duration = widget.duration;
+    _controller.reverseDuration = widget.closeDuration;
+    if (widget.expanded != old.expanded) {
+      widget.expanded ? _controller.forward() : _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: kCourseTileCardStartScale, end: 1),
-      duration: duration,
-      curve: kCourseTileAnimationCurve,
-      builder: (context, scale, child) {
-        final progress = ((scale - kCourseTileCardStartScale) /
-                (1 - kCourseTileCardStartScale))
-            .clamp(0.0, 1.0);
-        return Opacity(
-          key: const Key('tile-card-opacity'),
-          opacity: progress,
-          child: Transform.scale(
-            scale: scale,
+    return AnimatedBuilder(
+      animation: _curved,
+      builder: (context, _) {
+        final t = _curved.value;
+
+        // A regime chiuso la card non sta nemmeno nell'albero: una lista di
+        // corsi non deve tenere in memoria una card per riga.
+        if (t == 0) {
+          return AnimatedSize(
+            duration: widget.closeDuration,
+            curve: kCourseTileAnimationCurve,
+            alignment: Alignment.topCenter,
+            child: widget.collapsed,
+          );
+        }
+
+        final closing = _controller.status == AnimationStatus.reverse;
+        final card = _card(t, interactive: !closing);
+
+        return AnimatedSize(
+          // In chiusura l'altezza deve rientrare col ritmo della chiusura.
+          duration: closing ? widget.closeDuration : widget.duration,
+          curve: kCourseTileAnimationCurve,
+          alignment: Alignment.topCenter,
+          child: Stack(
             alignment: Alignment.topLeft,
-            child: child,
+            clipBehavior: Clip.hardEdge,
+            children: closing
+                // Chiudendo è la riga a dettare l'altezza, così AnimatedSize
+                // la riporta giù; la card le passa sopra mentre si ritira.
+                ? [
+                    widget.collapsed,
+                    Positioned(top: 0, left: 0, right: 0, child: card),
+                  ]
+                // Aprendo e da aperta comanda la card.
+                : [card],
           ),
         );
       },
-      child: child,
+    );
+  }
+
+  Widget _card(double t, {required bool interactive}) {
+    final scale =
+        kCourseTileCardStartScale + (1 - kCourseTileCardStartScale) * t;
+    Widget child = widget.expandedChild;
+    if (interactive && widget.onCollapse != null) {
+      child = GestureDetector(
+        key: const Key('tile-card-collapse'),
+        onTap: widget.onCollapse,
+        child: child,
+      );
+    }
+    return IgnorePointer(
+      ignoring: !interactive,
+      child: Opacity(
+        key: const Key('tile-card-opacity'),
+        opacity: t.clamp(0.0, 1.0),
+        child: Transform.scale(
+          scale: scale,
+          alignment: Alignment.topLeft,
+          child: child,
+        ),
+      ),
     );
   }
 }

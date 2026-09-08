@@ -88,9 +88,13 @@ void main() {
     // Questo test ha già preso un bug vero: scambiando lo slot dei due layer
     // in uno Stack, il layer entrante veniva ricostruito e la scala nasceva
     // già a 1 — l'animazione non partiva affatto.
+    // Si parte da chiusa e si apre: è il percorso vero. Montare già aperto
+    // NON anima, per scelta (vedi il test dedicato più sotto).
+    await pump(tester, expanded: false);
+    await tester.pumpAndSettle();
     await pump(tester, expanded: true);
-    await tester.pump(); // primo frame: il tween è al valore iniziale
-    expect(cardScale(tester), closeTo(kCourseTileCardStartScale, 0.001));
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(cardScale(tester), closeTo(kCourseTileCardStartScale, 0.01));
 
     await tester.pump(const Duration(milliseconds: 160)); // metà di 320ms
     final meta = cardScale(tester);
@@ -103,9 +107,11 @@ void main() {
 
   testWidgets('l\'opacità della card segue lo stesso avanzamento della scala',
       (tester) async {
+    await pump(tester, expanded: false);
+    await tester.pumpAndSettle();
     await pump(tester, expanded: true);
-    await tester.pump();
-    expect(cardOpacity(tester), closeTo(0.0, 0.01));
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(cardOpacity(tester), closeTo(0.0, 0.02));
     await tester.pumpAndSettle();
     expect(cardOpacity(tester), closeTo(1.0, 0.001));
   });
@@ -172,5 +178,78 @@ void main() {
       await tester.tap(find.text('card'));
       expect(tester.takeException(), isNull);
     });
+  });
+
+  group('chiusura: animazione inversa, piu\' rapida', () {
+    test('la durata di chiusura e\' minore di quella di apertura', () {
+      expect(kCourseTileCloseDuration, lessThan(kCourseTileAnimationDuration));
+    });
+
+    testWidgets('chiudendo la card rimpicciolisce invece di sparire di colpo',
+        (tester) async {
+      await pump(tester, expanded: true);
+      await tester.pumpAndSettle();
+      expect(cardScale(tester), closeTo(1.0, 0.001));
+
+      await pump(tester, expanded: false);
+      await tester.pump(const Duration(milliseconds: 1));
+      // ancora nell'albero, e in ritirata verso la scala di partenza
+      expect(find.text('card'), findsOneWidget);
+      final s1 = cardScale(tester);
+      expect(s1, lessThan(1.0));
+
+      await tester.pump(kCourseTileCloseDuration ~/ 2);
+      expect(cardScale(tester), lessThan(s1),
+          reason: 'la scala deve continuare a scendere');
+
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a chiusura conclusa la card non e\' piu\' nell\'albero',
+        (tester) async {
+      await pump(tester, expanded: true);
+      await tester.pumpAndSettle();
+      await pump(tester, expanded: false);
+      await tester.pumpAndSettle();
+      expect(find.text('card'), findsNothing);
+      expect(find.text('riga'), findsOneWidget);
+    });
+
+    testWidgets('la chiusura si completa prima dell\'apertura', (tester) async {
+      // Stessa finestra temporale: la chiusura e\' finita, l'apertura no.
+      await pump(tester, expanded: true);
+      await tester.pumpAndSettle();
+      final apertaH = tester.getSize(find.byType(ExpandableCourseTile)).height;
+
+      await pump(tester, expanded: false);
+      await tester.pump(kCourseTileCloseDuration);
+      await tester.pump(const Duration(milliseconds: 16));
+      final dopoChiusura =
+          tester.getSize(find.byType(ExpandableCourseTile)).height;
+      expect(dopoChiusura, lessThan(apertaH));
+      await tester.pumpAndSettle();
+      final chiusaH = tester.getSize(find.byType(ExpandableCourseTile)).height;
+      expect(dopoChiusura, closeTo(chiusaH, 1.0),
+          reason: 'entro la durata di chiusura deve essere gia\' a regime');
+
+      // l'apertura, nella stessa finestra, non e\' ancora finita
+      await pump(tester, expanded: true);
+      await tester.pump(kCourseTileCloseDuration);
+      final aMetaApertura =
+          tester.getSize(find.byType(ExpandableCourseTile)).height;
+      expect(aMetaApertura, lessThan(apertaH));
+      await tester.pumpAndSettle();
+    });
+  });
+
+  testWidgets('montata già aperta NON anima: sarebbe un rizoom a ogni rebuild',
+      (tester) async {
+    // La lista del calendario si ridisegna per molte ragioni (refresh degli
+    // iscritti, cambio di stato del corso). Se il primo build animasse,
+    // la riga aperta rifarebbe lo zoom ogni volta.
+    await pump(tester, expanded: true);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(cardScale(tester), closeTo(1.0, 0.001));
+    expect(cardOpacity(tester), closeTo(1.0, 0.001));
   });
 }
