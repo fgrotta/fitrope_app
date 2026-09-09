@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -127,6 +129,37 @@ void main() {
       await pumpWithState(tester, CourseState.CLOSED);
       expect(find.byType(ElevatedButton), findsNothing);
     });
+
+    testWidgets('resta disabilitato finché la callback asincrona non termina',
+        (tester) async {
+      final completion = Completer<void>();
+      var calls = 0;
+      await _pump(
+        tester,
+        CourseCard(
+          courseId: 'c1',
+          course: _course(),
+          title: 'Corso',
+          courseState: CourseState.CAN_SUBSCRIBE,
+          onClickAction: () {
+            calls++;
+            return completion.future;
+          },
+          onRefresh: () {},
+        ),
+      );
+
+      final buttonFinder = find.widgetWithText(ElevatedButton, 'Prenotati');
+      await tester.tap(buttonFinder);
+      await tester.pump();
+
+      expect(calls, 1);
+      expect(tester.widget<ElevatedButton>(buttonFinder).onPressed, isNull);
+
+      completion.complete();
+      await tester.pump();
+      expect(tester.widget<ElevatedButton>(buttonFinder).onPressed, isNotNull);
+    });
   });
 
   group('lista iscritti espandibile (vista admin)', () {
@@ -167,6 +200,52 @@ void main() {
       await tester.tap(find.byIcon(Icons.expand_more));
       await tester.pump();
       expect(find.text('Nessun iscritto'), findsOneWidget);
+    });
+  });
+
+  group('senza onClick la card non intercetta i tocchi', () {
+    // La tile espandibile del calendario avvolge la card in un GestureDetector
+    // per richiuderla al tocco. Se la card tiene un onTap sempre non-null
+    // (una callback che controlla `onClick` al suo interno) vince l'arena dei
+    // gesti e quel wrapper non riceve mai nulla: la riga aperta resta aperta.
+    testWidgets('un tocco arriva al genitore', (tester) async {
+      var esterno = 0;
+      await _pump(
+        tester,
+        GestureDetector(
+          onTap: () => esterno++,
+          child: CourseCard(
+            courseId: 'c1',
+            course: _course(),
+            title: 'Corso Test',
+            onRefresh: () {},
+          ),
+        ),
+      );
+      await tester.tap(find.text('Corso Test'));
+      await tester.pump();
+      expect(esterno, 1);
+    });
+
+    testWidgets('con onClick il tocco resta alla card', (tester) async {
+      var esterno = 0, interno = 0;
+      await _pump(
+        tester,
+        GestureDetector(
+          onTap: () => esterno++,
+          child: CourseCard(
+            courseId: 'c1',
+            course: _course(),
+            title: 'Corso Test',
+            onClick: () => interno++,
+            onRefresh: () {},
+          ),
+        ),
+      );
+      await tester.tap(find.text('Corso Test'));
+      await tester.pump();
+      expect(interno, 1);
+      expect(esterno, 0);
     });
   });
 }

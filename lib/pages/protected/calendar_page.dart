@@ -10,7 +10,13 @@ import 'package:fitrope_app/components/course_filter_bar.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
+import 'package:fitrope_app/components/course_agenda_row.dart';
+import 'package:fitrope_app/components/course_card.dart' show CourseState;
+import 'package:fitrope_app/components/expandable_course_tile.dart';
+import 'package:fitrope_app/utils/course_accordion.dart';
 import 'package:fitrope_app/utils/course_filters.dart';
+import 'package:fitrope_app/utils/get_course_state.dart';
+import 'package:fitrope_app/utils/user_display_utils.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/components/loader.dart';
@@ -54,6 +60,11 @@ class _CalendarPageState extends State<CalendarPage> {
   final Set<String> _typeFilter = {};
   // null = default in base al layout (mese su desktop, settimana su mobile);
   // una volta che l'utente usa il toggle, il valore esplicito resta per la sessione.
+  // Quale corso è aperto nella lista: al massimo uno (vedi CourseAccordion).
+  final CourseAccordion _accordion = CourseAccordion();
+  // Le azioni server-side restano bloccate per corso fino al completamento:
+  // evita doppi dialog e doppie callable dai pulsanti dell'agenda.
+  final Set<String> _processingCourseUids = {};
   bool? _monthExpanded;
   bool _fabOpen = false; // speed-dial CTA admin (solo mobile/tablet)
 
@@ -61,7 +72,10 @@ class _CalendarPageState extends State<CalendarPage> {
 
   // Usato solo dall'empty state del filtro: nella barra si deseleziona
   // toccando di nuovo il chip.
-  void _clearFilters() => setState(() => _typeFilter.clear());
+  void _clearFilters() => setState(() {
+        _typeFilter.clear();
+        _accordion.collapse();
+      });
 
   static void _toggle(Set<String> set, String key) =>
       set.contains(key) ? set.remove(key) : set.add(key);
@@ -117,18 +131,20 @@ class _CalendarPageState extends State<CalendarPage> {
         .remove(oldCourse);
   }
 
-  void updateCourses() {
+  Future<void> updateCourses() async {
     invalidateUsersCache();
     user = store.state.user!;
     invalidateCoursesCache();
     selectedCourses = [];
-    getAllCourses().then((List<Course> response) {
-      if (mounted) {
-        refreshCourseMap(response);
-        onSelectDate(currentDate);
-        store.dispatch(SetAllCoursesAction(response));
-      }
-    });
+    try {
+      final response = await getAllCourses();
+      if (!mounted) return;
+      refreshCourseMap(response);
+      onSelectDate(currentDate);
+      store.dispatch(SetAllCoursesAction(response));
+    } catch (error) {
+      debugPrint('Errore nell\'aggiornamento dei corsi: $error');
+    }
   }
 
   void onSelectDate(DateTime selectedDate) {
@@ -138,19 +154,23 @@ class _CalendarPageState extends State<CalendarPage> {
     if (coursesByDate[indexDate] != null) {
       selectedCourses = coursesByDate[indexDate]!;
     }
+    // Cambiando giorno si riparte da tutte chiuse: la riga aperta apparteneva
+    // alla giornata precedente. NB: i filtri invece NON si azzerano.
+    _accordion.collapse();
 
     setState(() {});
   }
 
-  void onSubscribe(Course course) async {
+  Future<void> onSubscribe(Course course) async {
     bool accepted =
         await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted || !mounted) return;
 
-    subscribeToCourse(course.id, user.uid).then((_) {
+    try {
+      await subscribeToCourse(course.uid, user.uid);
       if (!mounted) return;
-      updateCourses();
-    }).catchError((e) {
+      await updateCourses();
+    } catch (e) {
       // Da PR4 il server può rifiutare (idoneità/limiti/capienza/corso chiuso):
       // senza questo handler il fallimento sarebbe silenzioso.
       debugPrint('❌ Errore durante l\'iscrizione: $e');
@@ -160,10 +180,10 @@ class _CalendarPageState extends State<CalendarPage> {
           'Errore durante l\'iscrizione: $e',
         );
       }
-    });
+    }
   }
 
-  void onUnsubscribe(Course course) async {
+  Future<void> onUnsubscribe(Course course) async {
     try {
       debugPrint('🔄 Inizio disiscrizione per corso: ${course.name}');
 
@@ -191,7 +211,7 @@ class _CalendarPageState extends State<CalendarPage> {
             debugPrint('⚠️ Errore nell\'aggiornamento stato utente: $e');
           }
         }
-        updateCourses();
+        await updateCourses();
         // Mostra messaggio di successo
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -215,8 +235,8 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  void onJoinWaitlist(Course course) {
-    WaitlistUiHelper.showJoinWaitlistDialog(
+  Future<void> onJoinWaitlist(Course course) {
+    return WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
       course: course,
       userId: user.uid,
@@ -225,8 +245,8 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  void onLeaveWaitlist(Course course) {
-    WaitlistUiHelper.handleLeaveWaitlist(
+  Future<void> onLeaveWaitlist(Course course) {
+    return WaitlistUiHelper.handleLeaveWaitlist(
       context: context,
       course: course,
       userId: user.uid,
@@ -518,6 +538,72 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  /// Una tile per corso: chiusa è la riga d'agenda, aperta è la card di sempre.
+  /// L'animazione (zoom dal vertice in alto a sinistra) sta in
+  /// `ExpandableCourseTile`.
+  Widget _buildCourseTile(Course course) {
+    return ExpandableCourseTile(
+      key: ValueKey('tile-${course.uid}'),
+      expanded: _accordion.isExpanded(course.uid),
+      collapsed: CourseAgendaRow(
+        course: course,
+        courseState: getCourseState(course, user),
+        trainerName:
+            UserDisplayUtils.getTrainerName(course.trainerId, trainers),
+        onTap: () => setState(() => _accordion.toggle(course.uid)),
+        onAction: () => _onAgendaRowAction(course),
+        isProcessing: _processingCourseUids.contains(course.uid),
+      ),
+      // La riga che l'ha aperta non c'è più: toccare la card la richiude.
+      onCollapse: () => setState(() => _accordion.collapse()),
+      expandedChild: _cappedOnDesktop(_buildCourseCard(course)),
+    );
+  }
+
+  /// Su desktop la card aperta non prende tutta la larghezza della colonna:
+  /// a 1440px diventerebbe un banner larghissimo e basso, con la foto stirata
+  /// e il testo perso in un angolo. Sotto i 900px il tetto non morde.
+  Widget _cappedOnDesktop(Widget card) {
+    if (!isDesktop(context)) return card;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: card,
+      ),
+    );
+  }
+
+  /// L'azione della riga compatta segue le stesse diramazioni della card: è la
+  /// stessa `courseState` a deciderle, quindi non c'è un secondo albero di
+  /// decisioni da tenere allineato.
+  Future<void> _onAgendaRowAction(Course course) async {
+    var started = false;
+    setState(() {
+      started = _processingCourseUids.add(course.uid);
+    });
+    if (!started) return;
+
+    try {
+      switch (getCourseState(course, user)) {
+        case CourseState.SUBSCRIBED:
+          await onUnsubscribe(course);
+        case CourseState.CAN_WAITLIST:
+          await onJoinWaitlist(course);
+        case CourseState.IN_WAITLIST:
+          await onLeaveWaitlist(course);
+        default:
+          await onSubscribe(course);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingCourseUids.remove(course.uid));
+      } else {
+        _processingCourseUids.remove(course.uid);
+      }
+    }
+  }
+
   Widget _buildCourseCard(Course course) {
     return CoursePreviewCard(
       key: ValueKey(course.uid),
@@ -600,45 +686,28 @@ class _CalendarPageState extends State<CalendarPage> {
   Widget _buildFilterBar() => CourseFilterBar(
         courses: selectedCourses,
         selectedTypes: _typeFilter,
-        onToggleType: (key) => setState(() => _toggle(_typeFilter, key)),
+        // Cambiando filtro la riga aperta si chiude: l'uid resterebbe puntato
+        // a un corso che il filtro ha nascosto, e riapparirebbe da solo
+        // togliendo il filtro.
+        onToggleType: (key) => setState(() {
+          _toggle(_typeFilter, key);
+          _accordion.collapse();
+        }),
         onShowAll: _clearFilters,
       );
 
-  // Numero di colonne in base alla larghezza disponibile: 1 su mobile,
-  // 2-3 su desktop per sfruttare lo spazio orizzontale.
-  int _columnsFor(double width) {
-    const minCardWidth = 340.0;
-    return (width / minCardWidth).floor().clamp(1, 3);
-  }
-
-  // Dispone le card su [columns] colonne con layout "masonry" (round-robin):
-  // ogni colonna impacchetta le proprie card, gestendo bene le altezze variabili.
-  Widget _buildCards(List<Course> list, int columns) {
-    if (columns <= 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: list.map(_buildCourseCard).toList(),
-      );
-    }
-
-    final cols = List.generate(columns, (_) => <Widget>[]);
-    for (var i = 0; i < list.length; i++) {
-      cols[i % columns].add(_buildCourseCard(list[i]));
-    }
-
-    final rowChildren = <Widget>[];
-    for (var c = 0; c < columns; c++) {
-      if (c > 0) rowChildren.add(const SizedBox(width: 12));
-      rowChildren.add(Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: cols[c],
-        ),
-      ));
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: rowChildren,
+  /// L'agenda è a **colonna singola a ogni larghezza**: la colonna orario a
+  /// sinistra è la spina della lista, e affiancare due colonne di righe
+  /// spezzerebbe l'ordine cronologico — si leggerebbe 07:00, 14:00, 08:00,
+  /// 17:00. Sostituisce la griglia masonry multi-colonna che c'era prima, che
+  /// aveva senso con le card alte ma non con righe da 64px.
+  ///
+  /// Su desktop lo spazio orizzontale non si spreca: da 900px in su la riga
+  /// distribuisce orario, titolo, meta, posti e azione su una riga sola.
+  Widget _buildAgenda(List<Course> list) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: list.map(_buildCourseTile).toList(),
     );
   }
 
@@ -655,10 +724,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final visible = applyCourseFilters(selectedCourses, types: _typeFilter);
     if (visible.isEmpty) return _buildFilteredEmptyState();
 
-    return LayoutBuilder(
-      builder: (context, constraints) =>
-          _buildCards(visible, _columnsFor(constraints.maxWidth)),
-    );
+    return _buildAgenda(visible);
   }
 
   // Empty state distinto da quello del giorno senza corsi: qui i corsi ci sono,

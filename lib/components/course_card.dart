@@ -1,4 +1,5 @@
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/utils/course_action_style.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/capacity_color.dart';
 import 'package:fitrope_app/utils/course_images.dart';
@@ -35,8 +36,8 @@ class CourseCard extends StatefulWidget {
   final TextStyle? titleStyle;
   final String description;
   final TextStyle? descriptionStyle;
-  final Function? onClick;
-  final Function? onClickAction;
+  final VoidCallback? onClick;
+  final Future<void> Function()? onClickAction;
   final CourseState courseState;
   final int? capacity;
   final int? subscribed;
@@ -713,63 +714,16 @@ class _CourseCardState extends State<CourseCard> {
   }
 
   Widget renderButtonSubscribe() {
-    late String buttonText;
-    late Color buttonColor;
-    late Color buttonTextColor;
-    bool canBeClicked = false;
-
-    if (widget.courseState == CourseState.CAN_SUBSCRIBE) {
-      canBeClicked = true;
-      buttonText = 'Prenotati';
-      buttonColor = ghostColor;
-      buttonTextColor = Colors.white;
-    } else if (widget.courseState == CourseState.CLOSED) {
-      return const SizedBox.shrink();
-    } else if (widget.courseState == CourseState.NULL) {
-      buttonText = 'Non disponibile';
-      buttonColor = primaryLightColor;
-      buttonTextColor = onPrimaryColor;
-    } else if (widget.courseState == CourseState.LIMIT) {
-      buttonText = 'Limite entrate settimanali raggiunto';
-      buttonColor = primaryLightColor;
-      buttonTextColor = onPrimaryColor;
-    } else if (widget.courseState == CourseState.FULL) {
-      buttonText = 'Corso pieno';
-      buttonColor = primaryLightColor;
-      buttonTextColor = onPrimaryColor;
-    } else if (widget.courseState == CourseState.SUBSCRIBE_LIMIT) {
-      buttonText = 'Entrate disponibili esaurite';
-      buttonColor = primaryLightColor;
-      buttonTextColor = onPrimaryColor;
-    } else if (widget.courseState == CourseState.EXPIRED) {
-      buttonText = 'Abbonamento scaduto';
-      buttonColor = primaryLightColor;
-      buttonTextColor = onPrimaryColor;
-    } else if (widget.courseState == CourseState.SUBSCRIBED) {
-      buttonText = 'Rimuovi iscrizione';
-      buttonColor = dangerColor;
-      buttonTextColor = Colors.white;
-      canBeClicked = true;
-    } else if (widget.courseState == CourseState.CAN_WAITLIST) {
-      canBeClicked = true;
-      buttonText = 'Lista d\'attesa';
-      buttonColor = Colors.orange;
-      buttonTextColor = Colors.white;
-    } else if (widget.courseState == CourseState.IN_WAITLIST) {
-      canBeClicked = true;
-      buttonText = 'Esci dalla lista d\'attesa';
-      buttonColor = dangerColor;
-      buttonTextColor = Colors.white;
-    } else if (widget.courseState == CourseState.WAITLIST_SPOT_AVAILABLE) {
-      canBeClicked = true;
-      buttonText = 'Posto disponibile! Iscriviti ora';
-      buttonColor = ghostColor;
-      buttonTextColor = Colors.white;
-    }
+    // Etichetta, colori e cliccabilità vengono da `courseActionStyleFor`: la
+    // stessa tabella la usa la riga compatta dell'agenda, così i due punti non
+    // divergono. Qui resta solo la parte con effetti: il lock `_isProcessing`
+    // mentre la callable è in volo.
+    final action = courseActionStyleFor(widget.courseState);
+    if (action == null) return const SizedBox.shrink();
 
     return ElevatedButton(
       key: Key('course-action-button-${widget.course.uid}'),
-      onPressed: canBeClicked && !_isProcessing
+      onPressed: action.enabled && !_isProcessing
           ? () async {
               if (widget.onClickAction != null) {
                 setState(() => _isProcessing = true);
@@ -782,7 +736,7 @@ class _CourseCardState extends State<CourseCard> {
             }
           : null,
       style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.all(buttonColor),
+          backgroundColor: WidgetStateProperty.all(action.background),
           minimumSize: WidgetStateProperty.all(Size.zero),
           padding: WidgetStateProperty.all(
               const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 10)),
@@ -791,8 +745,8 @@ class _CourseCardState extends State<CourseCard> {
             borderRadius: BorderRadius.circular(10),
           ))),
       child: Text(
-        buttonText,
-        style: TextStyle(color: buttonTextColor),
+        action.label,
+        style: TextStyle(color: action.foreground),
       ),
     );
   }
@@ -800,11 +754,12 @@ class _CourseCardState extends State<CourseCard> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (widget.onClick != null) {
-          widget.onClick!();
-        }
-      },
+      // `onTap` deve essere NULL quando non c'è un `onClick`, non una callback
+      // che controlla il null al suo interno: con un handler sempre presente
+      // questo GestureDetector vince l'arena dei gesti e ingoia i tocchi
+      // destinati a un genitore. È così che la tile espandibile del calendario
+      // non riusciva più a richiudersi al tocco sulla card.
+      onTap: widget.onClick == null ? null : () => widget.onClick!(),
       child: Container(
         decoration: const BoxDecoration(
           color: primaryLightColor,

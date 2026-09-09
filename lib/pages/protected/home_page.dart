@@ -212,46 +212,68 @@ class _HomePageState extends State<HomePage> {
   }
 
   // Funzione per aggiornare i corsi e lo stato utente
-  void refreshCourses() {
-    getAllCourses().then((List<Course> response) {
-      if (mounted) {
-        setState(() {
-          allCourses = response;
-          store.dispatch(SetAllCoursesAction(response));
-        });
-      }
-    });
-
-    // Aggiorna anche lo stato utente per riflettere le modifiche
-    if (store.state.user != null) {
-      getUserData(user.uid).then((userData) {
-        if (userData != null && mounted) {
-          setState(() {
-            user = FitropeUser.fromJson(userData);
-          });
-          store.dispatch(SetUserAction(user));
-        }
-      });
+  Future<void> refreshCourses() async {
+    // Le callable enrollment aggiornano già lo store prima di ritornare: usa
+    // subito quello snapshot, così anche un eventuale errore della rilettura
+    // Firestore non lascia il pulsante col vecchio stato.
+    final storeUser = store.state.user;
+    if (storeUser != null && mounted) {
+      setState(() => user = storeUser);
     }
 
-    // Ricarica anche i certificati in scadenza se l'utente è Admin
-    if (user.role == 'Admin') {
-      _loadUtentiConCertificatoInScadenza();
-      _loadUtentiConAbbonamentoInScadenza();
+    // Le due letture partono insieme, ma la Future termina solo quando lo stato
+    // visibile è stato aggiornato. CourseCard può così tenere il pulsante
+    // bloccato fino al rebuild col nuovo CourseState, evitando che un secondo
+    // tocco ripeta la callable appena conclusa.
+    final refreshes = <Future<void>>[
+      () async {
+        try {
+          final response = await getAllCourses();
+          if (!mounted) return;
+          setState(() => allCourses = response);
+          store.dispatch(SetAllCoursesAction(response));
+        } catch (error) {
+          debugPrint('Errore nell\'aggiornamento dei corsi: $error');
+        }
+      }(),
+      if (storeUser != null)
+        () async {
+          try {
+            final userData = await getUserData(user.uid);
+            if (userData == null || !mounted) return;
+            final refreshedUser = FitropeUser.fromJson(userData);
+            setState(() => user = refreshedUser);
+            store.dispatch(SetUserAction(refreshedUser));
+          } catch (error) {
+            debugPrint('Errore nell\'aggiornamento dell\'utente: $error');
+          }
+        }(),
+    ];
+
+    await Future.wait(refreshes);
+
+    // Ricarica anche i certificati in scadenza se l'utente è Admin. Questi
+    // helper gestiscono internamente gli errori, quindi il refresh resta sicuro.
+    if (mounted && user.role == 'Admin') {
+      await Future.wait([
+        _loadUtentiConCertificatoInScadenza(),
+        _loadUtentiConAbbonamentoInScadenza(),
+      ]);
     }
   }
 
   // Callback per l'iscrizione
-  void onSubscribe(Course course) async {
+  Future<void> onSubscribe(Course course) async {
     bool accepted =
         await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted) return;
 
     debugPrint('🔄 Iscrizione al corso: ${course.name}');
-    subscribeToCourse(course.uid, user.uid).then((_) {
+    try {
+      await subscribeToCourse(course.uid, user.uid);
       debugPrint('✅ Iscrizione completata');
-      refreshCourses();
-    }).catchError((e) {
+      await refreshCourses();
+    } catch (e) {
       debugPrint('❌ Errore durante l\'iscrizione: $e');
       // Mostra snackbar di errore
       if (mounted) {
@@ -262,18 +284,19 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       }
-    });
+    }
   }
 
   // Callback per la disiscrizione
-  void onUnsubscribe(Course course) {
+  Future<void> onUnsubscribe(Course course) async {
     debugPrint('🔄 Disiscrizione dal corso: ${course.name}');
     // Usa il nuovo sistema di disiscrizione intelligente
-    CourseUnsubscribeHelper.handleUnsubscribe(course, user, context)
-        .then((success) {
+    try {
+      final success = await CourseUnsubscribeHelper.handleUnsubscribe(
+          course, user, context);
       if (success) {
         debugPrint('✅ Disiscrizione completata');
-        refreshCourses();
+        await refreshCourses();
 
         // Mostra messaggio di successo
         if (mounted) {
@@ -287,7 +310,7 @@ class _HomePageState extends State<HomePage> {
       } else {
         debugPrint('❌ Disiscrizione annullata dall\'utente');
       }
-    }).catchError((e) {
+    } catch (e) {
       debugPrint('❌ Errore durante la disiscrizione: $e');
       // Mostra snackbar di errore
       if (mounted) {
@@ -298,11 +321,11 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       }
-    });
+    }
   }
 
-  void onJoinWaitlist(Course course) {
-    WaitlistUiHelper.showJoinWaitlistDialog(
+  Future<void> onJoinWaitlist(Course course) {
+    return WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
       course: course,
       userId: user.uid,
@@ -311,8 +334,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void onLeaveWaitlist(Course course) {
-    WaitlistUiHelper.handleLeaveWaitlist(
+  Future<void> onLeaveWaitlist(Course course) {
+    return WaitlistUiHelper.handleLeaveWaitlist(
       context: context,
       course: course,
       userId: user.uid,

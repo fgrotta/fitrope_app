@@ -7,14 +7,14 @@ import 'package:flutter/material.dart';
 
 class WaitlistUiHelper {
   /// Mostra il dialog di conferma e iscrive l'utente alla lista d'attesa.
-  static void showJoinWaitlistDialog({
+  static Future<void> showJoinWaitlistDialog({
     required BuildContext context,
     required Course course,
     required String userId,
-    required VoidCallback onRefresh,
+    required Future<void> Function() onRefresh,
     required bool Function() isMounted,
-  }) {
-    showDialog(
+  }) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: backgroundColor,
@@ -29,51 +29,53 @@ class WaitlistUiHelper {
                 const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              joinWaitlist(course.uid, userId).then((_) {
-                if (!context.mounted || !isMounted()) return;
-                onRefresh();
-                if (isMounted()) {
-                  SnackBarUtils.showSuccessSnackBar(
-                      context, 'Iscritto alla lista d\'attesa');
-                }
-              }).catchError((e) {
-                if (!context.mounted || !isMounted()) return;
-                if (isMounted()) {
-                  SnackBarUtils.showErrorSnackBar(
-                      context, 'Errore: ${e.toString()}');
-                }
-              });
-            },
+            onPressed: () => Navigator.pop(dialogContext, true),
             child:
                 const Text('Conferma', style: TextStyle(color: Colors.orange)),
           ),
         ],
       ),
     );
-  }
 
-  /// Rimuove l'utente dalla lista d'attesa.
-  static void handleLeaveWaitlist({
-    required BuildContext context,
-    required Course course,
-    required String userId,
-    required VoidCallback onRefresh,
-    required bool Function() isMounted,
-  }) {
-    leaveWaitlist(course.uid, userId).then((_) {
+    if (confirmed != true || !context.mounted || !isMounted()) return;
+
+    try {
+      await joinWaitlist(course.uid, userId);
       if (!context.mounted || !isMounted()) return;
-      onRefresh();
-      if (isMounted()) {
+      await onRefresh();
+      if (context.mounted && isMounted()) {
         SnackBarUtils.showSuccessSnackBar(
-            context, 'Rimosso dalla lista d\'attesa');
+            context, 'Iscritto alla lista d\'attesa');
       }
-    }).catchError((e) {
+    } catch (e) {
       if (!context.mounted || !isMounted()) return;
       if (isMounted()) {
         SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
       }
-    });
+    }
+  }
+
+  /// Rimuove l'utente dalla lista d'attesa.
+  static Future<void> handleLeaveWaitlist({
+    required BuildContext context,
+    required Course course,
+    required String userId,
+    required Future<void> Function() onRefresh,
+    required bool Function() isMounted,
+  }) async {
+    try {
+      await leaveWaitlist(course.uid, userId);
+      if (!context.mounted || !isMounted()) return;
+      await onRefresh();
+      if (context.mounted && isMounted()) {
+        SnackBarUtils.showSuccessSnackBar(
+            context, 'Rimosso dalla lista d\'attesa');
+      }
+    } catch (e) {
+      if (!context.mounted || !isMounted()) return;
+      if (isMounted()) {
+        SnackBarUtils.showErrorSnackBar(context, 'Errore: ${e.toString()}');
+      }
+    }
   }
 }

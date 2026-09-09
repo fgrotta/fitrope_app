@@ -14,10 +14,10 @@ class CoursePreviewCard extends StatefulWidget {
   final Course course;
   final FitropeUser currentUser;
   final List<FitropeUser> trainers;
-  final VoidCallback? onSubscribe;
-  final VoidCallback? onUnsubscribe;
-  final VoidCallback? onJoinWaitlist;
-  final VoidCallback? onLeaveWaitlist;
+  final Future<void> Function()? onSubscribe;
+  final Future<void> Function()? onUnsubscribe;
+  final Future<void> Function()? onJoinWaitlist;
+  final Future<void> Function()? onLeaveWaitlist;
   final VoidCallback? onDuplicate;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
@@ -175,17 +175,17 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
             title: widget.course.name,
             description: description,
             courseState: courseState,
-            onClickAction: () {
+            onClickAction: () async {
               if (courseState == CourseState.SUBSCRIBED) {
-                widget.onUnsubscribe?.call();
+                await widget.onUnsubscribe?.call();
               } else if (courseState == CourseState.CAN_WAITLIST) {
-                widget.onJoinWaitlist?.call();
+                await widget.onJoinWaitlist?.call();
               } else if (courseState == CourseState.IN_WAITLIST) {
-                widget.onLeaveWaitlist?.call();
+                await widget.onLeaveWaitlist?.call();
               } else if (courseState == CourseState.WAITLIST_SPOT_AVAILABLE) {
-                widget.onSubscribe?.call();
+                await widget.onSubscribe?.call();
               } else {
-                widget.onSubscribe?.call();
+                await widget.onSubscribe?.call();
               }
             },
             capacity: widget.course.capacity,

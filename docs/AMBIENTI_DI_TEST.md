@@ -120,6 +120,48 @@ iscrizioni). La produzione non è un ambiente di test.
   ONESIGNAL_REST_API_KEY=emulator-dummy-key
   ```
 
+### Avvio in un comando (`scripts/dev_emulator.sh`)
+
+Il giro qui sotto è stato fatto a mano troppe volte, ogni volta inciampando
+negli stessi punti. È codificato in `scripts/dev_emulator.sh`:
+
+```bash
+./scripts/dev_emulator.sh              # emulatore + seed + build + server
+./scripts/dev_emulator.sh --no-build   # solo emulatore + seed
+./scripts/dev_emulator.sh --serve      # solo riservi build/web dopo un rebuild
+```
+
+Con l'avvio completo (o `--serve`), apri l'URL che stampa: con
+`EMULATOR_AUTOLOGIN_EMAIL` valorizzata (default `abbonato@test.it`) l'app
+**entra da sola**, non serve toccare il form. Cambiare utente:
+`AUTOLOGIN_EMAIL=mensile@test.it ./scripts/dev_emulator.sh`.
+
+Cosa risolve, punto per punto — sono tutti inciampi reali:
+
+| Inciampo | Perché | Nello script |
+| --- | --- | --- |
+| Login rifiutato con credenziali giuste | senza `--project` l'Auth emulator segrega gli account su `demo-no-project` | `--project` sempre passato |
+| Callable `not-found` | l'emulatore carica il JS delle functions non compilato | `npm run build` prima di partire |
+| Calendario vuoto a seed riuscito | `seedEmulator.js` mette i corsi nella settimana **successiva** | `scripts/seed_today.js` semina anche oggi |
+| Corsi spostati di una/due ore | l'app converte con `toItalianTime`, scrivere l'istante UTC grezzo li sposta | conversione `Europe/Rome` DST-aware via `Intl` |
+| App che non boota nella tab pilotata | il build **debug** carica ~700 moduli DDC uno a uno | build `--release` |
+| Server che risponde 404 su tutto | `flutter build web` ricrea `build/web`, il server resta su una dir cancellata | il server si riavvia dopo il build |
+| `DeferredLoadException: main.dart.js_N.part.js` | il browser riusa `main.dart.js` dalla cache e lo mescola coi part file nuovi | `scripts/dev_server.py` manda `no-store` |
+| Login da automatizzare, lento e fragile | la transizione di route è lenta e il primo `type` dopo il focus si perde | autologin via `--dart-define` |
+
+**L'autologin è confinato all'emulatore**: si attiva solo se `useEmulator` è
+true, che in una build di produzione è una costante `false` — il ramo e le
+stringhe sono eliminati dal tree-shaking. Le credenziali arrivano da
+`--dart-define`, non stanno nel sorgente.
+
+Prima di fidarti, comunque, il controllo in console (vedi anche più sotto):
+
+```js
+performance.getEntriesByType('resource').map(r => new URL(r.name).host)
+```
+
+`localhost:9099` → emulatore. `identitytoolkit`/`securetoken` → **produzione**.
+
 ### Avvio
 
 ```bash
@@ -163,18 +205,41 @@ flutter run -d chrome --dart-define=USE_EMULATOR=true
   può leggere/scrivere i dati emulati e invocare le functions. Accettabile
   perché i dati sono sintetici ed effimeri; su reti non fidate cambiare gli
   host in `localhost` in `firebase.json`.
-- **⚠️ Mai incapsulare l'app in un `<iframe>` per provare i breakpoint.** Dentro
-  un iframe `useAuthEmulator()` non si aggancia: l'app inizializza Firebase con
-  le opzioni di **produzione** e le chiamate di login finiscono su
-  `identitytoolkit.googleapis.com`, cioè sul progetto vero. Il sintomo visibile
-  è che **sparisce il banner rosso "Running in emulator mode"** — se non lo vedi,
-  non sei sull'emulatore, fermati. Riscontrato il 26 agosto 2026 usando un iframe
-  a larghezza fissa per fotografare il calendario alle varie risoluzioni: le
-  credenziali seed sono state rifiutate (400) proprio perché l'account esiste solo
-  nell'emulatore. Per pilotare la larghezza del viewport ridimensiona la **finestra
-  del browser** e verifica `window.innerWidth`, oppure genera le immagini con i
-  golden di `flutter test --update-goldens`, che rendono il widget alla dimensione
-  esatta senza toccare Firebase.
+- **⚠️ Se non vedi il banner rosso "Running in emulator mode", NON fare il login.**
+  Quel banner non è dell'app: lo inietta l'SDK Firebase JS quando l'emulatore Auth
+  è agganciato. Se manca, l'app sta usando le opzioni di **produzione** e il login
+  finisce su `identitytoolkit.googleapis.com`, cioè sul progetto vero — senza alcun
+  errore che lo segnali.
+
+  **Causa** (diagnosticata l'8 settembre 2026): con una **sessione persistita** in
+  IndexedDB, localStorage o sessionStorage, l'SDK la ripristina e ne rinnova il
+  token appena nasce l'istanza di Auth, cioè prima che `useAuthEmulator()` faccia
+  effetto; da lì in poi auth resta legata a produzione. Si vede come una richiesta
+  a `securetoken.googleapis.com/v1/token` al caricamento, e il tell secondario è
+  che l'app riparte già su `#/protected` invece che sul welcome.
+
+  **Risolto** in `lib/main.dart`: in modalità emulatore si chiama
+  `clearFirebaseAuthPersistence()` **prima** di toccare `FirebaseAuth.instance`.
+  Sul web rimuove la chiave Auth da localStorage/sessionStorage e attende la
+  cancellazione del database IndexedDB `firebaseLocalStorageDb`; in caso di errore
+  o cancellazione bloccata interrompe l'avvio, anziché rischiare di proseguire
+  verso produzione. Un `signOut()` non basta e anzi peggiora: è a sua volta
+  un'operazione di auth, e `connectAuthEmulator` pretende di precedere qualunque
+  uso. Se la cancellazione è bloccata, chiudi le altre schede dell'app e riprova.
+
+  **Controllo affidabile** dalla console, più solido del banner:
+  ```js
+  performance.getEntriesByType('resource').map(r => new URL(r.name).host)
+  ```
+  `localhost:9099` → emulatore. `identitytoolkit.googleapis.com` → produzione.
+
+  Una nota precedente attribuiva il problema all'incapsulamento in un `<iframe>`:
+  era una correlazione, non la causa. L'iframe c'entra solo perché quel test
+  girava su una sessione già persistita. Per pilotare la larghezza del viewport
+  resta comunque preferibile ridimensionare la **finestra** e verificare
+  `window.innerWidth`, oppure generare le immagini con i golden di
+  `flutter test --update-goldens`, che rendono il widget alla dimensione esatta
+  senza toccare Firebase.
 
 ### Smoke test eseguito al setup (2026-06-10)
 
