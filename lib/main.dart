@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/app_environment.dart';
 import 'package:fitrope_app/state/store.dart';
+import 'package:fitrope_app/utils/clear_auth_persistence.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -27,18 +28,6 @@ const String emulatorHost =
     String.fromEnvironment('EMULATOR_HOST', defaultValue: 'localhost');
 
 Future<void> _connectToEmulators() async {
-  // Se in IndexedDB c'e' una sessione persistita, l'SDK la ripristina e ne
-  // rinnova il token appena l'istanza di Auth nasce — cioe' PRIMA che
-  // `useAuthEmulator` faccia effetto. Da quel momento le chiamate di auth
-  // vanno al progetto di PRODUZIONE, e la cosa non da' alcun errore: sparisce
-  // solo il banner rosso dell'SDK, e l'app riparte gia' su /protected con una
-  // sessione che non e' quella dell'emulatore.
-  //
-  // Partire SEMPRE da slogato toglie di mezzo la sessione che innesca la
-  // corsa. In QA non e' un costo: il login sull'emulatore si rifa' a ogni
-  // avvio comunque, e i dati sono effimeri.
-  await FirebaseAuth.instance.signOut();
-
   await FirebaseAuth.instance.useAuthEmulator(emulatorHost, 9099);
   FirebaseFirestore.instance.useFirestoreEmulator(emulatorHost, 8080);
   // Le callable usano sempre instanceFor(region: 'europe-west8'): l'emulatore
@@ -59,6 +48,10 @@ void main() async {
   );
 
   if (useEmulator) {
+    // PRIMA di toccare FirebaseAuth: una sessione persistita verrebbe
+    // ripristinata e rinnovata su PRODUZIONE, e da lì auth resterebbe legata a
+    // quel progetto. Vedi clear_auth_persistence.dart.
+    await clearFirebaseAuthPersistence();
     await _connectToEmulators();
   } else {
     // In modalità emulatore OneSignal NON va inizializzato: su device fisico

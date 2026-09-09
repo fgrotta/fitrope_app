@@ -172,11 +172,16 @@ flutter run -d chrome --dart-define=USE_EMULATOR=true
   **Causa** (diagnosticata l'8 settembre 2026): con una **sessione persistita** in
   IndexedDB, l'SDK la ripristina e ne rinnova il token appena nasce l'istanza di
   Auth, cioè prima che `useAuthEmulator()` faccia effetto; da lì in poi auth resta
-  legata a produzione. Il tell secondario è che l'app riparte già su `#/protected`
-  invece che sul welcome. Mitigato in `lib/main.dart`: in modalità emulatore
-  `_connectToEmulators()` fa `signOut()` prima di agganciare l'emulatore, così la
-  sessione che innesca la corsa non c'è. Se ti trovi comunque senza banner, svuota
-  i dati del sito (o usa una finestra in incognito) e ricarica.
+  legata a produzione. Si vede come una richiesta a `securetoken.googleapis.com/v1/token`
+  al caricamento, e il tell secondario è che l'app riparte già su `#/protected`
+  invece che sul welcome.
+
+  **Risolto** in `lib/main.dart`: in modalità emulatore si chiama
+  `clearFirebaseAuthPersistence()` (web-only, cancella il database IndexedDB
+  `firebaseLocalStorageDb`) **prima** di toccare `FirebaseAuth.instance`. Un
+  `signOut()` non basta e anzi peggiora: è a sua volta un'operazione di auth, e
+  `connectAuthEmulator` pretende di precedere qualunque uso. Se ti trovi comunque
+  senza banner, svuota i dati del sito (o usa una finestra in incognito).
 
   **Controllo affidabile** dalla console, più solido del banner:
   ```js
