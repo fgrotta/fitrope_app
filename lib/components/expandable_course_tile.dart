@@ -133,8 +133,13 @@ class _ExpandableCourseTileState extends State<ExpandableCourseTile>
           curve: kCourseTileAnimationCurve,
           alignment: Alignment.topCenter,
           child: Stack(
+            key: const Key('tile-transition-stack'),
             alignment: Alignment.topLeft,
-            clipBehavior: Clip.hardEdge,
+            // Nel reverse la riga (non posizionata) misura lo Stack, mentre la
+            // card è Positioned. Lo Stack non deve quindi tagliare la card ai
+            // 64px della riga: il clipping alla quota animata resta affidato ad
+            // AnimatedSize.
+            clipBehavior: Clip.none,
             children: closing
                 // Chiudendo è la riga a dettare l'altezza, così AnimatedSize
                 // la riporta giù; la card le passa sopra mentre si ritira.

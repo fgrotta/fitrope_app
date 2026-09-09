@@ -54,7 +54,10 @@ class CourseAgendaRow extends StatelessWidget {
 
     return InkWell(
       key: Key('agenda-row-$uid'),
-      onTap: onTap,
+      // Durante una mutazione non si può nemmeno aprire la card: altrimenti il
+      // suo pulsante avrebbe un lock distinto e potrebbe inviare la stessa
+      // azione una seconda volta.
+      onTap: isProcessing ? null : onTap,
       child: DecoratedBox(
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: outlineVariantColor)),

@@ -62,6 +62,9 @@ class _CalendarPageState extends State<CalendarPage> {
   // una volta che l'utente usa il toggle, il valore esplicito resta per la sessione.
   // Quale corso è aperto nella lista: al massimo uno (vedi CourseAccordion).
   final CourseAccordion _accordion = CourseAccordion();
+  // Le azioni server-side restano bloccate per corso fino al completamento:
+  // evita doppi dialog e doppie callable dai pulsanti dell'agenda.
+  final Set<String> _processingCourseUids = {};
   bool? _monthExpanded;
   bool _fabOpen = false; // speed-dial CTA admin (solo mobile/tablet)
 
@@ -128,18 +131,20 @@ class _CalendarPageState extends State<CalendarPage> {
         .remove(oldCourse);
   }
 
-  void updateCourses() {
+  Future<void> updateCourses() async {
     invalidateUsersCache();
     user = store.state.user!;
     invalidateCoursesCache();
     selectedCourses = [];
-    getAllCourses().then((List<Course> response) {
-      if (mounted) {
-        refreshCourseMap(response);
-        onSelectDate(currentDate);
-        store.dispatch(SetAllCoursesAction(response));
-      }
-    });
+    try {
+      final response = await getAllCourses();
+      if (!mounted) return;
+      refreshCourseMap(response);
+      onSelectDate(currentDate);
+      store.dispatch(SetAllCoursesAction(response));
+    } catch (error) {
+      debugPrint('Errore nell\'aggiornamento dei corsi: $error');
+    }
   }
 
   void onSelectDate(DateTime selectedDate) {
@@ -156,15 +161,16 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {});
   }
 
-  void onSubscribe(Course course) async {
+  Future<void> onSubscribe(Course course) async {
     bool accepted =
         await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted || !mounted) return;
 
-    subscribeToCourse(course.id, user.uid).then((_) {
+    try {
+      await subscribeToCourse(course.uid, user.uid);
       if (!mounted) return;
-      updateCourses();
-    }).catchError((e) {
+      await updateCourses();
+    } catch (e) {
       // Da PR4 il server può rifiutare (idoneità/limiti/capienza/corso chiuso):
       // senza questo handler il fallimento sarebbe silenzioso.
       debugPrint('❌ Errore durante l\'iscrizione: $e');
@@ -174,10 +180,10 @@ class _CalendarPageState extends State<CalendarPage> {
           'Errore durante l\'iscrizione: $e',
         );
       }
-    });
+    }
   }
 
-  void onUnsubscribe(Course course) async {
+  Future<void> onUnsubscribe(Course course) async {
     try {
       debugPrint('🔄 Inizio disiscrizione per corso: ${course.name}');
 
@@ -205,7 +211,7 @@ class _CalendarPageState extends State<CalendarPage> {
             debugPrint('⚠️ Errore nell\'aggiornamento stato utente: $e');
           }
         }
-        updateCourses();
+        await updateCourses();
         // Mostra messaggio di successo
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -229,8 +235,8 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  void onJoinWaitlist(Course course) {
-    WaitlistUiHelper.showJoinWaitlistDialog(
+  Future<void> onJoinWaitlist(Course course) {
+    return WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
       course: course,
       userId: user.uid,
@@ -239,8 +245,8 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  void onLeaveWaitlist(Course course) {
-    WaitlistUiHelper.handleLeaveWaitlist(
+  Future<void> onLeaveWaitlist(Course course) {
+    return WaitlistUiHelper.handleLeaveWaitlist(
       context: context,
       course: course,
       userId: user.uid,
@@ -546,6 +552,7 @@ class _CalendarPageState extends State<CalendarPage> {
             UserDisplayUtils.getTrainerName(course.trainerId, trainers),
         onTap: () => setState(() => _accordion.toggle(course.uid)),
         onAction: () => _onAgendaRowAction(course),
+        isProcessing: _processingCourseUids.contains(course.uid),
       ),
       // La riga che l'ha aperta non c'è più: toccare la card la richiude.
       onCollapse: () => setState(() => _accordion.collapse()),
@@ -570,16 +577,30 @@ class _CalendarPageState extends State<CalendarPage> {
   /// L'azione della riga compatta segue le stesse diramazioni della card: è la
   /// stessa `courseState` a deciderle, quindi non c'è un secondo albero di
   /// decisioni da tenere allineato.
-  void _onAgendaRowAction(Course course) {
-    switch (getCourseState(course, user)) {
-      case CourseState.SUBSCRIBED:
-        onUnsubscribe(course);
-      case CourseState.CAN_WAITLIST:
-        onJoinWaitlist(course);
-      case CourseState.IN_WAITLIST:
-        onLeaveWaitlist(course);
-      default:
-        onSubscribe(course);
+  Future<void> _onAgendaRowAction(Course course) async {
+    var started = false;
+    setState(() {
+      started = _processingCourseUids.add(course.uid);
+    });
+    if (!started) return;
+
+    try {
+      switch (getCourseState(course, user)) {
+        case CourseState.SUBSCRIBED:
+          await onUnsubscribe(course);
+        case CourseState.CAN_WAITLIST:
+          await onJoinWaitlist(course);
+        case CourseState.IN_WAITLIST:
+          await onLeaveWaitlist(course);
+        default:
+          await onSubscribe(course);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingCourseUids.remove(course.uid));
+      } else {
+        _processingCourseUids.remove(course.uid);
+      }
     }
   }
 

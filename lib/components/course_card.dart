@@ -36,8 +36,8 @@ class CourseCard extends StatefulWidget {
   final TextStyle? titleStyle;
   final String description;
   final TextStyle? descriptionStyle;
-  final Function? onClick;
-  final Function? onClickAction;
+  final VoidCallback? onClick;
+  final Future<void> Function()? onClickAction;
   final CourseState courseState;
   final int? capacity;
   final int? subscribed;

@@ -205,6 +205,27 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('chiudendo la card non viene tagliata all\'altezza della riga',
+        (tester) async {
+      await pump(tester, expanded: true);
+      await tester.pumpAndSettle();
+
+      await pump(tester, expanded: false);
+      await tester.pump(const Duration(milliseconds: 1));
+
+      final stack = tester.widget<Stack>(
+        find.byKey(const Key('tile-transition-stack')),
+      );
+      expect(stack.clipBehavior, Clip.none);
+      expect(
+        tester.getSize(find.byType(ExpandableCourseTile)).height,
+        greaterThan(tester
+            .getSize(find.byKey(const Key('tile-transition-stack')))
+            .height),
+        reason: 'AnimatedSize conserva ancora spazio per la card in uscita',
+      );
+    });
+
     testWidgets('a chiusura conclusa la card non e\' piu\' nell\'albero',
         (tester) async {
       await pump(tester, expanded: true);

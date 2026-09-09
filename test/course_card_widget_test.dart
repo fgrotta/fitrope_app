@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -126,6 +128,37 @@ void main() {
     testWidgets('CLOSED -> nessun bottone', (tester) async {
       await pumpWithState(tester, CourseState.CLOSED);
       expect(find.byType(ElevatedButton), findsNothing);
+    });
+
+    testWidgets('resta disabilitato finché la callback asincrona non termina',
+        (tester) async {
+      final completion = Completer<void>();
+      var calls = 0;
+      await _pump(
+        tester,
+        CourseCard(
+          courseId: 'c1',
+          course: _course(),
+          title: 'Corso',
+          courseState: CourseState.CAN_SUBSCRIBE,
+          onClickAction: () {
+            calls++;
+            return completion.future;
+          },
+          onRefresh: () {},
+        ),
+      );
+
+      final buttonFinder = find.widgetWithText(ElevatedButton, 'Prenotati');
+      await tester.tap(buttonFinder);
+      await tester.pump();
+
+      expect(calls, 1);
+      expect(tester.widget<ElevatedButton>(buttonFinder).onPressed, isNull);
+
+      completion.complete();
+      await tester.pump();
+      expect(tester.widget<ElevatedButton>(buttonFinder).onPressed, isNotNull);
     });
   });
 

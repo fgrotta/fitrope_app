@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/components/course_agenda_row.dart';
 import 'package:fitrope_app/components/course_card.dart' show CourseState;
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,8 +18,8 @@ void main() {
         id: 'c1',
         uid: 'c1',
         name: name,
-        startDate: Timestamp.fromDate(DateTime(2026, 8, 26, 9)),
-        endDate: Timestamp.fromDate(DateTime(2026, 8, 26, 10)),
+        startDate: italianTimestamp(DateTime(2026, 8, 26, 9)),
+        endDate: italianTimestamp(DateTime(2026, 8, 26, 10)),
         capacity: capacity,
         subscribed: subscribed,
         tags: tags,
@@ -33,6 +33,7 @@ void main() {
     String trainerName = 'Giulia Rossi',
     VoidCallback? onTap,
     VoidCallback? onAction,
+    bool isProcessing = false,
     double width = 390,
   }) async {
     await tester.pumpWidget(MaterialApp(
@@ -47,6 +48,7 @@ void main() {
               trainerName: trainerName,
               onTap: onTap ?? () {},
               onAction: onAction ?? () {},
+              isProcessing: isProcessing,
             ),
           ),
         ),
@@ -101,6 +103,24 @@ void main() {
     await tester.pump();
     expect(acted, 1, reason: 'il pulsante deve agire');
     expect(tapped, 0, reason: 'e non deve propagare l\'apertura alla riga');
+  });
+
+  testWidgets('l\'azione è disabilitata mentre la callable è in corso',
+      (tester) async {
+    var opened = 0;
+    await pump(
+      tester,
+      isProcessing: true,
+      onTap: () => opened++,
+    );
+    final button = tester.widget<ElevatedButton>(
+      find.byKey(const Key('agenda-row-action-c1')),
+    );
+    expect(button.onPressed, isNull);
+
+    await tester.tap(find.byKey(const Key('agenda-row-c1')));
+    expect(opened, 0,
+        reason: 'non deve poter aggirare il lock aprendo la card');
   });
 
   testWidgets('porta l\'accento colore della tipologia', (tester) async {
