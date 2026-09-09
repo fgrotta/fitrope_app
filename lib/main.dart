@@ -27,6 +27,18 @@ const String emulatorHost =
     String.fromEnvironment('EMULATOR_HOST', defaultValue: 'localhost');
 
 Future<void> _connectToEmulators() async {
+  // Se in IndexedDB c'e' una sessione persistita, l'SDK la ripristina e ne
+  // rinnova il token appena l'istanza di Auth nasce — cioe' PRIMA che
+  // `useAuthEmulator` faccia effetto. Da quel momento le chiamate di auth
+  // vanno al progetto di PRODUZIONE, e la cosa non da' alcun errore: sparisce
+  // solo il banner rosso dell'SDK, e l'app riparte gia' su /protected con una
+  // sessione che non e' quella dell'emulatore.
+  //
+  // Partire SEMPRE da slogato toglie di mezzo la sessione che innesca la
+  // corsa. In QA non e' un costo: il login sull'emulatore si rifa' a ogni
+  // avvio comunque, e i dati sono effimeri.
+  await FirebaseAuth.instance.signOut();
+
   await FirebaseAuth.instance.useAuthEmulator(emulatorHost, 9099);
   FirebaseFirestore.instance.useFirestoreEmulator(emulatorHost, 8080);
   // Le callable usano sempre instanceFor(region: 'europe-west8'): l'emulatore
