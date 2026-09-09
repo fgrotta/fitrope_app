@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 /// cliccabile. È **solo presentazione** — la transazione di iscrizione resta
 /// nelle callable, e la gestione dello stato "in corso" nel widget chiamante.
 ///
+/// La gerarchia dei colori: **blu pieno** per ciò che si può fare (iscriversi),
+/// **rosso** per ciò che disfa (disiscriversi, uscire dalla lista),
+/// **arancione** per la lista d'attesa, **grigio solido** per gli stati che
+/// spiegano perché non si può prenotare.
+///
 /// Sta qui e non dentro `CourseCard` perché la stessa tabella serve anche alla
 /// riga compatta dell'agenda: duplicare undici stati in due punti significa
 /// vederli divergere alla prima modifica.
@@ -35,7 +40,7 @@ CourseActionStyle? courseActionStyleFor(CourseState state) {
     case CourseState.CAN_SUBSCRIBE:
       return const CourseActionStyle(
         label: 'Prenotati',
-        background: ghostColor,
+        background: primaryColor,
         foreground: Colors.white,
         enabled: true,
       );
@@ -63,7 +68,7 @@ CourseActionStyle? courseActionStyleFor(CourseState state) {
     case CourseState.WAITLIST_SPOT_AVAILABLE:
       return const CourseActionStyle(
         label: 'Posto disponibile! Iscriviti ora',
-        background: ghostColor,
+        background: primaryColor,
         foreground: Colors.white,
         enabled: true,
       );
@@ -82,9 +87,12 @@ CourseActionStyle? courseActionStyleFor(CourseState state) {
   }
 }
 
+/// Gli stati bloccanti condividono un grigio **solido**: non invita al tocco,
+/// e a differenza di `ghostColor` (40% di opacità) regge sia sul fondo bianco
+/// della riga d'agenda sia sulla foto scura della card.
 CourseActionStyle _blocked(String label) => CourseActionStyle(
       label: label,
-      background: primaryLightColor,
-      foreground: onPrimaryColor,
+      background: onSurfaceVariantColor,
+      foreground: Colors.white,
       enabled: false,
     );

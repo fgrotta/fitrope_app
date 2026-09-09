@@ -14,7 +14,11 @@ void main() {
       final s = courseActionStyleFor(CourseState.CAN_SUBSCRIBE)!;
       expect(s.label, 'Prenotati');
       expect(s.enabled, isTrue);
-      expect(s.background, ghostColor);
+      // Blu pieno: è l'azione principale della riga. Prima era `ghostColor`,
+      // grigio al 40% di opacità, che su una riga bianca si leggeva male ed
+      // era anche l'opposto della gerarchia — l'azione possibile sbiadita e
+      // gli stati bloccati in blu.
+      expect(s.background, primaryColor);
       expect(s.foreground, Colors.white);
     });
 
@@ -43,10 +47,22 @@ void main() {
       final s = courseActionStyleFor(CourseState.WAITLIST_SPOT_AVAILABLE)!;
       expect(s.label, 'Posto disponibile! Iscriviti ora');
       expect(s.enabled, isTrue);
+      // Anche questa è un'iscrizione: stesso blu di "Prenotati".
+      expect(s.background, primaryColor);
     });
 
     // Gli stati di blocco: stesso trattamento visivo, testo che spiega il perché.
     // Non sono cliccabili, quindi il colore non deve invitare al tocco.
+    test('nessuno stato usa piu\' ghostColor, il grigio traslucido', () {
+      // Era il colore di "Prenotati": su fondo bianco il testo bianco sopra un
+      // grigio al 40% non si leggeva.
+      for (final st in CourseState.values) {
+        final s = courseActionStyleFor(st);
+        if (s == null) continue;
+        expect(s.background, isNot(ghostColor), reason: st.name);
+      }
+    });
+
     test('gli stati bloccanti sono disabilitati e spiegano il motivo', () {
       const attesi = {
         CourseState.NULL: 'Non disponibile',
@@ -59,8 +75,10 @@ void main() {
         final s = courseActionStyleFor(entry.key)!;
         expect(s.label, entry.value, reason: entry.key.name);
         expect(s.enabled, isFalse, reason: entry.key.name);
-        expect(s.background, primaryLightColor, reason: entry.key.name);
-        expect(s.foreground, onPrimaryColor, reason: entry.key.name);
+        // Grigio SOLIDO, non traslucido: la riga d'agenda ha fondo bianco e la
+        // card fondo foto scura, e lo stesso colore deve reggere su entrambi.
+        expect(s.background, onSurfaceVariantColor, reason: entry.key.name);
+        expect(s.foreground, Colors.white, reason: entry.key.name);
       }
     });
 
