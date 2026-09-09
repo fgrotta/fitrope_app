@@ -208,9 +208,13 @@ La ripresa ha eliminato l'open handle e completato i test mirati con
   rimuovere il ramo legacy finché non sono risolte o approvate come eccezioni.
 - I dry-run reali read-only del 26 agosto 2026 sono in
   `.context/migrations/staging-2026-08-26-2002-dry-run` e
-  `.context/migrations/prod-2026-08-26-2010-dry-run`. Staging ha una sola
-  `WARNING`; PRD ha 5 `BLOCKER` di integrità da risolvere prima di qualunque
-  apply.
+  `.context/migrations/prod-2026-08-26-2010-dry-run`. I `BLOCKER` di integrità
+  PRD erano 5 a quella data; il conteggio dipende dall'istante di esecuzione e
+  non dalla qualità dei dati (vedi sezione 7). Nessun apply è autorizzato finché
+  non sono risolti o approvati come eccezioni.
+- La simulazione completa della migrazione (dry-run, apply, verify, apply
+  idempotente) è stata eseguita con esito positivo su un replay dell'export PRD
+  nell'emulatore: dettagli, comandi e rischi emersi nella sezione 7.
 
 ## 5. Ordine raccomandato di ripresa
 
@@ -259,3 +263,178 @@ La ripresa ha eliminato l'open handle e completato i test mirati con
   sono stati rimossi.
 - PRD dispone soltanto di dry-run approvato; nessuna migrazione reale viene
   applicata senza una successiva finestra autorizzata.
+
+## 7. Aggiornamento 8 settembre 2026 — replay su emulatore e simulazione completa
+
+### Metodo: replay dell'export PRD sull'emulatore
+
+L'emulatore Firestore importa **direttamente** un export prodotto da
+`gcloud firestore export`, non solo gli export nativi di `emulators:export`. Va
+puntato alla directory che contiene `<run-id>.overall_export_metadata`:
+
+```bash
+PATH="/usr/local/opt/openjdk@21/bin:$PATH" firebase emulators:start \
+  --project fit-rope-app-1f575 --only firestore \
+  --import=/Users/Frank/Backups/FitRope/firestore/prod/<data>/<run-id>/<run-id>
+```
+
+`scripts/backfillCourseModel.js` non ha guardie sul project ID e usa
+`admin.initializeApp({ projectId })`, quindi rispetta `FIRESTORE_EMULATOR_HOST`
+e gira contro l'emulatore senza alcuna modifica.
+
+Questo sostituisce il clone PRD dentro Firestore staging **per tutta la parte
+batch**. I dati restano sulla macchina dove il backup è già scaricato, non serve
+svuotare staging né sospendere workflow, scheduler e rules, e il ripristino
+consiste nello spegnere il processo. Il clone su staging resta necessario solo
+per ciò che l'emulatore non copre: le callable della migrazione guidata e la UI
+Admin.
+
+**Guardia obbligatoria.** Un `--apply` senza `FIRESTORE_EMULATOR_HOST` scrive in
+**produzione**. Usare un wrapper che rifiuti di eseguire il runner se
+l'emulatore non risponde e se non contiene lo snapshot atteso; copia di lavoro
+in `.context/sim/guard.sh`.
+
+### Simulazione completa eseguita — esito positivo
+
+Eseguita sull'export `first-verification-2026-08-26-1955` (21/21 checksum
+verificati) replicato nell'emulatore.
+
+| Passo | Comando | Esito |
+|---|---|---|
+| 1 | `--dry-run --scope=all` | 1965 corsi `CONVERTIBLE`, 11 `IGNORED`; 74 utenti `CONVERTIBLE`, 432 `IGNORED` |
+| 2 | `--apply --scope=courses` | 1965 `APPLIED`, 11 `SKIPPED`; nessun drift, nessun conflitto |
+| 3 | `--apply --scope=users` | 74 `APPLIED`, 432 `SKIPPED` |
+| 4 | `--verify --scope=all` | `failures: 0`, `hyroxSubscriptions: 0`, `hyroxSnapshots: 0`; exit 2 solo per i `BLOCKER` di integrità preesistenti |
+| 5 | `--apply` ripetuto | 2039 `ALREADY_APPLIED`, 443 `SKIPPED`, zero nuove scritture |
+
+**Invarianti rispettate.** Confronto campo per campo prima/dopo su tutti i 506
+utenti e 1976 corsi: zero modifiche a `courses`, `waitlistCourses`,
+`cancelledEnrollments`, `enrollmentConsumption` lato utente e a `subscribed`,
+`waitlist`, `capacity`, `startDate` lato corso.
+
+**Prodotto dalla migrazione.** 74 subscription, tutte famiglia `OPEN` e modalità
+`FREQUENCY`; 39 già scadute, conservate nella collezione ma **escluse** dallo
+snapshot; 35 vive, presenti in `activeSubscriptions`; 74 marker
+`legacySubscriptionMigration`; 1965 corsi con `courseModelV2: true`.
+
+**Produzione verificata intatta** a simulazione conclusa: 0 subscription e 0
+corsi V2 su PRD live.
+
+Nota su `--verify`: con dati PRD termina con exit 2 anche dopo un apply perfetto,
+perché il gate include `enrollmentBlockers > 0` e quei blocker sono anomalie
+preesistenti dei dati, non fallimenti dell'apply. Il codice di uscita va sempre
+letto insieme al JSON.
+
+### Rischio nuovo: il manifest è deperibile e nessuno se ne accorge
+
+`FUTURE_START` confronta la data iniziale nominale con `evaluatedAtMillis`
+(`functions/src/migration/userTransform.ts:176`), e la severità dell'integrity
+report confronta `startDate` del corso con lo stesso istante. Il fingerprint del
+manifest copre i campi sorgente dell'utente e gli array di iscrizione, **non
+l'istante di valutazione**.
+
+Conseguenza misurata: lo stesso export, valutato a dodici giorni di distanza, ha
+prodotto **74 utenti convertibili invece di 58**. I 16 utenti spostati erano
+`FUTURE_START` con data iniziale nominale a inizio settembre, ormai passata.
+Applicare un manifest vecchio non produce `SOURCE_DRIFT` — le decisioni
+congelate vengono applicate così come sono — quindi la migrazione
+**sotto-converte in silenzio**. Il verso è quello prudente, esclude invece di
+includere, ma non viene segnalato da nessuna parte.
+
+Regola operativa: manifest prodotto e applicato nella stessa finestra. Se fra
+dry-run e apply passa più di un giorno, rifare il dry-run e riconfrontare gli
+hash prima di procedere.
+
+Lo stesso meccanismo governa i `BLOCKER` di integrità: i 5 del 26 agosto sono 2
+all'8 settembre, perché tre dei corsi coinvolti sono diventati passati. Quel
+numero misura la distanza fra i corsi anomali e la data di esecuzione, non la
+qualità dei dati.
+
+### Il backup del 26 agosto era arretrato — sostituito
+
+PRD live all'8 settembre aveva 2015 corsi e 535 utenti, contro 1976 e 506
+dell'export del 26 agosto. Quell'export vale come banco di prova del meccanismo,
+non come base decisionale, ed è stato sostituito da un export nuovo lo stesso
+giorno: vedi la sottosezione seguente, che riporta la baseline corrente.
+
+### Rilievo staging chiarito
+
+`SUBSCRIBED_COUNT_MISMATCH` su `stg_open_full` **non coinvolge alcun utente**: il
+controllo è a livello di corso e passa `userId` nullo per costruzione
+(`scripts/backfillCourseModel.js:373`). Il seed crea quel corso con
+`subscribed: 1` e `waitlist: ["stg_member"]` senza che nessuno lo abbia in
+`courses`, per avere un corso pieno su cui provare la waitlist: il contatore non
+è mai corrisposto a una persona.
+
+Non correggerlo con `recountCourseSubscribed`: porterebbe `subscribed` a zero, il
+corso smetterebbe di essere pieno e la fixture della waitlist sarebbe distrutta.
+Le strade praticabili sono accettarlo come artefatto noto del seed, oppure
+modificare il seed perché iscriva un utente sintetico (per esempio
+`stg_qa_nosub`) così che il contatore corrisponda a una persona reale.
+
+### Nota sull'orologio dell'ambiente
+
+Durante la sessione dell'8 settembre l'ambiente ha riportato prima l'8 settembre,
+poi il 27 agosto, poi di nuovo l'8 settembre. Run ID, nomi delle directory dei
+report e `evaluated_at` derivano da quell'orologio. Verificare `date -u` prima di
+avviare un run operativo e non usare il nome della directory come prova della
+data: la fonte attendibile è `evaluated_at` dentro i CSV e il manifest.
+
+### Export del 8 settembre 2026 e seconda simulazione — baseline corrente
+
+Export manuale `manual/sim-rerun-2026-09-08-1634` nel bucket PRD, operazione
+terminata `SUCCESSFUL`, scaricato in
+`/Users/Frank/Backups/FitRope/firestore/prod/2026-09-08/sim-rerun-2026-09-08-1634/`
+con 21/21 checksum verificati e permessi privati. Corrisponde esattamente a PRD
+live al momento dell'esecuzione: **2015 corsi, 535 utenti**.
+
+Su questo export è stata rieseguita la sequenza completa, tramite
+l'orchestratore `.context/sim/run-simulation.sh` (guardia incorporata, snapshot
+degli invarianti, spegnimento automatico dell'emulatore).
+
+| Passo | Esito |
+|---|---|
+| dry-run | 2003 corsi `CONVERTIBLE`, 12 `IGNORED`; 72 utenti `CONVERTIBLE`, 463 `IGNORED` |
+| apply corsi | 2003 `APPLIED`, 12 `SKIPPED` |
+| apply utenti | 72 `APPLIED`, 463 `SKIPPED` |
+| verify | **exit 0**: `failures: 0`, zero residui HYROX, `enrollmentBlockers: 0` |
+| apply ripetuto | 2075 `ALREADY_APPLIED`, 475 `SKIPPED`, zero nuove scritture |
+| invarianti | zero documenti modificati su 535 utenti e 2015 corsi |
+
+Prodotte 72 subscription, tutte `OPEN`/`FREQUENCY`: 35 scadute escluse dallo
+snapshot, 37 vive incluse in `activeSubscriptions`, 72 marker
+`legacySubscriptionMigration`, 2003 corsi con `courseModelV2: true`. Produzione
+riverificata intatta a fine corsa: 0 subscription e 0 corsi V2.
+
+**Zero BLOCKER di integrità, ma va letto con precisione.** Dei 5 blocker del 26
+agosto, 3 (`SUBSCRIBED_COUNT_MISMATCH` sui corsi `MAhygAt5jFZ2UpAcHU0h`,
+`VI3kDJB4fyrOLy7f723i`, `vh2Kz20KvQyK0Eccmng4`) sono **effettivamente rientrati**
+in produzione: i contatori ora corrispondono ai riferimenti e quei corsi non
+compaiono più nel report. I 2 `CANCELLED_COURSE_MISSING` sul corso
+`jf7iwZ3cDODrD45u3PK9` **non sono stati risolti**: sono soltanto scaduti,
+l'anomalia è ancora nei dati e ora compare come `WARNING` perché la data del
+corso è passata. «Zero blocker» significa che nessuna anomalia riguarda più un
+corso futuro, non che i dati siano stati bonificati. Restano 1537 `WARNING`:
+1189 prenotazioni senza corso, 298 mismatch di contatore, 50 disiscrizioni
+orfane.
+
+**Composizione dei 29 utenti nuovi** rispetto al 26 agosto: +23
+`TRIAL_NOT_SUPPORTED`, +8 `FUTURE_START`, +1 `INVALID_LEGACY_TYPE`, −1
+`INVALID_TAG_SHAPE`, −2 `CONVERTIBLE`. I convertibili scendono da 74 a 72 pur
+con 29 utenti in più: la crescita dell'utenza è quasi tutta di abbonamenti prova,
+che il batch non converte per scelta.
+
+**`FUTURE_START` è una coda strutturale, non un residuo da smaltire.** È passato
+da 4 a 12 in tredici giorni. I dodici casi sono abbonamenti mensili,
+trimestrali, semestrali e annuali con scadenze da ottobre 2026 ad aprile 2028:
+sono rinnovi. Poiché la data iniziale nominale si ottiene sottraendo la durata
+dalla scadenza, ogni rinnovo recente la colloca nel futuro e l'utente viene
+escluso dal batch. Aspettare non svuota la coda, la sposta: va gestita dalla
+migrazione guidata Admin e il suo peso cresce col ritmo dei rinnovi.
+
+**Configurazione del bucket di backup verificata sul campo.** Tutti i requisiti
+decisi risultano effettivamente in vigore su
+`gs://fit-rope-app-1f575-firestore-backups`: location `EU`, Storage Standard,
+uniform bucket-level access attivo, public access prevention `enforced`,
+retention di 30 giorni non bloccata irreversibilmente, soft delete di 7 giorni,
+lifecycle di cancellazione a 90 giorni.

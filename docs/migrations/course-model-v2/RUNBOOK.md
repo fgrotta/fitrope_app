@@ -257,6 +257,15 @@ Subito prima dell'apply:
 Se il dry-run è diventato vecchio o sono avvenute modifiche rilevanti, non
 riutilizzarlo: generarne e revisionarne uno nuovo.
 
+Questa non è una precauzione formale. La classificazione `FUTURE_START` confronta
+la data iniziale nominale dell'abbonamento con l'istante del dry-run, e il
+fingerprint del manifest **non** copre quell'istante: un manifest vecchio viene
+applicato con le decisioni congelate, senza produrre `SOURCE_DRIFT`. Misurato
+sullo stesso export a dodici giorni di distanza: 74 utenti convertibili invece di
+58, cioè 16 utenti che un manifest vecchio avrebbe lasciato indietro in silenzio.
+Regola: manifest prodotto e applicato nella stessa finestra; se passa più di un
+giorno, rifare il dry-run e riconfrontare gli hash.
+
 ## 11. Applicare i corsi
 
 È consigliato applicare prima i corsi usando il manifest completo revisionato:
@@ -442,6 +451,12 @@ intenzionale e non va aggirata.
 Leggere `failures`, `hyroxSubscriptions`, `hyroxSnapshots` e i CSV di verifica.
 Il codice 2 segnala un gate non soddisfatto, non un crash del runner.
 
+Il gate include anche `enrollmentBlockers > 0`. Con i dati PRD attuali `--verify`
+termina quindi con 2 **anche dopo un apply perfetto**, perché quei blocker sono
+anomalie preesistenti dei dati e non fallimenti della migrazione. Un apply
+riuscito si riconosce da `failures: 0` con tutti i record in `ALREADY_APPLIED` o
+`IGNORED`: il codice di uscita non va letto da solo.
+
 ### Apply termina con codice 0 ma mostra conflitti
 
 L'apply ha completato il batch senza errori runtime, ma i record protetti non
@@ -463,3 +478,86 @@ operativi e produrre un nuovo piano per quei record.
 - [ ] utenti attivi esclusi bonificati o approvati esplicitamente
 - [ ] freeze rimosso soltanto dopo il controllo funzionale
 - [ ] report conservati secondo le regole interne di accesso e retention
+
+## 21. Prova su replay dell'export nell'emulatore
+
+Questa procedura permette di provare l'intera sequenza batch (dry-run, apply,
+verify, apply idempotente) su dati di produzione reali senza toccare nulla in
+cloud e senza clonare PRD dentro Firestore staging. È il modo raccomandato per
+validare il meccanismo e per revisionare i report prima di chiedere una finestra
+operativa.
+
+Copre tutto ciò che passa dal runner. **Non** copre le callable della migrazione
+guidata né la UI Admin: per quelle serve ancora il clone su staging descritto
+nell'handoff.
+
+### 21.1 Verificare la copia locale dell'export
+
+```bash
+cd /Users/Frank/Backups/FitRope/firestore/prod/<data>/<run-id>
+shasum -a 256 -c checksums.sha256
+```
+
+Non proseguire se un solo file non risulta `OK`.
+
+### 21.2 Avviare l'emulatore con l'export
+
+Richiede Java 21 nel PATH. Puntare alla directory che contiene
+`<run-id>.overall_export_metadata`:
+
+```bash
+PATH="/usr/local/opt/openjdk@21/bin:$PATH" firebase emulators:start \
+  --project fit-rope-app-1f575 --only firestore \
+  --import=/Users/Frank/Backups/FitRope/firestore/prod/<data>/<run-id>/<run-id>
+```
+
+Il project ID è quello reale di produzione, ma con `emulators:start` resta
+locale: nessun contatto col cloud. Usare lo stesso valore nel runner, così i due
+lati concordano.
+
+### 21.3 Guardia contro le scritture in produzione
+
+**Un `--apply` senza `FIRESTORE_EMULATOR_HOST` scrive in produzione.** Non
+eseguire il runner a mano durante la prova: passare da un wrapper che rifiuti di
+partire se l'emulatore non risponde su `localhost:8080` e se non contiene lo
+snapshot atteso, e che esporti la variabile lui stesso. Copia di lavoro in
+`.context/sim/guard.sh`.
+
+### 21.4 Fotografare gli invarianti prima dell'apply
+
+La migrazione non deve toccare `courses`, `waitlistCourses`,
+`cancelledEnrollments` ed `enrollmentConsumption` sugli utenti, né `subscribed`,
+`waitlist`, `capacity` e `startDate` sui corsi. Prima dell'apply salvare un hash
+per documento di quei campi e riconfrontarlo alla fine: è l'unica prova diretta
+che l'invariante è stata rispettata. Script di riferimento in
+`.context/sim/snapshot.js`.
+
+### 21.5 Eseguire la sequenza
+
+Gli stessi comandi delle sezioni 7, 11, 12, 14 e 15, con la guardia davanti e
+`--project=fit-rope-app-1f575`. Esiste un orchestratore che li esegue in ordine,
+incorpora la guardia, fotografa e riconfronta gli invarianti e spegne
+l'emulatore alla fine:
+
+```bash
+.context/sim/run-simulation.sh <dir-import> <prefisso-run-id>
+```
+
+Esito atteso su un export sano:
+
+| Passo | Atteso |
+|---|---|
+| dry-run | manifest generato, conteggi coerenti con la revisione |
+| apply corsi | tutti `APPLIED` o `SKIPPED`, zero `SOURCE_DRIFT`/`TARGET_CONFLICT` |
+| apply utenti | come sopra |
+| verify | `failures: 0`, zero residui HYROX, tutti i record `ALREADY_APPLIED` o `IGNORED` |
+| apply ripetuto | tutti `ALREADY_APPLIED`, zero nuove scritture |
+| invarianti | zero documenti modificati nel confronto prima/dopo |
+
+### 21.6 Chiudere la prova
+
+Spegnere l'emulatore: lo stato è in memoria e sparisce, non serve alcun
+ripristino. Verificare poi che la produzione sia intatta, leggendo **senza**
+`FIRESTORE_EMULATOR_HOST` che `subscriptions` sia ancora vuota e che nessun corso
+abbia `courseModelV2: true`. Conservare i report sotto `.context/migrations/` con
+i permessi soliti.
