@@ -75,6 +75,10 @@ if [ "$DO_BUILD" = 1 ]; then
     --dart-define=EMULATOR_AUTOLOGIN_PASSWORD="$AUTOLOGIN_PASSWORD" \
     >/tmp/fitrope-build.log 2>&1 \
     || { tail -20 /tmp/fitrope-build.log; exit 1; }
+
+  # Icona + nome "TEST": se questa build finisce installata come PWA deve
+  # distinguersi da quella di produzione sulla home del dispositivo.
+  python3 tool/apply_test_branding.py build/web
 fi
 
 # ------------------------------------------------------------------- server

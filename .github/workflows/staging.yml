@@ -62,6 +62,14 @@ jobs:
           --dart-define=FIREBASE_AUTH_DOMAIN=${{ vars.FIREBASE_STAGING_AUTH_DOMAIN }}
           --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STAGING_STORAGE_BUCKET }}
           --dart-define=FIREBASE_MEASUREMENT_ID=${{ vars.FIREBASE_STAGING_MEASUREMENT_ID }}
+      # L'icona e il nome della PWA vivono in manifest.json/index.html, file
+      # statici che i --dart-define non vedono: si marchiano dopo il build.
+      # Il grep e' il guardrail — senza, un branding non applicato passerebbe
+      # silenzioso e staging si installerebbe con l'icona di produzione.
+      - name: Apply TEST branding
+        run: |
+          python3 tool/apply_test_branding.py build/web
+          grep -q '"name": "Fit House TEST"' build/web/manifest.json
       - uses: actions/upload-pages-artifact@v5
         with:
           path: build/web
