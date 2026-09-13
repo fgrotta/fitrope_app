@@ -2,6 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 
 // Aggiornamento profilo DIFF-BASED (PR6): scrive su Firestore SOLO i campi
 // effettivamente cambiati rispetto a [original]. È essenziale per le
@@ -127,6 +128,7 @@ Future<void> updateUser({
   bool? emailNotificationsEnabled,
   bool? pushNotificationsEnabled,
 }) async {
+  SimulationSession.assertNotSimulating('updateUser');
   try {
     final changed = buildUserUpdateDiff(
       original: original,

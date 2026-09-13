@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fitrope_app/services/calendar_links.dart';
 import 'package:fitrope_app/services/email_templates.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 
 String _testPrefix(String text) => kDebugMode ? 'TEST - $text' : text;
 
@@ -10,6 +11,9 @@ String _testPrefix(String text) => kDebugMode ? 'TEST - $text' : text;
 /// La function tiene la REST API key server-side e gestisce CORS automaticamente.
 Future<void> _sendOneSignalRequest(
     String label, Map<String, dynamic> body) async {
+  // Prima riga, FUORI dal try: i catch qui sotto inghiottono tutto e
+  // trasformerebbero il blocco in un silenzioso no-op mascherato da successo.
+  SimulationSession.assertNotSimulating('sendOneSignalNotification');
   final logBody = Map<String, dynamic>.from(body);
   logBody.remove('email_body');
   debugPrint(
@@ -31,6 +35,7 @@ Future<void> _sendOneSignalRequest(
 /// Va chiamata al login così le email possono essere inviate via
 /// `include_aliases.external_id` senza dipendere dal Web SDK.
 Future<void> ensureOneSignalUser(String externalId, String email) async {
+  SimulationSession.assertNotSimulating('ensureOneSignalUser');
   debugPrint(
       '🔔 [OneSignal API] ensureUser — externalId: $externalId, email: $email');
 
@@ -52,6 +57,7 @@ Future<void> ensureOneSignalUser(String externalId, String email) async {
 /// Disabilita la subscription email OneSignal dell'utente autenticato.
 /// Serve per il logout web, dove l'email viene registrata lato backend.
 Future<void> removeOneSignalEmail(String email) async {
+  SimulationSession.assertNotSimulating('removeOneSignalEmail');
   debugPrint('🔔 [OneSignal API] removeEmail — email: $email');
 
   try {
@@ -179,6 +185,7 @@ Future<void> sendTestCertificateExpiryEmail({
   required String email,
   required bool isExpiryDay,
 }) async {
+  SimulationSession.assertNotSimulating('sendTestCertificateEmail');
   assert(kDebugMode);
   final kind = isExpiryDay ? 'expiryToday' : 'reminder10';
   debugPrint(

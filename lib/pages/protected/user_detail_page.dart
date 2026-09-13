@@ -23,6 +23,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:fitrope_app/utils/simulation_guard.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
+import 'package:fitrope_app/utils/simulation_controller.dart';
+import 'package:fitrope_app/utils/simulation_permissions.dart';
 
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
@@ -337,6 +341,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   Future<void> saveChanges() async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     final name = nameController.text.trim();
     final lastName = lastNameController.text.trim();
     final numeroTelefono = numeroTelefonoController.text.trim();
@@ -498,6 +503,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   void showLogoutConfirmation() {
+    // Blocco all'apertura, non alla conferma: il context è quello della
+    // PAGINA, quindi lo snackbar non viene mangiato dal pop del dialog.
+    if (SimulationGuard.blockIfSimulating(context)) return;
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -515,6 +523,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ),
             TextButton(
               onPressed: () async {
+                if (SimulationGuard.blockIfSimulating(context)) return;
                 try {
                   await signOut();
                   if (dialogContext.mounted) {
@@ -547,6 +556,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   void showDeleteAccountConfirmation() {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -568,6 +578,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ),
             TextButton(
               onPressed: () async {
+                if (SimulationGuard.blockIfSimulating(context)) return;
                 try {
                   // Disattiva l'account dell'utente
                   await toggleUserStatus(widget.user.uid, false);
@@ -644,6 +655,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   void showResetPasswordConfirmation() {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -664,6 +676,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ),
             TextButton(
               onPressed: () async {
+                if (SimulationGuard.blockIfSimulating(context)) return;
                 try {
                   await resetPassword(widget.user.email);
                   if (dialogContext.mounted) {
@@ -836,6 +849,23 @@ class _UserDetailPageState extends State<UserDetailPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Qui il breakpoint è ESPLICITO (a differenza della lista
+                // utenti): questa pagina si renderizza a tutte le taglie.
+                if (!isEditing &&
+                    canSimulateUser(
+                      actor: store.state.user,
+                      target: widget.user,
+                      isMobileLayout:
+                          breakpointOf(context) == ScreenType.mobile,
+                      alreadySimulating: SimulationSession.isActive,
+                    ))
+                  IconButton(
+                    icon: const Icon(Icons.visibility_outlined),
+                    tooltip: 'Simula utente',
+                    onPressed: () => SimulationController.confirmAndStart(
+                        context,
+                        target: widget.user),
+                  ),
                 if (!isEditing && _canEditUser()) ...[
                   if (store.state.user?.uid == widget.user.uid)
                     IconButton(
@@ -1150,6 +1180,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () async {
+                        if (SimulationGuard.blockIfSimulating(context)) {
+                          return;
+                        }
                         final accepted =
                             await RegolamentoHelper.checkAndAcceptRegolamento(
                           context,

@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 
 /// Chiama la Cloud Function `assignSubscription` (solo Admin).
 /// Ritorna l'id del nuovo abbonamento. Propaga [FirebaseFunctionsException].
@@ -7,6 +8,7 @@ Future<String> assignSubscription({
   required String planKey,
   DateTime? startDate,
 }) async {
+  SimulationSession.assertNotSimulating('assignSubscription');
   final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
       .httpsCallable('assignSubscription');
   final result = await callable.call(<String, dynamic>{

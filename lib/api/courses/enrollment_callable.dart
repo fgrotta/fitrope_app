@@ -3,6 +3,7 @@ import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/api/get_user_data.dart';
 import 'package:fitrope_app/state/actions.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:flutter/foundation.dart';
@@ -33,6 +34,15 @@ Future<void> callEnrollmentFunction(
   String? userId,
   required String fallbackError,
 }) async {
+  // Layer B della modalità simulazione — choke point di 6 callable (subscribe,
+  // unsubscribe incl. force, joinWaitlist, leaveWaitlist, deleteCourse,
+  // recountCourseSubscribed). Il server autorizzerebbe davvero: `request.auth.uid`
+  // è l'admin vero, quindi il blocco DEVE essere qui.
+  //
+  // ATTENZIONE ALL'ORDINE: la guardia va PRIMA di StartLoadingAction. Se finisse
+  // tra il dispatch e il `try`, `isLoading` resterebbe true per sempre e il
+  // Loader coprirebbe l'app in modo permanente.
+  SimulationSession.assertNotSimulating(functionName);
   store.dispatch(StartLoadingAction());
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fitrope_app/components/simulation_banner.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/app_environment.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -193,13 +194,21 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      builder: (context, child) => isStaging
-          ? Banner(
-              message: 'STAGING',
-              location: BannerLocation.topStart,
-              child: child ?? const SizedBox.shrink(),
-            )
-          : child ?? const SizedBox.shrink(),
+      // Unico seam che avvolge il Navigator: la barra di simulazione deve stare
+      // qui per coprire ogni route pushata (UserDetailPage, gestione corso) e
+      // per restare sopra dialog ed endDrawer. A simulazione spenta
+      // SimulationBanner ritorna il child identico, quindi l'albero non cambia.
+      builder: (context, child) {
+        final content =
+            SimulationBanner(child: child ?? const SizedBox.shrink());
+        return isStaging
+            ? Banner(
+                message: 'STAGING',
+                location: BannerLocation.topStart,
+                child: content,
+              )
+            : content;
+      },
       title: 'Fit House',
       theme: ThemeData.light(),
       locale: const Locale('it', 'IT'),

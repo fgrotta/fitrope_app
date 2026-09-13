@@ -31,6 +31,7 @@ import 'package:flutter/material.dart';
 import 'package:fitrope_app/components/calendar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:intl/intl.dart';
+import 'package:fitrope_app/utils/simulation_guard.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -162,6 +163,9 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> onSubscribe(Course course) async {
+    // PRIMA di RegolamentoHelper: quello apre un dialog e SCRIVE
+    // `regolamentoAccettatoIl` prima ancora dell'iscrizione.
+    if (SimulationGuard.blockIfSimulating(context)) return;
     bool accepted =
         await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted || !mounted) return;
@@ -184,6 +188,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> onUnsubscribe(Course course) async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     try {
       debugPrint('🔄 Inizio disiscrizione per corso: ${course.name}');
 
@@ -236,6 +241,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> onJoinWaitlist(Course course) {
+    if (SimulationGuard.blockIfSimulating(context)) return Future.value();
     return WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
       course: course,
@@ -246,6 +252,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> onLeaveWaitlist(Course course) {
+    if (SimulationGuard.blockIfSimulating(context)) return Future.value();
     return WaitlistUiHelper.handleLeaveWaitlist(
       context: context,
       course: course,

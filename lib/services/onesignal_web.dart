@@ -1,5 +1,6 @@
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 
 @JS('oneSignalInit')
 external void _init(JSString appId);
@@ -29,32 +30,44 @@ external JSBoolean _hasPushPermission();
 external JSBoolean _canRequestPushPermission();
 
 class OneSignalService {
+  // MODALITÀ SIMULAZIONE — difesa strutturale.
+  // In simulazione `store.state.user` è l'utente simulato: senza queste guardie
+  // il device dell'ADMIN verrebbe registrato su OneSignal come quell'utente, con
+  // la sua email agganciata e le sue preferenze push applicate. Regola: in
+  // simulazione non si chiama MAI OneSignal, il device resta legato all'admin.
+  // Per questo `SimulationController.stop()` non deve ripristinare nulla.
+
   static void initialize(String appId) {
     debugPrint('🔔 [OneSignal Web] initialize(appId: $appId)');
     _init(appId.toJS);
   }
 
   static void login(String userId) {
+    SimulationSession.assertNotSimulating('OneSignal.login');
     debugPrint('🔔 [OneSignal Web] login(userId: $userId)');
     _login(userId.toJS);
   }
 
   static void addEmail(String email) {
+    SimulationSession.assertNotSimulating('OneSignal.addEmail');
     debugPrint('🔔 [OneSignal Web] addEmail(email: $email)');
     _addEmail(email.toJS);
   }
 
   static Future<void> removeEmail(String email) async {
+    SimulationSession.assertNotSimulating('OneSignal.removeEmail');
     debugPrint('🔔 [OneSignal Web] removeEmail(email: $email)');
     _removeEmail(email.toJS);
   }
 
   static Future<void> setPushEnabled(bool enabled) async {
+    SimulationSession.assertNotSimulating('OneSignal.setPushEnabled');
     debugPrint('🔔 [OneSignal Web] setPushEnabled(enabled: $enabled)');
     _setPushEnabled(enabled.toJS);
   }
 
   static Future<void> syncPushPreference(bool enabled) async {
+    SimulationSession.assertNotSimulating('OneSignal.syncPushPreference');
     debugPrint('🔔 [OneSignal Web] syncPushPreference(enabled: $enabled)');
     _syncPushPreference(enabled.toJS);
   }
@@ -68,6 +81,7 @@ class OneSignalService {
   }
 
   static Future<void> logout() async {
+    SimulationSession.assertNotSimulating('OneSignal.logout');
     debugPrint('🔔 [OneSignal Web] logout()');
     _logout();
   }
