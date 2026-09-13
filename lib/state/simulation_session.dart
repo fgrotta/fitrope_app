@@ -1,6 +1,13 @@
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:flutter/foundation.dart';
 
+/// Messaggio unico mostrato all'utente quando un'azione è bloccata dalla
+/// modalità simulazione. Uno solo: l'admin può vederlo sia dal Layer A (guardia
+/// nelle pagine) sia dal Layer B (`$e` interpolato negli snackbar di errore dei
+/// percorsi non inventariati), e due copie divergerebbero al primo cambio.
+const String kSimulationBlockedMessage =
+    'Modalità simulazione: azione non eseguita';
+
 /// Errore lanciato da [SimulationSession.assertNotSimulating] quando un'azione
 /// di scrittura viene tentata in modalità simulazione.
 ///
@@ -14,7 +21,7 @@ class SimulationBlockedException implements Exception {
   const SimulationBlockedException(this.operation);
 
   @override
-  String toString() => 'Modalità simulazione: azione non eseguita.';
+  String toString() => kSimulationBlockedMessage;
 }
 
 /// Identità coinvolte in una sessione di simulazione.

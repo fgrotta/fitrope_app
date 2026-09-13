@@ -24,8 +24,7 @@ class SimulationGuard {
   static bool blockIfSimulating(BuildContext context) {
     if (!SimulationSession.isActive) return false;
 
-    SnackBarUtils.showWarningSnackBar(
-        context, 'Modalità simulazione: azione non eseguita');
+    SnackBarUtils.showWarningSnackBar(context, kSimulationBlockedMessage);
     return true;
   }
 }

@@ -146,8 +146,16 @@ class SimulationController {
     // ANTENATO del Navigator. Da lì `Navigator.of` non trova nulla e lancia —
     // la sessione risulterebbe chiusa ma la pagina dell'utente simulato
     // resterebbe sullo schermo (bug visto in QA sull'emulatore).
-    appNavigatorKey.currentState
-        ?.pushNamedAndRemoveUntil(PROTECTED_ROUTE, (route) => false);
+    final navigator = appNavigatorKey.currentState;
+    if (navigator == null) {
+      // Senza remount sessione e UI restano disallineate — esattamente il
+      // sintomo del bug che `appNavigatorKey` è qui per evitare. Meglio
+      // rumoroso che invisibile.
+      debugPrint(
+          '⛔ [Simulazione] remount saltato: appNavigatorKey non montata.');
+      return;
+    }
+    navigator.pushNamedAndRemoveUntil(PROTECTED_ROUTE, (route) => false);
 
     // `StartLoadingAction` copre il frame di transizione con il `Loader` di
     // `Protected`, ma nessuno lo chiude: `Protected.initState` non dispatcha

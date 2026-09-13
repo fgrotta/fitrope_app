@@ -124,6 +124,6 @@ void main() {
 
   test('il messaggio mostrato all\'utente è la sola frase italiana', () {
     expect(const SimulationBlockedException('updateUser').toString(),
-        'Modalità simulazione: azione non eseguita.');
+        kSimulationBlockedMessage);
   });
 }

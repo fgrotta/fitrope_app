@@ -300,6 +300,26 @@ Qualunque controllo che viva **fuori dall'albero del Navigator** (come la barra,
 che sta nel `builder` di `MaterialApp`) deve navigare con `appNavigatorKey`, non
 con `Navigator.of(context)`: da lì non c'è un Navigator antenato.
 
+Due invarianti in più, entrambe nate da bug reali:
+
+- **Un refresh asincrono non cambia mai chi sei.** Le pagine catturano l'utente
+  in un campo e dispatchano dopo un `await`, protette dal solo `mounted` — che
+  non dice nulla sull'identità: durante la transizione di
+  `pushNamedAndRemoveUntil` la pagina vecchia resta montata fino a fine
+  animazione. Usa `dispatchUserRefreshIfCurrent`
+  (`lib/utils/refresh_current_user.dart`), che dispatcha solo se l'uid combacia
+  ancora. Senza, un `getUserData(socio)` in volo reinstallava il socio nello
+  store **dopo** l'uscita dalla simulazione: guardie disarmate e scritture vere
+  a suo nome.
+
+**Limite noto e voluto: la fedeltà si ferma alle rules.** `FirebaseAuth.currentUser`
+resta l'admin, quindi le **letture** in simulazione sono valutate con
+`request.auth.uid` = admin. Una segnalazione la cui causa è un `permission-denied`
+lato rules (es. lo storico `subscriptions/*`, self-read-only) è **invisibile**:
+l'admin vede tutto funzionare. La simulazione risponde a "cosa vede e cosa può
+premere questo utente", non a "cosa gli nega il server". Il limite cresce man mano
+che il lockdown delle rules avanza.
+
 ## Layout responsive
 
 Breakpoint definiti in `lib/layout/breakpoints.dart`:

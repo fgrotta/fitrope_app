@@ -27,6 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
 import 'package:intl/intl.dart';
 import 'package:fitrope_app/utils/simulation_guard.dart';
+import 'package:fitrope_app/utils/refresh_current_user.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -244,7 +245,10 @@ class _HomePageState extends State<HomePage> {
             if (userData == null || !mounted) return;
             final refreshedUser = FitropeUser.fromJson(userData);
             setState(() => user = refreshedUser);
-            store.dispatch(SetUserAction(refreshedUser));
+            // NON `store.dispatch(SetUserAction(...))` diretto: `user` è stato
+            // catturato prima dell'await e `mounted` non dice nulla
+            // sull'identità corrente (vedi refresh_current_user.dart).
+            dispatchUserRefreshIfCurrent(refreshedUser);
           } catch (error) {
             debugPrint('Errore nell\'aggiornamento dell\'utente: $error');
           }

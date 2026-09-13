@@ -87,7 +87,7 @@ void main() {
     test('toString() è la sola frase italiana, senza prefisso Exception', () {
       const e = SimulationBlockedException('updateUser');
 
-      expect(e.toString(), 'Modalità simulazione: azione non eseguita.');
+      expect(e.toString(), kSimulationBlockedMessage);
       expect(e.toString(), isNot(contains('Exception')));
     });
   });
