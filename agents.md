@@ -264,6 +264,42 @@ Azioni (`lib/state/actions.dart`):
 
 Store creato con `thunkMiddleware` per operazioni asincrone.
 
+### Modalità simulazione (Admin che vede l'app come un utente)
+
+`SimulationSession` (`lib/state/simulation_session.dart`) è un singleton **fuori
+da Redux**: in simulazione `store.state.user` **è l'utente simulato**, e
+l'identità reale dell'admin vive nel singleton. È da qui che arriva quasi tutta
+la fedeltà visiva gratis — `getCourseState`, le tab admin che spariscono, i ~45
+confronti `role == 'Admin'`. Entrata/uscita in `SimulationController`, che forza
+un remount con `pushNamedAndRemoveUntil` (le pagine catturano l'utente una volta
+sola in `initState` e non ascoltano lo store).
+
+**Regola per ogni nuovo percorso di scrittura.** Il server NON può distinguere
+un'azione admin vera da una simulata (`request.auth.uid` è l'admin in entrambi i
+casi): il blocco è client-side per costruzione e va aggiunto a mano. Due layer:
+
+- **Layer A (UX)** — `SimulationGuard.blockIfSimulating(context)` come prima
+  istruzione dei callback delle **pagine** (non dei componenti: i bottoni devono
+  restare colorati e cliccabili, vedere *se* sarebbero premibili è metà del
+  valore diagnostico). Nei dialog usa il context della PAGINA, o lo snackbar se
+  ne va con il pop.
+- **Layer B (rete di sicurezza)** — `SimulationSession.assertNotSimulating('<op>')`
+  come **prima riga** della funzione in `lib/api/`, `lib/services/`,
+  `lib/authentication/`. Lancia anche in release. Attenzione all'ordine: prima
+  di `StartLoadingAction` (altrimenti il Loader resta per sempre) e **fuori** da
+  try/catch che inghiottono gli errori.
+
+Checklist per una PR che aggiunge scritture:
+`grep -rn "assertNotSimulating" lib/api lib/services lib/authentication`.
+
+OneSignal ha una guardia strutturale sui 6 metodi di `onesignal_{mobile,web}.dart`:
+in simulazione non si chiama MAI OneSignal, il device resta legato all'admin —
+per questo l'uscita non deve ripristinare nulla.
+
+Qualunque controllo che viva **fuori dall'albero del Navigator** (come la barra,
+che sta nel `builder` di `MaterialApp`) deve navigare con `appNavigatorKey`, non
+con `Navigator.of(context)`: da lì non c'è un Navigator antenato.
+
 ## Layout responsive
 
 Breakpoint definiti in `lib/layout/breakpoints.dart`:
