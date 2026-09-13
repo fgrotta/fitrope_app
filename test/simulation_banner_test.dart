@@ -1,4 +1,5 @@
 import 'package:fitrope_app/components/simulation_banner.dart';
+import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,5 +77,32 @@ void main() {
     await tester.pump();
     expect(find.text('Esci dalla simulazione'), findsNothing);
     expect(find.text('contenuto'), findsOneWidget);
+  });
+
+  testWidgets(
+      'l\'uscita funziona dal builder di MaterialApp, fuori dal Navigator',
+      (tester) async {
+    // Regressione del bug trovato in QA: la barra vive nel `builder` di
+    // MaterialApp, cioè SOPRA il Navigator. Con `Navigator.of(context)` il tap
+    // su "Esci" lanciava — la sessione si chiudeva ma la pagina dell'utente
+    // simulato restava sullo schermo. Il remount passa da `appNavigatorKey`.
+    SimulationSession.start(admin: admin, target: target);
+
+    await tester.pumpWidget(MaterialApp(
+      navigatorKey: appNavigatorKey,
+      builder: (context, child) =>
+          SimulationBanner(child: child ?? const SizedBox.shrink()),
+      routes: {
+        '/': (_) => const Scaffold(body: Text('pagina')),
+        PROTECTED_ROUTE: (_) => const Scaffold(body: Text('protected')),
+      },
+    ));
+
+    await tester.tap(find.text('Esci dalla simulazione'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(SimulationSession.isActive, isFalse);
+    expect(find.text('protected'), findsOneWidget);
   });
 }

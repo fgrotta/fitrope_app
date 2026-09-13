@@ -77,14 +77,14 @@ class _SimulationBar extends StatelessWidget {
               const SizedBox(width: 8),
               if (compatta)
                 IconButton(
-                  onPressed: () => SimulationController.stop(context),
+                  onPressed: () => SimulationController.stop(),
                   tooltip: 'Esci dalla simulazione',
                   color: Colors.white,
                   icon: const Icon(Icons.logout),
                 )
               else
                 TextButton.icon(
-                  onPressed: () => SimulationController.stop(context),
+                  onPressed: () => SimulationController.stop(),
                   icon: const Icon(Icons.logout, size: 18),
                   label: const Text('Esci dalla simulazione'),
                   style: TextButton.styleFrom(foregroundColor: Colors.white),

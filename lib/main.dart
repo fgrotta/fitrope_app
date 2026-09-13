@@ -194,6 +194,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       // Unico seam che avvolge il Navigator: la barra di simulazione deve stare
       // qui per coprire ogni route pushata (UserDetailPage, gestione corso) e
       // per restare sopra dialog ed endDrawer. A simulazione spenta

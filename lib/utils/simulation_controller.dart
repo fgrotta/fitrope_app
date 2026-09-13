@@ -66,7 +66,7 @@ class SimulationController {
     store.dispatch(StartLoadingAction());
     store.dispatch(SetUserAction(target));
 
-    _remount(context);
+    _remount();
   }
 
   /// Dialog di conferma + [start]. È il punto di ingresso da usare dalla UI:
@@ -111,7 +111,10 @@ class SimulationController {
   }
 
   /// Esce dalla simulazione e ripristina la vista dell'admin.
-  static void stop(BuildContext context) {
+  ///
+  /// Non prende un `BuildContext`: il chiamante tipico è la barra, che vive
+  /// fuori dall'albero del Navigator (vedi [_remount]).
+  static void stop() {
     final info = SimulationSession.current.value;
     if (info == null) return;
 
@@ -134,12 +137,17 @@ class SimulationController {
     // `onesignal_mobile.dart` / `onesignal_web.dart`). Se quelle guardie
     // venissero rimosse, qui andrebbe rifatto `OneSignalService.login(admin.uid)`.
 
-    _remount(context);
+    _remount();
   }
 
-  static void _remount(BuildContext context) {
-    Navigator.of(context)
-        .pushNamedAndRemoveUntil(PROTECTED_ROUTE, (route) => false);
+  static void _remount() {
+    // `appNavigatorKey` e non `Navigator.of(context)`: `stop()` viene invocata
+    // dalla barra, che sta nel `builder` di `MaterialApp` ed è quindi un
+    // ANTENATO del Navigator. Da lì `Navigator.of` non trova nulla e lancia —
+    // la sessione risulterebbe chiusa ma la pagina dell'utente simulato
+    // resterebbe sullo schermo (bug visto in QA sull'emulatore).
+    appNavigatorKey.currentState
+        ?.pushNamedAndRemoveUntil(PROTECTED_ROUTE, (route) => false);
 
     // `StartLoadingAction` copre il frame di transizione con il `Loader` di
     // `Protected`, ma nessuno lo chiude: `Protected.initState` non dispatcha

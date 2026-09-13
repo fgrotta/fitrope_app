@@ -34,6 +34,15 @@ const DEBUG_EMAIL_ROUTE = '/debug-email';
 
 const INITIAL_ROUTE = SPLASH_ROUTE;
 
+/// Navigator dell'app, raggiungibile anche da FUORI dell'albero del Navigator.
+///
+/// Serve alla barra della modalità simulazione: vive nel `builder` di
+/// `MaterialApp`, quindi è un ANTENATO del Navigator e `Navigator.of(context)`
+/// da lì non troverebbe nulla (l'exception lascerebbe la sessione chiusa ma la
+/// pagina stantia sullo schermo). Con la chiave il remount funziona da
+/// qualunque punto, dentro o fuori dal Navigator.
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 Map<String, Widget Function(BuildContext)> routes = {
   SPLASH_ROUTE: (context) => Title(
       color: Colors.black, title: 'Fit House', child: const SplashScreen()),
