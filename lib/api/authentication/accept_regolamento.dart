@@ -1,6 +1,7 @@
 import "package:flutter/foundation.dart";
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 
 /// Salva l'accettazione del regolamento per l'utente specificato.
 /// Scrive il campo `regolamentoAccettatoIl` con il timestamp corrente.
@@ -12,6 +13,7 @@ import 'package:fitrope_app/utils/user_cache_manager.dart';
 /// `store.state.user?.uid == widget.user.uid`. Chiamarla per conto di un altro
 /// utente verrebbe rifiutata dal server (permission-denied).
 Future<void> acceptRegolamento(String uid) async {
+  SimulationSession.assertNotSimulating('acceptRegolamento');
   try {
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'regolamentoAccettatoIl': FieldValue.serverTimestamp(),

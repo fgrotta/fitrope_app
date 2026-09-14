@@ -264,6 +264,78 @@ Azioni (`lib/state/actions.dart`):
 
 Store creato con `thunkMiddleware` per operazioni asincrone.
 
+### Modalità simulazione (Admin che vede l'app come un utente)
+
+`SimulationSession` (`lib/state/simulation_session.dart`) è un singleton **fuori
+da Redux**: in simulazione `store.state.user` **è l'utente simulato**, e
+l'identità reale dell'admin vive nel singleton. È da qui che arriva quasi tutta
+la fedeltà visiva gratis — `getCourseState`, le tab admin che spariscono, i ~45
+confronti `role == 'Admin'`. Entrata/uscita in `SimulationController`, che forza
+un remount con `pushNamedAndRemoveUntil` (le pagine catturano l'utente una volta
+sola in `initState` e non ascoltano lo store).
+
+**Regola per ogni nuovo percorso di scrittura.** Il server NON può distinguere
+un'azione admin vera da una simulata (`request.auth.uid` è l'admin in entrambi i
+casi): il blocco è client-side per costruzione e va aggiunto a mano. Due layer:
+
+- **Layer A (UX)** — `SimulationGuard.blockIfSimulating(context)` come prima
+  istruzione dei callback delle **pagine** (non dei componenti: i bottoni devono
+  restare colorati e cliccabili, vedere *se* sarebbero premibili è metà del
+  valore diagnostico). Nei dialog usa il context della PAGINA, o lo snackbar se
+  ne va con il pop.
+- **Layer B (rete di sicurezza)** — `SimulationSession.assertNotSimulating('<op>')`
+  come **prima riga** della funzione in `lib/api/`, `lib/services/`,
+  `lib/authentication/`. Lancia anche in release. Attenzione all'ordine: prima
+  di `StartLoadingAction` (altrimenti il Loader resta per sempre) e **fuori** da
+  try/catch che inghiottono gli errori.
+
+Checklist per una PR che aggiunge scritture — il grep elenca i file GUARDATI,
+quindi confrontalo con l'elenco dei file che scrivono (Firestore, Auth, callable):
+`grep -rn "assertNotSimulating" lib/api lib/services lib/authentication`
+`grep -rlE "\.(set|update|delete)\(|httpsCallable|createUserWithEmailAndPassword|sendEmailVerification|\.delete\(\)" lib/api lib/services lib/authentication`
+
+Due trappole del remount, entrambe verificate con un widget test:
+
+- **Niente `ValueKey` legata alla simulazione su `Protected`.** Il toggle della
+  barra ri-parenta il Navigator (il `child` del `builder` passa da nudo a
+  `Column/Expanded`) e Flutter ricostruisce la pagina di ogni route in history,
+  compresa quella in uscita: con una key che cambia a ogni start/stop si crea un
+  secondo `Protected` transitorio (initState, OneSignal e loader admin due
+  volte). Il remount lo garantisce già `pushNamedAndRemoveUntil`.
+- **Niente `invalidateAllUserCaches()` in `SimulationController.stop()`.** Chiama
+  `RefreshManager().notifyRefresh()` in modo sincrono mentre la HomePage del
+  socio è ancora montata: il suo `refreshCourses` copia lo store (già = admin)
+  nel campo `user`, e al dispose rimuove i listener del ruolo sbagliato, lasciando
+  `refreshCourses` agganciato a uno State morto per tutta la sessione.
+
+OneSignal ha una guardia strutturale sui 6 metodi di `onesignal_{mobile,web}.dart`:
+in simulazione non si chiama MAI OneSignal, il device resta legato all'admin —
+per questo l'uscita non deve ripristinare nulla.
+
+Qualunque controllo che viva **fuori dall'albero del Navigator** (come la barra,
+che sta nel `builder` di `MaterialApp`) deve navigare con `appNavigatorKey`, non
+con `Navigator.of(context)`: da lì non c'è un Navigator antenato.
+
+Due invarianti in più, entrambe nate da bug reali:
+
+- **Un refresh asincrono non cambia mai chi sei.** Le pagine catturano l'utente
+  in un campo e dispatchano dopo un `await`, protette dal solo `mounted` — che
+  non dice nulla sull'identità: durante la transizione di
+  `pushNamedAndRemoveUntil` la pagina vecchia resta montata fino a fine
+  animazione. Usa `dispatchUserRefreshIfCurrent`
+  (`lib/utils/refresh_current_user.dart`), che dispatcha solo se l'uid combacia
+  ancora. Senza, un `getUserData(socio)` in volo reinstallava il socio nello
+  store **dopo** l'uscita dalla simulazione: guardie disarmate e scritture vere
+  a suo nome.
+
+**Limite noto e voluto: la fedeltà si ferma alle rules.** `FirebaseAuth.currentUser`
+resta l'admin, quindi le **letture** in simulazione sono valutate con
+`request.auth.uid` = admin. Una segnalazione la cui causa è un `permission-denied`
+lato rules (es. lo storico `subscriptions/*`, self-read-only) è **invisibile**:
+l'admin vede tutto funzionare. La simulazione risponde a "cosa vede e cosa può
+premere questo utente", non a "cosa gli nega il server". Il limite cresce man mano
+che il lockdown delle rules avanza.
+
 ## Layout responsive
 
 Breakpoint definiti in `lib/layout/breakpoints.dart`:

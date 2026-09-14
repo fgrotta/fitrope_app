@@ -31,6 +31,8 @@ import 'package:flutter/material.dart';
 import 'package:fitrope_app/components/calendar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:intl/intl.dart';
+import 'package:fitrope_app/utils/simulation_guard.dart';
+import 'package:fitrope_app/utils/refresh_current_user.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -162,6 +164,9 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> onSubscribe(Course course) async {
+    // PRIMA di RegolamentoHelper: quello apre un dialog e SCRIVE
+    // `regolamentoAccettatoIl` prima ancora dell'iscrizione.
+    if (SimulationGuard.blockIfSimulating(context)) return;
     bool accepted =
         await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted || !mounted) return;
@@ -184,6 +189,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> onUnsubscribe(Course course) async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     try {
       debugPrint('🔄 Inizio disiscrizione per corso: ${course.name}');
 
@@ -205,7 +211,10 @@ class _CalendarPageState extends State<CalendarPage> {
             debugPrint('🔄 Aggiornamento stato utente nello store');
             final userData = await getUserData(user.uid);
             if (userData != null) {
-              store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
+              // Il check sull'uid qui sopra è PRIMA dell'await: va rifatto al
+              // momento del dispatch, altrimenti un cambio di identità
+              // avvenuto nel frattempo viene sovrascritto.
+              dispatchUserRefreshIfCurrent(FitropeUser.fromJson(userData));
             }
           } catch (e) {
             debugPrint('⚠️ Errore nell\'aggiornamento stato utente: $e');
@@ -236,6 +245,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> onJoinWaitlist(Course course) {
+    if (SimulationGuard.blockIfSimulating(context)) return Future.value();
     return WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
       course: course,
@@ -246,6 +256,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> onLeaveWaitlist(Course course) {
+    if (SimulationGuard.blockIfSimulating(context)) return Future.value();
     return WaitlistUiHelper.handleLeaveWaitlist(
       context: context,
       course: course,

@@ -15,9 +15,11 @@ import 'package:fitrope_app/pages/protected/admin_users_page.dart';
 import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/utils/simulation_guard.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -63,17 +65,18 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     });
 
     if (!isLogged()) {
+      // Unica via alla schermata di login che NON passa da `signOut()` (che
+      // in simulazione lancia): Firebase ha invalidato la sessione dell'admin.
+      // Una simulazione lasciata viva qui farebbe fallire il login successivo,
+      // perché anche `signInWithEmailPassword` asserisce.
+      SimulationSession.stop();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacementNamed(LOGIN_ROUTE);
       });
     } else {
       if (user != null) {
         debugPrint("${user!.name} ${user!.lastName} logged");
-        OneSignalService.login(user!.uid);
-        if (user!.email.isNotEmpty) {
-          OneSignalService.addEmail(user!.email);
-        }
-        OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
+        _syncOneSignalIdentity(user!);
       } else {
         resetUser();
       }
@@ -110,7 +113,30 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     RefreshManager().notifyRefresh();
   }
 
+  /// Lega il device all'identità corrente su OneSignal. UNICO punto in
+  /// `Protected` che chiama OneSignal: chi aggiunge una chiamata di identità
+  /// la mette qui, così la guardia sotto vale una volta sola.
+  ///
+  /// MODALITÀ SIMULAZIONE: dopo il remount `user` è l'utente SIMULATO. Senza
+  /// questa uscita il device dell'admin verrebbe registrato su OneSignal come
+  /// quel socio, con la sua email agganciata e le sue preferenze push
+  /// applicate (e le guardie in `OneSignalService` lancerebbero da initState).
+  /// Regola: in simulazione non si chiama mai OneSignal.
+  void _syncOneSignalIdentity(FitropeUser u) {
+    if (SimulationSession.isActive) return;
+    OneSignalService.login(u.uid);
+    if (u.email.isNotEmpty) {
+      OneSignalService.addEmail(u.email);
+    }
+    OneSignalService.syncPushPreference(u.pushNotificationsEnabled);
+  }
+
   Future<void> resetUser() async {
+    // In simulazione questo metodo rileggerebbe `FirebaseAuth.currentUser.uid`
+    // — che è sempre l'ADMIN — e terminerebbe la simulazione di nascosto,
+    // sostituendo l'utente nello store mentre la barra resta accesa.
+    if (SimulationSession.isActive) return;
+
     String uid = FirebaseAuth.instance.currentUser!.uid;
 
     Map<String, dynamic>? userData = await getUserData(uid);
@@ -123,11 +149,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
         debugPrint("${user!.name} ${user!.lastName} logged");
       });
       if (user != null) {
-        OneSignalService.login(user!.uid);
-        if (user!.email.isNotEmpty) {
-          OneSignalService.addEmail(user!.email);
-        }
-        OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
+        _syncOneSignalIdentity(user!);
       }
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -220,6 +242,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                           }
                         : null,
                     onLogout: () async {
+                      if (SimulationGuard.blockIfSimulating(context)) return;
                       await signOut();
                       if (!context.mounted) return;
                       logoutRedirect(context);

@@ -16,6 +16,9 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:intl/intl.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
+import 'package:fitrope_app/utils/simulation_controller.dart';
+import 'package:fitrope_app/utils/simulation_permissions.dart';
 
 enum AbbonamentoScadenzaListFilter {
   tutti,
@@ -635,6 +638,28 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                 tooltip: 'Dettagli',
                                 onPressed: () => showUserDetails(fitropeUser),
                               ),
+                              // Modalità simulazione. `isMobileLayout: false`
+                              // non è una scorciatoia: questa colonna vive solo
+                              // dentro `useUserTable`, che esiste solo per
+                              // `screenType != ScreenType.mobile`. Il gate
+                              // tablet/desktop è quindi già soddisfatto dalla
+                              // struttura, senza logica di breakpoint qui e
+                              // senza toccare il PopupMenuButton mobile.
+                              if (canSimulateUser(
+                                actor: store.state.user,
+                                target: fitropeUser,
+                                isMobileLayout: false,
+                                alreadySimulating: SimulationSession.isActive,
+                              ))
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(Icons.visibility_outlined),
+                                  tooltip: 'Simula utente',
+                                  onPressed: () =>
+                                      SimulationController.confirmAndStart(
+                                          context,
+                                          target: fitropeUser),
+                                ),
                               if (_canEditListedUser(fitropeUser))
                                 IconButton(
                                   visualDensity: VisualDensity.compact,

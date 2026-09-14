@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/get_user_data.dart';
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/state/actions.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
@@ -23,6 +24,8 @@ class SignInResponse {
 
 Future<SignInResponse> signInWithEmailPassword(
     String email, String password) async {
+  // PRIMA di StartLoadingAction, o il Loader resterebbe acceso per sempre.
+  SimulationSession.assertNotSimulating('signInWithEmailPassword');
   store.dispatch(StartLoadingAction());
   try {
     UserCredential userCredential =

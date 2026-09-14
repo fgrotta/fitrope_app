@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/services/notification_service.dart';
+import 'package:fitrope_app/utils/simulation_guard.dart';
 
 class DebugEmailPage extends StatefulWidget {
   const DebugEmailPage({super.key});
@@ -97,6 +98,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   }
 
   Future<void> _sendWaitlistEmail() async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     if (_resolvedUid == null) return;
     setState(() => _sendingWaitlist = true);
     try {
@@ -127,6 +129,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   }
 
   Future<void> _sendReminderEmail() async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     if (_resolvedUid == null) return;
     setState(() => _sendingReminder = true);
     try {
@@ -160,6 +163,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   }
 
   Future<void> _sendConfirmationEmail() async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     if (_resolvedUid == null) return;
     setState(() => _sendingConfirmation = true);
     try {
@@ -193,6 +197,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   }
 
   Future<void> _sendCertificateEmail({required bool isExpiryDay}) async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     if (_resolvedUid == null) return;
     setState(() {
       if (isExpiryDay) {

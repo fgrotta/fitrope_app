@@ -33,6 +33,15 @@ const DEBUG_EMAIL_ROUTE = '/debug-email';
 
 const INITIAL_ROUTE = SPLASH_ROUTE;
 
+/// Navigator dell'app, raggiungibile anche da FUORI dell'albero del Navigator.
+///
+/// Serve alla barra della modalità simulazione: vive nel `builder` di
+/// `MaterialApp`, quindi è un ANTENATO del Navigator e `Navigator.of(context)`
+/// da lì non troverebbe nulla (l'exception lascerebbe la sessione chiusa ma la
+/// pagina stantia sullo schermo). Con la chiave il remount funziona da
+/// qualunque punto, dentro o fuori dal Navigator.
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 Map<String, Widget Function(BuildContext)> routes = {
   SPLASH_ROUTE: (context) => Title(
       color: Colors.black, title: 'Fit House', child: const SplashScreen()),
@@ -53,6 +62,13 @@ Map<String, Widget Function(BuildContext)> routes = {
       title: 'Fit House',
       child: DeferredPage(
         load: protected.loadLibrary,
+        // NIENTE key legata alla simulazione qui: il remount al cambio di
+        // identità lo fa `SimulationController` con `pushNamedAndRemoveUntil`.
+        // Una `ValueKey` che cambia a ogni start/stop NON è gratis: il toggle
+        // della barra ri-parenta il Navigator e Flutter ricostruisce la pagina
+        // di OGNI route in history, compresa quella in uscita — che con la key
+        // nuova rimonterebbe un secondo `Protected` transitorio (initState,
+        // OneSignal e loader admin eseguiti due volte).
         builder: (_) => protected.Protected(),
       )),
   RECURRING_COURSE_ROUTE: (context) => Title(

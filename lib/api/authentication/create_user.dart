@@ -5,6 +5,7 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 
 class CreateUserResponse {
   final FitropeUser? user;
@@ -36,6 +37,7 @@ Future<CreateUserResponse> createUser({
   String? numeroTelefono,
   List<String>? tipologiaCorsoTags,
 }) async {
+  SimulationSession.assertNotSimulating('createUser');
   try {
     // Verifica che l'utente corrente abbia i permessi necessari
     CollectionReference postsRef =

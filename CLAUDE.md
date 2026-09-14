@@ -173,6 +173,22 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 - Dopo mutazioni su corsi/utenti, invalida la cache (`refresh_manager`, `user_cache_manager`).
 - **Filtri e tipologie nel calendario**: la lista corsi è in ordine cronologico, **senza raggruppare per `courseType`** (quell'enum conosce solo Open/PT, quindi un corso Hyrox finiva sotto l'intestazione "Open"). La tipologia reale sta sulla card come accento colore + badge, con i token in `lib/utils/course_type_style.dart` (contrasto AA con testo bianco, come `capacity_color.dart`; icona sempre presente perché il colore convive con quello della capienza). Il filtro è in `lib/components/course_filter_bar.dart` + `lib/utils/course_filters.dart` (logica pura, testata) e ha **una sola dimensione**, la Tipologia da `CourseTypes.all`: chip a **set fisso** disabilitati a conteggio 0, selezione multipla in OR, e **non si azzerano al cambio giorno**. Il primo chip è **"Tutti"**: non è una tipologia ma il set vuoto reso visibile — selezionato quando non c'è filtro, toccarlo azzera (da selezionato è un no-op: "mostra niente" non esiste), e il suo conteggio è il totale della giornata, corsi senza tipologia riconosciuta compresi. Il filtro **iniziale** lo decide `defaultTypeFilterForSubscriptions` dagli abbonamenti *vivi* (`liveSubscriptions`, non lo snapshot grezzo): chi ha **solo** abbonamenti `SubscriptionFamily.PT` apre il calendario già su Personal Trainer, tutti gli altri su "Tutti". Si applica una volta sola in `initState`; da lì comanda l'utente. La dimensione Sala è stata rimossa dal filtro (con due sale il selettore costava più di quanto rendesse) ma `Course.sala` resta sulla card. Due invarianti da non rompere: un chip selezionato non va MAI disabilitato (resterebbe intrappolato dopo un cambio giorno), e il conteggio sul chip è per costruzione il numero di card che si vedono selezionandolo. Sotto i 900 px (`isDesktop`, la stessa soglia che decide una o due colonne) i chip scorrono in orizzontale in una riga sola, con una sfumatura via `ShaderMask` + `BlendMode.dstIn` sul lato dove resta contenuto; da 900 in su tornano in un `Wrap`. Nella barra non c'è "Azzera filtri": si deseleziona toccando il chip, il pulsante resta solo nell'empty state del filtro.
 - Per iscrizioni, disiscrizioni, waitlist, assegnazione abbonamenti, delete e recount usa le callable in `europe-west8`: le transazioni autoritative sono nelle Cloud Functions. Le scritture client dirette restano limitate al CRUD corso consentito dalle rules.
+- **Modalità simulazione (Admin che vede l'app come un socio)**: in simulazione
+  `store.state.user` **è l'utente simulato**, ma `FirebaseAuth.currentUser` resta l'admin —
+  il server autorizzerebbe davvero, quindi **il blocco read-only è client-side per
+  costruzione e va aggiunto a mano a ogni nuovo percorso di scrittura**. Due layer:
+  `SimulationGuard.blockIfSimulating(context)` come prima istruzione dei callback delle
+  **pagine** (i bottoni devono restare colorati e cliccabili: vedere *se* sarebbero
+  premibili è metà del valore diagnostico), e `SimulationSession.assertNotSimulating('<op>')`
+  come **prima riga** delle funzioni in `lib/api/`, `lib/services/`, `lib/authentication/`
+  (lancia anche in release). Prima di aprire la PR:
+  `grep -rn "assertNotSimulating" lib/api lib/services lib/authentication`.
+  Tre trappole: la guardia va **prima** di `StartLoadingAction` (dopo, il Loader resta per
+  sempre) e **fuori** dai try/catch che inghiottono gli errori; un refresh asincrono non
+  deve mai dispatchare `SetUserAction` con un utente catturato prima di un `await` — usa
+  `dispatchUserRefreshIfCurrent` (`mounted` non dice nulla sull'identità); e chi vive fuori
+  dall'albero del Navigator (la barra sta nel `builder` di `MaterialApp`) naviga con
+  `appNavigatorKey`, non con `Navigator.of(context)`. Dettagli in `agents.md`.
 - **Pull request**: apri sempre le PR nel fork `fgrotta/fitrope_app` con base **`develop`**, mai verso l'upstream `dellarosamarco/fitrope_app` e mai con base `main`. Questo repo è un fork, quindi `gh pr create` di default punterebbe al parent: usa `gh pr create --repo fgrotta/fitrope_app --base develop`. `develop` è il branch di integrazione (deploy staging automatico a ogni merge, vedi sopra) ed è **molto avanti** rispetto a `main`: una PR con base `main` non mostra il tuo lavoro ma decine di commit già integrati, quindi è irreviewabile. Anche i branch di feature vanno allineati a `origin/develop`, non a `main`.
 
 ## Aree sensibili

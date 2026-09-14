@@ -2,11 +2,13 @@ import "package:flutter/foundation.dart";
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 
 // TODO(server-migration): portare updateCourse in Cloud Function (vedi piano
 // §11 e PR5/PR6): finché resta client, il lockdown delle rules sui corsi sarà
 // solo parziale.
 Future<void> updateCourse(Course course, {FirebaseFirestore? firestore}) async {
+  SimulationSession.assertNotSimulating('updateCourse');
   try {
     final db = firestore ?? FirebaseFirestore.instance;
     // `subscribed` e `waitlist` sono di proprietà del server da PR4 (scritti in

@@ -26,6 +26,8 @@ import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
 import 'package:intl/intl.dart';
+import 'package:fitrope_app/utils/simulation_guard.dart';
+import 'package:fitrope_app/utils/refresh_current_user.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -243,7 +245,10 @@ class _HomePageState extends State<HomePage> {
             if (userData == null || !mounted) return;
             final refreshedUser = FitropeUser.fromJson(userData);
             setState(() => user = refreshedUser);
-            store.dispatch(SetUserAction(refreshedUser));
+            // NON `store.dispatch(SetUserAction(...))` diretto: `user` è stato
+            // catturato prima dell'await e `mounted` non dice nulla
+            // sull'identità corrente (vedi refresh_current_user.dart).
+            dispatchUserRefreshIfCurrent(refreshedUser);
           } catch (error) {
             debugPrint('Errore nell\'aggiornamento dell\'utente: $error');
           }
@@ -264,6 +269,11 @@ class _HomePageState extends State<HomePage> {
 
   // Callback per l'iscrizione
   Future<void> onSubscribe(Course course) async {
+    // PRIMA di RegolamentoHelper: quello apre un dialog e SCRIVE
+    // `regolamentoAccettatoIl`. Bloccando dopo, l'admin vedrebbe aprirsi il
+    // regolamento e poi uno snackbar rosso di errore — sembrerebbe rotto
+    // invece che bloccato.
+    if (SimulationGuard.blockIfSimulating(context)) return;
     bool accepted =
         await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
     if (!accepted) return;
@@ -289,6 +299,7 @@ class _HomePageState extends State<HomePage> {
 
   // Callback per la disiscrizione
   Future<void> onUnsubscribe(Course course) async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     debugPrint('🔄 Disiscrizione dal corso: ${course.name}');
     // Usa il nuovo sistema di disiscrizione intelligente
     try {
@@ -325,6 +336,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> onJoinWaitlist(Course course) {
+    if (SimulationGuard.blockIfSimulating(context)) return Future.value();
     return WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
       course: course,
@@ -335,6 +347,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> onLeaveWaitlist(Course course) {
+    if (SimulationGuard.blockIfSimulating(context)) return Future.value();
     return WaitlistUiHelper.handleLeaveWaitlist(
       context: context,
       course: course,
