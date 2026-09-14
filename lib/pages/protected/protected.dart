@@ -71,18 +71,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     } else {
       if (user != null) {
         debugPrint("${user!.name} ${user!.lastName} logged");
-        // MODALITÀ SIMULAZIONE: qui `user` è l'utente SIMULATO (il remount fa
-        // rigirare initState con lo store già sostituito). Senza questa guardia
-        // il device dell'admin verrebbe registrato su OneSignal come quel socio,
-        // con la sua email agganciata e le sue preferenze push applicate.
-        // Regola: in simulazione non si chiama mai OneSignal.
-        if (!SimulationSession.isActive) {
-          OneSignalService.login(user!.uid);
-          if (user!.email.isNotEmpty) {
-            OneSignalService.addEmail(user!.email);
-          }
-          OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
-        }
+        _syncOneSignalIdentity(user!);
       } else {
         resetUser();
       }
@@ -119,6 +108,24 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     RefreshManager().notifyRefresh();
   }
 
+  /// Lega il device all'identità corrente su OneSignal. UNICO punto in
+  /// `Protected` che chiama OneSignal: chi aggiunge una chiamata di identità
+  /// la mette qui, così la guardia sotto vale una volta sola.
+  ///
+  /// MODALITÀ SIMULAZIONE: dopo il remount `user` è l'utente SIMULATO. Senza
+  /// questa uscita il device dell'admin verrebbe registrato su OneSignal come
+  /// quel socio, con la sua email agganciata e le sue preferenze push
+  /// applicate (e le guardie in `OneSignalService` lancerebbero da initState).
+  /// Regola: in simulazione non si chiama mai OneSignal.
+  void _syncOneSignalIdentity(FitropeUser u) {
+    if (SimulationSession.isActive) return;
+    OneSignalService.login(u.uid);
+    if (u.email.isNotEmpty) {
+      OneSignalService.addEmail(u.email);
+    }
+    OneSignalService.syncPushPreference(u.pushNotificationsEnabled);
+  }
+
   Future<void> resetUser() async {
     // In simulazione questo metodo rileggerebbe `FirebaseAuth.currentUser.uid`
     // — che è sempre l'ADMIN — e terminerebbe la simulazione di nascosto,
@@ -136,12 +143,8 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
         user = store.state.user;
         debugPrint("${user!.name} ${user!.lastName} logged");
       });
-      if (user != null && !SimulationSession.isActive) {
-        OneSignalService.login(user!.uid);
-        if (user!.email.isNotEmpty) {
-          OneSignalService.addEmail(user!.email);
-        }
-        OneSignalService.syncPushPreference(user!.pushNotificationsEnabled);
+      if (user != null) {
+        _syncOneSignalIdentity(user!);
       }
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {

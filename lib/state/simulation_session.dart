@@ -56,14 +56,6 @@ class SimulationSession {
   static final ValueNotifier<SimulationInfo?> current =
       ValueNotifier<SimulationInfo?>(null);
 
-  static int _generation = 0;
-
-  /// Incrementa a ogni cambio di identità — su `start` **e** su `stop`. Usata
-  /// come `ValueKey` su `Protected` in `router.dart`: rinforzo a costo zero che
-  /// garantisce uno `State` nuovo anche se un giorno il remount via
-  /// `pushNamedAndRemoveUntil` venisse sostituito.
-  static int get generation => _generation;
-
   static bool get isActive => current.value != null;
 
   /// Entra in simulazione. Non annidabile: simulare da dentro una simulazione
@@ -73,7 +65,6 @@ class SimulationSession {
       throw StateError(
           'Simulazione già attiva: non è possibile annidare le simulazioni.');
     }
-    _generation++;
     current.value = SimulationInfo(realUser: admin, simulatedUser: target);
   }
 
@@ -81,7 +72,6 @@ class SimulationSession {
   /// incondizionatamente, es. dal logout).
   static void stop() {
     if (!isActive) return;
-    _generation++;
     current.value = null;
   }
 

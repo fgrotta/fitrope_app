@@ -11,7 +11,6 @@ import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/components/assign_subscription_card.dart';
 import 'package:fitrope_app/components/active_subscription_card.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
-import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
@@ -24,6 +23,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:fitrope_app/utils/simulation_guard.dart';
+import 'package:fitrope_app/utils/refresh_current_user.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/utils/simulation_controller.dart';
 import 'package:fitrope_app/utils/simulation_permissions.dart';
@@ -473,9 +473,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
       );
 
       // Aggiorna lo store Redux se l'utente ha modificato il proprio profilo
-      if (store.state.user?.uid == widget.user.uid) {
-        store.dispatch(SetUserAction(updatedUser));
-      }
+      // (l'helper dispatcha solo se l'identità corrente è ancora la sua).
+      dispatchUserRefreshIfCurrent(updatedUser);
 
       if (!mounted) return;
       setState(() {
@@ -504,7 +503,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   void showLogoutConfirmation() {
     // Blocco all'apertura, non alla conferma: il context è quello della
-    // PAGINA, quindi lo snackbar non viene mangiato dal pop del dialog.
+    // PAGINA, quindi lo snackbar non viene mangiato dal pop del dialog. Un
+    // secondo check dentro il bottone di conferma sarebbe irraggiungibile: la
+    // simulazione può partire solo da bottoni della pagina, che stanno dietro
+    // la barriera modale del dialog.
     if (SimulationGuard.blockIfSimulating(context)) return;
     showDialog(
       context: context,
@@ -523,7 +525,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ),
             TextButton(
               onPressed: () async {
-                if (SimulationGuard.blockIfSimulating(context)) return;
                 try {
                   await signOut();
                   if (dialogContext.mounted) {
@@ -578,7 +579,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ),
             TextButton(
               onPressed: () async {
-                if (SimulationGuard.blockIfSimulating(context)) return;
                 try {
                   // Disattiva l'account dell'utente
                   await toggleUserStatus(widget.user.uid, false);
@@ -676,7 +676,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
             ),
             TextButton(
               onPressed: () async {
-                if (SimulationGuard.blockIfSimulating(context)) return;
                 try {
                   await resetPassword(widget.user.email);
                   if (dialogContext.mounted) {
@@ -855,8 +854,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     canSimulateUser(
                       actor: store.state.user,
                       target: widget.user,
-                      isMobileLayout:
-                          breakpointOf(context) == ScreenType.mobile,
+                      isMobileLayout: isMobile(context),
                       alreadySimulating: SimulationSession.isActive,
                     ))
                   IconButton(

@@ -1,4 +1,3 @@
-import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -7,7 +6,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/simulation_permissions.dart';
-import 'package:fitrope_app/utils/user_cache_manager.dart';
+import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
 
 /// Entrata e uscita dalla modalità simulazione.
@@ -28,9 +27,10 @@ import 'package:flutter/material.dart';
 ///
 /// `pushNamedAndRemoveUntil` invece crea `State` nuovi, **svuota lo stack**
 /// eliminando le pagine admin sottostanti e lascia intatto `MaterialApp` —
-/// quindi la barra nel suo `builder` sopravvive alla transizione. È già
-/// l'idioma del repo per i cambi di identità (`logoutRedirect`). Effetto
-/// collaterale desiderato: `currentIndex` riparte da 0, si atterra sulla Home.
+/// quindi la barra nel suo `builder` sopravvive alla transizione (il logout
+/// usa invece `pushReplacementNamed`, che qui non basterebbe: vedi sopra).
+/// Effetto collaterale desiderato: `currentIndex` riparte da 0, si atterra
+/// sulla Home.
 ///
 /// Seconda ragione, indipendente: `HomePage` registra e rimuove i listener del
 /// `RefreshManager` in modo condizionale a `user.role`, con `user` riassegnato
@@ -50,13 +50,18 @@ class SimulationController {
   /// pagine admin con l'identità dell'utente simulato.
   static void start(BuildContext context, {required FitropeUser target}) {
     // Il predicato è ripetuto qui come precondizione, così l'invariante non
-    // dipende dal call site che ha disegnato il bottone.
+    // dipende dal call site che ha disegnato il bottone. Se fallisce lo dice:
+    // il dialog di conferma è appena stato chiuso, e un `return` muto
+    // sembrerebbe un tap andato a vuoto (caso reale: finestra ristretta sotto
+    // i 600 px tra l'apertura del dialog e la conferma).
     if (!canSimulateUser(
       actor: store.state.user,
       target: target,
-      isMobileLayout: breakpointOf(context) == ScreenType.mobile,
+      isMobileLayout: isMobile(context),
       alreadySimulating: SimulationSession.isActive,
     )) {
+      SnackBarUtils.showWarningSnackBar(
+          context, 'Simulazione non disponibile per questo utente o layout');
       return;
     }
 
@@ -127,10 +132,17 @@ class SimulationController {
     // `await` sul percorso di uscita aggiungerebbe solo un modo di fallire.
     store.dispatch(SetUserAction(admin));
 
-    // Le cache in memoria sono state riempite con le letture fatte "da utente":
-    // svuotarle rende deterministico il ritorno alla vista admin.
-    invalidateAllUserCaches();
-    invalidateCoursesCache();
+    // NIENTE invalidazione delle cache qui. Non serve — in simulazione non è
+    // passata alcuna scrittura e le letture usano comunque l'auth dell'admin,
+    // quindi le cache contengono esattamente ciò che l'admin rileggerebbe — e
+    // soprattutto fa danni: `invalidateAllUserCaches()` chiama
+    // `RefreshManager().notifyRefresh()` in modo SINCRONO, mentre la HomePage
+    // del socio è ancora montata (il remount arriva dopo). Il suo
+    // `refreshCourses` copierebbe lo store (già = admin) nel proprio campo
+    // `user`, e al dispose rimuoverebbe i listener del ruolo sbagliato: il
+    // listener `refreshCourses` resterebbe agganciato a uno State morto per
+    // tutta la sessione. Il refresh forzato al resume (`_onResumeRefresh`)
+    // resta la via per rileggere dal server.
 
     // NOTA OneSignal: non c'è nulla da ripristinare, *proprio perché* in
     // simulazione non abbiamo mai chiamato OneSignal (vedi le guardie in
@@ -150,9 +162,12 @@ class SimulationController {
     if (navigator == null) {
       // Senza remount sessione e UI restano disallineate — esattamente il
       // sintomo del bug che `appNavigatorKey` è qui per evitare. Meglio
-      // rumoroso che invisibile.
+      // rumoroso che invisibile. Ma il `StartLoadingAction` è già partito:
+      // senza questo Finish il Loader coprirebbe per sempre la prossima
+      // schermata montata (Protected e LoginPage lo leggono entrambe).
       debugPrint(
           '⛔ [Simulazione] remount saltato: appNavigatorKey non montata.');
+      store.dispatch(FinishLoadingAction());
       return;
     }
     navigator.pushNamedAndRemoveUntil(PROTECTED_ROUTE, (route) => false);

@@ -24,16 +24,6 @@ void main() {
       expect(SimulationSession.current.value!.simulatedUser.uid, 'user-1');
     });
 
-    test('generation incrementa su start E su stop', () {
-      final before = SimulationSession.generation;
-
-      SimulationSession.start(admin: admin, target: target);
-      expect(SimulationSession.generation, before + 1);
-
-      SimulationSession.stop();
-      expect(SimulationSession.generation, before + 2);
-    });
-
     test('il notifier notifica sia in entrata sia in uscita', () {
       var notifiche = 0;
       void listener() => notifiche++;
@@ -47,12 +37,15 @@ void main() {
       expect(notifiche, 2);
     });
 
-    test('stop a sessione inattiva è un no-op (generation invariata)', () {
-      final before = SimulationSession.generation;
+    test('stop a sessione inattiva è un no-op', () {
+      var notifiche = 0;
+      void listener() => notifiche++;
+      SimulationSession.current.addListener(listener);
+      addTearDown(() => SimulationSession.current.removeListener(listener));
 
       SimulationSession.stop();
 
-      expect(SimulationSession.generation, before);
+      expect(notifiche, 0);
       expect(SimulationSession.isActive, isFalse);
     });
 

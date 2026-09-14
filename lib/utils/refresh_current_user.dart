@@ -19,9 +19,11 @@ import 'package:flutter/foundation.dart';
 /// senza più alcun blocco. La stessa race in entrata lasciava la barra accesa
 /// con l'admin nello store.
 ///
-/// È l'invariante che `callEnrollmentFunction` applica già da sé
-/// (`store.state.user?.uid == userId`), qui generalizzata: **un refresh non
-/// cambia mai chi sei, aggiorna solo i dati di chi sei già**.
+/// Vale per OGNI dispatch di `SetUserAction` che segue un `await` e non è un
+/// vero cambio di identità (login, start/stop simulazione, `resetUser`):
+/// pagine, `callEnrollmentFunction`, `UserDetailPage.saveChanges`. Un pre-check
+/// sull'uid prima dell'await evita solo una fetch inutile, non la race.
+/// **Un refresh non cambia mai chi sei, aggiorna solo i dati di chi sei già**.
 void dispatchUserRefreshIfCurrent(FitropeUser refreshed) {
   final currentUid = store.state.user?.uid;
   if (currentUid != refreshed.uid) {

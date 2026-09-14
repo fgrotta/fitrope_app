@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_print
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/get_user_data.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
@@ -19,6 +20,7 @@ class SignUpResponse {
 Future<SignUpResponse> registerWithEmailPassword(
     String email, String password, String name, String lastName,
     {String? numeroTelefono}) async {
+  SimulationSession.assertNotSimulating('registerWithEmailPassword');
   try {
     UserCredential userCredential =
         await FirebaseAuth.instance.createUserWithEmailAndPassword(

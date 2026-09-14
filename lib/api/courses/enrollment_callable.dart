@@ -6,6 +6,7 @@ import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/utils/refresh_current_user.dart';
 import 'package:flutter/foundation.dart';
 
 /// Errore di una callable enrollment, con messaggio leggibile per l'utente.
@@ -54,7 +55,9 @@ Future<void> callEnrollmentFunction(
     if (userId != null && store.state.user?.uid == userId) {
       final userData = await getUserData(userId);
       if (userData != null) {
-        store.dispatch(SetUserAction(FitropeUser.fromJson(userData)));
+        // Il check sull'uid qui sopra è PRIMA dell'await: l'helper lo rifà al
+        // momento del dispatch (un refresh non cambia mai chi sei).
+        dispatchUserRefreshIfCurrent(FitropeUser.fromJson(userData));
       }
     }
   } on FirebaseFunctionsException catch (e) {

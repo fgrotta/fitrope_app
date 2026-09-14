@@ -289,8 +289,24 @@ casi): il blocco è client-side per costruzione e va aggiunto a mano. Due layer:
   di `StartLoadingAction` (altrimenti il Loader resta per sempre) e **fuori** da
   try/catch che inghiottono gli errori.
 
-Checklist per una PR che aggiunge scritture:
-`grep -rn "assertNotSimulating" lib/api lib/services lib/authentication`.
+Checklist per una PR che aggiunge scritture — il grep elenca i file GUARDATI,
+quindi confrontalo con l'elenco dei file che scrivono (Firestore, Auth, callable):
+`grep -rn "assertNotSimulating" lib/api lib/services lib/authentication`
+`grep -rlE "\.(set|update|delete)\(|httpsCallable|createUserWithEmailAndPassword|sendEmailVerification|\.delete\(\)" lib/api lib/services lib/authentication`
+
+Due trappole del remount, entrambe verificate con un widget test:
+
+- **Niente `ValueKey` legata alla simulazione su `Protected`.** Il toggle della
+  barra ri-parenta il Navigator (il `child` del `builder` passa da nudo a
+  `Column/Expanded`) e Flutter ricostruisce la pagina di ogni route in history,
+  compresa quella in uscita: con una key che cambia a ogni start/stop si crea un
+  secondo `Protected` transitorio (initState, OneSignal e loader admin due
+  volte). Il remount lo garantisce già `pushNamedAndRemoveUntil`.
+- **Niente `invalidateAllUserCaches()` in `SimulationController.stop()`.** Chiama
+  `RefreshManager().notifyRefresh()` in modo sincrono mentre la HomePage del
+  socio è ancora montata: il suo `refreshCourses` copia lo store (già = admin)
+  nel campo `user`, e al dispose rimuove i listener del ruolo sbagliato, lasciando
+  `refreshCourses` agganciato a uno State morto per tutta la sessione.
 
 OneSignal ha una guardia strutturale sui 6 metodi di `onesignal_{mobile,web}.dart`:
 in simulazione non si chiama MAI OneSignal, il device resta legato all'admin —

@@ -51,22 +51,27 @@ void main() {
       expect(SimulationSession.current.value, isNull);
     });
 
-    test('incrementa generation (la ValueKey su Protected deve cambiare)', () {
+    test('senza Navigator montato NON lascia il Loader acceso', () {
+      // È il ramo di `_remount()` che esce presto: `StartLoadingAction` è già
+      // stato dispatchato, quindi il Finish va garantito anche qui, altrimenti
+      // `isLoading` resta true per sempre e il Loader copre l'app.
       inSimulazione();
-      final before = SimulationSession.generation;
 
       SimulationController.stop();
 
-      expect(SimulationSession.generation, before + 1);
+      expect(store.state.isLoading, isFalse);
     });
 
     test('a sessione spenta è un no-op e non tocca lo store', () {
       store.dispatch(SetUserAction(admin));
-      final before = SimulationSession.generation;
+      var notifiche = 0;
+      void listener() => notifiche++;
+      SimulationSession.current.addListener(listener);
+      addTearDown(() => SimulationSession.current.removeListener(listener));
 
       SimulationController.stop();
 
-      expect(SimulationSession.generation, before);
+      expect(notifiche, 0);
       expect(store.state.user!.uid, admin.uid);
     });
   });

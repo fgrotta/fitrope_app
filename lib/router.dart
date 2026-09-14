@@ -17,7 +17,6 @@ import 'package:fitrope_app/pages/welcome/login_page.dart';
 import 'package:fitrope_app/pages/welcome/registration_page.dart';
 import 'package:fitrope_app/pages/welcome/welcome_page.dart';
 import 'package:fitrope_app/components/deferred_page.dart';
-import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -63,12 +62,14 @@ Map<String, Widget Function(BuildContext)> routes = {
       title: 'Fit House',
       child: DeferredPage(
         load: protected.loadLibrary,
-        // La ValueKey sulla `generation` è un rinforzo a costo zero al remount
-        // di `SimulationController`: garantisce uno `State` nuovo a ogni cambio
-        // di identità anche se un domani il `pushNamedAndRemoveUntil` venisse
-        // sostituito. Per questo `generation` incrementa sia su start sia su stop.
-        builder: (_) => protected.Protected(
-            key: ValueKey('sim-${SimulationSession.generation}')),
+        // NIENTE key legata alla simulazione qui: il remount al cambio di
+        // identità lo fa `SimulationController` con `pushNamedAndRemoveUntil`.
+        // Una `ValueKey` che cambia a ogni start/stop NON è gratis: il toggle
+        // della barra ri-parenta il Navigator e Flutter ricostruisce la pagina
+        // di OGNI route in history, compresa quella in uscita — che con la key
+        // nuova rimonterebbe un secondo `Protected` transitorio (initState,
+        // OneSignal e loader admin eseguiti due volte).
+        builder: (_) => protected.Protected(),
       )),
   RECURRING_COURSE_ROUTE: (context) => Title(
       color: Colors.black,
