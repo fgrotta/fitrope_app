@@ -1,3 +1,4 @@
+import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -82,6 +83,19 @@ void main() {
 
       expect(e.toString(), kSimulationBlockedMessage);
       expect(e.toString(), isNot(contains('Exception')));
+    });
+
+    test('signOut non disarma la sessione prima di bloccare il logout',
+        () async {
+      SimulationSession.start(admin: admin, target: target);
+
+      await expectLater(
+        signOut(),
+        throwsA(isA<SimulationBlockedException>()),
+      );
+
+      expect(SimulationSession.isActive, isTrue);
+      expect(SimulationSession.current.value!.simulatedUser.uid, target.uid);
     });
   });
 }

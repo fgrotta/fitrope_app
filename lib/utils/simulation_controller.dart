@@ -1,3 +1,4 @@
+import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -44,11 +45,19 @@ class SimulationController {
 
   /// Entra in simulazione su [target].
   ///
-  /// L'**ordine è sincrono e obbligatorio**: gli `StoreConnector` ancora montati
-  /// (`Protected`, `AdminUsersPage`, `CalendarPage`) ribuildano prima che la
-  /// navigazione completi, e con un ordine diverso si vedrebbe un frame misto —
-  /// pagine admin con l'identità dell'utente simulato.
-  static void start(BuildContext context, {required FitropeUser target}) {
+  /// Lo snapshot ricevuto dalla UI può provenire dalla cache utenti (5 minuti)
+  /// oppure essere precedente a un abbonamento appena assegnato. Prima di
+  /// attivare la sessione lo rilegge quindi dal server; fino a quel momento le
+  /// guardie restano nello stato corrente e lo store conserva l'admin.
+  ///
+  /// Dopo l'`await` tutte le precondizioni vengono rivalidate: nel frattempo il
+  /// layout, l'identità corrente o lo stato della simulazione possono essere
+  /// cambiati.
+  static Future<void> start(
+    BuildContext context, {
+    required FitropeUser target,
+    Future<FitropeUser?> Function(String uid)? loadTarget,
+  }) async {
     // Il predicato è ripetuto qui come precondizione, così l'invariante non
     // dipende dal call site che ha disegnato il bottone. Se fallisce lo dice:
     // il dialog di conferma è appena stato chiuso, e un `return` muto
@@ -66,12 +75,45 @@ class SimulationController {
     }
 
     final admin = store.state.user!;
-
-    SimulationSession.start(admin: admin, target: target);
     store.dispatch(StartLoadingAction());
-    store.dispatch(SetUserAction(target));
 
-    _remount();
+    try {
+      final freshTarget = await (loadTarget ?? getUser)(target.uid);
+      if (!context.mounted) {
+        store.dispatch(FinishLoadingAction());
+        return;
+      }
+
+      final actor = store.state.user;
+      final canStart = freshTarget != null &&
+          freshTarget.uid == target.uid &&
+          actor?.uid == admin.uid &&
+          canSimulateUser(
+            actor: actor,
+            target: freshTarget,
+            isMobileLayout: isMobile(context),
+            alreadySimulating: SimulationSession.isActive,
+          );
+      if (!canStart) {
+        store.dispatch(FinishLoadingAction());
+        SnackBarUtils.showWarningSnackBar(
+            context, 'Simulazione non più disponibile per questo utente');
+        return;
+      }
+
+      // Da qui al remount la sequenza deve restare sincrona: i widget ancora
+      // montati non devono osservare una sessione e uno store con identità
+      // diverse in due frame distinti.
+      SimulationSession.start(admin: admin, target: freshTarget);
+      store.dispatch(SetUserAction(freshTarget));
+      _remount();
+    } catch (e) {
+      store.dispatch(FinishLoadingAction());
+      if (!context.mounted) return;
+      debugPrint('⛔ [Simulazione] caricamento utente fallito: $e');
+      SnackBarUtils.showErrorSnackBar(
+          context, 'Impossibile caricare i dati aggiornati dell\'utente');
+    }
   }
 
   /// Dialog di conferma + [start]. È il punto di ingresso da usare dalla UI:
@@ -97,11 +139,11 @@ class SimulationController {
                 const Text('Annulla', style: TextStyle(color: onPrimaryColor)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(dialogContext);
               // Il `context` della pagina, non quello del dialog: il dialog è
               // già stato chiuso e il suo Navigator non serve più.
-              start(context, target: target);
+              await start(context, target: target);
             },
             style: TextButton.styleFrom(foregroundColor: primaryColor),
             child: const Text(

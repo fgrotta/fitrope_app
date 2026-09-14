@@ -65,6 +65,11 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     });
 
     if (!isLogged()) {
+      // Unica via alla schermata di login che NON passa da `signOut()` (che
+      // in simulazione lancia): Firebase ha invalidato la sessione dell'admin.
+      // Una simulazione lasciata viva qui farebbe fallire il login successivo,
+      // perché anche `signInWithEmailPassword` asserisce.
+      SimulationSession.stop();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacementNamed(LOGIN_ROUTE);
       });

@@ -22,7 +22,7 @@ void main() {
 
   group('SimulationGuard.blockIfSimulating', () {
     /// Monta un bottone che registra se il corpo del callback è stato eseguito,
-    /// cioè esattamente la forma dei 14 call site nelle pagine.
+    /// cioè la stessa forma usata dai call site nelle pagine.
     Future<bool> tapAzione(WidgetTester tester) async {
       var eseguita = false;
 

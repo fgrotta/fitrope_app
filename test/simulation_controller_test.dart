@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/state/store.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/refresh_current_user.dart';
 import 'package:fitrope_app/utils/simulation_controller.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/simulation_users.dart';
@@ -12,10 +16,9 @@ import 'helpers/simulation_users.dart';
 /// stesso file in cui un bug (Navigator.of dalla barra) è già arrivato fino al
 /// QA manuale.
 ///
-/// `stop()` è testabile così com'è: non prende un `BuildContext`, e `_remount()`
-/// senza `appNavigatorKey` montata si limita a loggare e uscire — tutto il resto
-/// del metodo gira. `start(BuildContext)` richiede una route table e il deferred
-/// loading, quindi resta coperto dal QA manuale.
+/// Senza `appNavigatorKey` montata `_remount()` si limita a loggare e uscire:
+/// questo permette di verificare sessione e store senza caricare le route
+/// deferred dell'app.
 void main() {
   // `appNavigatorKey.currentState` passa da WidgetsBinding.instance: senza
   // binding inizializzato `_remount` esplode invece di uscire con il debugPrint.
@@ -37,6 +40,97 @@ void main() {
     SimulationSession.start(admin: admin, target: target);
     store.dispatch(SetUserAction(target));
   }
+
+  Future<void> pumpStartButton(
+    WidgetTester tester, {
+    required Future<FitropeUser?> Function(String uid) loadTarget,
+  }) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(800, 600)),
+          child: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => SimulationController.start(
+                  context,
+                  target: target,
+                  loadTarget: loadTarget,
+                ),
+                child: const Text('Avvia'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  group('SimulationController.start', () {
+    testWidgets('usa lo snapshot fresco restituito dal server', (tester) async {
+      store.dispatch(SetUserAction(admin));
+      final freshTarget =
+          simUser(uid: target.uid, role: 'User', name: 'Mario aggiornato');
+      await pumpStartButton(
+        tester,
+        loadTarget: (_) async => freshTarget,
+      );
+
+      await tester.tap(find.text('Avvia'));
+      await tester.pump();
+
+      expect(SimulationSession.isActive, isTrue);
+      expect(SimulationSession.current.value!.simulatedUser.name,
+          'Mario aggiornato');
+      expect(store.state.user, same(freshTarget));
+      expect(store.state.isLoading, isFalse);
+    });
+
+    testWidgets('rivalida l\'identità admin dopo il caricamento',
+        (tester) async {
+      store.dispatch(SetUserAction(admin));
+      final response = Completer<FitropeUser?>();
+      await pumpStartButton(
+        tester,
+        loadTarget: (_) => response.future,
+      );
+
+      await tester.tap(find.text('Avvia'));
+      await tester.pump();
+      expect(store.state.isLoading, isTrue);
+
+      final anotherAdmin =
+          simUser(uid: 'admin-2', role: 'Admin', name: 'Beatrice');
+      store.dispatch(SetUserAction(anotherAdmin));
+      response.complete(target);
+      await tester.pump();
+
+      expect(SimulationSession.isActive, isFalse);
+      expect(store.state.user, same(anotherAdmin));
+      expect(store.state.isLoading, isFalse);
+      expect(find.text('Simulazione non più disponibile per questo utente'),
+          findsOneWidget);
+    });
+
+    testWidgets('un errore di caricamento non attiva la sessione né il Loader',
+        (tester) async {
+      store.dispatch(SetUserAction(admin));
+      await pumpStartButton(
+        tester,
+        loadTarget: (_) =>
+            Future.error(StateError('Firestore non disponibile')),
+      );
+
+      await tester.tap(find.text('Avvia'));
+      await tester.pump();
+
+      expect(SimulationSession.isActive, isFalse);
+      expect(store.state.user, same(admin));
+      expect(store.state.isLoading, isFalse);
+      expect(find.text('Impossibile caricare i dati aggiornati dell\'utente'),
+          findsOneWidget);
+    });
+  });
 
   group('SimulationController.stop', () {
     test('ripristina l\'admin dallo snapshot e chiude la sessione', () {
