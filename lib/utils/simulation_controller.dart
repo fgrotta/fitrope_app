@@ -1,5 +1,4 @@
 import 'package:fitrope_app/api/authentication/get_users.dart';
-import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
@@ -50,9 +49,8 @@ class SimulationController {
   /// attivare la sessione lo rilegge quindi dal server; fino a quel momento le
   /// guardie restano nello stato corrente e lo store conserva l'admin.
   ///
-  /// Dopo l'`await` tutte le precondizioni vengono rivalidate: nel frattempo il
-  /// layout, l'identità corrente o lo stato della simulazione possono essere
-  /// cambiati.
+  /// Dopo l'`await` tutte le precondizioni vengono rivalidate: nel frattempo
+  /// l'identità corrente o lo stato della simulazione possono essere cambiati.
   static Future<void> start(
     BuildContext context, {
     required FitropeUser target,
@@ -61,16 +59,15 @@ class SimulationController {
     // Il predicato è ripetuto qui come precondizione, così l'invariante non
     // dipende dal call site che ha disegnato il bottone. Se fallisce lo dice:
     // il dialog di conferma è appena stato chiuso, e un `return` muto
-    // sembrerebbe un tap andato a vuoto (caso reale: finestra ristretta sotto
-    // i 600 px tra l'apertura del dialog e la conferma).
+    // sembrerebbe un tap andato a vuoto (caso reale: l'identità corrente o lo
+    // stato della sessione cambiano tra l'apertura del dialog e la conferma).
     if (!canSimulateUser(
       actor: store.state.user,
       target: target,
-      isMobileLayout: isMobile(context),
       alreadySimulating: SimulationSession.isActive,
     )) {
       SnackBarUtils.showWarningSnackBar(
-          context, 'Simulazione non disponibile per questo utente o layout');
+          context, 'Simulazione non disponibile per questo utente');
       return;
     }
 
@@ -91,7 +88,6 @@ class SimulationController {
           canSimulateUser(
             actor: actor,
             target: freshTarget,
-            isMobileLayout: isMobile(context),
             alreadySimulating: SimulationSession.isActive,
           );
       if (!canStart) {

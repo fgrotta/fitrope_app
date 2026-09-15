@@ -44,9 +44,10 @@ class _SimulationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = info.simulatedUser;
     final nome = '${user.name} ${user.lastName}'.trim();
-    // Il gate sui 600 vale sull'avvio, non sulla permanenza: la barra deve
-    // reggere una finestra ristretta sotto i 600 durante la simulazione, senza
-    // mai troncare via il bottone di uscita.
+    // Sotto i 600 px la barra perde la frase estesa e tiene solo nome +
+    // icona di uscita. Non è un caso limite da resize: è il layout normale su
+    // telefono, dove la simulazione si avvia dal menu ⋮ della lista utenti.
+    // L'uscita non va mai troncata via, a nessuna larghezza.
     final compatta = isMobile(context);
 
     // Niente SafeArea qui: `main.dart` avvolge già tutto in un SafeArea *sopra*

@@ -638,17 +638,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                 tooltip: 'Dettagli',
                                 onPressed: () => showUserDetails(fitropeUser),
                               ),
-                              // Modalità simulazione. `isMobileLayout: false`
-                              // non è una scorciatoia: questa colonna vive solo
-                              // dentro `useUserTable`, che esiste solo per
-                              // `screenType != ScreenType.mobile`. Il gate
-                              // tablet/desktop è quindi già soddisfatto dalla
-                              // struttura, senza logica di breakpoint qui e
-                              // senza toccare il PopupMenuButton mobile.
+                              // Modalità simulazione. L'equivalente mobile è
+                              // la voce 'simulate' del PopupMenuButton, più in
+                              // basso in questa stessa pagina.
                               if (canSimulateUser(
                                 actor: store.state.user,
                                 target: fitropeUser,
-                                isMobileLayout: false,
                                 alreadySimulating: SimulationSession.isActive,
                               ))
                                 IconButton(
@@ -921,6 +916,26 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                               ],
                                             ),
                                           ),
+                                          // Stesso perimetro dell'icona
+                                          // 'occhio' della tabella: la voce
+                                          // compare solo per Admin → User.
+                                          if (canSimulateUser(
+                                            actor: store.state.user,
+                                            target: user,
+                                            alreadySimulating:
+                                                SimulationSession.isActive,
+                                          ))
+                                            const PopupMenuItem(
+                                              value: 'simulate',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons
+                                                      .visibility_outlined),
+                                                  SizedBox(width: 8),
+                                                  Text('Simula utente'),
+                                                ],
+                                              ),
+                                            ),
                                           PopupMenuItem(
                                             value: 'toggle',
                                             child: Row(
@@ -952,6 +967,17 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                           switch (value) {
                                             case 'details':
                                               showUserDetails(user);
+                                              break;
+                                            case 'simulate':
+                                              // `this.context` e non quello
+                                              // dell'item: il popup è già
+                                              // chiuso e il remount smonta la
+                                              // lista, quindi la conferma deve
+                                              // appoggiarsi al context della
+                                              // pagina.
+                                              SimulationController
+                                                  .confirmAndStart(this.context,
+                                                      target: user);
                                               break;
                                             case 'toggle':
                                               showToggleUserStatusDialog(user);
