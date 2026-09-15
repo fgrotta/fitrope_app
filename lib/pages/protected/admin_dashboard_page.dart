@@ -10,6 +10,10 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
 import 'package:fitrope_app/utils/subscription_labels.dart';
+import 'package:fitrope_app/utils/download_file.dart';
+import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/utils/subscription_ordering.dart';
+import 'package:fitrope_app/utils/users_csv.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -201,6 +205,31 @@ class _UserListDrawerState extends State<UserListDrawer> {
     }).toList();
   }
 
+  /// Esporta in CSV **quello che si vede**: `_filteredUsers`, non
+  /// `widget.users`, perché il drawer ha una ricerca.
+  ///
+  /// Volutamente sincrona: i dati sono già in memoria (li carica
+  /// `_AdminDashboardPageState._loadData`). Non introdurre `await` tra il click
+  /// e [downloadTextFile] — Safari e Firefox smettono di considerare il download
+  /// user-initiated e lo bloccano **in silenzio**.
+  void _exportCsv() {
+    final users = _filteredUsers;
+    if (users.isEmpty) {
+      SnackBarUtils.showWarningSnackBar(context, 'Nessun utente da esportare');
+      return;
+    }
+    try {
+      downloadTextFile(
+        content: buildUsersCsv(users),
+        fileName: usersCsvFileName(widget.title, DateTime.now()),
+      );
+      SnackBarUtils.showSuccessSnackBar(
+          context, 'Esportati ${users.length} utenti');
+    } catch (error) {
+      SnackBarUtils.showErrorSnackBar(context, 'Export non riuscito: $error');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredUsers;
@@ -216,6 +245,13 @@ class _UserListDrawerState extends State<UserListDrawer> {
                 widget.onClose();
               },
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.download),
+                tooltip: 'Esporta in CSV',
+                onPressed: _exportCsv,
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -367,14 +403,15 @@ class _SectionUtenti extends StatelessWidget {
             (byTipologia[u.tipologiaIscrizione!] ?? 0) + 1;
       }
     }
-    final tipologiaEntries = byTipologia.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final tipologiaEntries = orderedTipologiaCounts(byTipologia);
 
     // Distribuzione per famiglia abbonamento (modello multi-abbonamento). Un
     // utente conta in OGNI famiglia di cui ha un abbonamento VIVO (dedup per
     // famiglia: più abbonamenti della stessa famiglia contano una volta sola).
-    // Complementare a "Per tipologia iscrizione" (legacy): per gli utenti
-    // convertiti tipologiaIscrizione non è più valorizzata dal server.
+    // Complementare a "Per tipologia iscrizione" (legacy), ma NON sommabile con
+    // essa: la migrazione al modello V2 non cancella i campi legacy, quindi un
+    // utente convertito compare in entrambi i blocchi — qui con l'abbonamento
+    // vero, là con la `tipologiaIscrizione` stantia rimasta sul documento.
     final byFamily = <SubscriptionFamily, List<FitropeUser>>{};
     for (final u in activeList) {
       final families =
@@ -396,7 +433,9 @@ class _SectionUtenti extends StatelessWidget {
             onTap: () => onOpenUserList('Nuovi (ultimi 7 giorni)', new7List)),
         _MetricRow('Nuovi (ultimi 30 giorni)', '$new30',
             onTap: () => onOpenUserList('Nuovi (ultimi 30 giorni)', new30List)),
-        if (tipologiaEntries.isNotEmpty) ...[
+        // Guard su activeList, non su tipologiaEntries: quest'ultima ora ha
+        // sempre sei voci, quindi a database vuoto disegnerebbe sei barre a zero.
+        if (activeList.isNotEmpty) ...[
           const Divider(height: 24),
           Text('Per tipologia iscrizione', style: _sectionLabelStyle(context)),
           const SizedBox(height: 12),
@@ -645,8 +684,7 @@ class _SectionAbbonamenti extends StatelessWidget {
       }
     }
 
-    final tipologiaEntries = byTipologia.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final tipologiaEntries = orderedTipologiaCounts(byTipologia);
 
     return _DashboardCard(
       title: 'Abbonamenti',
