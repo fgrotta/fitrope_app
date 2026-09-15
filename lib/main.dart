@@ -27,6 +27,12 @@ const String oneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
 const bool useEmulator = bool.fromEnvironment('USE_EMULATOR');
 const String emulatorHost =
     String.fromEnvironment('EMULATOR_HOST', defaultValue: 'localhost');
+const int authEmulatorPort =
+    int.fromEnvironment('AUTH_EMULATOR_PORT', defaultValue: 9099);
+const int firestoreEmulatorPort =
+    int.fromEnvironment('FIRESTORE_EMULATOR_PORT', defaultValue: 8080);
+const int functionsEmulatorPort =
+    int.fromEnvironment('FUNCTIONS_EMULATOR_PORT', defaultValue: 5001);
 
 /// Credenziali con cui entrare da soli in modalità emulatore, per non passare
 /// dal form a ogni avvio: la persistenza viene azzerata a ogni caricamento
@@ -61,15 +67,18 @@ Future<void> _autologin() async {
 }
 
 Future<void> _connectToEmulators() async {
-  await FirebaseAuth.instance.useAuthEmulator(emulatorHost, 9099);
-  FirebaseFirestore.instance.useFirestoreEmulator(emulatorHost, 8080);
+  await FirebaseAuth.instance.useAuthEmulator(emulatorHost, authEmulatorPort);
+  FirebaseFirestore.instance
+      .useFirestoreEmulator(emulatorHost, firestoreEmulatorPort);
   // Le callable usano sempre instanceFor(region: 'europe-west8'): l'emulatore
   // va agganciato alla STESSA istanza/region, altrimenti le chiamate andrebbero
   // in produzione.
   FirebaseFunctions.instanceFor(region: 'europe-west8')
-      .useFunctionsEmulator(emulatorHost, 5001);
-  debugPrint(
-      '⚠️ EMULATORE FIREBASE ATTIVO ($emulatorHost) — nessun dato reale');
+      .useFunctionsEmulator(emulatorHost, functionsEmulatorPort);
+  debugPrint('⚠️ EMULATORE FIREBASE ATTIVO '
+      '($emulatorHost; auth:$authEmulatorPort, '
+      'firestore:$firestoreEmulatorPort, functions:$functionsEmulatorPort) '
+      '— nessun dato reale');
 }
 
 void main() async {
