@@ -12,18 +12,16 @@ void main() {
   bool can({
     dynamic actor,
     dynamic target,
-    bool isMobileLayout = false,
     bool alreadySimulating = false,
   }) =>
       canSimulateUser(
         actor: actor,
         target: target,
-        isMobileLayout: isMobileLayout,
         alreadySimulating: alreadySimulating,
       );
 
   group('canSimulateUser', () {
-    test('Admin → User su tablet/desktop: consentito', () {
+    test('Admin → User: consentito', () {
       expect(can(actor: admin, target: utente), isTrue);
     });
 
@@ -50,10 +48,6 @@ void main() {
 
     test('non si simula se stessi', () {
       expect(can(actor: admin, target: admin), isFalse);
-    });
-
-    test('su layout mobile: negato', () {
-      expect(can(actor: admin, target: utente, isMobileLayout: true), isFalse);
     });
 
     test('già in simulazione: niente annidamento', () {

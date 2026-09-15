@@ -44,11 +44,12 @@ void main() {
   Future<void> pumpStartButton(
     WidgetTester tester, {
     required Future<FitropeUser?> Function(String uid) loadTarget,
+    Size size = const Size(800, 600),
   }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: MediaQuery(
-          data: const MediaQueryData(size: Size(800, 600)),
+          data: MediaQueryData(size: size),
           child: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -83,6 +84,26 @@ void main() {
       expect(SimulationSession.current.value!.simulatedUser.name,
           'Mario aggiornato');
       expect(store.state.user, same(freshTarget));
+      expect(store.state.isLoading, isFalse);
+    });
+
+    testWidgets('start su layout mobile (360x640) attiva la sessione',
+        (tester) async {
+      // Regressione del gate rimosso: finché `canSimulateUser` prendeva
+      // `isMobileLayout`, questo tap finiva nello snackbar di precondizione
+      // invece che in simulazione.
+      store.dispatch(SetUserAction(admin));
+      await pumpStartButton(
+        tester,
+        loadTarget: (_) async => target,
+        size: const Size(360, 640),
+      );
+
+      await tester.tap(find.text('Avvia'));
+      await tester.pump();
+
+      expect(SimulationSession.isActive, isTrue);
+      expect(store.state.user, same(target));
       expect(store.state.isLoading, isFalse);
     });
 

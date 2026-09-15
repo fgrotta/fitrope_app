@@ -848,13 +848,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Qui il breakpoint è ESPLICITO (a differenza della lista
-                // utenti): questa pagina si renderizza a tutte le taglie.
+                // Su mobile l'AppBar mostra al massimo simula + modifica: il
+                // cestino compare solo sul proprio profilo, che non è
+                // simulabile.
                 if (!isEditing &&
                     canSimulateUser(
                       actor: store.state.user,
                       target: widget.user,
-                      isMobileLayout: isMobile(context),
                       alreadySimulating: SimulationSession.isActive,
                     ))
                   IconButton(
