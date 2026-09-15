@@ -7,14 +7,15 @@ import {
   buildSubscriptionFromPlan,
   computeActiveSnapshot,
   hasActiveForFamily,
+  recordFromDoc,
   UserSubscriptionRecord,
 } from "../enrollment/subscription";
+import { Timestamp } from "firebase-admin/firestore";
 
 describe("Catalogo piani (mirror Dart)", () => {
-  test("20 piani: 12 Open + 4 Hyrox + 4 PT, chiavi univoche", () => {
+  test("20 piani: 16 Open + 4 PT, chiavi univoche", () => {
     expect(SUBSCRIPTION_PLANS.length).toBe(20);
-    expect(SUBSCRIPTION_PLANS.filter((p) => p.family === "OPEN").length).toBe(12);
-    expect(SUBSCRIPTION_PLANS.filter((p) => p.family === "HYROX").length).toBe(4);
+    expect(SUBSCRIPTION_PLANS.filter((p) => p.family === "OPEN").length).toBe(16);
     expect(SUBSCRIPTION_PLANS.filter((p) => p.family === "PT").length).toBe(4);
     const keys = SUBSCRIPTION_PLANS.map((p) => p.key);
     expect(new Set(keys).size).toBe(keys.length);
@@ -25,7 +26,7 @@ describe("Catalogo piani (mirror Dart)", () => {
       "open_2x_1m",
       "open_3x_3m",
       "open_unlim_12m",
-      "hyrox_10i_1m",
+      "open_10i_1m",
       "pt_10i_6m",
     ]) {
       expect(planByKey(key)).toBeDefined();
@@ -39,13 +40,14 @@ describe("Catalogo piani (mirror Dart)", () => {
     ).toBe(true);
   });
 
-  test("Open ha frequenze {2,3,null}; Hyrox/PT 10 ingressi ENTRIES", () => {
+  test("Open ha frequenze e pacchetto ingressi; PT solo ingressi", () => {
     const open1m = SUBSCRIPTION_PLANS.filter(
       (p) => p.family === "OPEN" && p.durationMonths === 1
     );
-    expect(new Set(open1m.map((p) => p.weeklyFrequency))).toEqual(
+    expect(new Set(open1m.filter((p) => p.billingMode === "FREQUENCY").map((p) => p.weeklyFrequency))).toEqual(
       new Set([2, 3, null])
     );
+    expect(open1m.some((p) => p.billingMode === "ENTRIES" && p.entries === 10)).toBe(true);
     expect(
       SUBSCRIPTION_PLANS.filter((p) => p.family !== "OPEN").every(
         (p) => p.billingMode === "ENTRIES" && p.entries === 10
@@ -80,11 +82,11 @@ describe("buildSubscriptionFromPlan", () => {
   });
 
   test("ENTRIES: remainingEntries = 10, weeklyFrequency null", () => {
-    const r = buildSubscriptionFromPlan(planByKey("hyrox_10i_1m")!, start);
+    const r = buildSubscriptionFromPlan(planByKey("open_10i_1m")!, start);
     expect(r.billingMode).toBe("ENTRIES");
     expect(r.remainingEntries).toBe(10);
     expect(r.weeklyFrequency).toBeNull();
-    expect(r.family).toBe("HYROX");
+    expect(r.family).toBe("OPEN");
   });
 });
 
@@ -113,6 +115,38 @@ describe("snapshot", () => {
   test("hasActiveForFamily", () => {
     const active = [{ ...base, family: "OPEN" as const, endDateMillis: 2000 }];
     expect(hasActiveForFamily(active, "OPEN")).toBe(true);
-    expect(hasActiveForFamily(active, "HYROX")).toBe(false);
+    expect(hasActiveForFamily(active, "PT")).toBe(false);
+  });
+});
+
+describe("recordFromDoc stretto", () => {
+  const valid = {
+    planKey: "open_10i_1m",
+    family: "OPEN",
+    billingMode: "ENTRIES",
+    courseTypeTags: ["Open"],
+    weeklyFrequency: null,
+    remainingEntries: 7,
+    startDate: Timestamp.fromMillis(1000),
+    endDate: Timestamp.fromMillis(2000),
+  };
+
+  test("accetta un record coerente con il catalogo", () => {
+    expect(recordFromDoc("s1", valid)).toMatchObject({
+      id: "s1",
+      planKey: "open_10i_1m",
+      remainingEntries: 7,
+    });
+  });
+
+  test.each([
+    { planKey: "unknown" },
+    { family: "PT" },
+    { billingMode: "FREQUENCY" },
+    { courseTypeTags: ["Hyrox"] },
+    { remainingEntries: -1 },
+    { startDate: null },
+  ])("rifiuta valori non canonici: %j", (change) => {
+    expect(() => recordFromDoc("s1", { ...valid, ...change })).toThrow();
   });
 });

@@ -108,14 +108,10 @@ void main() {
       expect(CourseTags.defaultUserTags, contains(CourseTags.OPEN));
     });
 
-    test('all contiene tutti i tag documentati', () {
-      expect(
-          CourseTags.all,
-          containsAll([
-            CourseTags.PERSONAL_TRAINER,
-            CourseTags.OPEN,
-            CourseTags.HEY_MAMMA,
-          ]));
+    test('all contiene solo gli otto tag descrittivi selezionabili', () {
+      expect(CourseTags.all.toSet(), CourseTags.selectable.toSet());
+      expect(CourseTags.all, isNot(contains(CourseTags.OPEN)));
+      expect(CourseTags.all, isNot(contains(CourseTags.HEY_MAMMA)));
     });
 
     test('utente Hyrox accede a corso Hyrox', () {

@@ -35,10 +35,10 @@ function course(over: Data = {}): Data {
 function hyroxSubDoc(remaining: number, userId = "u-sub"): Data {
   return {
     userId,
-    planKey: "hyrox_10i_3m",
-    family: "HYROX",
+    planKey: "open_10i_3m",
+    family: "OPEN",
     billingMode: "ENTRIES",
-    courseTypeTags: ["Hyrox"],
+    courseTypeTags: ["Open"],
     weeklyFrequency: null,
     remainingEntries: remaining,
     startDate: Timestamp.fromMillis(Date.UTC(2026, 0, 1)),

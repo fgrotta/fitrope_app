@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/api/courses/create_course.dart';
 import 'package:fitrope_app/utils/sale.dart';
+import 'package:fitrope_app/types/course_type.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 
 /// Test dell'API layer di createCourse con Firestore fake.
 /// Copre il fix anti-regressione: createCourse NON deve perdere campi del corso
@@ -28,7 +30,10 @@ void main() {
         capacity: 8,
         subscribed: 0,
         trainerId: 't1',
-        tags: const ['Hyrox'],
+        tags: const ['Open', 'Hyrox'],
+        courseType: CourseType.open,
+        tag: CourseTags.HYROX,
+        courseModelV2: true,
         reminderEnabled: false,
         waitlistEnabled: false,
         sala: Sale.SALA_1,
@@ -53,7 +58,9 @@ void main() {
       expect(data['capacity'], 8);
       expect(data['subscribed'], 0);
       expect(data['trainerId'], 't1');
-      expect(data['tags'], ['Hyrox']);
+      expect(data['tags'], ['Open', 'Hyrox']);
+      expect(data['tag'], 'Hyrox');
+      expect(data['courseModelV2'], true);
       expect(data['uid'], created.uid);
       expect(data['id'], created.uid);
     });

@@ -26,7 +26,7 @@ void main() {
         sala: sala,
       );
 
-  // Giornata senza corsi Hey Mamma: serve a verificare il chip a conteggio 0.
+  // Hyrox è un tag descrittivo Open nel modello V2 e non genera un chip.
   final giornata = [
     course(name: 'open', hour: 9, tags: [CourseTags.OPEN], sala: Sale.SALA_1),
     course(
@@ -112,10 +112,10 @@ void main() {
 
     testWidgets('un chip a conteggio 0 è disabilitato, non nascosto',
         (tester) async {
-      await pump(tester);
-      expect(find.byKey(const Key('calendar-filter-chip-Hey Mamma')),
+      await pump(tester, courses: [giornata.first]);
+      expect(find.byKey(const Key('calendar-filter-chip-Personal Trainer')),
           findsOneWidget);
-      expect(chipEnabled(tester, 'Hey Mamma'), isFalse);
+      expect(chipEnabled(tester, 'Personal Trainer'), isFalse);
       expect(chipEnabled(tester, 'Open'), isTrue);
     });
 
@@ -124,20 +124,22 @@ void main() {
         (tester) async {
       String? toggled;
       await pump(tester,
-          types: {CourseTags.HEY_MAMMA}, onToggleType: (key) => toggled = key);
+          courses: [giornata.first],
+          types: {CourseTags.PERSONAL_TRAINER},
+          onToggleType: (key) => toggled = key);
 
-      expect(chipEnabled(tester, 'Hey Mamma'), isTrue);
-      await tapChip(tester, 'Hey Mamma');
-      expect(toggled, CourseTags.HEY_MAMMA);
+      expect(chipEnabled(tester, 'Personal Trainer'), isTrue);
+      await tapChip(tester, 'Personal Trainer');
+      expect(toggled, CourseTags.PERSONAL_TRAINER);
     });
 
     testWidgets('mostra il conteggio accanto al nome', (tester) async {
       await pump(tester);
-      // Open: 2 corsi nella giornata di riferimento
+      // Open: 3 corsi, incluso Hyrox che è un tag descrittivo.
       expect(
         find.descendant(
           of: find.byKey(const Key('calendar-filter-chip-Open')),
-          matching: find.textContaining('2'),
+          matching: find.textContaining('3'),
         ),
         findsOneWidget,
       );
@@ -147,8 +149,8 @@ void main() {
         (tester) async {
       String? toggled;
       await pump(tester, onToggleType: (key) => toggled = key);
-      await tapChip(tester, 'Hyrox');
-      expect(toggled, CourseTags.HYROX);
+      await tapChip(tester, 'Open');
+      expect(toggled, CourseTags.OPEN);
     });
   });
 
@@ -228,7 +230,7 @@ void main() {
       expect(horizontalScroll(), findsNothing);
     });
 
-    testWidgets('"Tutti" + i 4 chip ci sono in entrambe le modalità',
+    testWidgets('"Tutti" + le tipologie V2 ci sono in entrambe le modalità',
         (tester) async {
       for (final width in [390.0, 1000.0]) {
         await pump(tester, width: width);

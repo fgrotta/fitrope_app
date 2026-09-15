@@ -17,8 +17,6 @@ String getSubscriptionFamilyLabel(SubscriptionFamily family) {
   switch (family) {
     case SubscriptionFamily.OPEN:
       return 'Open';
-    case SubscriptionFamily.HYROX:
-      return 'Hyrox';
     case SubscriptionFamily.PT:
       return 'Personal Trainer';
   }

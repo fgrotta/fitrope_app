@@ -5,38 +5,41 @@ import 'package:fitrope_app/utils/course_tags.dart';
 
 void main() {
   group('SubscriptionPlans catalogo', () {
-    test('conteggi: 12 Open + 4 Hyrox + 4 PT = 20', () {
-      expect(SubscriptionPlans.open.length, 12);
-      expect(SubscriptionPlans.hyrox.length, 4);
+    test('conteggi: 16 Open + 4 PT = 20', () {
+      expect(SubscriptionPlans.open.length, 16);
       expect(SubscriptionPlans.pt.length, 4);
       expect(SubscriptionPlans.all.length, 20);
     });
 
-    test('chiavi univoche', () {
+    test('chiavi univoche e nessun piano Hyrox', () {
       final keys = SubscriptionPlans.all.map((p) => p.key).toList();
       expect(keys.toSet().length, keys.length);
+      expect(keys.where((key) => key.startsWith('hyrox_')), isEmpty);
     });
 
-    test('Open: per ogni durata esistono frequenze {2, 3, illimitato}', () {
+    test('Open: frequenze {2,3,illimitato} e pacchetto 10 ingressi', () {
       for (final d in SubscriptionPlans.durations) {
         final forD =
             SubscriptionPlans.open.where((p) => p.durationMonths == d).toList();
-        expect(forD.map((p) => p.weeklyFrequency).toSet(), {2, 3, null});
-        expect(forD.every((p) => p.billingMode == BillingMode.FREQUENCY), true);
+        final frequency =
+            forD.where((p) => p.billingMode == BillingMode.FREQUENCY);
+        expect(frequency.map((p) => p.weeklyFrequency).toSet(), {2, 3, null});
         expect(
-            forD.every(
-                (p) => p.grantedCourseTypeTags.contains(CourseTags.OPEN)),
-            true);
+          forD
+              .where((p) => p.billingMode == BillingMode.ENTRIES)
+              .single
+              .entries,
+          10,
+        );
+        expect(
+          forD.every(
+              (p) => p.grantedCourseTypeTags.toSet().equals({CourseTags.OPEN})),
+          true,
+        );
       }
     });
 
-    test('Hyrox/PT: 10 ingressi, modalità ENTRIES, tag corretti', () {
-      expect(
-          SubscriptionPlans.hyrox.every((p) =>
-              p.entries == 10 &&
-              p.billingMode == BillingMode.ENTRIES &&
-              p.grantedCourseTypeTags.contains(CourseTags.HYROX)),
-          true);
+    test('PT: 10 ingressi, modalita ENTRIES', () {
       expect(
           SubscriptionPlans.pt.every((p) =>
               p.entries == 10 &&
@@ -45,17 +48,15 @@ void main() {
           true);
     });
 
-    test('durate sempre in {1, 3, 6, 12}', () {
-      expect(
-          SubscriptionPlans.all
-              .every((p) => const {1, 3, 6, 12}.contains(p.durationMonths)),
-          true);
-    });
-
-    test('byKey risolve i piani noti e ritorna null per gli sconosciuti', () {
-      expect(
-          SubscriptionPlans.byKey(SubscriptionPlans.all.first.key), isNotNull);
+    test('byKey e parser catalogo sono stretti', () {
+      expect(SubscriptionPlans.byKey('open_10i_3m'), isNotNull);
+      expect(SubscriptionPlans.byKey('hyrox_10i_3m'), isNull);
       expect(SubscriptionPlans.byKey('inesistente'), isNull);
     });
   });
+}
+
+extension on Set<String> {
+  bool equals(Set<String> other) =>
+      length == other.length && other.every((value) => this.contains(value));
 }

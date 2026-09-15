@@ -8,8 +8,7 @@ import 'package:fitrope_app/utils/sale.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Il badge della tipologia sulla card mostra la tipologia REALE (dai `tags`),
-/// non l'enum legacy `courseType` che conosce solo Open e Personal Trainer.
+/// Il badge mostra il tag descrittivo o, in sua assenza, il tipo risolto.
 Course _course({
   List<String> tags = const [],
   String? sala,
@@ -66,27 +65,21 @@ void main() {
     expect(find.text('Open'), findsNothing);
   });
 
-  testWidgets('mostra il badge Hey Mamma', (tester) async {
-    await _pump(tester, _course(tags: [CourseTags.HEY_MAMMA]));
-    expect(find.text('Hey Mamma'), findsOneWidget);
-  });
-
-  testWidgets('nessun badge se nessun tag è una tipologia registrata',
+  testWidgets('Hey Mamma non ricompare nella UI e usa il tipo Open',
       (tester) async {
-    await _pump(tester, _course(tags: const ['Sconosciuto']));
-    for (final name in const [
-      'Open',
-      'Personal Trainer',
-      'Hyrox',
-      'Hey Mamma'
-    ]) {
-      expect(find.text(name), findsNothing, reason: 'badge inatteso: $name');
-    }
+    await _pump(tester, _course(tags: [CourseTags.HEY_MAMMA]));
+    expect(find.text('Hey Mamma'), findsNothing);
+    expect(find.text('Open'), findsOneWidget);
   });
 
-  testWidgets('nessun badge se il corso non ha tag', (tester) async {
+  testWidgets('un tag V1 sconosciuto conserva il tipo Open', (tester) async {
+    await _pump(tester, _course(tags: const ['Sconosciuto']));
+    expect(find.text('Open'), findsOneWidget);
+  });
+
+  testWidgets('un corso Open senza tag mostra il tipo', (tester) async {
     await _pump(tester, _course());
-    expect(find.text('Open'), findsNothing);
+    expect(find.text('Open'), findsOneWidget);
   });
 
   testWidgets('la sala compare tra i metadati', (tester) async {

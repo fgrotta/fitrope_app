@@ -5,6 +5,8 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/api/courses/create_course.dart';
 import 'package:fitrope_app/api/courses/update_course.dart';
 import 'package:fitrope_app/utils/sale.dart';
+import 'package:fitrope_app/types/course_type.dart';
+import 'package:fitrope_app/utils/course_tags.dart';
 
 /// Copre il percorso EDIT (updateCourse), simmetrico a createCourse_test.
 /// In modifica, CourseManagementPage usa courseToEdit.copyWith(...): qui si
@@ -27,7 +29,10 @@ void main() {
           capacity: 8,
           subscribed: 3,
           trainerId: 't1',
-          tags: const ['Hyrox'],
+          tags: const ['Open', 'Hyrox'],
+          courseType: CourseType.open,
+          tag: CourseTags.HYROX,
+          courseModelV2: true,
           reminderEnabled: false,
           waitlistEnabled: false,
           sala: Sale.SALA_1,
@@ -56,7 +61,7 @@ void main() {
       expect(data['waitlistEnabled'], false);
       expect(data['sala'], Sale.SALA_1);
       expect(data['trainerId'], 't1');
-      expect(data['tags'], ['Hyrox']);
+      expect(data['tags'], ['Open', 'Hyrox']);
       expect(data['subscribed'], 3);
     });
 
