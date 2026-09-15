@@ -12,7 +12,8 @@ import { Timestamp } from "firebase-admin/firestore";
 // emulators:exec esporta FIRESTORE_EMULATOR_HOST/FIREBASE_AUTH_EMULATOR_HOST e
 // GCLOUD_PROJECT per il processo figlio: l'Admin SDK punta agli emulatori.
 const PROJECT_ID = process.env.GCLOUD_PROJECT ?? "demo-fitrope";
-const FUNCTIONS_BASE = `http://127.0.0.1:5001/${PROJECT_ID}/europe-west8`;
+const FUNCTIONS_HOST = process.env.FUNCTIONS_EMULATOR_HOST ?? "127.0.0.1:5001";
+const FUNCTIONS_BASE = `http://${FUNCTIONS_HOST}/${PROJECT_ID}/europe-west8`;
 const AUTH_BASE = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099"}`;
 
 if (admin.apps.length === 0) {

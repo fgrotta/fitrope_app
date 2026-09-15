@@ -28,6 +28,7 @@ import 'package:fitrope_app/utils/refresh_current_user.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/utils/simulation_controller.dart';
 import 'package:fitrope_app/utils/simulation_permissions.dart';
+import 'package:fitrope_app/utils/user_cache_manager.dart';
 
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
