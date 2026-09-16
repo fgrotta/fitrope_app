@@ -132,6 +132,9 @@ class UserSubscription {
 }
 
 (SubscriptionFamily, BillingMode)? _knownPlanShape(String planKey) {
+  if (planKey == 'open_trial_1i_30d') {
+    return (SubscriptionFamily.OPEN, BillingMode.ENTRIES);
+  }
   if (RegExp(r'^open_(2x|3x|unlim)_(1|3|6|12)m$').hasMatch(planKey)) {
     return (SubscriptionFamily.OPEN, BillingMode.FREQUENCY);
   }

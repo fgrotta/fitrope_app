@@ -253,10 +253,12 @@ export interface SubscribeInput {
   /**
    * Snapshot abbonamenti attivi. Può contenere voci SCADUTE (lo snapshot viene
    * ricalcolato solo alle scritture e non c'è cron di pulizia): vengono scartate
-   * qui, così uno snapshot sporco non blocca il fallback legacy (un utente con
-   * soli abbonamenti scaduti torna a usare i suoi crediti legacy).
+   * qui. Il fallback legacy resta disponibile soltanto ai documenti V1;
+   * `subscriptionModelVersion >= 2` rende il cutover definitivo.
    */
   activeSubscriptions: UserSubscriptionRecord[];
+  /** 2 = utente convertito definitivamente: nessun fallback legacy. */
+  subscriptionModelVersion?: number;
 
   // Campi legacy (usati solo se activeSubscriptions è vuoto).
   tipologia: string | null;
@@ -298,12 +300,12 @@ export function evaluateSubscribe(input: SubscribeInput): SubscribeDecision {
 
   // Selezione del modello: contano solo le voci NON scadute adesso. NB: una voce
   // scaduta a "adesso" non può comunque essere valida alla data del corso (i corsi
-  // prenotabili sono futuri), quindi il filtro non cambia mai l'esito di
-  // validCovering — sblocca solo il fallback legacy con snapshot stantii.
+  // prenotabili sono futuri). Solo i documenti V1 possono ancora fare fallback.
   const liveSubs = input.activeSubscriptions.filter(
     (s) => s.endDateMillis >= input.nowMillis
   );
-  const useSubscriptions = liveSubs.length > 0;
+  const useSubscriptions =
+    (input.subscriptionModelVersion ?? 1) >= 2 || liveSubs.length > 0;
   // coveringByType: copre la tipologia (no filtro data) → accesso + distinzione EXPIRED.
   // validCovering: anche valido alla data → idoneità/consumo.
   const coveringByType = useSubscriptions
@@ -312,7 +314,8 @@ export function evaluateSubscribe(input: SubscribeInput): SubscribeDecision {
   const validCovering = validAtDate(coveringByType, input.courseStartMillis);
 
   const expired = useSubscriptions
-    ? coveringByType.length > 0 && validCovering.length === 0
+    ? liveSubs.length === 0 ||
+      (coveringByType.length > 0 && validCovering.length === 0)
     : input.fineIscrizioneMillis === null ||
       input.courseStartMillis > input.fineIscrizioneMillis;
   if (!input.force && expired) {

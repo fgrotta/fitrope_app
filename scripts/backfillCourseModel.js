@@ -33,6 +33,7 @@ const USER_COLUMNS = [
   "reason_detail", "target_subscription_id", "target_plan_key", "target_family",
   "target_billing_mode", "target_course_type_tags", "target_weekly_frequency",
   "target_remaining_entries", "target_start_date", "target_end_date", "apply_status",
+  "future_bookings_checked", "target_subscription_model_version",
 ];
 
 const COURSE_COLUMNS = [
@@ -103,7 +104,33 @@ function userSource(data) {
     entrateDisponibili: data.entrateDisponibili,
     entrateSettimanali: data.entrateSettimanali,
     fineIscrizione: data.fineIscrizione,
+    subscriptionModelVersion: data.subscriptionModelVersion,
   };
+}
+
+function migrationCourseTypeTag(data) {
+  const decision = transformCourse(data);
+  if (decision.target) return decision.target.tags[0] ?? null;
+  if (Array.isArray(data.tags)) {
+    if (data.tags.includes("Personal Trainer")) return "Personal Trainer";
+    if (data.tags.includes("Open")) return "Open";
+  }
+  return data.courseType === "personal_trainer" ? "Personal Trainer" : null;
+}
+
+function futureBookingsForUser(data, courses, evaluatedAtMillis) {
+  const ids = Array.isArray(data.courses) ? data.courses : [];
+  return ids.flatMap((courseId) => {
+    if (typeof courseId !== "string") return [];
+    const course = courses.get(courseId);
+    const startDateMillis = timestampMillis(course?.startDate);
+    if (startDateMillis === null || startDateMillis <= evaluatedAtMillis) return [];
+    return [{
+      courseId,
+      startDateMillis,
+      courseTypeTag: migrationCourseTypeTag(course),
+    }];
+  });
 }
 
 function enrollmentSource(data) {
@@ -200,7 +227,9 @@ function snapshotMatchesTarget(userData, target, evaluatedAtMillis) {
   return JSON.stringify(normalize(comparable)) === JSON.stringify(normalize(expected));
 }
 
-function userReport(run, id, data, decision, applyStatus = "NOT_APPLIED") {
+function userReport(
+  run, id, data, decision, futureBookings = [], applyStatus = "NOT_APPLIED"
+) {
   const target = decision.target;
   return {
     run_id: run.runId,
@@ -235,6 +264,8 @@ function userReport(run, id, data, decision, applyStatus = "NOT_APPLIED") {
     target_start_date: target ? new Date(target.startDateMillis).toISOString() : "",
     target_end_date: target ? new Date(target.endDateMillis).toISOString() : "",
     apply_status: applyStatus,
+    future_bookings_checked: futureBookings.length,
+    target_subscription_model_version: target ? 2 : "",
   };
 }
 
@@ -397,9 +428,12 @@ async function scan(db, run, scope) {
   const userRows = [];
   const courseRows = [];
   let subscriptions = [];
+  let coursesForUsers = new Map();
   let hyroxSnapshots = 0;
   if (scope === "users" || scope === "all") {
     subscriptions = (await db.collection("subscriptions").get()).docs;
+    const courseDocs = (await db.collection("courses").get()).docs;
+    coursesForUsers = new Map(courseDocs.map((doc) => [doc.id, doc.data()]));
   }
   const subsByUser = new Map();
   for (const doc of subscriptions) {
@@ -439,28 +473,46 @@ async function scan(db, run, scope) {
             subscription.planKey.startsWith("hyrox_"))
         ).length;
       }
-      const decision = transformUser(doc.id, data, run.evaluatedAtMillis);
-      if (data.legacySubscriptionMigration) {
+      const futureBookings = futureBookingsForUser(
+        data, coursesForUsers, run.evaluatedAtMillis
+      );
+      const decision = transformUser(
+        doc.id,
+        data,
+        run.evaluatedAtMillis,
+        futureBookings
+      );
+      if (data.legacySubscriptionMigration &&
+          data.subscriptionModelVersion === 2) {
         decision.conversionStatus = "ALREADY_APPLIED";
         decision.reasonCode = "ALREADY_APPLIED";
         decision.reasonDetail = "marker legacySubscriptionMigration presente";
       } else if (decision.target) {
         const existing = subsByUser.get(doc.id) || [];
         const deterministic = existing.find((sub) => sub.id === decision.target.id);
-        const otherOpen = existing.some(
-          (sub) => sub.id !== decision.target.id && sub.data.family === "OPEN"
+        const otherFamily = existing.some(
+          (sub) => sub.id !== decision.target.id &&
+            sub.data.family === decision.target.family
         );
         if (deterministic &&
             subscriptionMatches(deterministic.data, decision.target) &&
             snapshotMatchesTarget(data, decision.target, run.evaluatedAtMillis) &&
-            !otherOpen) {
-          decision.conversionStatus = "ALREADY_APPLIED";
-          decision.reasonCode = "ALREADY_APPLIED";
-          decision.reasonDetail = "subscription deterministica gia identica";
-        } else if (deterministic || existing.some((sub) => sub.data.family === "OPEN")) {
+            !otherFamily) {
+          if (data.subscriptionModelVersion === 2) {
+            decision.conversionStatus = "ALREADY_APPLIED";
+            decision.reasonCode = "ALREADY_APPLIED";
+            decision.reasonDetail = "subscription deterministica gia identica";
+          } else {
+            decision.reasonDetail =
+              "subscription identica; completa upgrade subscriptionModelVersion=2";
+          }
+        } else if (deterministic || existing.some(
+          (sub) => sub.data.family === decision.target.family
+        )) {
           decision.conversionStatus = "TARGET_CONFLICT";
           decision.reasonCode = "EXISTING_SUBSCRIPTION_CONFLICT";
-          decision.reasonDetail = "esiste gia una subscription OPEN diversa";
+          decision.reasonDetail =
+            `esiste gia una subscription ${decision.target.family} diversa`;
         }
       }
       const entry = {
@@ -470,8 +522,10 @@ async function scan(db, run, scope) {
         documentId: doc.id,
         sourceFingerprint: fingerprint(userSource(data)),
         enrollmentFingerprint: fingerprint(enrollmentSource(data)),
+        futureBookings,
+        futureBookingFingerprint: fingerprint(futureBookings),
         decision,
-        report: userReport(run, doc.id, data, decision),
+        report: userReport(run, doc.id, data, decision, futureBookings),
       };
       entries.push(entry);
       userRows.push(entry.report);
@@ -542,6 +596,20 @@ function snapshotEntry(id, data) {
   };
 }
 
+function migratedConsumption(data, subscriptionId) {
+  const source = data.enrollmentConsumption &&
+    typeof data.enrollmentConsumption === "object" &&
+    !Array.isArray(data.enrollmentConsumption)
+    ? data.enrollmentConsumption
+    : {};
+  return Object.fromEntries(Object.entries(source).map(([courseId, record]) => [
+    courseId,
+    record?.kind === "LEGACY_ENTRY"
+      ? { ...record, kind: "SUBSCRIPTION_ENTRY", subscriptionId }
+      : record,
+  ]));
+}
+
 async function applyManifest(db, entries) {
   const statuses = new Map();
   const writer = db.bulkWriter();
@@ -599,7 +667,24 @@ async function applyManifest(db, entries) {
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) return "SOURCE_DRIFT";
       const userData = userSnap.data();
-      if (userData.legacySubscriptionMigration) return "ALREADY_APPLIED";
+      if (userData.legacySubscriptionMigration &&
+          userData.subscriptionModelVersion === 2) return "ALREADY_APPLIED";
+      const currentFutureBookings = [];
+      for (const booking of entry.futureBookings ?? []) {
+        const courseSnap = await tx.get(
+          db.collection("courses").doc(booking.courseId)
+        );
+        if (!courseSnap.exists) return "SOURCE_DRIFT";
+        const courseData = courseSnap.data();
+        currentFutureBookings.push({
+          courseId: booking.courseId,
+          startDateMillis: timestampMillis(courseData.startDate),
+          courseTypeTag: migrationCourseTypeTag(courseData),
+        });
+      }
+      if (fingerprint(currentFutureBookings) !== entry.futureBookingFingerprint) {
+        return "SOURCE_DRIFT";
+      }
       const targetSnap = await tx.get(targetRef);
       if (targetSnap.exists && subscriptionMatches(targetSnap.data(), target)) {
         if (!snapshotMatchesTarget(userData, target, entry.evaluatedAtMillis)) {
@@ -610,6 +695,8 @@ async function applyManifest(db, entries) {
           return "SOURCE_DRIFT";
         }
         tx.update(userRef, {
+          subscriptionModelVersion: 2,
+          enrollmentConsumption: migratedConsumption(userData, target.id),
           legacySubscriptionMigration: legacySubscriptionMigrationMarker(
             "BATCH", target.id, target.planKey, `batch:${entry.projectId}`
           ),
@@ -625,7 +712,9 @@ async function applyManifest(db, entries) {
       const subsSnap = await tx.get(
         db.collection("subscriptions").where("userId", "==", entry.documentId)
       );
-      if (targetSnap.exists || subsSnap.docs.some((doc) => doc.data().family === "OPEN")) {
+      if (targetSnap.exists || subsSnap.docs.some(
+        (doc) => doc.data().family === target.family
+      )) {
         return "TARGET_CONFLICT";
       }
 
@@ -640,6 +729,8 @@ async function applyManifest(db, entries) {
       tx.create(targetRef, targetData);
       tx.update(userRef, {
         activeSubscriptions,
+        subscriptionModelVersion: 2,
+        enrollmentConsumption: migratedConsumption(userData, target.id),
         legacySubscriptionMigration: legacySubscriptionMigrationMarker(
           "BATCH", target.id, target.planKey, `batch:${entry.projectId}`
         ),

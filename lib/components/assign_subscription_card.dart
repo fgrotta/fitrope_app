@@ -32,21 +32,24 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
   List<SubscriptionPlan> get _familyPlans => selectedFamily == null
       ? const []
       : SubscriptionPlans.all
-          .where((plan) => plan.family == selectedFamily)
-          .toList();
+            .where(
+              (plan) =>
+                  plan.family == selectedFamily && plan.durationMonths != null,
+            )
+            .toList();
 
   List<SubscriptionPlan> get _modePlans => selectedBillingMode == null
       ? const []
       : _familyPlans
-          .where((plan) => plan.billingMode == selectedBillingMode)
-          .toList();
+            .where((plan) => plan.billingMode == selectedBillingMode)
+            .toList();
 
   String _variantOf(SubscriptionPlan plan) =>
       plan.billingMode == BillingMode.ENTRIES
-          ? '${plan.entries}i'
-          : plan.weeklyFrequency == null
-              ? 'unlim'
-              : '${plan.weeklyFrequency}x';
+      ? '${plan.entries}i'
+      : plan.weeklyFrequency == null
+      ? 'unlim'
+      : '${plan.weeklyFrequency}x';
 
   String _variantLabel(String value) {
     if (value == 'unlim') return 'Illimitato';
@@ -59,9 +62,11 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
   String? get selectedPlanKey {
     if (selectedVariant == null || selectedDuration == null) return null;
     return _modePlans
-        .where((plan) =>
-            _variantOf(plan) == selectedVariant &&
-            plan.durationMonths == selectedDuration)
+        .where(
+          (plan) =>
+              _variantOf(plan) == selectedVariant &&
+              plan.durationMonths == selectedDuration,
+        )
         .firstOrNull
         ?.key;
   }
@@ -78,11 +83,15 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
     } on FirebaseFunctionsException catch (e) {
       if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
-          context, e.message ?? 'Errore durante l\'assegnazione');
+        context,
+        e.message ?? 'Errore durante l\'assegnazione',
+      );
     } catch (_) {
       if (!mounted) return;
       SnackBarUtils.showErrorSnackBar(
-          context, 'Errore durante l\'assegnazione dell\'abbonamento');
+        context,
+        'Errore durante l\'assegnazione dell\'abbonamento',
+      );
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -127,10 +136,10 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
               onChanged: selectedFamily == null
                   ? null
                   : (value) => setState(() {
-                        selectedBillingMode = value;
-                        selectedVariant = null;
-                        selectedDuration = null;
-                      }),
+                      selectedBillingMode = value;
+                      selectedVariant = null;
+                      selectedDuration = null;
+                    }),
             ),
             const SizedBox(height: 10),
             _dropdown<String>(
@@ -141,9 +150,9 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
               onChanged: selectedBillingMode == null
                   ? null
                   : (value) => setState(() {
-                        selectedVariant = value;
-                        selectedDuration = null;
-                      }),
+                      selectedVariant = value;
+                      selectedDuration = null;
+                    }),
             ),
             const SizedBox(height: 10),
             _dropdown<int>(
@@ -152,9 +161,9 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
               values: selectedVariant == null
                   ? const <int>{}
                   : _modePlans
-                      .where((plan) => _variantOf(plan) == selectedVariant)
-                      .map((plan) => plan.durationMonths)
-                      .toSet(),
+                        .where((plan) => _variantOf(plan) == selectedVariant)
+                        .map((plan) => plan.durationMonths!)
+                        .toSet(),
               text: (value) => value == 1 ? '1 mese' : '$value mesi',
               onChanged: selectedVariant == null
                   ? null
@@ -172,7 +181,9 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
                       height: 18,
                       width: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text('Assegna'),
             ),
@@ -199,10 +210,12 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
         fillColor: Colors.white,
       ),
       items: values
-          .map((item) => DropdownMenuItem<T>(
-                value: item,
-                child: Text(text(item), overflow: TextOverflow.ellipsis),
-              ))
+          .map(
+            (item) => DropdownMenuItem<T>(
+              value: item,
+              child: Text(text(item), overflow: TextOverflow.ellipsis),
+            ),
+          )
           .toList(),
       onChanged: loading ? null : onChanged,
     );

@@ -79,12 +79,15 @@ class _UserDetailPageState extends State<UserDetailPage> {
     super.initState();
     nameController = TextEditingController(text: widget.user.name);
     lastNameController = TextEditingController(text: widget.user.lastName);
-    numeroTelefonoController =
-        TextEditingController(text: widget.user.numeroTelefono ?? '');
+    numeroTelefonoController = TextEditingController(
+      text: widget.user.numeroTelefono ?? '',
+    );
     entrateDisponibiliController = TextEditingController(
-        text: widget.user.entrateDisponibili?.toString() ?? '');
+      text: widget.user.entrateDisponibili?.toString() ?? '',
+    );
     entrateSettimanaliController = TextEditingController(
-        text: widget.user.entrateSettimanali?.toString() ?? '');
+      text: widget.user.entrateSettimanali?.toString() ?? '',
+    );
     selectedRole = widget.user.role;
     selectedTipologiaIscrizione = widget.user.tipologiaIscrizione;
     selectedFineIscrizione = widget.user.fineIscrizione?.toDate();
@@ -127,13 +130,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Non ora',
-                  style: TextStyle(color: onPrimaryColor)),
+              child: const Text(
+                'Non ora',
+                style: TextStyle(color: onPrimaryColor),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child:
-                  const Text('Continua', style: TextStyle(color: primaryColor)),
+              child: const Text(
+                'Continua',
+                style: TextStyle(color: primaryColor),
+              ),
             ),
           ],
         );
@@ -160,8 +167,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Ho capito',
-                  style: TextStyle(color: primaryColor)),
+              child: const Text(
+                'Ho capito',
+                style: TextStyle(color: primaryColor),
+              ),
             ),
           ],
         );
@@ -220,8 +229,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
           if (startDate.isBefore(twelveMonthsAgo)) continue;
         }
         String courseName = course.name;
-        String courseDate =
-            DateFormat('dd/MM/yyyy').format(course.startDate.toDate());
+        String courseDate = DateFormat(
+          'dd/MM/yyyy',
+        ).format(course.startDate.toDate());
         String tipologia = course.displayTag ?? course.resolvedTypeTag;
         userCourses.add({
           'name': courseName,
@@ -233,13 +243,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
     // Ordina: se last12MonthsOnly, ordine cronologico (data crescente); altrimenti per titolo e data (più recenti prima)
     if (last12MonthsOnly) {
-      userCourses.sort((a, b) => DateFormat('dd/MM/yyyy')
-          .parse(a['date']!)
-          .compareTo(DateFormat('dd/MM/yyyy').parse(b['date']!)));
+      userCourses.sort(
+        (a, b) => DateFormat('dd/MM/yyyy')
+            .parse(a['date']!)
+            .compareTo(DateFormat('dd/MM/yyyy').parse(b['date']!)),
+      );
     } else {
       userCourses.sort((a, b) {
-        int nameComparison =
-            a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase());
+        int nameComparison = a['name']!.toLowerCase().compareTo(
+          b['name']!.toLowerCase(),
+        );
         if (nameComparison != 0) {
           return nameComparison;
         }
@@ -281,19 +294,23 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
     // Prendi le ultime 20 disiscrizioni (o tutte se sono meno di 20)
     var cancelledList = widget.user.cancelledEnrollments.length > 20
-        ? widget.user.cancelledEnrollments
-            .sublist(widget.user.cancelledEnrollments.length - 20)
+        ? widget.user.cancelledEnrollments.sublist(
+            widget.user.cancelledEnrollments.length - 20,
+          )
         : widget.user.cancelledEnrollments;
 
     for (var cancelled in cancelledList) {
-      Course? course =
-          allCourses.where((c) => c.id == cancelled.courseId).firstOrNull;
+      Course? course = allCourses
+          .where((c) => c.id == cancelled.courseId)
+          .firstOrNull;
       if (course != null) {
         String courseName = course.name;
-        String cancelledDate = DateFormat('dd/MM/yyyy HH:mm')
-            .format(cancelled.cancelledAt.toDate());
-        String courseDate =
-            DateFormat('dd/MM/yyyy').format(cancelled.courseStartDate.toDate());
+        String cancelledDate = DateFormat(
+          'dd/MM/yyyy HH:mm',
+        ).format(cancelled.cancelledAt.toDate());
+        String courseDate = DateFormat(
+          'dd/MM/yyyy',
+        ).format(cancelled.courseStartDate.toDate());
         String tipologia = course.displayTag ?? course.resolvedTypeTag;
         // Cosa è stato perso: un ingresso (credito scalato) o uno slot
         // settimanale. In entrambi i casi la lezione era recuperabile nella
@@ -301,8 +318,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         String status = !cancelled.entryLost
             ? 'Ingresso non perso'
             : cancelled.lostKindOrDefault == LostKind.ENTRY
-                ? 'Ingresso perso'
-                : 'Ingresso settimanale perso';
+            ? 'Ingresso perso'
+            : 'Ingresso settimanale perso';
         cancelledEnrollments.add({
           'name': courseName,
           'cancelledDate': cancelledDate,
@@ -324,7 +341,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   Map<String, List<Map<String, String>>>
-      getUserCancelledEnrollmentsByTipologia() {
+  getUserCancelledEnrollmentsByTipologia() {
     List<Map<String, String>> allCancelledEnrollments =
         getUserCancelledEnrollments();
     Map<String, List<Map<String, String>>> cancelledByTipologia = {};
@@ -346,10 +363,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
     final name = nameController.text.trim();
     final lastName = lastNameController.text.trim();
     final numeroTelefono = numeroTelefonoController.text.trim();
-    final entrateDisponibili =
-        int.tryParse(entrateDisponibiliController.text.trim());
-    final entrateSettimanali =
-        int.tryParse(entrateSettimanaliController.text.trim());
+    final entrateDisponibili = int.tryParse(
+      entrateDisponibiliController.text.trim(),
+    );
+    final entrateSettimanali = int.tryParse(
+      entrateSettimanaliController.text.trim(),
+    );
 
     if (name.isEmpty || lastName.isEmpty) {
       setState(() {
@@ -443,23 +462,29 @@ class _UserDetailPageState extends State<UserDetailPage> {
         entrateDisponibili: entrateDisponibili,
         entrateSettimanali: entrateSettimanali,
         fineIscrizione: selectedFineIscrizione != null
-            ? Timestamp.fromDate(DateTime(
-                selectedFineIscrizione!.year,
-                selectedFineIscrizione!.month,
-                selectedFineIscrizione!.day,
-                23,
-                59))
+            ? Timestamp.fromDate(
+                DateTime(
+                  selectedFineIscrizione!.year,
+                  selectedFineIscrizione!.month,
+                  selectedFineIscrizione!.day,
+                  23,
+                  59,
+                ),
+              )
             : null,
         isActive: selectedIsActive,
         isAnonymous: selectedIsAnonymous,
         createdAt: widget.user.createdAt,
         certificatoScadenza: selectedCertificatoScadenza != null
-            ? Timestamp.fromDate(DateTime(
-                selectedCertificatoScadenza!.year,
-                selectedCertificatoScadenza!.month,
-                selectedCertificatoScadenza!.day,
-                23,
-                59))
+            ? Timestamp.fromDate(
+                DateTime(
+                  selectedCertificatoScadenza!.year,
+                  selectedCertificatoScadenza!.month,
+                  selectedCertificatoScadenza!.day,
+                  23,
+                  59,
+                ),
+              )
             : null,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
         tipologiaCorsoTags: selectedTipologiaCorsoTags,
@@ -471,6 +496,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         waitlistCourses: widget.user.waitlistCourses,
         regolamentoAccettatoIl: widget.user.regolamentoAccettatoIl,
         activeSubscriptions: _activeSubscriptions,
+        subscriptionModelVersion: widget.user.subscriptionModelVersion,
       );
 
       // Aggiorna lo store Redux se l'utente ha modificato il proprio profilo
@@ -547,8 +573,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
               style: TextButton.styleFrom(foregroundColor: warningColor),
               child: const Text(
                 'Logout',
-                style:
-                    TextStyle(color: warningColor, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: warningColor,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -614,8 +642,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text(
                 'Cancella Account',
-                style:
-                    TextStyle(color: errorColor, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: errorColor,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -624,8 +654,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  void showCancelledEnrollmentInfo(String courseName, String courseDate,
-      String cancelledDate, String status) {
+  void showCancelledEnrollmentInfo(
+    String courseName,
+    String courseDate,
+    String cancelledDate,
+    String status,
+  ) {
     showDialog(
       context: context,
       builder: (context) {
@@ -646,8 +680,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child:
-                  const Text('Chiudi', style: TextStyle(color: onPrimaryColor)),
+              child: const Text(
+                'Chiudi',
+                style: TextStyle(color: onPrimaryColor),
+              ),
             ),
           ],
         );
@@ -702,8 +738,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
               style: TextButton.styleFrom(foregroundColor: primaryColor),
               child: const Text(
                 'Invia Email',
-                style:
-                    TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -794,10 +832,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
       return 'Non impostato';
     }
 
-    final dataFormattata =
-        CertificatoHelper.formatDataScadenza(widget.user.certificatoScadenza);
-    final stato =
-        CertificatoHelper.getStatoCertificato(widget.user.certificatoScadenza);
+    final dataFormattata = CertificatoHelper.formatDataScadenza(
+      widget.user.certificatoScadenza,
+    );
+    final stato = CertificatoHelper.getStatoCertificato(
+      widget.user.certificatoScadenza,
+    );
 
     return '$dataFormattata ($stato)';
   }
@@ -823,8 +863,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
       );
     }
 
-    final horizontalInset =
-        isDesktop(context) ? MediaQuery.sizeOf(context).width * 0.15 : 0.0;
+    final horizontalInset = isDesktop(context)
+        ? MediaQuery.sizeOf(context).width * 0.15
+        : 0.0;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -835,14 +876,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
         leading: horizontalInset > 0
             ? Padding(
                 padding: EdgeInsetsDirectional.only(start: horizontalInset),
-                child: BackButton(
-                  onPressed: () => Navigator.maybePop(context),
-                ),
+                child: BackButton(onPressed: () => Navigator.maybePop(context)),
               )
             : null,
-        title: Text(store.state.user?.uid == widget.user.uid
-            ? 'Il Mio Profilo'
-            : 'Dettagli Utente'),
+        title: Text(
+          store.state.user?.uid == widget.user.uid
+              ? 'Il Mio Profilo'
+              : 'Dettagli Utente',
+        ),
         actions: [
           Padding(
             padding: EdgeInsetsDirectional.only(end: horizontalInset),
@@ -862,8 +903,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     icon: const Icon(Icons.visibility_outlined),
                     tooltip: 'Simula utente',
                     onPressed: () => SimulationController.confirmAndStart(
-                        context,
-                        target: widget.user),
+                      context,
+                      target: widget.user,
+                    ),
                   ),
                 if (!isEditing && _canEditUser()) ...[
                   if (store.state.user?.uid == widget.user.uid)
@@ -907,7 +949,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
             // decremento ingressi, quindi assegnare abbonamenti è sicuro.
             if (store.state.user?.role == 'Admin') ...[
               if (shouldShowLegacyUserMigration(
-                  context, store.state.user?.role)) ...[
+                context,
+                store.state.user?.role,
+              )) ...[
                 LegacyUserMigrationCard(
                   userId: widget.user.uid,
                   onMigrated: () {
@@ -945,7 +989,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: primaryLightColor,
                           borderRadius: BorderRadius.circular(20),
@@ -962,7 +1008,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(20),
@@ -991,113 +1039,131 @@ class _UserDetailPageState extends State<UserDetailPage> {
             const SizedBox(height: 32),
 
             // Sezione informazioni personali
-            _buildSection(
-              'Informazioni Personali',
-              [
-                _buildInfoRow('Nome', widget.user.name, nameController,
-                    _canEditSpecificField('Nome') && isEditing),
+            _buildSection('Informazioni Personali', [
+              _buildInfoRow(
+                'Nome',
+                widget.user.name,
+                nameController,
+                _canEditSpecificField('Nome') && isEditing,
+              ),
+              _buildInfoRow(
+                'Cognome',
+                widget.user.lastName,
+                lastNameController,
+                _canEditSpecificField('Cognome') && isEditing,
+              ),
+              _buildInfoRow(
+                'Numero di Telefono',
+                widget.user.numeroTelefono ?? 'Non impostato',
+                numeroTelefonoController,
+                _canEditSpecificField('Numero di Telefono') && isEditing,
+              ),
+              _buildInfoRow('Email', widget.user.email, null, false),
+              if (isAdmin)
                 _buildInfoRow(
-                    'Cognome',
-                    widget.user.lastName,
-                    lastNameController,
-                    _canEditSpecificField('Cognome') && isEditing),
+                  'Ruolo',
+                  widget.user.role,
+                  null,
+                  _canEditSpecificField('Ruolo') && isEditing,
+                  isDropdown: true,
+                ),
+              _buildInfoRow(
+                'Certificato Medico',
+                _getCertificatoText(),
+                null,
+                _canEditSpecificField('Certificato') && isEditing,
+                isCertificatoDatePicker: true,
+              ),
+              // Campo Stato visibile solo agli Admin
+              if (isAdmin)
                 _buildInfoRow(
-                    'Numero di Telefono',
-                    widget.user.numeroTelefono ?? 'Non impostato',
-                    numeroTelefonoController,
-                    _canEditSpecificField('Numero di Telefono') && isEditing),
-                _buildInfoRow('Email', widget.user.email, null, false),
-                if (isAdmin)
-                  _buildInfoRow('Ruolo', widget.user.role, null,
-                      _canEditSpecificField('Ruolo') && isEditing,
-                      isDropdown: true),
-                _buildInfoRow('Certificato Medico', _getCertificatoText(), null,
-                    _canEditSpecificField('Certificato') && isEditing,
-                    isCertificatoDatePicker: true),
-                // Campo Stato visibile solo agli Admin
-                if (isAdmin)
-                  _buildInfoRow(
-                      'Stato',
-                      widget.user.isActive ? 'Attivo' : 'Disattivato',
-                      null,
-                      _canEditSpecificField('Stato') && isEditing,
-                      isStatusDropdown: true),
-                _buildInfoRow('Anonimo', widget.user.isAnonymous ? 'Si' : 'No',
-                    null, _canEditSpecificField('Anonimo') && isEditing,
-                    isAnonymousDropdown: true),
-                // Pulsante per inviare email di reset password (solo per Admin)
-                if (isAdmin) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: showResetPasswordConfirmation,
-                      icon: const Icon(Icons.email, color: Colors.white),
-                      label: const Text(
-                        'Invia Email Reset Password',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  'Stato',
+                  widget.user.isActive ? 'Attivo' : 'Disattivato',
+                  null,
+                  _canEditSpecificField('Stato') && isEditing,
+                  isStatusDropdown: true,
+                ),
+              _buildInfoRow(
+                'Anonimo',
+                widget.user.isAnonymous ? 'Si' : 'No',
+                null,
+                _canEditSpecificField('Anonimo') && isEditing,
+                isAnonymousDropdown: true,
+              ),
+              // Pulsante per inviare email di reset password (solo per Admin)
+              if (isAdmin) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: showResetPasswordConfirmation,
+                    icon: const Icon(Icons.email, color: Colors.white),
+                    label: const Text(
+                      'Invia Email Reset Password',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
-                ],
+                ),
               ],
-            ),
+            ]),
 
             const SizedBox(height: 24),
 
             // Sezione piano di iscrizione
-            _buildSection(
-              'Piano di Iscrizione',
-              [
+            _buildSection('Piano di Iscrizione', [
+              _buildInfoRow(
+                'Tipologia',
+                _getTipologiaLabel(widget.user.tipologiaIscrizione),
+                null,
+                _canEditSpecificField('Tipologia') && isEditing,
+                isTipologiaDropdown: true,
+              ),
+              _buildInfoRow(
+                'Tipologia Corso',
+                widget.user.tipologiaCorsoTags.join(', '),
+                null,
+                _canEditSpecificField('Tipologia Corso') && isEditing,
+                isTagsMultiSelect: true,
+              ),
+              if (widget.user.tipologiaIscrizione ==
+                      TipologiaIscrizione.PACCHETTO_ENTRATE ||
+                  isAdmin) ...[
                 _buildInfoRow(
-                    'Tipologia',
-                    _getTipologiaLabel(widget.user.tipologiaIscrizione),
-                    null,
-                    _canEditSpecificField('Tipologia') && isEditing,
-                    isTipologiaDropdown: true),
-                _buildInfoRow(
-                    'Tipologia Corso',
-                    widget.user.tipologiaCorsoTags.join(', '),
-                    null,
-                    _canEditSpecificField('Tipologia Corso') && isEditing,
-                    isTagsMultiSelect: true),
-                if (widget.user.tipologiaIscrizione ==
-                        TipologiaIscrizione.PACCHETTO_ENTRATE ||
-                    isAdmin) ...[
-                  _buildInfoRow(
-                      'Entrate Disponibili',
-                      widget.user.entrateDisponibili?.toString() ?? '0',
-                      entrateDisponibiliController,
-                      _canEditSpecificField('Entrate Disponibili') &&
-                          isEditing),
-                ],
-                _buildInfoRow(
-                    'Entrate Settimanali',
-                    widget.user.entrateSettimanali?.toString() ?? '0',
-                    entrateSettimanaliController,
-                    _canEditSpecificField('Entrate Settimanali') && isEditing),
-                _buildInfoRow(
-                    'Fine Iscrizione',
-                    widget.user.fineIscrizione != null
-                        ? DateFormat('dd/MM/yyyy')
-                            .format(widget.user.fineIscrizione!.toDate())
-                        : 'Non impostata',
-                    null,
-                    _canEditSpecificField('Fine Iscrizione') && isEditing,
-                    isDatePicker: true),
+                  'Entrate Disponibili',
+                  widget.user.entrateDisponibili?.toString() ?? '0',
+                  entrateDisponibiliController,
+                  _canEditSpecificField('Entrate Disponibili') && isEditing,
+                ),
               ],
-            ),
+              _buildInfoRow(
+                'Entrate Settimanali',
+                widget.user.entrateSettimanali?.toString() ?? '0',
+                entrateSettimanaliController,
+                _canEditSpecificField('Entrate Settimanali') && isEditing,
+              ),
+              _buildInfoRow(
+                'Fine Iscrizione',
+                widget.user.fineIscrizione != null
+                    ? DateFormat(
+                        'dd/MM/yyyy',
+                      ).format(widget.user.fineIscrizione!.toDate())
+                    : 'Non impostata',
+                null,
+                _canEditSpecificField('Fine Iscrizione') && isEditing,
+                isDatePicker: true,
+              ),
+            ]),
 
             const SizedBox(height: 24),
 
@@ -1109,145 +1175,137 @@ class _UserDetailPageState extends State<UserDetailPage> {
             // Sezione preferenze notifiche (solo per il proprio profilo)
             if (store.state.user?.uid == widget.user.uid) ...[
               const SizedBox(height: 24),
-              _buildSection(
-                'Preferenze Notifiche',
-                [
-                  _buildNotificationToggle(
-                    'Notifiche Push',
-                    Icons.notifications_active,
-                    selectedPushNotifications,
-                    (value) =>
-                        setState(() => selectedPushNotifications = value),
-                    enabled: isEditing,
-                  ),
-                  _buildNotificationToggle(
-                    'Notifiche Email',
-                    Icons.email,
-                    selectedEmailNotifications,
-                    (value) =>
-                        setState(() => selectedEmailNotifications = value),
-                    enabled: isEditing,
-                  ),
-                ],
-              ),
+              _buildSection('Preferenze Notifiche', [
+                _buildNotificationToggle(
+                  'Notifiche Push',
+                  Icons.notifications_active,
+                  selectedPushNotifications,
+                  (value) => setState(() => selectedPushNotifications = value),
+                  enabled: isEditing,
+                ),
+                _buildNotificationToggle(
+                  'Notifiche Email',
+                  Icons.email,
+                  selectedEmailNotifications,
+                  (value) => setState(() => selectedEmailNotifications = value),
+                  enabled: isEditing,
+                ),
+              ]),
             ],
 
             const SizedBox(height: 24),
 
             // Sezione informazioni account
-            _buildSection(
-              'Informazioni Account',
-              [
-                _buildInfoRow(
-                    'Data Registrazione',
-                    DateFormat('dd/MM/yyyy HH:mm')
-                        .format(widget.user.createdAt),
-                    null,
-                    false),
-                _buildInfoRow('Corsi Iscritti', '${widget.user.courses.length}',
-                    null, false),
-              ],
-            ),
+            _buildSection('Informazioni Account', [
+              _buildInfoRow(
+                'Data Registrazione',
+                DateFormat('dd/MM/yyyy HH:mm').format(widget.user.createdAt),
+                null,
+                false,
+              ),
+              _buildInfoRow(
+                'Corsi Iscritti',
+                '${widget.user.courses.length}',
+                null,
+                false,
+              ),
+            ]),
 
             const SizedBox(height: 24),
 
             // Sezione regolamento
-            _buildSection(
-              'Regolamento della Palestra',
-              [
-                _buildInfoRow(
-                  'Accettato il',
-                  widget.user.regolamentoAccettatoIl != null
-                      ? DateFormat('dd/MM/yyyy HH:mm')
-                          .format(widget.user.regolamentoAccettatoIl!.toDate())
-                      : 'Non ancora accettato',
-                  null,
-                  false,
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => RegolamentoHelper.openRegolamento(),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.description,
-                          color: Colors.blueAccent, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Visualizza regolamento completo',
-                        style: TextStyle(
-                          color: Colors.blueAccent,
-                          decoration: TextDecoration.underline,
-                        ),
+            _buildSection('Regolamento della Palestra', [
+              _buildInfoRow(
+                'Accettato il',
+                widget.user.regolamentoAccettatoIl != null
+                    ? DateFormat(
+                        'dd/MM/yyyy HH:mm',
+                      ).format(widget.user.regolamentoAccettatoIl!.toDate())
+                    : 'Non ancora accettato',
+                null,
+                false,
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => RegolamentoHelper.openRegolamento(),
+                child: const Row(
+                  children: [
+                    Icon(Icons.description, color: Colors.blueAccent, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Visualizza regolamento completo',
+                      style: TextStyle(
+                        color: Colors.blueAccent,
+                        decoration: TextDecoration.underline,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                // Pulsante accettazione solo per il proprio profilo e se non ancora accettato
-                if (store.state.user?.uid == widget.user.uid &&
-                    widget.user.regolamentoAccettatoIl == null) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        if (SimulationGuard.blockIfSimulating(context)) {
-                          return;
-                        }
-                        final accepted =
-                            await RegolamentoHelper.checkAndAcceptRegolamento(
-                          context,
-                          widget.user,
-                        );
-                        if (!accepted || !context.mounted) return;
-                        SnackBarUtils.showSuccessSnackBar(
-                          context,
-                          'Regolamento accettato con successo',
-                        );
-                        // Torna indietro con utente aggiornato
-                        final updatedUser = FitropeUser(
-                          uid: widget.user.uid,
-                          email: widget.user.email,
-                          name: widget.user.name,
-                          lastName: widget.user.lastName,
-                          role: widget.user.role,
-                          courses: widget.user.courses,
-                          tipologiaIscrizione: widget.user.tipologiaIscrizione,
-                          entrateDisponibili: widget.user.entrateDisponibili,
-                          entrateSettimanali: widget.user.entrateSettimanali,
-                          fineIscrizione: widget.user.fineIscrizione,
-                          isActive: widget.user.isActive,
-                          isAnonymous: widget.user.isAnonymous,
-                          createdAt: widget.user.createdAt,
-                          certificatoScadenza: widget.user.certificatoScadenza,
-                          numeroTelefono: widget.user.numeroTelefono,
-                          tipologiaCorsoTags: widget.user.tipologiaCorsoTags,
-                          cancelledEnrollments:
-                              widget.user.cancelledEnrollments,
-                          regolamentoAccettatoIl: Timestamp.now(),
-                        );
-                        Navigator.pop(context, updatedUser);
-                      },
-                      icon: const Icon(Icons.check_circle, color: Colors.white),
-                      label: const Text(
-                        'Accetta il Regolamento',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+              ),
+              // Pulsante accettazione solo per il proprio profilo e se non ancora accettato
+              if (store.state.user?.uid == widget.user.uid &&
+                  widget.user.regolamentoAccettatoIl == null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      if (SimulationGuard.blockIfSimulating(context)) {
+                        return;
+                      }
+                      final accepted =
+                          await RegolamentoHelper.checkAndAcceptRegolamento(
+                            context,
+                            widget.user,
+                          );
+                      if (!accepted || !context.mounted) return;
+                      SnackBarUtils.showSuccessSnackBar(
+                        context,
+                        'Regolamento accettato con successo',
+                      );
+                      // Torna indietro con utente aggiornato
+                      final updatedUser = FitropeUser(
+                        uid: widget.user.uid,
+                        email: widget.user.email,
+                        name: widget.user.name,
+                        lastName: widget.user.lastName,
+                        role: widget.user.role,
+                        courses: widget.user.courses,
+                        tipologiaIscrizione: widget.user.tipologiaIscrizione,
+                        entrateDisponibili: widget.user.entrateDisponibili,
+                        entrateSettimanali: widget.user.entrateSettimanali,
+                        fineIscrizione: widget.user.fineIscrizione,
+                        isActive: widget.user.isActive,
+                        isAnonymous: widget.user.isAnonymous,
+                        createdAt: widget.user.createdAt,
+                        certificatoScadenza: widget.user.certificatoScadenza,
+                        numeroTelefono: widget.user.numeroTelefono,
+                        tipologiaCorsoTags: widget.user.tipologiaCorsoTags,
+                        cancelledEnrollments: widget.user.cancelledEnrollments,
+                        regolamentoAccettatoIl: Timestamp.now(),
+                      );
+                      Navigator.pop(context, updatedUser);
+                    },
+                    icon: const Icon(Icons.check_circle, color: Colors.white),
+                    label: const Text(
+                      'Accetta il Regolamento',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
-                ],
+                ),
               ],
-            ),
+            ]),
 
             if (widget.user.courses.isNotEmpty) ...[
               const SizedBox(height: 24),
@@ -1255,9 +1313,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: OutlinedButton.icon(
-                    onPressed: () => setState(() =>
-                        _showAllEnrollments12Months =
-                            !_showAllEnrollments12Months),
+                    onPressed: () => setState(
+                      () => _showAllEnrollments12Months =
+                          !_showAllEnrollments12Months,
+                    ),
                     icon: Icon(
                       _showAllEnrollments12Months
                           ? Icons.list
@@ -1277,8 +1336,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 _buildSection(
                   'Tutte le iscrizioni (ultimi 12 mesi)',
                   getUserCourses(maxCount: null, last12MonthsOnly: true)
-                      .map((courseInfo) => _buildInfoRow(courseInfo['name']!,
-                          courseInfo['date']!, null, false))
+                      .map(
+                        (courseInfo) => _buildInfoRow(
+                          courseInfo['name']!,
+                          courseInfo['date']!,
+                          null,
+                          false,
+                        ),
+                      )
                       .toList(),
                 ),
                 const SizedBox(height: 24),
@@ -1295,11 +1360,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       _buildSection(
                         'Ultime ${isAdmin ? 20 : 10} iscrizioni - $tipologia',
                         courses
-                            .map((courseInfo) => _buildInfoRow(
+                            .map(
+                              (courseInfo) => _buildInfoRow(
                                 courseInfo['name']!,
                                 courseInfo['date']!,
                                 null,
-                                false))
+                                false,
+                              ),
+                            )
                             .toList(),
                       ),
                       const SizedBox(height: 24),
@@ -1319,23 +1387,28 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     _buildSection(
                       'Ultime 20 disiscrizioni - $tipologia',
                       cancelledEnrollments
-                          .map((cancelledInfo) => _buildInfoRow(
-                                cancelledInfo['name']!,
-                                cancelledInfo['courseDate']!,
-                                null,
-                                false,
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.info_outline,
-                                      size: 20, color: primaryLightColor),
-                                  onPressed: () => showCancelledEnrollmentInfo(
-                                    cancelledInfo['name']!,
-                                    cancelledInfo['courseDate']!,
-                                    cancelledInfo['cancelledDate']!,
-                                    cancelledInfo['status']!,
-                                  ),
-                                  tooltip: 'Informazioni disiscrizione',
+                          .map(
+                            (cancelledInfo) => _buildInfoRow(
+                              cancelledInfo['name']!,
+                              cancelledInfo['courseDate']!,
+                              null,
+                              false,
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.info_outline,
+                                  size: 20,
+                                  color: primaryLightColor,
                                 ),
-                              ))
+                                onPressed: () => showCancelledEnrollmentInfo(
+                                  cancelledInfo['name']!,
+                                  cancelledInfo['courseDate']!,
+                                  cancelledInfo['cancelledDate']!,
+                                  cancelledInfo['status']!,
+                                ),
+                                tooltip: 'Informazioni disiscrizione',
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                     const SizedBox(height: 24),
@@ -1454,7 +1527,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
   /// scadute), perché è la vista gestionale/storica admin; la HomePage utente
   /// filtra invece con `liveSubscriptions` e mostra solo quelle vive.
   Widget _buildActiveSubscriptionsSection() {
-    final subs = [..._activeSubscriptions]..sort((a, b) {
+    final subs = [..._activeSubscriptions]
+      ..sort((a, b) {
         final byEnd = b.endDate.compareTo(a.endDate);
         return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
       });
@@ -1472,8 +1546,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   Widget _buildNotificationToggle(
-      String label, IconData icon, bool value, ValueChanged<bool> onChanged,
-      {bool enabled = true}) {
+    String label,
+    IconData icon,
+    bool value,
+    ValueChanged<bool> onChanged, {
+    bool enabled = true,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -1499,16 +1577,20 @@ class _UserDetailPageState extends State<UserDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value,
-      TextEditingController? controller, bool isEditable,
-      {bool isDropdown = false,
-      bool isTipologiaDropdown = false,
-      bool isDatePicker = false,
-      bool isStatusDropdown = false,
-      bool isAnonymousDropdown = false,
-      bool isCertificatoDatePicker = false,
-      bool isTagsMultiSelect = false,
-      Widget? trailing}) {
+  Widget _buildInfoRow(
+    String label,
+    String value,
+    TextEditingController? controller,
+    bool isEditable, {
+    bool isDropdown = false,
+    bool isTipologiaDropdown = false,
+    bool isDatePicker = false,
+    bool isStatusDropdown = false,
+    bool isAnonymousDropdown = false,
+    bool isCertificatoDatePicker = false,
+    bool isTagsMultiSelect = false,
+    Widget? trailing,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -1533,12 +1615,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
                           controller: controller,
                           keyboardType:
                               label == 'Numero di Telefono (opzionale)'
-                                  ? TextInputType.phone
-                                  : TextInputType.number,
+                              ? TextInputType.phone
+                              : TextInputType.number,
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                           ),
                           inputFormatters: label == 'Numero di Telefono'
                               ? [
@@ -1548,348 +1632,300 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               : null,
                         )
                       : isEditable && isDropdown
-                          ? DropdownButtonFormField<String>(
-                              initialValue: _getValidRoleForDropdown(),
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
+                      ? DropdownButtonFormField<String>(
+                          initialValue: _getValidRoleForDropdown(),
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: 'User',
+                              child: Text('User'),
+                            ),
+                            // Solo gli admin possono assegnare il ruolo Trainer
+                            if (isAdmin)
+                              const DropdownMenuItem(
+                                value: 'Trainer',
+                                child: Text('Trainer'),
                               ),
-                              items: [
-                                const DropdownMenuItem(
-                                  value: 'User',
-                                  child: Text('User'),
+                            const DropdownMenuItem(
+                              value: 'Admin',
+                              child: Text('Admin'),
+                            ),
+                          ],
+                          onChanged: (newValue) {
+                            setState(() {
+                              selectedRole = newValue!;
+                            });
+                          },
+                        )
+                      : isEditable && isTipologiaDropdown
+                      ? DropdownButtonFormField<String>(
+                          initialValue: selectedTipologiaIscrizione
+                              ?.toString()
+                              .split('.')
+                              .last,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                          items: [
+                            DropdownMenuItem(
+                              value: null,
+                              child: Text(
+                                _getTipologiaLabel(null),
+                                style: const TextStyle(color: onPrimaryColor),
+                              ),
+                            ),
+                            ...TipologiaIscrizione.values.map((tipologia) {
+                              return DropdownMenuItem(
+                                value: tipologia.toString().split('.').last,
+                                child: Text(_getTipologiaLabel(tipologia)),
+                              );
+                            }),
+                          ],
+                          onChanged: (newValue) {
+                            setState(() {
+                              selectedTipologiaIscrizione = newValue != null
+                                  ? TipologiaIscrizione.values
+                                        .where(
+                                          (e) =>
+                                              e.toString().split('.').last ==
+                                              newValue,
+                                        )
+                                        .firstOrNull
+                                  : null;
+                            });
+                          },
+                        )
+                      : isEditable && isDatePicker
+                      ? InkWell(
+                          onTap: () async {
+                            final DateTime now = DateTime.now();
+                            final DateTime initialDate =
+                                selectedFineIscrizione != null &&
+                                    selectedFineIscrizione!.isAfter(now)
+                                ? selectedFineIscrizione!
+                                : now;
+
+                            final DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: initialDate,
+                              firstDate: now,
+                              lastDate: now.add(const Duration(days: 365 * 2)),
+                              locale: const Locale('it', 'IT'),
+                            );
+                            if (!mounted || picked == null) return;
+                            setState(() {
+                              selectedFineIscrizione = picked;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  selectedFineIscrizione != null
+                                      ? DateFormat(
+                                          'dd/MM/yyyy',
+                                        ).format(selectedFineIscrizione!)
+                                      : 'Seleziona data',
+                                  style: const TextStyle(fontSize: 16),
                                 ),
-                                // Solo gli admin possono assegnare il ruolo Trainer
-                                if (isAdmin)
-                                  const DropdownMenuItem(
-                                    value: 'Trainer',
-                                    child: Text('Trainer'),
-                                  ),
-                                const DropdownMenuItem(
-                                  value: 'Admin',
-                                  child: Text('Admin'),
-                                ),
+                                const Icon(Icons.calendar_today),
                               ],
-                              onChanged: (newValue) {
+                            ),
+                          ),
+                        )
+                      : isEditable && isStatusDropdown
+                      ? DropdownButtonFormField<bool>(
+                          initialValue: selectedIsActive,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: true,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.green),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Attivo',
+                                    style: TextStyle(color: onPrimaryColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: false,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.block, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Disattivato'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onChanged: (newValue) {
+                            setState(() {
+                              selectedIsActive = newValue!;
+                            });
+                          },
+                        )
+                      : isEditable && isAnonymousDropdown
+                      ? DropdownButtonFormField<bool>(
+                          initialValue: selectedIsAnonymous,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: false,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.person, color: Colors.green),
+                                  SizedBox(width: 8),
+                                  Text('No'),
+                                ],
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: true,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.visibility_off,
+                                    color: Colors.grey,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('Sì'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onChanged: (newValue) {
+                            setState(() {
+                              selectedIsAnonymous = newValue!;
+                            });
+                          },
+                        )
+                      : isEditable && isCertificatoDatePicker
+                      ? InkWell(
+                          onTap: () async {
+                            final DateTime now = DateTime.now();
+                            final DateTime initialDate =
+                                selectedCertificatoScadenza != null &&
+                                    selectedCertificatoScadenza!.isAfter(now)
+                                ? selectedCertificatoScadenza!
+                                : now;
+
+                            final DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: initialDate,
+                              firstDate: now.subtract(
+                                const Duration(days: 180),
+                              ),
+                              lastDate: now.add(const Duration(days: 400)),
+                              locale: const Locale('it', 'IT'),
+                            );
+                            if (!mounted || picked == null) {
+                              return;
+                            }
+                            setState(() {
+                              selectedCertificatoScadenza = picked;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  selectedCertificatoScadenza != null
+                                      ? DateFormat(
+                                          'dd/MM/yyyy',
+                                        ).format(selectedCertificatoScadenza!)
+                                      : 'Seleziona data',
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                                const Icon(Icons.calendar_today),
+                              ],
+                            ),
+                          ),
+                        )
+                      : isEditable && isTagsMultiSelect
+                      ? Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: CourseTags.legacyUserTypeTags.map((tag) {
+                            final isSelected = selectedTipologiaCorsoTags
+                                .contains(tag);
+                            return FilterChip(
+                              label: Text(tag),
+                              selected: isSelected,
+                              onSelected: (selected) {
                                 setState(() {
-                                  selectedRole = newValue!;
+                                  if (selected) {
+                                    selectedTipologiaCorsoTags.add(tag);
+                                  } else {
+                                    selectedTipologiaCorsoTags.remove(tag);
+                                  }
                                 });
                               },
-                            )
-                          : isEditable && isTipologiaDropdown
-                              ? DropdownButtonFormField<String>(
-                                  initialValue: selectedTipologiaIscrizione
-                                      ?.toString()
-                                      .split('.')
-                                      .last,
-                                  decoration: const InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                  ),
-                                  items: [
-                                    DropdownMenuItem(
-                                        value: null,
-                                        child: Text(
-                                          _getTipologiaLabel(null),
-                                          style: const TextStyle(
-                                              color: onPrimaryColor),
-                                        )),
-                                    ...TipologiaIscrizione.values
-                                        .map((tipologia) {
-                                      return DropdownMenuItem(
-                                        value: tipologia
-                                            .toString()
-                                            .split('.')
-                                            .last,
-                                        child:
-                                            Text(_getTipologiaLabel(tipologia)),
-                                      );
-                                    }),
-                                  ],
-                                  onChanged: (newValue) {
-                                    setState(() {
-                                      selectedTipologiaIscrizione = newValue !=
-                                              null
-                                          ? TipologiaIscrizione.values
-                                              .where((e) =>
-                                                  e
-                                                      .toString()
-                                                      .split('.')
-                                                      .last ==
-                                                  newValue)
-                                              .firstOrNull
-                                          : null;
-                                    });
-                                  },
-                                )
-                              : isEditable && isDatePicker
-                                  ? InkWell(
-                                      onTap: () async {
-                                        final DateTime now = DateTime.now();
-                                        final DateTime initialDate =
-                                            selectedFineIscrizione != null &&
-                                                    selectedFineIscrizione!
-                                                        .isAfter(now)
-                                                ? selectedFineIscrizione!
-                                                : now;
-
-                                        final DateTime? picked =
-                                            await showDatePicker(
-                                          context: context,
-                                          initialDate: initialDate,
-                                          firstDate: now,
-                                          lastDate: now.add(
-                                              const Duration(days: 365 * 2)),
-                                          locale: const Locale('it', 'IT'),
-                                        );
-                                        if (!mounted || picked == null) return;
-                                        setState(() {
-                                          selectedFineIscrizione = picked;
-                                        });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          border:
-                                              Border.all(color: Colors.grey),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              selectedFineIscrizione != null
-                                                  ? DateFormat('dd/MM/yyyy')
-                                                      .format(
-                                                          selectedFineIscrizione!)
-                                                  : 'Seleziona data',
-                                              style:
-                                                  const TextStyle(fontSize: 16),
-                                            ),
-                                            const Icon(Icons.calendar_today),
-                                          ],
-                                        ),
-                                      ),
-                                    )
-                                  : isEditable && isStatusDropdown
-                                      ? DropdownButtonFormField<bool>(
-                                          initialValue: selectedIsActive,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 8),
-                                          ),
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value: true,
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.check_circle,
-                                                      color: Colors.green),
-                                                  SizedBox(width: 8),
-                                                  Text(
-                                                    'Attivo',
-                                                    style: TextStyle(
-                                                        color: onPrimaryColor),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: false,
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.block,
-                                                      color: Colors.red),
-                                                  SizedBox(width: 8),
-                                                  Text('Disattivato'),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                          onChanged: (newValue) {
-                                            setState(() {
-                                              selectedIsActive = newValue!;
-                                            });
-                                          },
-                                        )
-                                      : isEditable && isAnonymousDropdown
-                                          ? DropdownButtonFormField<bool>(
-                                              initialValue: selectedIsAnonymous,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 8),
-                                              ),
-                                              items: const [
-                                                DropdownMenuItem(
-                                                  value: false,
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(Icons.person,
-                                                          color: Colors.green),
-                                                      SizedBox(width: 8),
-                                                      Text('No'),
-                                                    ],
-                                                  ),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: true,
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(Icons.visibility_off,
-                                                          color: Colors.grey),
-                                                      SizedBox(width: 8),
-                                                      Text('Sì'),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                              onChanged: (newValue) {
-                                                setState(() {
-                                                  selectedIsAnonymous =
-                                                      newValue!;
-                                                });
-                                              },
-                                            )
-                                          : isEditable &&
-                                                  isCertificatoDatePicker
-                                              ? InkWell(
-                                                  onTap: () async {
-                                                    final DateTime now =
-                                                        DateTime.now();
-                                                    final DateTime initialDate =
-                                                        selectedCertificatoScadenza !=
-                                                                    null &&
-                                                                selectedCertificatoScadenza!
-                                                                    .isAfter(
-                                                                        now)
-                                                            ? selectedCertificatoScadenza!
-                                                            : now;
-
-                                                    final DateTime? picked =
-                                                        await showDatePicker(
-                                                      context: context,
-                                                      initialDate: initialDate,
-                                                      firstDate: now.subtract(
-                                                          const Duration(
-                                                              days: 180)),
-                                                      lastDate: now.add(
-                                                          const Duration(
-                                                              days: 400)),
-                                                      locale: const Locale(
-                                                          'it', 'IT'),
-                                                    );
-                                                    if (!mounted ||
-                                                        picked == null) {
-                                                      return;
-                                                    }
-                                                    setState(() {
-                                                      selectedCertificatoScadenza =
-                                                          picked;
-                                                    });
-                                                  },
-                                                  child: Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 8),
-                                                    decoration: BoxDecoration(
-                                                      border: Border.all(
-                                                          color: Colors.grey),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              4),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceBetween,
-                                                      children: [
-                                                        Text(
-                                                          selectedCertificatoScadenza !=
-                                                                  null
-                                                              ? DateFormat(
-                                                                      'dd/MM/yyyy')
-                                                                  .format(
-                                                                      selectedCertificatoScadenza!)
-                                                              : 'Seleziona data',
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize: 16),
-                                                        ),
-                                                        const Icon(Icons
-                                                            .calendar_today),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                )
-                                              : isEditable && isTagsMultiSelect
-                                                  ? Wrap(
-                                                      spacing: 8,
-                                                      runSpacing: 8,
-                                                      children: CourseTags
-                                                          .legacyUserTypeTags
-                                                          .map((tag) {
-                                                        final isSelected =
-                                                            selectedTipologiaCorsoTags
-                                                                .contains(tag);
-                                                        return FilterChip(
-                                                          label: Text(tag),
-                                                          selected: isSelected,
-                                                          onSelected:
-                                                              (selected) {
-                                                            setState(() {
-                                                              if (selected) {
-                                                                selectedTipologiaCorsoTags
-                                                                    .add(tag);
-                                                              } else {
-                                                                selectedTipologiaCorsoTags
-                                                                    .remove(
-                                                                        tag);
-                                                              }
-                                                            });
-                                                          },
-                                                          selectedColor:
-                                                              primaryColor
-                                                                  .withValues(
-                                                                      alpha:
-                                                                          0.3),
-                                                          checkmarkColor:
-                                                              primaryColor,
-                                                        );
-                                                      }).toList(),
-                                                    )
-                                                  : Text(
-                                                      value,
-                                                      style: TextStyle(
-                                                        fontSize: 16,
-                                                        color: label ==
-                                                                    'Certificato Medico' &&
-                                                                widget.user
-                                                                        .certificatoScadenza !=
-                                                                    null
-                                                            ? CertificatoHelper
-                                                                .getColoreScadenza(
-                                                                    widget.user
-                                                                        .certificatoScadenza)
-                                                            : null,
-                                                      ),
-                                                    ),
+                              selectedColor: primaryColor.withValues(
+                                alpha: 0.3,
+                              ),
+                              checkmarkColor: primaryColor,
+                            );
+                          }).toList(),
+                        )
+                      : Text(
+                          value,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color:
+                                label == 'Certificato Medico' &&
+                                    widget.user.certificatoScadenza != null
+                                ? CertificatoHelper.getColoreScadenza(
+                                    widget.user.certificatoScadenza,
+                                  )
+                                : null,
+                          ),
+                        ),
                 ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 8),
-                  trailing,
-                ],
+                if (trailing != null) ...[const SizedBox(width: 8), trailing],
               ],
             ),
           ),

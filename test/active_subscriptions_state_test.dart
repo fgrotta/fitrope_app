@@ -734,6 +734,35 @@ void main() {
       expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
     });
 
+    test('utente V2 con snapshot scaduto non ricade sui crediti legacy', () {
+      final target = course(uid: 'o-v2', tags: [CourseTags.OPEN]);
+      store.dispatch(SetAllCoursesAction([target]));
+      final u = FitropeUser(
+        uid: 'u1',
+        email: 'e',
+        name: 'N',
+        lastName: 'C',
+        courses: const [],
+        role: 'User',
+        createdAt: now,
+        tipologiaCorsoTags: const [CourseTags.OPEN],
+        tipologiaIscrizione: TipologiaIscrizione.PACCHETTO_ENTRATE,
+        entrateDisponibili: 3,
+        fineIscrizione: Timestamp.fromDate(now.add(const Duration(days: 30))),
+        subscriptionModelVersion: 2,
+        activeSubscriptions: [
+          sub(
+            family: SubscriptionFamily.OPEN,
+            mode: BillingMode.ENTRIES,
+            tags: {CourseTags.OPEN},
+            remainingEntries: 0,
+            validFor: const Duration(days: -1),
+          ),
+        ],
+      );
+      expect(getCourseState(target, u), CourseState.EXPIRED);
+    });
+
     test('voce scaduta + voce viva: decide solo la viva', () {
       final target = course(uid: 'o1', tags: [CourseTags.OPEN]);
       store.dispatch(SetAllCoursesAction([target]));

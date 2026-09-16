@@ -2,7 +2,10 @@
 
 Questa procedura descrive come usare il runner
 `scripts/backfillCourseModel.js` in modo ripetibile e verificabile. Leggere prima
-il [piano completo](PIANO.md).
+il [piano completo](PIANO.md). Per Prova e Pacchetti leggere anche
+[PROVA_E_PACCHETTI.md](PROVA_E_PACCHETTI.md).
+L'ultimo riscontro aggregato di produzione è in
+[DRY_RUN_PRD_2026-09-16.md](DRY_RUN_PRD_2026-09-16.md).
 
 ## 1. Cosa modifica il runner
 
@@ -10,9 +13,10 @@ Con `--apply`, il runner può effettuare due classi di scrittura:
 
 - `courses`: aggiunge o normalizza `courseType`, `tag`, `tags` e
   `courseModelV2` tramite `BulkWriter`;
-- `users` e `subscriptions`: crea una subscription OPEN con ID deterministico e
+- `users` e `subscriptions`: crea una subscription OPEN o PT con ID deterministico e
   aggiorna `activeSubscriptions` e il marker server-owned
-  `legacySubscriptionMigration` nella stessa transazione.
+  `legacySubscriptionMigration` nella stessa transazione; imposta inoltre
+  `subscriptionModelVersion: 2` e riallinea il registro consumi legacy.
 
 Il runner non elimina i campi legacy dell'utente. I corsi e gli utenti esclusi
 rimangono invariati e vengono elencati nei report.
@@ -230,8 +234,9 @@ Codici di esclusione utente attesi:
 |---|---|
 | `HEY_MAMMA` | record storico escluso dalla migrazione automatica |
 | `ROLE_NOT_USER` | ruolo diverso da `User` o assente |
-| `NO_EXACT_ENTRIES_PLAN` | pacchetto ingressi senza durata target esatta |
-| `TRIAL_NOT_SUPPORTED` | abbonamento prova senza piano target |
+| `INVALID_ENTRY_BALANCE` | saldo ingressi negativo, assente o non intero |
+| `ENTRY_BALANCE_EXCEEDS_PLAN` | saldo superiore al massimale del piano target |
+| `FUTURE_BOOKING_NOT_COVERED` | prenotazione futura fuori famiglia o finestra target |
 | `INVALID_LEGACY_TYPE` | tipologia legacy assente o sconosciuta |
 | `INVALID_TAG_SHAPE` | tag mancanti, ambigui o non esatti |
 | `INVALID_WEEKLY_FREQUENCY` | frequenza diversa da 2, 3 o `null` |

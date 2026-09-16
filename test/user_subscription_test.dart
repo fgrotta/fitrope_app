@@ -43,6 +43,21 @@ void main() {
       expect(r.remainingEntries, 10);
     });
 
+    test('roundtrip piano Prova V2', () {
+      final r = UserSubscription.fromJson({
+        'planKey': 'open_trial_1i_30d',
+        'family': 'OPEN',
+        'billingMode': 'ENTRIES',
+        'courseTypeTags': ['Open'],
+        'weeklyFrequency': null,
+        'remainingEntries': 1,
+        'startDate': start,
+        'endDate': end,
+      });
+      expect(r.planKey, 'open_trial_1i_30d');
+      expect(r.remainingEntries, 1);
+    });
+
     test('roundtrip preserva id e startDate', () {
       final s = UserSubscription(
         id: 'sub-123',
@@ -101,6 +116,7 @@ void main() {
         courses: const [],
         role: 'User',
         createdAt: DateTime(2026, 1, 1),
+        subscriptionModelVersion: 2,
         activeSubscriptions: [
           UserSubscription(
             planKey: 'pt_10i_6m',
@@ -117,6 +133,7 @@ void main() {
       expect(r.activeSubscriptions.length, 1);
       expect(r.activeSubscriptions.first.family, SubscriptionFamily.PT);
       expect(r.activeSubscriptions.first.remainingEntries, 7);
+      expect(r.subscriptionModelVersion, 2);
     });
 
     test('utente legacy senza activeSubscriptions -> lista vuota', () {

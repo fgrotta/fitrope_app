@@ -12,6 +12,7 @@ function source(extra: Record<string, unknown> = {}): Record<string, unknown> {
     role: "User",
     tipologiaCorsoTags: ["Open"],
     tipologiaIscrizione: "ABBONAMENTO_MENSILE",
+    entrateDisponibili: null,
     entrateSettimanali: 2,
     fineIscrizione: END,
     ...extra,
@@ -50,8 +51,6 @@ describe("user legacy migration matrix", () => {
   test.each([
     [{ tipologiaCorsoTags: ["Hey Mamma"] }, "HEY_MAMMA"],
     [{ role: "Trainer" }, "ROLE_NOT_USER"],
-    [{ tipologiaIscrizione: "PACCHETTO_ENTRATE" }, "NO_EXACT_ENTRIES_PLAN"],
-    [{ tipologiaIscrizione: "ABBONAMENTO_PROVA" }, "TRIAL_NOT_SUPPORTED"],
     [{ tipologiaIscrizione: "SCONOSCIUTA" }, "INVALID_LEGACY_TYPE"],
     [{ tipologiaCorsoTags: [] }, "INVALID_TAG_SHAPE"],
     [{ tipologiaCorsoTags: ["Open", "Personal Trainer"] }, "INVALID_TAG_SHAPE"],
@@ -71,6 +70,55 @@ describe("user legacy migration matrix", () => {
       NOW
     );
     expect(result.reasonCode).toBe("FUTURE_START");
+  });
+
+  test.each([
+    ["ABBONAMENTO_PROVA", ["Open"], 1, "open_trial_1i_30d", "OPEN"],
+    ["PACCHETTO_ENTRATE", ["Open"], 7, "open_10i_3m", "OPEN"],
+    ["PACCHETTO_ENTRATE", ["Personal Trainer"], 4, "pt_10i_3m", "PT"],
+  ])("converte il legacy a ingressi %s/%s", (legacy, tags, entries, planKey, family) => {
+    const end = legacy === "ABBONAMENTO_PROVA"
+      ? NOW + 10 * 86400000
+      : Date.parse("2026-09-30T16:00:00.000Z");
+    const result = transformUser("entry-user", source({
+      tipologiaIscrizione: legacy,
+      tipologiaCorsoTags: tags,
+      entrateDisponibili: entries,
+      fineIscrizione: end,
+    }), NOW);
+    expect(result).toMatchObject({
+      conversionStatus: "CONVERTIBLE",
+      target: {
+        planKey,
+        family,
+        billingMode: "ENTRIES",
+        remainingEntries: entries,
+        endDateMillis: end,
+      },
+    });
+  });
+
+  test.each([
+    [-1, "INVALID_ENTRY_BALANCE"],
+    [11, "ENTRY_BALANCE_EXCEEDS_PLAN"],
+  ])("esclude saldo pacchetto %s", (entries, reason) => {
+    const result = transformUser("u", source({
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: entries,
+    }), NOW);
+    expect(result.reasonCode).toBe(reason);
+  });
+
+  test("esclude una prenotazione futura non coperta", () => {
+    const result = transformUser("u", source({
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 5,
+    }), NOW, [{
+      courseId: "pt-future",
+      startDateMillis: NOW + 86400000,
+      courseTypeTag: "Personal Trainer",
+    }]);
+    expect(result.reasonCode).toBe("FUTURE_BOOKING_NOT_COVERED");
   });
 });
 

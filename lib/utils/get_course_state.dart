@@ -29,20 +29,21 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   DateTime courseDate = DateTime.fromMillisecondsSinceEpoch(courseDay);
 
-  // Modello multi-abbonamento se lo snapshot contiene voci NON scadute;
-  // altrimenti fallback al modello legacy (tipologiaIscrizione/entrate*/
-  // fineIscrizione). Le voci scadute vengono scartate: lo snapshot viene
-  // ricalcolato solo alle scritture (nessun cron di pulizia), quindi una voce
-  // stantia non deve bloccare per sempre i crediti legacy dell'utente.
+  // Modello multi-abbonamento se il documento è V2 o lo snapshot contiene voci
+  // non scadute. Il fallback legacy è ammesso soltanto ai documenti V1.
   // Mirror server: evaluateSubscribe in functions/src/enrollment/eligibility.ts.
   final DateTime now = DateTime.now();
   final List<UserSubscription> liveSubscriptions = user.activeSubscriptions
       .where((s) => !now.isAfter(s.endDate.toDate()))
       .toList();
-  final bool useSubscriptions = liveSubscriptions.isNotEmpty;
+  final bool useSubscriptions =
+      user.subscriptionModelVersion >= 2 || liveSubscriptions.isNotEmpty;
 
   // Scadenza: solo legacy. Nel modello a abbonamenti è per-abbonamento ed è
   // valutata in _subscriptionGateState.
+  if (useSubscriptions && liveSubscriptions.isEmpty) {
+    return CourseState.EXPIRED;
+  }
   if (!useSubscriptions &&
       (user.fineIscrizione == null ||
           courseDate.isAfter(user.fineIscrizione!.toDate()))) {
@@ -51,8 +52,8 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   final bool legacyReadOnlyAccess =
       course.resolvedTypeTag == CourseTags.HEY_MAMMA &&
-          (user.tipologiaCorsoTags.contains(CourseTags.HEY_MAMMA) ||
-              user.tipologiaCorsoTags.contains('Tutti i corsi'));
+      (user.tipologiaCorsoTags.contains(CourseTags.HEY_MAMMA) ||
+          user.tipologiaCorsoTags.contains('Tutti i corsi'));
 
   // Abbonamenti che coprono la tipologia del corso (solo modello multi-abbonamento).
   final List<UserSubscription> covering = useSubscriptions
@@ -205,8 +206,9 @@ CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
 
 /// Inizio/fine (in millis) della settimana che contiene [courseDate] (lun-dom, UTC).
 ({int start, int end}) _weekBoundsMillis(DateTime courseDate) {
-  DateTime startOfWeek =
-      courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
+  DateTime startOfWeek = courseDate
+      .subtract(Duration(days: courseDate.weekday - 1))
+      .toUtc();
   startOfWeek = DateTime.utc(
     startOfWeek.year,
     startOfWeek.month,

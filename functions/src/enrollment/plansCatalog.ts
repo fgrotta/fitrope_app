@@ -11,7 +11,8 @@ export interface SubscriptionPlan {
   billingMode: BillingMode;
   weeklyFrequency: number | null; // FREQUENCY: 2|3|null(illimitato)
   entries: number | null; // ENTRIES
-  durationMonths: number; // 1|3|6|12
+  durationMonths: number | null; // 1|3|6|12, null per durate espresse in giorni
+  durationDays: number | null; // 30 solo per la prova
   grantedCourseTypeTags: string[];
 }
 
@@ -37,6 +38,7 @@ function openPlans(): SubscriptionPlan[] {
       weeklyFrequency: 2,
       entries: null,
       durationMonths: d,
+      durationDays: null,
       grantedCourseTypeTags: [TAG_OPEN],
     });
     plans.push({
@@ -47,6 +49,7 @@ function openPlans(): SubscriptionPlan[] {
       weeklyFrequency: null,
       entries: ENTRIES_PER_PACKAGE,
       durationMonths: d,
+      durationDays: null,
       grantedCourseTypeTags: [TAG_OPEN],
     });
     plans.push({
@@ -57,6 +60,7 @@ function openPlans(): SubscriptionPlan[] {
       weeklyFrequency: 3,
       entries: null,
       durationMonths: d,
+      durationDays: null,
       grantedCourseTypeTags: [TAG_OPEN],
     });
     plans.push({
@@ -67,6 +71,7 @@ function openPlans(): SubscriptionPlan[] {
       weeklyFrequency: null,
       entries: null,
       durationMonths: d,
+      durationDays: null,
       grantedCourseTypeTags: [TAG_OPEN],
     });
   }
@@ -87,11 +92,23 @@ function entriesPlans(
     weeklyFrequency: null,
     entries: ENTRIES_PER_PACKAGE,
     durationMonths: d,
+    durationDays: null,
     grantedCourseTypeTags: [tag],
   }));
 }
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    key: "open_trial_1i_30d",
+    displayName: "Prova Open · 1 ingresso · 30 giorni",
+    family: "OPEN",
+    billingMode: "ENTRIES",
+    weeklyFrequency: null,
+    entries: 1,
+    durationMonths: null,
+    durationDays: 30,
+    grantedCourseTypeTags: [TAG_OPEN],
+  },
   ...openPlans(),
   ...entriesPlans("PT", "pt", "PT", TAG_PT),
 ];

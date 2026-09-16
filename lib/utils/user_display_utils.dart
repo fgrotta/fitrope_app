@@ -13,7 +13,7 @@ class UserDisplayUtils {
       if (user.isAnonymous) {
         return '$baseName - (Anonimo)';
       }
-      if (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+      if (user.isTrialSubscriptionUser) {
         return '$baseName - (Prova)';
       }
       return baseName;
@@ -38,8 +38,9 @@ class UserDisplayUtils {
     }
 
     try {
-      final trainer =
-          trainers.where((user) => user.uid == trainerId).firstOrNull;
+      final trainer = trainers
+          .where((user) => user.uid == trainerId)
+          .firstOrNull;
 
       if (trainer != null) {
         return '${trainer.name} ${trainer.lastName}';

@@ -122,7 +122,8 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       debugPrint(
-          'Errore nel caricamento utenti con certificati in scadenza: $e');
+        'Errore nel caricamento utenti con certificati in scadenza: $e',
+      );
       if (!mounted) return;
       setState(() {
         isLoadingCertificati = false;
@@ -149,7 +150,8 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       debugPrint(
-          'Errore nel caricamento utenti con abbonamenti in scadenza: $e');
+        'Errore nel caricamento utenti con abbonamenti in scadenza: $e',
+      );
       if (!mounted) return;
       setState(() {
         isLoadingAbbonamenti = false;
@@ -168,10 +170,7 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() {
           _utentiProva = utenti
-              .where((u) =>
-                  u.tipologiaIscrizione ==
-                      TipologiaIscrizione.ABBONAMENTO_PROVA &&
-                  u.isActive)
+              .where((u) => u.isTrialSubscriptionUser && u.isActive)
               .toList();
           _isLoadingLezioniProva = false;
         });
@@ -196,10 +195,12 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() {
           _utentiSenzaRegolamento = utenti
-              .where((u) =>
-                  u.regolamentoAccettatoIl == null &&
-                  u.isActive &&
-                  u.role == 'User')
+              .where(
+                (u) =>
+                    u.regolamentoAccettatoIl == null &&
+                    u.isActive &&
+                    u.role == 'User',
+              )
               .toList();
           _isLoadingRegolamento = false;
         });
@@ -274,8 +275,10 @@ class _HomePageState extends State<HomePage> {
     // regolamento e poi uno snackbar rosso di errore — sembrerebbe rotto
     // invece che bloccato.
     if (SimulationGuard.blockIfSimulating(context)) return;
-    bool accepted =
-        await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
+    bool accepted = await RegolamentoHelper.checkAndAcceptRegolamento(
+      context,
+      user,
+    );
     if (!accepted) return;
 
     debugPrint('🔄 Iscrizione al corso: ${course.name}');
@@ -304,7 +307,10 @@ class _HomePageState extends State<HomePage> {
     // Usa il nuovo sistema di disiscrizione intelligente
     try {
       final success = await CourseUnsubscribeHelper.handleUnsubscribe(
-          course, user, context);
+        course,
+        user,
+        context,
+      );
       if (success) {
         debugPrint('✅ Disiscrizione completata');
         await refreshCourses();
@@ -403,7 +409,9 @@ class _HomePageState extends State<HomePage> {
                 const Text(
                   'Hai una lezione da recuperare oggi',
                   style: TextStyle(
-                      color: onPrimaryColor, fontWeight: FontWeight.bold),
+                    color: onPrimaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -424,10 +432,12 @@ class _HomePageState extends State<HomePage> {
     // card per abbonamento (residui/frequenza/scadenza). Altrimenti fallback al
     // modello legacy sotto — stesso criterio di selezione di getCourseState,
     // così display ed eligibility restano allineati (zero regressione).
-    final List<UserSubscription> live =
-        liveSubscriptions(user.activeSubscriptions);
+    final List<UserSubscription> live = liveSubscriptions(
+      user.activeSubscriptions,
+    );
     if (live.isNotEmpty) {
-      final certificatoInScadenza = user.certificatoScadenza != null &&
+      final certificatoInScadenza =
+          user.certificatoScadenza != null &&
           CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
       return Column(
         children: [
@@ -454,16 +464,12 @@ class _HomePageState extends State<HomePage> {
       return Column(
         children: [
           _subscriptionHeader(),
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
           const Text(
             'Nessun abbonamento disponibile',
             style: TextStyle(color: onPrimaryColor),
           ),
-          const SizedBox(
-            height: 30,
-          ),
+          const SizedBox(height: 30),
         ],
       );
     }
@@ -484,7 +490,8 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Controlla se il certificato è in scadenza
-    final certificatoInScadenza = user.certificatoScadenza != null &&
+    final certificatoInScadenza =
+        user.certificatoScadenza != null &&
         CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
 
     return Column(
@@ -495,31 +502,34 @@ class _HomePageState extends State<HomePage> {
             CustomCard(
               backgroundColor: onSurfaceColor,
               title: getTipologiaIscrizioneTitle(
-                  user.tipologiaIscrizione!, isExpired),
+                user.tipologiaIscrizione!,
+                isExpired,
+              ),
               description: getTipologiaIscrizioneDescription(user),
             ),
             if (certificatoInScadenza) _buildCertificatoInfo(),
           ],
         ),
-        const SizedBox(
-          height: 30,
-        ),
+        const SizedBox(height: 30),
       ],
     );
   }
 
   Widget _buildCertificatoInfo() {
-    final giorniRimanenti =
-        CertificatoHelper.getGiorniRimanenti(user.certificatoScadenza);
-    final dataScadenza =
-        CertificatoHelper.formatDataScadenza(user.certificatoScadenza);
+    final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(
+      user.certificatoScadenza,
+    );
+    final dataScadenza = CertificatoHelper.formatDataScadenza(
+      user.certificatoScadenza,
+    );
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color:
-            giorniRimanenti <= 3 ? Colors.red.shade100 : Colors.orange.shade100,
+        color: giorniRimanenti <= 3
+            ? Colors.red.shade100
+            : Colors.orange.shade100,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: giorniRimanenti <= 3
@@ -621,9 +631,11 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 12),
           ...utentiConCertificatoInScadenza.map((utente) {
             final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(
-                utente.certificatoScadenza);
+              utente.certificatoScadenza,
+            );
             final dataScadenza = CertificatoHelper.formatDataScadenza(
-                utente.certificatoScadenza);
+              utente.certificatoScadenza,
+            );
 
             return InkWell(
               onTap: () async {
@@ -751,7 +763,9 @@ class _HomePageState extends State<HomePage> {
 
     return Container(
       margin: EdgeInsets.symmetric(
-          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
+        horizontal: isDesktop(context) ? 4 : 8,
+        vertical: 8,
+      ),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
@@ -770,8 +784,11 @@ class _HomePageState extends State<HomePage> {
         children: [
           Row(
             children: [
-              Icon(Icons.calendar_today,
-                  color: Colors.orange.shade700, size: 24),
+              Icon(
+                Icons.calendar_today,
+                color: Colors.orange.shade700,
+                size: 24,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Abbonamenti in Scadenza (${utentiConAbbonamentoInScadenza.length})',
@@ -785,10 +802,12 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 12),
           ...utentiConAbbonamentoInScadenza.map((utente) {
-            final giorniRimanenti =
-                AbbonamentoHelper.getGiorniRimanenti(utente.fineIscrizione);
-            final dataScadenza =
-                AbbonamentoHelper.formatDataScadenza(utente.fineIscrizione);
+            final giorniRimanenti = AbbonamentoHelper.getGiorniRimanenti(
+              utente.fineIscrizione,
+            );
+            final dataScadenza = AbbonamentoHelper.formatDataScadenza(
+              utente.fineIscrizione,
+            );
 
             return InkWell(
               onTap: () async {
@@ -893,7 +912,9 @@ class _HomePageState extends State<HomePage> {
 
     return Container(
       margin: EdgeInsets.symmetric(
-          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
+        horizontal: isDesktop(context) ? 4 : 8,
+        vertical: 8,
+      ),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: bgColor,
@@ -990,8 +1011,11 @@ class _HomePageState extends State<HomePage> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.event,
-                                      size: 14, color: headerColor),
+                                  Icon(
+                                    Icons.event,
+                                    size: 14,
+                                    color: headerColor,
+                                  ),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Column(
@@ -1056,9 +1080,10 @@ class _HomePageState extends State<HomePage> {
         child: const Row(
           children: [
             SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2)),
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
             SizedBox(width: 12),
             Text('Caricamento lezioni di prova...'),
           ],
@@ -1071,14 +1096,19 @@ class _HomePageState extends State<HomePage> {
 
     final entries = _utentiProva
         .map((u) {
-          final courses = allCourses
-              .where((c) =>
-                  u.courses.contains(c.uid) &&
-                  c.startDate.toDate().isAfter(now) &&
-                  c.startDate.toDate().isBefore(limit))
-              .toList()
-            ..sort(
-                (a, b) => a.startDate.toDate().compareTo(b.startDate.toDate()));
+          final courses =
+              allCourses
+                  .where(
+                    (c) =>
+                        u.courses.contains(c.uid) &&
+                        c.startDate.toDate().isAfter(now) &&
+                        c.startDate.toDate().isBefore(limit),
+                  )
+                  .toList()
+                ..sort(
+                  (a, b) =>
+                      a.startDate.toDate().compareTo(b.startDate.toDate()),
+                );
           return (u, courses);
         })
         .where((e) => e.$2.isNotEmpty)
@@ -1107,14 +1137,19 @@ class _HomePageState extends State<HomePage> {
 
     final entries = _utentiProva
         .map((u) {
-          final courses = allCourses
-              .where((c) =>
-                  u.courses.contains(c.uid) &&
-                  c.startDate.toDate().isAfter(limit) &&
-                  c.startDate.toDate().isBefore(now))
-              .toList()
-            ..sort(
-                (a, b) => b.startDate.toDate().compareTo(a.startDate.toDate()));
+          final courses =
+              allCourses
+                  .where(
+                    (c) =>
+                        u.courses.contains(c.uid) &&
+                        c.startDate.toDate().isAfter(limit) &&
+                        c.startDate.toDate().isBefore(now),
+                  )
+                  .toList()
+                ..sort(
+                  (a, b) =>
+                      b.startDate.toDate().compareTo(a.startDate.toDate()),
+                );
           return (u, courses);
         })
         .where((e) => e.$2.isNotEmpty)
@@ -1148,9 +1183,10 @@ class _HomePageState extends State<HomePage> {
         child: const Row(
           children: [
             SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2)),
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
             SizedBox(width: 12),
             Text('Caricamento regolamento...'),
           ],
@@ -1164,14 +1200,19 @@ class _HomePageState extends State<HomePage> {
 
     final entries = _utentiSenzaRegolamento
         .map((u) {
-          final courses = allCourses
-              .where((c) =>
-                  u.courses.contains(c.uid) &&
-                  c.startDate.toDate().isAfter(now) &&
-                  c.startDate.toDate().isBefore(limit))
-              .toList()
-            ..sort(
-                (a, b) => a.startDate.toDate().compareTo(b.startDate.toDate()));
+          final courses =
+              allCourses
+                  .where(
+                    (c) =>
+                        u.courses.contains(c.uid) &&
+                        c.startDate.toDate().isAfter(now) &&
+                        c.startDate.toDate().isBefore(limit),
+                  )
+                  .toList()
+                ..sort(
+                  (a, b) =>
+                      a.startDate.toDate().compareTo(b.startDate.toDate()),
+                );
           return (u, courses);
         })
         .where((e) => e.$2.isNotEmpty)
@@ -1184,7 +1225,9 @@ class _HomePageState extends State<HomePage> {
 
     return Container(
       margin: EdgeInsets.symmetric(
-          horizontal: isDesktop(context) ? 4 : 8, vertical: 8),
+        horizontal: isDesktop(context) ? 4 : 8,
+        vertical: 8,
+      ),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
@@ -1281,8 +1324,11 @@ class _HomePageState extends State<HomePage> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.event,
-                                      size: 14, color: Colors.orange.shade700),
+                                  Icon(
+                                    Icons.event,
+                                    size: 14,
+                                    color: Colors.orange.shade700,
+                                  ),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Column(
@@ -1314,8 +1360,11 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward_ios,
-                        color: Colors.orange.shade300, size: 16),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.orange.shade300,
+                      size: 16,
+                    ),
                   ],
                 ),
               ),
@@ -1363,10 +1412,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         if (expanded)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
-          ),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: children),
       ],
     );
   }
@@ -1389,17 +1435,19 @@ class _HomePageState extends State<HomePage> {
     futureWaitlistCourses.sort((a, b) => a.startDate.compareTo(b.startDate));
 
     return futureWaitlistCourses
-        .map((course) => CoursePreviewCard(
-              course: course,
-              currentUser: user,
-              trainers: trainers,
-              showDate: true,
-              onSubscribe: () => onSubscribe(course),
-              onUnsubscribe: () => onUnsubscribe(course),
-              onJoinWaitlist: () => onJoinWaitlist(course),
-              onLeaveWaitlist: () => onLeaveWaitlist(course),
-              onRefresh: () => refreshCourses(),
-            ))
+        .map(
+          (course) => CoursePreviewCard(
+            course: course,
+            currentUser: user,
+            trainers: trainers,
+            showDate: true,
+            onSubscribe: () => onSubscribe(course),
+            onUnsubscribe: () => onUnsubscribe(course),
+            onJoinWaitlist: () => onJoinWaitlist(course),
+            onLeaveWaitlist: () => onLeaveWaitlist(course),
+            onRefresh: () => refreshCourses(),
+          ),
+        )
         .toList();
   }
 
@@ -1472,12 +1520,7 @@ class _HomePageState extends State<HomePage> {
       spacing: 12,
       runSpacing: 12,
       children: coursesWidgets
-          .map(
-            (widget) => SizedBox(
-              width: cardWidth,
-              child: widget,
-            ),
-          )
+          .map((widget) => SizedBox(width: cardWidth, child: widget))
           .toList(),
     );
   }
@@ -1488,10 +1531,11 @@ class _HomePageState extends State<HomePage> {
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(
-          left: pagePadding,
-          right: pagePadding,
-          bottom: pagePadding,
-          top: pagePadding + MediaQuery.of(context).viewPadding.top),
+        left: pagePadding,
+        right: pagePadding,
+        bottom: pagePadding,
+        top: pagePadding + MediaQuery.of(context).viewPadding.top,
+      ),
       child: Column(
         children: [
           // HEADER
@@ -1507,9 +1551,10 @@ class _HomePageState extends State<HomePage> {
                   'Home',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 30,
-                      color: onPrimaryColor),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 30,
+                    color: onPrimaryColor,
+                  ),
                 ),
               ),
               if (isDesktop(context))
@@ -1524,7 +1569,8 @@ class _HomePageState extends State<HomePage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => UserDetailPage(user: user)),
+                        builder: (context) => UserDetailPage(user: user),
+                      ),
                     );
                   },
                 ),
@@ -1554,25 +1600,29 @@ class _HomePageState extends State<HomePage> {
           ),
 
           // LISTA D'ATTESA
-          Builder(builder: (_) {
-            final waitlistWidgets = renderWaitlistCourses();
-            if (waitlistWidgets.isEmpty) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(top: 20),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    width: double.infinity,
-                    child: const Text('Lista d\'attesa',
+          Builder(
+            builder: (_) {
+              final waitlistWidgets = renderWaitlistCourses();
+              if (waitlistWidgets.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      width: double.infinity,
+                      child: const Text(
+                        'Lista d\'attesa',
                         textAlign: TextAlign.left,
-                        style: TextStyle(color: Colors.orange, fontSize: 20)),
-                  ),
-                  ...waitlistWidgets
-                ],
-              ),
-            );
-          }),
+                        style: TextStyle(color: Colors.orange, fontSize: 20),
+                      ),
+                    ),
+                    ...waitlistWidgets,
+                  ],
+                ),
+              );
+            },
+          ),
 
           // SEZIONI ADMIN: certificati, abbonamenti e lezioni di prova
           if (isDesktop(context)) ...[
@@ -1592,7 +1642,8 @@ class _HomePageState extends State<HomePage> {
               title: 'Lezioni di prova',
               expanded: _lezioniProvaExpanded,
               onToggle: () => setState(
-                  () => _lezioniProvaExpanded = !_lezioniProvaExpanded),
+                () => _lezioniProvaExpanded = !_lezioniProvaExpanded,
+              ),
               children: [
                 Expanded(child: _buildLezioniProvaProssimi7Giorni()),
                 const SizedBox(width: 16),
@@ -1605,9 +1656,7 @@ class _HomePageState extends State<HomePage> {
               expanded: _regolamentoExpanded,
               onToggle: () =>
                   setState(() => _regolamentoExpanded = !_regolamentoExpanded),
-              children: [
-                Expanded(child: _buildUtentiSenzaRegolamentoCard()),
-              ],
+              children: [Expanded(child: _buildUtentiSenzaRegolamentoCard())],
             ),
           ] else ...[
             _buildCertificatiInScadenzaCard(),
