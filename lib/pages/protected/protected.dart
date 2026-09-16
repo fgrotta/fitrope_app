@@ -8,6 +8,9 @@ import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:fitrope_app/authentication/is_logged.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/components/loader.dart';
+import 'package:fitrope_app/components/push_enable_banner.dart';
+import 'package:fitrope_app/services/push_environment.dart';
+import 'package:fitrope_app/utils/push_prompt_prefs.dart';
 import 'package:fitrope_app/layout/app_shell.dart';
 import 'package:fitrope_app/pages/protected/calendar_page.dart';
 import 'package:fitrope_app/pages/protected/home_page.dart';
@@ -38,6 +41,11 @@ class Protected extends StatefulWidget {
 class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   late FitropeUser? user = store.state.user;
   int currentIndex = 0;
+
+  /// Banner "questo dispositivo non riceve le notifiche". Calcolato da
+  /// [_evaluatePushPrompt], mai dentro `_syncOneSignalIdentity` — quello resta
+  /// l'unico punto che parla di *identità* con OneSignal.
+  PushPromptDecision _pushPrompt = PushPromptDecision.hidden;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String? _drawerTitle;
@@ -79,6 +87,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
       if (user != null) {
         debugPrint("${user!.name} ${user!.lastName} logged");
         _syncOneSignalIdentity(user!);
+        unawaited(_evaluatePushPrompt());
       } else {
         resetUser();
       }
@@ -136,6 +145,60 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
     unawaited(OneSignalService.syncPushPreference(u.pushNotificationsEnabled));
   }
 
+  /// Decide se mostrare il banner push per **questo dispositivo**.
+  ///
+  /// In simulazione non parte nulla: `pushEnvironment()` non tocca l'identità,
+  /// ma il bottone "Attiva" chiamerebbe `requestPushPermission()`, che è
+  /// guardato e lancerebbe.
+  Future<void> _evaluatePushPrompt() async {
+    final u = user;
+    if (u == null || SimulationSession.isActive) {
+      if (mounted && _pushPrompt != PushPromptDecision.hidden) {
+        setState(() => _pushPrompt = PushPromptDecision.hidden);
+      }
+      return;
+    }
+
+    final env = await OneSignalService.pushEnvironment();
+    if (!mounted) return;
+
+    // Due passate: la chiave dello snooze dipende da *quale* banner mostreremmo,
+    // quindi serve prima il candidato e poi la decisione definitiva.
+    final candidate = decidePushPrompt(
+      env: env,
+      preferenceEnabled: u.pushNotificationsEnabled,
+      simulating: false,
+      snoozed: false,
+    );
+    final decision = decidePushPrompt(
+      env: env,
+      preferenceEnabled: u.pushNotificationsEnabled,
+      simulating: false,
+      snoozed: candidate != PushPromptDecision.hidden &&
+          isPushPromptSnoozed(candidate.name),
+    );
+
+    if (decision != _pushPrompt) {
+      setState(() => _pushPrompt = decision);
+    }
+  }
+
+  /// Bottone "Attiva" del banner: `requestPushPermission()` è la **prima**
+  /// istruzione, senza await interposti, o su WebKit il prompt non compare.
+  ///
+  /// Un diniego non scrive mai `pushNotificationsEnabled = false` su Firestore:
+  /// è un flag cross-device, un rifiuto su questo browser non deve spegnere le
+  /// push sugli altri dispositivi dell'utente.
+  void _activatePush() {
+    final granted = OneSignalService.requestPushPermission();
+    unawaited(granted.then((_) => _evaluatePushPrompt()));
+  }
+
+  void _dismissPushPrompt() {
+    snoozePushPrompt(_pushPrompt.name, snoozeDurationFor(_pushPrompt));
+    setState(() => _pushPrompt = PushPromptDecision.hidden);
+  }
+
   Future<void> resetUser() async {
     // In simulazione questo metodo rileggerebbe `FirebaseAuth.currentUser.uid`
     // — che è sempre l'ADMIN — e terminerebbe la simulazione di nascosto,
@@ -155,6 +218,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
       });
       if (user != null) {
         _syncOneSignalIdentity(user!);
+        unawaited(_evaluatePushPrompt());
       }
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -226,35 +290,55 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                   : null,
               body: Stack(
                 children: [
-                  AppShell(
-                    currentIndex: effectiveIndex,
-                    isAdmin: user?.role == 'Admin',
-                    onChangePage: (index) {
-                      setState(() {
-                        currentIndex = index;
-                      });
-                    },
-                    profileInitials:
-                        desktop ? _userProfileInitials(user) : null,
-                    onProfileTap: desktop && user != null
-                        ? () {
-                            final u = user!;
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => UserDetailPage(user: u),
-                              ),
-                            );
-                          }
-                        : null,
-                    onLogout: () async {
-                      if (SimulationGuard.blockIfSimulating(context)) return;
-                      await signOut();
-                      if (!context.mounted) return;
-                      logoutRedirect(context);
-                    },
-                    child: user != null
-                        ? _getPageFor(effectiveIndex)
-                        : const SizedBox.shrink(),
+                  Column(
+                    children: [
+                      if (_pushPrompt != PushPromptDecision.hidden)
+                        PushEnableBanner(
+                          decision: _pushPrompt,
+                          onDismiss: _dismissPushPrompt,
+                          // Niente "Attiva" in tab Safari su iOS: l'API non
+                          // esiste finché la PWA non è installata.
+                          onActivate:
+                              _pushPrompt == PushPromptDecision.canRequest
+                                  ? _activatePush
+                                  : null,
+                        ),
+                      Expanded(
+                        child: AppShell(
+                          currentIndex: effectiveIndex,
+                          isAdmin: user?.role == 'Admin',
+                          onChangePage: (index) {
+                            setState(() {
+                              currentIndex = index;
+                            });
+                          },
+                          profileInitials:
+                              desktop ? _userProfileInitials(user) : null,
+                          onProfileTap: desktop && user != null
+                              ? () {
+                                  final u = user!;
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          UserDetailPage(user: u),
+                                    ),
+                                  );
+                                }
+                              : null,
+                          onLogout: () async {
+                            if (SimulationGuard.blockIfSimulating(context)) {
+                              return;
+                            }
+                            await signOut();
+                            if (!context.mounted) return;
+                            logoutRedirect(context);
+                          },
+                          child: user != null
+                              ? _getPageFor(effectiveIndex)
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
                   ),
                   if (isLoading) const Loader(),
                 ],

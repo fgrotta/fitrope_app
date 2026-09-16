@@ -93,3 +93,20 @@ PushPromptDecision decidePushPrompt({
 
   return PushPromptDecision.hidden;
 }
+
+/// Per quanto tempo nascondere un banner che l'utente ha chiuso.
+///
+/// Solo-sessione sarebbe troppo aggressivo su una PWA (che si riapre di
+/// continuo), permanente toglierebbe il suggerimento a chi nel frattempo
+/// installa l'app o aggiorna iOS.
+Duration snoozeDurationFor(PushPromptDecision decision) {
+  switch (decision) {
+    case PushPromptDecision.canRequest:
+      return const Duration(days: 14);
+    case PushPromptDecision.iosNeedsInstall:
+    case PushPromptDecision.iosNeedsUpdate:
+      return const Duration(days: 30);
+    case PushPromptDecision.hidden:
+      return Duration.zero;
+  }
+}
