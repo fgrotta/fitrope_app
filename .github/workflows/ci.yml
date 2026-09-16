@@ -43,6 +43,14 @@ jobs:
       - name: Build Web (dry run, valida il path --wasm di produzione)
         run: flutter build web --wasm --release
 
+      # Gate anti-regressione del conditional export di onesignal_service.dart:
+      # sotto --wasm `dart.library.html` e' false, quindi una direttiva scritta
+      # male compila il ramo *mobile* sul web (MissingPluginException a runtime,
+      # niente push ne' alias email). Il marcatore e' il debugPrint del ramo web:
+      # il ramo mobile stampa invece "[OneSignal]" senza " Web".
+      - name: Verifica che il bundle wasm contenga il ramo web di OneSignal
+        run: grep -aq 'OneSignal Web' build/web/main.dart.wasm
+
   functions-test:
     runs-on: ubuntu-latest
     steps:
