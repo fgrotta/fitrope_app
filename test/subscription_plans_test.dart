@@ -19,9 +19,8 @@ void main() {
 
     test('Open: frequenze {2,3,illimitato} e pacchetto 10 ingressi', () {
       for (final d in SubscriptionPlans.durations) {
-        final forD = SubscriptionPlans.open
-            .where((p) => p.durationMonths == d)
-            .toList();
+        final forD =
+            SubscriptionPlans.open.where((p) => p.durationMonths == d).toList();
         final frequency = forD.where(
           (p) => p.billingMode == BillingMode.FREQUENCY,
         );

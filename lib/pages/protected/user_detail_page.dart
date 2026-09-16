@@ -251,8 +251,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
     } else {
       userCourses.sort((a, b) {
         int nameComparison = a['name']!.toLowerCase().compareTo(
-          b['name']!.toLowerCase(),
-        );
+              b['name']!.toLowerCase(),
+            );
         if (nameComparison != 0) {
           return nameComparison;
         }
@@ -300,9 +300,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         : widget.user.cancelledEnrollments;
 
     for (var cancelled in cancelledList) {
-      Course? course = allCourses
-          .where((c) => c.id == cancelled.courseId)
-          .firstOrNull;
+      Course? course =
+          allCourses.where((c) => c.id == cancelled.courseId).firstOrNull;
       if (course != null) {
         String courseName = course.name;
         String cancelledDate = DateFormat(
@@ -318,8 +317,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         String status = !cancelled.entryLost
             ? 'Ingresso non perso'
             : cancelled.lostKindOrDefault == LostKind.ENTRY
-            ? 'Ingresso perso'
-            : 'Ingresso settimanale perso';
+                ? 'Ingresso perso'
+                : 'Ingresso settimanale perso';
         cancelledEnrollments.add({
           'name': courseName,
           'cancelledDate': cancelledDate,
@@ -341,7 +340,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   Map<String, List<Map<String, String>>>
-  getUserCancelledEnrollmentsByTipologia() {
+      getUserCancelledEnrollmentsByTipologia() {
     List<Map<String, String>> allCancelledEnrollments =
         getUserCancelledEnrollments();
     Map<String, List<Map<String, String>>> cancelledByTipologia = {};
@@ -863,9 +862,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
       );
     }
 
-    final horizontalInset = isDesktop(context)
-        ? MediaQuery.sizeOf(context).width * 0.15
-        : 0.0;
+    final horizontalInset =
+        isDesktop(context) ? MediaQuery.sizeOf(context).width * 0.15 : 0.0;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -1255,9 +1253,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       }
                       final accepted =
                           await RegolamentoHelper.checkAndAcceptRegolamento(
-                            context,
-                            widget.user,
-                          );
+                        context,
+                        widget.user,
+                      );
                       if (!accepted || !context.mounted) return;
                       SnackBarUtils.showSuccessSnackBar(
                         context,
@@ -1527,8 +1525,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   /// scadute), perché è la vista gestionale/storica admin; la HomePage utente
   /// filtra invece con `liveSubscriptions` e mostra solo quelle vive.
   Widget _buildActiveSubscriptionsSection() {
-    final subs = [..._activeSubscriptions]
-      ..sort((a, b) {
+    final subs = [..._activeSubscriptions]..sort((a, b) {
         final byEnd = b.endDate.compareTo(a.endDate);
         return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
       });
@@ -1615,8 +1612,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
                           controller: controller,
                           keyboardType:
                               label == 'Numero di Telefono (opzionale)'
-                              ? TextInputType.phone
-                              : TextInputType.number,
+                                  ? TextInputType.phone
+                                  : TextInputType.number,
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(
@@ -1632,298 +1629,360 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               : null,
                         )
                       : isEditable && isDropdown
-                      ? DropdownButtonFormField<String>(
-                          initialValue: _getValidRoleForDropdown(),
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                          items: [
-                            const DropdownMenuItem(
-                              value: 'User',
-                              child: Text('User'),
-                            ),
-                            // Solo gli admin possono assegnare il ruolo Trainer
-                            if (isAdmin)
-                              const DropdownMenuItem(
-                                value: 'Trainer',
-                                child: Text('Trainer'),
-                              ),
-                            const DropdownMenuItem(
-                              value: 'Admin',
-                              child: Text('Admin'),
-                            ),
-                          ],
-                          onChanged: (newValue) {
-                            setState(() {
-                              selectedRole = newValue!;
-                            });
-                          },
-                        )
-                      : isEditable && isTipologiaDropdown
-                      ? DropdownButtonFormField<String>(
-                          initialValue: selectedTipologiaIscrizione
-                              ?.toString()
-                              .split('.')
-                              .last,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                          items: [
-                            DropdownMenuItem(
-                              value: null,
-                              child: Text(
-                                _getTipologiaLabel(null),
-                                style: const TextStyle(color: onPrimaryColor),
-                              ),
-                            ),
-                            ...TipologiaIscrizione.values.map((tipologia) {
-                              return DropdownMenuItem(
-                                value: tipologia.toString().split('.').last,
-                                child: Text(_getTipologiaLabel(tipologia)),
-                              );
-                            }),
-                          ],
-                          onChanged: (newValue) {
-                            setState(() {
-                              selectedTipologiaIscrizione = newValue != null
-                                  ? TipologiaIscrizione.values
-                                        .where(
-                                          (e) =>
-                                              e.toString().split('.').last ==
-                                              newValue,
-                                        )
-                                        .firstOrNull
-                                  : null;
-                            });
-                          },
-                        )
-                      : isEditable && isDatePicker
-                      ? InkWell(
-                          onTap: () async {
-                            final DateTime now = DateTime.now();
-                            final DateTime initialDate =
-                                selectedFineIscrizione != null &&
-                                    selectedFineIscrizione!.isAfter(now)
-                                ? selectedFineIscrizione!
-                                : now;
-
-                            final DateTime? picked = await showDatePicker(
-                              context: context,
-                              initialDate: initialDate,
-                              firstDate: now,
-                              lastDate: now.add(const Duration(days: 365 * 2)),
-                              locale: const Locale('it', 'IT'),
-                            );
-                            if (!mounted || picked == null) return;
-                            setState(() {
-                              selectedFineIscrizione = picked;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  selectedFineIscrizione != null
-                                      ? DateFormat(
-                                          'dd/MM/yyyy',
-                                        ).format(selectedFineIscrizione!)
-                                      : 'Seleziona data',
-                                  style: const TextStyle(fontSize: 16),
+                          ? DropdownButtonFormField<String>(
+                              initialValue: _getValidRoleForDropdown(),
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
                                 ),
-                                const Icon(Icons.calendar_today),
-                              ],
-                            ),
-                          ),
-                        )
-                      : isEditable && isStatusDropdown
-                      ? DropdownButtonFormField<bool>(
-                          initialValue: selectedIsActive,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: true,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.green),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Attivo',
-                                    style: TextStyle(color: onPrimaryColor),
-                                  ),
-                                ],
                               ),
-                            ),
-                            DropdownMenuItem(
-                              value: false,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.block, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Disattivato'),
-                                ],
-                              ),
-                            ),
-                          ],
-                          onChanged: (newValue) {
-                            setState(() {
-                              selectedIsActive = newValue!;
-                            });
-                          },
-                        )
-                      : isEditable && isAnonymousDropdown
-                      ? DropdownButtonFormField<bool>(
-                          initialValue: selectedIsAnonymous,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: false,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.person, color: Colors.green),
-                                  SizedBox(width: 8),
-                                  Text('No'),
-                                ],
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: true,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.visibility_off,
-                                    color: Colors.grey,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text('Sì'),
-                                ],
-                              ),
-                            ),
-                          ],
-                          onChanged: (newValue) {
-                            setState(() {
-                              selectedIsAnonymous = newValue!;
-                            });
-                          },
-                        )
-                      : isEditable && isCertificatoDatePicker
-                      ? InkWell(
-                          onTap: () async {
-                            final DateTime now = DateTime.now();
-                            final DateTime initialDate =
-                                selectedCertificatoScadenza != null &&
-                                    selectedCertificatoScadenza!.isAfter(now)
-                                ? selectedCertificatoScadenza!
-                                : now;
-
-                            final DateTime? picked = await showDatePicker(
-                              context: context,
-                              initialDate: initialDate,
-                              firstDate: now.subtract(
-                                const Duration(days: 180),
-                              ),
-                              lastDate: now.add(const Duration(days: 400)),
-                              locale: const Locale('it', 'IT'),
-                            );
-                            if (!mounted || picked == null) {
-                              return;
-                            }
-                            setState(() {
-                              selectedCertificatoScadenza = picked;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  selectedCertificatoScadenza != null
-                                      ? DateFormat(
-                                          'dd/MM/yyyy',
-                                        ).format(selectedCertificatoScadenza!)
-                                      : 'Seleziona data',
-                                  style: const TextStyle(fontSize: 16),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: 'User',
+                                  child: Text('User'),
                                 ),
-                                const Icon(Icons.calendar_today),
+                                // Solo gli admin possono assegnare il ruolo Trainer
+                                if (isAdmin)
+                                  const DropdownMenuItem(
+                                    value: 'Trainer',
+                                    child: Text('Trainer'),
+                                  ),
+                                const DropdownMenuItem(
+                                  value: 'Admin',
+                                  child: Text('Admin'),
+                                ),
                               ],
-                            ),
-                          ),
-                        )
-                      : isEditable && isTagsMultiSelect
-                      ? Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: CourseTags.legacyUserTypeTags.map((tag) {
-                            final isSelected = selectedTipologiaCorsoTags
-                                .contains(tag);
-                            return FilterChip(
-                              label: Text(tag),
-                              selected: isSelected,
-                              onSelected: (selected) {
+                              onChanged: (newValue) {
                                 setState(() {
-                                  if (selected) {
-                                    selectedTipologiaCorsoTags.add(tag);
-                                  } else {
-                                    selectedTipologiaCorsoTags.remove(tag);
-                                  }
+                                  selectedRole = newValue!;
                                 });
                               },
-                              selectedColor: primaryColor.withValues(
-                                alpha: 0.3,
-                              ),
-                              checkmarkColor: primaryColor,
-                            );
-                          }).toList(),
-                        )
-                      : Text(
-                          value,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color:
-                                label == 'Certificato Medico' &&
-                                    widget.user.certificatoScadenza != null
-                                ? CertificatoHelper.getColoreScadenza(
-                                    widget.user.certificatoScadenza,
-                                  )
-                                : null,
-                          ),
-                        ),
+                            )
+                          : isEditable && isTipologiaDropdown
+                              ? DropdownButtonFormField<String>(
+                                  initialValue: selectedTipologiaIscrizione
+                                      ?.toString()
+                                      .split('.')
+                                      .last,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  items: [
+                                    DropdownMenuItem(
+                                      value: null,
+                                      child: Text(
+                                        _getTipologiaLabel(null),
+                                        style: const TextStyle(
+                                            color: onPrimaryColor),
+                                      ),
+                                    ),
+                                    ...TipologiaIscrizione.values
+                                        .map((tipologia) {
+                                      return DropdownMenuItem(
+                                        value: tipologia
+                                            .toString()
+                                            .split('.')
+                                            .last,
+                                        child:
+                                            Text(_getTipologiaLabel(tipologia)),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (newValue) {
+                                    setState(() {
+                                      selectedTipologiaIscrizione =
+                                          newValue != null
+                                              ? TipologiaIscrizione.values
+                                                  .where(
+                                                    (e) =>
+                                                        e
+                                                            .toString()
+                                                            .split('.')
+                                                            .last ==
+                                                        newValue,
+                                                  )
+                                                  .firstOrNull
+                                              : null;
+                                    });
+                                  },
+                                )
+                              : isEditable && isDatePicker
+                                  ? InkWell(
+                                      onTap: () async {
+                                        final DateTime now = DateTime.now();
+                                        final DateTime initialDate =
+                                            selectedFineIscrizione != null &&
+                                                    selectedFineIscrizione!
+                                                        .isAfter(now)
+                                                ? selectedFineIscrizione!
+                                                : now;
+
+                                        final DateTime? picked =
+                                            await showDatePicker(
+                                          context: context,
+                                          initialDate: initialDate,
+                                          firstDate: now,
+                                          lastDate: now.add(
+                                              const Duration(days: 365 * 2)),
+                                          locale: const Locale('it', 'IT'),
+                                        );
+                                        if (!mounted || picked == null) return;
+                                        setState(() {
+                                          selectedFineIscrizione = picked;
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          border:
+                                              Border.all(color: Colors.grey),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              selectedFineIscrizione != null
+                                                  ? DateFormat(
+                                                      'dd/MM/yyyy',
+                                                    ).format(
+                                                      selectedFineIscrizione!)
+                                                  : 'Seleziona data',
+                                              style:
+                                                  const TextStyle(fontSize: 16),
+                                            ),
+                                            const Icon(Icons.calendar_today),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : isEditable && isStatusDropdown
+                                      ? DropdownButtonFormField<bool>(
+                                          initialValue: selectedIsActive,
+                                          decoration: const InputDecoration(
+                                            border: OutlineInputBorder(),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: true,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.check_circle,
+                                                      color: Colors.green),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    'Attivo',
+                                                    style: TextStyle(
+                                                        color: onPrimaryColor),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: false,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.block,
+                                                      color: Colors.red),
+                                                  SizedBox(width: 8),
+                                                  Text('Disattivato'),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          onChanged: (newValue) {
+                                            setState(() {
+                                              selectedIsActive = newValue!;
+                                            });
+                                          },
+                                        )
+                                      : isEditable && isAnonymousDropdown
+                                          ? DropdownButtonFormField<bool>(
+                                              initialValue: selectedIsAnonymous,
+                                              decoration: const InputDecoration(
+                                                border: OutlineInputBorder(),
+                                                contentPadding:
+                                                    EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
+                                              ),
+                                              items: const [
+                                                DropdownMenuItem(
+                                                  value: false,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.person,
+                                                          color: Colors.green),
+                                                      SizedBox(width: 8),
+                                                      Text('No'),
+                                                    ],
+                                                  ),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: true,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.visibility_off,
+                                                        color: Colors.grey,
+                                                      ),
+                                                      SizedBox(width: 8),
+                                                      Text('Sì'),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  selectedIsAnonymous =
+                                                      newValue!;
+                                                });
+                                              },
+                                            )
+                                          : isEditable &&
+                                                  isCertificatoDatePicker
+                                              ? InkWell(
+                                                  onTap: () async {
+                                                    final DateTime now =
+                                                        DateTime.now();
+                                                    final DateTime initialDate =
+                                                        selectedCertificatoScadenza !=
+                                                                    null &&
+                                                                selectedCertificatoScadenza!
+                                                                    .isAfter(
+                                                                        now)
+                                                            ? selectedCertificatoScadenza!
+                                                            : now;
+
+                                                    final DateTime? picked =
+                                                        await showDatePicker(
+                                                      context: context,
+                                                      initialDate: initialDate,
+                                                      firstDate: now.subtract(
+                                                        const Duration(
+                                                            days: 180),
+                                                      ),
+                                                      lastDate: now.add(
+                                                          const Duration(
+                                                              days: 400)),
+                                                      locale: const Locale(
+                                                          'it', 'IT'),
+                                                    );
+                                                    if (!mounted ||
+                                                        picked == null) {
+                                                      return;
+                                                    }
+                                                    setState(() {
+                                                      selectedCertificatoScadenza =
+                                                          picked;
+                                                    });
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      border: Border.all(
+                                                          color: Colors.grey),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Text(
+                                                          selectedCertificatoScadenza !=
+                                                                  null
+                                                              ? DateFormat(
+                                                                  'dd/MM/yyyy',
+                                                                ).format(
+                                                                  selectedCertificatoScadenza!)
+                                                              : 'Seleziona data',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 16),
+                                                        ),
+                                                        const Icon(Icons
+                                                            .calendar_today),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                )
+                                              : isEditable && isTagsMultiSelect
+                                                  ? Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 8,
+                                                      children: CourseTags
+                                                          .legacyUserTypeTags
+                                                          .map((tag) {
+                                                        final isSelected =
+                                                            selectedTipologiaCorsoTags
+                                                                .contains(tag);
+                                                        return FilterChip(
+                                                          label: Text(tag),
+                                                          selected: isSelected,
+                                                          onSelected:
+                                                              (selected) {
+                                                            setState(() {
+                                                              if (selected) {
+                                                                selectedTipologiaCorsoTags
+                                                                    .add(tag);
+                                                              } else {
+                                                                selectedTipologiaCorsoTags
+                                                                    .remove(
+                                                                        tag);
+                                                              }
+                                                            });
+                                                          },
+                                                          selectedColor:
+                                                              primaryColor
+                                                                  .withValues(
+                                                            alpha: 0.3,
+                                                          ),
+                                                          checkmarkColor:
+                                                              primaryColor,
+                                                        );
+                                                      }).toList(),
+                                                    )
+                                                  : Text(
+                                                      value,
+                                                      style: TextStyle(
+                                                        fontSize: 16,
+                                                        color: label ==
+                                                                    'Certificato Medico' &&
+                                                                widget.user
+                                                                        .certificatoScadenza !=
+                                                                    null
+                                                            ? CertificatoHelper
+                                                                .getColoreScadenza(
+                                                                widget.user
+                                                                    .certificatoScadenza,
+                                                              )
+                                                            : null,
+                                                      ),
+                                                    ),
                 ),
                 if (trailing != null) ...[const SizedBox(width: 8), trailing],
               ],

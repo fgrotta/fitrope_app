@@ -79,13 +79,13 @@ class FitropeUser {
   final String? numeroTelefono;
   final List<String> tipologiaCorsoTags; // Tag per limitare l'accesso ai corsi
   final List<CancelledEnrollment>
-  cancelledEnrollments; // Tracciamento disiscrizioni
+      cancelledEnrollments; // Tracciamento disiscrizioni
   final Timestamp? regolamentoAccettatoIl;
   final List<String> waitlistCourses; // Corsi in lista d'attesa (course IDs)
   final bool emailNotificationsEnabled; // Preferenza notifiche email
   final bool pushNotificationsEnabled; // Preferenza notifiche push
   final List<UserSubscription>
-  activeSubscriptions; // Snapshot abbonamenti attivi (multi-abbonamento)
+      activeSubscriptions; // Snapshot abbonamenti attivi (multi-abbonamento)
   final int subscriptionModelVersion; // 2 = nessun fallback ai campi legacy
 
   const FitropeUser({
@@ -136,16 +136,14 @@ class FitropeUser {
       'certificatoScadenza': certificatoScadenza,
       'numeroTelefono': numeroTelefono,
       'tipologiaCorsoTags': tipologiaCorsoTags,
-      'cancelledEnrollments': cancelledEnrollments
-          .map((e) => e.toJson())
-          .toList(),
+      'cancelledEnrollments':
+          cancelledEnrollments.map((e) => e.toJson()).toList(),
       'regolamentoAccettatoIl': regolamentoAccettatoIl,
       'waitlistCourses': waitlistCourses,
       'emailNotificationsEnabled': emailNotificationsEnabled,
       'pushNotificationsEnabled': pushNotificationsEnabled,
-      'activeSubscriptions': activeSubscriptions
-          .map((s) => s.toJson())
-          .toList(),
+      'activeSubscriptions':
+          activeSubscriptions.map((s) => s.toJson()).toList(),
       'subscriptionModelVersion': subscriptionModelVersion,
     };
   }
@@ -159,19 +157,17 @@ class FitropeUser {
       // dalla lista admin.
       name: json['name'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
-      courses:
-          (json['courses'] as List<dynamic>?)
+      courses: (json['courses'] as List<dynamic>?)
               ?.map((courseId) => courseId.toString())
               .toList() ??
           [],
       tipologiaIscrizione: json['tipologiaIscrizione'] != null
           ? TipologiaIscrizione.values
-                .where(
-                  (e) =>
-                      e.toString().split('.').last ==
-                      json['tipologiaIscrizione'],
-                )
-                .firstOrNull
+              .where(
+                (e) =>
+                    e.toString().split('.').last == json['tipologiaIscrizione'],
+              )
+              .firstOrNull
           : null,
       entrateDisponibili: json['entrateDisponibili'] as int?,
       entrateSettimanali: json['entrateSettimanali'] as int?,
@@ -184,13 +180,11 @@ class FitropeUser {
           : DateTime.now(),
       certificatoScadenza: json['certificatoScadenza'] as Timestamp?,
       numeroTelefono: json['numeroTelefono'] as String?,
-      tipologiaCorsoTags:
-          (json['tipologiaCorsoTags'] as List<dynamic>?)
+      tipologiaCorsoTags: (json['tipologiaCorsoTags'] as List<dynamic>?)
               ?.map((tag) => tag.toString())
               .toList() ??
           CourseTags.defaultUserTags,
-      cancelledEnrollments:
-          (json['cancelledEnrollments'] as List<dynamic>?)
+      cancelledEnrollments: (json['cancelledEnrollments'] as List<dynamic>?)
               ?.map(
                 (item) =>
                     CancelledEnrollment.fromJson(item as Map<String, dynamic>),
@@ -198,8 +192,7 @@ class FitropeUser {
               .toList() ??
           [],
       regolamentoAccettatoIl: json['regolamentoAccettatoIl'] as Timestamp?,
-      waitlistCourses:
-          (json['waitlistCourses'] as List<dynamic>?)
+      waitlistCourses: (json['waitlistCourses'] as List<dynamic>?)
               ?.map((id) => id.toString())
               .toList() ??
           [],

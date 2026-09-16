@@ -57,58 +57,58 @@ class SubscriptionPlans {
   static List<SubscriptionPlan> get all => [trial, ...open, ...pt];
 
   static List<SubscriptionPlan> get open => [
-    for (final d in durations) ...[
-      SubscriptionPlan(
-        key: 'open_2x_${d}m',
-        displayName: 'Open 2 volte/sett · ${_durLabel(d)}',
-        family: SubscriptionFamily.OPEN,
-        billingMode: BillingMode.FREQUENCY,
-        weeklyFrequency: 2,
-        durationMonths: d,
-        grantedCourseTypeTags: const {CourseTags.OPEN},
-      ),
-      SubscriptionPlan(
-        key: 'open_3x_${d}m',
-        displayName: 'Open 3 volte/sett · ${_durLabel(d)}',
-        family: SubscriptionFamily.OPEN,
-        billingMode: BillingMode.FREQUENCY,
-        weeklyFrequency: 3,
-        durationMonths: d,
-        grantedCourseTypeTags: const {CourseTags.OPEN},
-      ),
-      SubscriptionPlan(
-        key: 'open_unlim_${d}m',
-        displayName: 'Open illimitato · ${_durLabel(d)}',
-        family: SubscriptionFamily.OPEN,
-        billingMode: BillingMode.FREQUENCY,
-        weeklyFrequency: null,
-        durationMonths: d,
-        grantedCourseTypeTags: const {CourseTags.OPEN},
-      ),
-      SubscriptionPlan(
-        key: 'open_${entriesPerPackage}i_${d}m',
-        displayName: 'Open $entriesPerPackage ingressi · ${_durLabel(d)}',
-        family: SubscriptionFamily.OPEN,
-        billingMode: BillingMode.ENTRIES,
-        entries: entriesPerPackage,
-        durationMonths: d,
-        grantedCourseTypeTags: const {CourseTags.OPEN},
-      ),
-    ],
-  ];
+        for (final d in durations) ...[
+          SubscriptionPlan(
+            key: 'open_2x_${d}m',
+            displayName: 'Open 2 volte/sett · ${_durLabel(d)}',
+            family: SubscriptionFamily.OPEN,
+            billingMode: BillingMode.FREQUENCY,
+            weeklyFrequency: 2,
+            durationMonths: d,
+            grantedCourseTypeTags: const {CourseTags.OPEN},
+          ),
+          SubscriptionPlan(
+            key: 'open_3x_${d}m',
+            displayName: 'Open 3 volte/sett · ${_durLabel(d)}',
+            family: SubscriptionFamily.OPEN,
+            billingMode: BillingMode.FREQUENCY,
+            weeklyFrequency: 3,
+            durationMonths: d,
+            grantedCourseTypeTags: const {CourseTags.OPEN},
+          ),
+          SubscriptionPlan(
+            key: 'open_unlim_${d}m',
+            displayName: 'Open illimitato · ${_durLabel(d)}',
+            family: SubscriptionFamily.OPEN,
+            billingMode: BillingMode.FREQUENCY,
+            weeklyFrequency: null,
+            durationMonths: d,
+            grantedCourseTypeTags: const {CourseTags.OPEN},
+          ),
+          SubscriptionPlan(
+            key: 'open_${entriesPerPackage}i_${d}m',
+            displayName: 'Open $entriesPerPackage ingressi · ${_durLabel(d)}',
+            family: SubscriptionFamily.OPEN,
+            billingMode: BillingMode.ENTRIES,
+            entries: entriesPerPackage,
+            durationMonths: d,
+            grantedCourseTypeTags: const {CourseTags.OPEN},
+          ),
+        ],
+      ];
 
   static List<SubscriptionPlan> get pt => [
-    for (final d in durations)
-      SubscriptionPlan(
-        key: 'pt_${entriesPerPackage}i_${d}m',
-        displayName: 'PT $entriesPerPackage ingressi · ${_durLabel(d)}',
-        family: SubscriptionFamily.PT,
-        billingMode: BillingMode.ENTRIES,
-        entries: entriesPerPackage,
-        durationMonths: d,
-        grantedCourseTypeTags: const {CourseTags.PERSONAL_TRAINER},
-      ),
-  ];
+        for (final d in durations)
+          SubscriptionPlan(
+            key: 'pt_${entriesPerPackage}i_${d}m',
+            displayName: 'PT $entriesPerPackage ingressi · ${_durLabel(d)}',
+            family: SubscriptionFamily.PT,
+            billingMode: BillingMode.ENTRIES,
+            entries: entriesPerPackage,
+            durationMonths: d,
+            grantedCourseTypeTags: const {CourseTags.PERSONAL_TRAINER},
+          ),
+      ];
 
   static SubscriptionPlan? byKey(String key) {
     for (final p in all) {

@@ -32,24 +32,24 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
   List<SubscriptionPlan> get _familyPlans => selectedFamily == null
       ? const []
       : SubscriptionPlans.all
-            .where(
-              (plan) =>
-                  plan.family == selectedFamily && plan.durationMonths != null,
-            )
-            .toList();
+          .where(
+            (plan) =>
+                plan.family == selectedFamily && plan.durationMonths != null,
+          )
+          .toList();
 
   List<SubscriptionPlan> get _modePlans => selectedBillingMode == null
       ? const []
       : _familyPlans
-            .where((plan) => plan.billingMode == selectedBillingMode)
-            .toList();
+          .where((plan) => plan.billingMode == selectedBillingMode)
+          .toList();
 
   String _variantOf(SubscriptionPlan plan) =>
       plan.billingMode == BillingMode.ENTRIES
-      ? '${plan.entries}i'
-      : plan.weeklyFrequency == null
-      ? 'unlim'
-      : '${plan.weeklyFrequency}x';
+          ? '${plan.entries}i'
+          : plan.weeklyFrequency == null
+              ? 'unlim'
+              : '${plan.weeklyFrequency}x';
 
   String _variantLabel(String value) {
     if (value == 'unlim') return 'Illimitato';
@@ -136,10 +136,10 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
               onChanged: selectedFamily == null
                   ? null
                   : (value) => setState(() {
-                      selectedBillingMode = value;
-                      selectedVariant = null;
-                      selectedDuration = null;
-                    }),
+                        selectedBillingMode = value;
+                        selectedVariant = null;
+                        selectedDuration = null;
+                      }),
             ),
             const SizedBox(height: 10),
             _dropdown<String>(
@@ -150,9 +150,9 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
               onChanged: selectedBillingMode == null
                   ? null
                   : (value) => setState(() {
-                      selectedVariant = value;
-                      selectedDuration = null;
-                    }),
+                        selectedVariant = value;
+                        selectedDuration = null;
+                      }),
             ),
             const SizedBox(height: 10),
             _dropdown<int>(
@@ -161,9 +161,9 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
               values: selectedVariant == null
                   ? const <int>{}
                   : _modePlans
-                        .where((plan) => _variantOf(plan) == selectedVariant)
-                        .map((plan) => plan.durationMonths!)
-                        .toSet(),
+                      .where((plan) => _variantOf(plan) == selectedVariant)
+                      .map((plan) => plan.durationMonths!)
+                      .toSet(),
               text: (value) => value == 1 ? '1 mese' : '$value mesi',
               onChanged: selectedVariant == null
                   ? null

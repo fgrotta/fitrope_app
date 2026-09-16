@@ -52,8 +52,8 @@ CourseState getCourseState(Course course, FitropeUser user) {
 
   final bool legacyReadOnlyAccess =
       course.resolvedTypeTag == CourseTags.HEY_MAMMA &&
-      (user.tipologiaCorsoTags.contains(CourseTags.HEY_MAMMA) ||
-          user.tipologiaCorsoTags.contains('Tutti i corsi'));
+          (user.tipologiaCorsoTags.contains(CourseTags.HEY_MAMMA) ||
+              user.tipologiaCorsoTags.contains('Tutti i corsi'));
 
   // Abbonamenti che coprono la tipologia del corso (solo modello multi-abbonamento).
   final List<UserSubscription> covering = useSubscriptions
@@ -206,9 +206,8 @@ CourseState? _getSubscriptionLimitState(FitropeUser user, DateTime courseDate) {
 
 /// Inizio/fine (in millis) della settimana che contiene [courseDate] (lun-dom, UTC).
 ({int start, int end}) _weekBoundsMillis(DateTime courseDate) {
-  DateTime startOfWeek = courseDate
-      .subtract(Duration(days: courseDate.weekday - 1))
-      .toUtc();
+  DateTime startOfWeek =
+      courseDate.subtract(Duration(days: courseDate.weekday - 1)).toUtc();
   startOfWeek = DateTime.utc(
     startOfWeek.year,
     startOfWeek.month,

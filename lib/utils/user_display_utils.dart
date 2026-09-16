@@ -38,9 +38,8 @@ class UserDisplayUtils {
     }
 
     try {
-      final trainer = trainers
-          .where((user) => user.uid == trainerId)
-          .firstOrNull;
+      final trainer =
+          trainers.where((user) => user.uid == trainerId).firstOrNull;
 
       if (trainer != null) {
         return '${trainer.name} ${trainer.lastName}';

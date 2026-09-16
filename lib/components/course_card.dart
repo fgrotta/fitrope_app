@@ -51,7 +51,7 @@ class CourseCard extends StatefulWidget {
   final bool isAdmin;
   final String? userRole; // Ruolo dell'utente corrente
   final bool
-  showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
+      showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
 
   const CourseCard({
     required this.courseId,
@@ -99,16 +99,16 @@ class _CourseCardState extends State<CourseCard> {
         title: const Text('Iscritti al corso'),
         content:
             widget.subscribersNames == null || widget.subscribersNames!.isEmpty
-            ? const Text('Nessun iscritto')
-            : SizedBox(
-                width: 300,
-                child: ListView(
-                  shrinkWrap: true,
-                  children: widget.subscribersNames!
-                      .map((name) => ListTile(title: Text(name)))
-                      .toList(),
-                ),
-              ),
+                ? const Text('Nessun iscritto')
+                : SizedBox(
+                    width: 300,
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: widget.subscribersNames!
+                          .map((name) => ListTile(title: Text(name)))
+                          .toList(),
+                    ),
+                  ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -708,8 +708,7 @@ class _CourseCardState extends State<CourseCard> {
   // Assente se nessun tag del corso è una tipologia registrata: meglio niente
   // che un'etichetta inventata.
   Widget _buildTypeBadge() {
-    final label =
-        widget.course.displayTag ??
+    final label = widget.course.displayTag ??
         (widget.course.resolvedCourseType == CourseType.open
             ? 'Open'
             : 'Personal Trainer');
@@ -908,18 +907,18 @@ class _CourseCardState extends State<CourseCard> {
                         borderRadius: BorderRadius.circular(8),
                         border:
                             (widget.capacity != null && widget.capacity! > 0)
-                            ? Border(
-                                left: BorderSide(
-                                  color: capacityColor(
-                                    widget.subscribersUsers?.length ??
-                                        widget.subscribed ??
-                                        0,
-                                    widget.capacity!,
-                                  ),
-                                  width: 4,
-                                ),
-                              )
-                            : null,
+                                ? Border(
+                                    left: BorderSide(
+                                      color: capacityColor(
+                                        widget.subscribersUsers?.length ??
+                                            widget.subscribed ??
+                                            0,
+                                        widget.capacity!,
+                                      ),
+                                      width: 4,
+                                    ),
+                                  )
+                                : null,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1125,32 +1124,32 @@ class _AddSubscriberDialogState extends State<AddSubscriberDialog> {
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : filteredUsers.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Nessun utente disponibile',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: filteredUsers.length,
-                      itemBuilder: (context, index) {
-                        final user = filteredUsers[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            child: Text(
-                              '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
-                            ),
+                      ? const Center(
+                          child: Text(
+                            'Nessun utente disponibile',
+                            style: TextStyle(color: Colors.grey),
                           ),
-                          title: Text('${user.name} ${user.lastName}'),
-                          subtitle: Text(user.email),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.add),
-                            onPressed: () => _addSubscriber(user.uid),
-                            tooltip: 'Aggiungi al corso',
-                          ),
-                        );
-                      },
-                    ),
+                        )
+                      : ListView.builder(
+                          itemCount: filteredUsers.length,
+                          itemBuilder: (context, index) {
+                            final user = filteredUsers[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                child: Text(
+                                  '${user.name.isNotEmpty ? user.name[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}',
+                                ),
+                              ),
+                              title: Text('${user.name} ${user.lastName}'),
+                              subtitle: Text(user.email),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: () => _addSubscriber(user.uid),
+                                tooltip: 'Aggiungi al corso',
+                              ),
+                            );
+                          },
+                        ),
             ),
           ],
         ),

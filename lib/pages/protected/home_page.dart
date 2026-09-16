@@ -436,8 +436,7 @@ class _HomePageState extends State<HomePage> {
       user.activeSubscriptions,
     );
     if (live.isNotEmpty) {
-      final certificatoInScadenza =
-          user.certificatoScadenza != null &&
+      final certificatoInScadenza = user.certificatoScadenza != null &&
           CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
       return Column(
         children: [
@@ -490,8 +489,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Controlla se il certificato è in scadenza
-    final certificatoInScadenza =
-        user.certificatoScadenza != null &&
+    final certificatoInScadenza = user.certificatoScadenza != null &&
         CertificatoHelper.isCertificatoInScadenza(user.certificatoScadenza);
 
     return Column(
@@ -527,9 +525,8 @@ class _HomePageState extends State<HomePage> {
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: giorniRimanenti <= 3
-            ? Colors.red.shade100
-            : Colors.orange.shade100,
+        color:
+            giorniRimanenti <= 3 ? Colors.red.shade100 : Colors.orange.shade100,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: giorniRimanenti <= 3
@@ -1096,19 +1093,17 @@ class _HomePageState extends State<HomePage> {
 
     final entries = _utentiProva
         .map((u) {
-          final courses =
-              allCourses
-                  .where(
-                    (c) =>
-                        u.courses.contains(c.uid) &&
-                        c.startDate.toDate().isAfter(now) &&
-                        c.startDate.toDate().isBefore(limit),
-                  )
-                  .toList()
-                ..sort(
-                  (a, b) =>
-                      a.startDate.toDate().compareTo(b.startDate.toDate()),
-                );
+          final courses = allCourses
+              .where(
+                (c) =>
+                    u.courses.contains(c.uid) &&
+                    c.startDate.toDate().isAfter(now) &&
+                    c.startDate.toDate().isBefore(limit),
+              )
+              .toList()
+            ..sort(
+              (a, b) => a.startDate.toDate().compareTo(b.startDate.toDate()),
+            );
           return (u, courses);
         })
         .where((e) => e.$2.isNotEmpty)
@@ -1137,19 +1132,17 @@ class _HomePageState extends State<HomePage> {
 
     final entries = _utentiProva
         .map((u) {
-          final courses =
-              allCourses
-                  .where(
-                    (c) =>
-                        u.courses.contains(c.uid) &&
-                        c.startDate.toDate().isAfter(limit) &&
-                        c.startDate.toDate().isBefore(now),
-                  )
-                  .toList()
-                ..sort(
-                  (a, b) =>
-                      b.startDate.toDate().compareTo(a.startDate.toDate()),
-                );
+          final courses = allCourses
+              .where(
+                (c) =>
+                    u.courses.contains(c.uid) &&
+                    c.startDate.toDate().isAfter(limit) &&
+                    c.startDate.toDate().isBefore(now),
+              )
+              .toList()
+            ..sort(
+              (a, b) => b.startDate.toDate().compareTo(a.startDate.toDate()),
+            );
           return (u, courses);
         })
         .where((e) => e.$2.isNotEmpty)
@@ -1200,19 +1193,17 @@ class _HomePageState extends State<HomePage> {
 
     final entries = _utentiSenzaRegolamento
         .map((u) {
-          final courses =
-              allCourses
-                  .where(
-                    (c) =>
-                        u.courses.contains(c.uid) &&
-                        c.startDate.toDate().isAfter(now) &&
-                        c.startDate.toDate().isBefore(limit),
-                  )
-                  .toList()
-                ..sort(
-                  (a, b) =>
-                      a.startDate.toDate().compareTo(b.startDate.toDate()),
-                );
+          final courses = allCourses
+              .where(
+                (c) =>
+                    u.courses.contains(c.uid) &&
+                    c.startDate.toDate().isAfter(now) &&
+                    c.startDate.toDate().isBefore(limit),
+              )
+              .toList()
+            ..sort(
+              (a, b) => a.startDate.toDate().compareTo(b.startDate.toDate()),
+            );
           return (u, courses);
         })
         .where((e) => e.$2.isNotEmpty)
