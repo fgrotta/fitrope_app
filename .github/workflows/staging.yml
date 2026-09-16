@@ -62,6 +62,13 @@ jobs:
           --dart-define=FIREBASE_AUTH_DOMAIN=${{ vars.FIREBASE_STAGING_AUTH_DOMAIN }}
           --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STAGING_STORAGE_BUCKET }}
           --dart-define=FIREBASE_MEASUREMENT_ID=${{ vars.FIREBASE_STAGING_MEASUREMENT_ID }}
+      # Gate anti-regressione del conditional export di onesignal_service.dart:
+      # sotto --wasm `dart.library.html` e' false, quindi una direttiva scritta
+      # male compila il ramo *mobile* sul web (MissingPluginException a runtime,
+      # niente push ne' alias email). Il marcatore e' il debugPrint del ramo web:
+      # il ramo mobile stampa invece "[OneSignal]" senza " Web".
+      - name: Verifica che il bundle wasm contenga il ramo web di OneSignal
+        run: grep -aq 'OneSignal Web' build/web/main.dart.wasm
       # L'icona e il nome della PWA vivono in manifest.json/index.html, file
       # statici che i --dart-define non vedono: si marchiano dopo il build.
       # Il grep e' il guardrail — senza, un branding non applicato passerebbe
