@@ -165,7 +165,7 @@ describe("migrazione puntuale utente legacy", () => {
     );
     expect(state.users[USER].legacySubscriptionMigration).toEqual(
       expect.objectContaining({
-        version: 1,
+        version: 2,
         source: "ADMIN_AUTO",
         planKey: "open_2x_1m",
         actor: ADMIN,
@@ -213,6 +213,40 @@ describe("migrazione puntuale utente legacy", () => {
     expect(Object.values(state.subscriptions)[0]).toEqual(
       expect.objectContaining({ family: "PT", remainingEntries: 7 }),
     );
+  });
+
+  test("AUTO converte pacchetto e riallinea il registro consumi", async () => {
+    const state = makeDb({
+      user: legacyUser({
+        tipologiaIscrizione: "PACCHETTO_ENTRATE",
+        entrateDisponibili: 4,
+        enrollmentConsumption: {
+          course1: { kind: "LEGACY_ENTRY", atMillis: 1 },
+        },
+      }),
+    });
+    const before = await preview(state.db);
+    await migrateLegacyUserHandler({
+      auth: { uid: ADMIN },
+      data: {
+        userId: USER,
+        mode: "AUTO",
+        expectedFingerprint: before.expectedFingerprint,
+      },
+    }, state.db);
+    expect(Object.values(state.subscriptions)[0]).toEqual(expect.objectContaining({
+      planKey: "open_10i_3m",
+      remainingEntries: 4,
+    }));
+    expect(state.users[USER]).toMatchObject({
+      subscriptionModelVersion: 2,
+      enrollmentConsumption: {
+        course1: {
+          kind: "SUBSCRIPTION_ENTRY",
+          subscriptionId: `legacy_open_${USER}`,
+        },
+      },
+    });
   });
 
   test("rifiuta durata guidata errata e source drift", async () => {

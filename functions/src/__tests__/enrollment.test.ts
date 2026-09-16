@@ -13,9 +13,9 @@ import {
 import { Timestamp } from "firebase-admin/firestore";
 
 describe("Catalogo piani (mirror Dart)", () => {
-  test("20 piani: 16 Open + 4 PT, chiavi univoche", () => {
-    expect(SUBSCRIPTION_PLANS.length).toBe(20);
-    expect(SUBSCRIPTION_PLANS.filter((p) => p.family === "OPEN").length).toBe(16);
+  test("21 piani: Prova + 16 Open + 4 PT, chiavi univoche", () => {
+    expect(SUBSCRIPTION_PLANS.length).toBe(21);
+    expect(SUBSCRIPTION_PLANS.filter((p) => p.family === "OPEN").length).toBe(17);
     expect(SUBSCRIPTION_PLANS.filter((p) => p.family === "PT").length).toBe(4);
     const keys = SUBSCRIPTION_PLANS.map((p) => p.key);
     expect(new Set(keys).size).toBe(keys.length);

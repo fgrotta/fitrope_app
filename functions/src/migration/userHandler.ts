@@ -31,6 +31,8 @@ function source(data: Record<string, unknown>): Record<string, unknown> {
     entrateDisponibili: data.entrateDisponibili,
     entrateSettimanali: data.entrateSettimanali,
     fineIscrizione: timestampMillis(data.fineIscrizione),
+    subscriptionModelVersion: data.subscriptionModelVersion,
+    enrollmentConsumption: data.enrollmentConsumption,
   };
 }
 
@@ -161,7 +163,10 @@ function guidedRecord(
   }
   const plan = planByKey(planKey);
   if (!plan) throw new HttpsError("invalid-argument", "Piano sconosciuto");
-  if (addMonthsInRome(start, plan.durationMonths) !== end) {
+  const expectedEnd = plan.durationDays !== null
+    ? start + plan.durationDays * 86400000
+    : addMonthsInRome(start, plan.durationMonths!);
+  if (expectedEnd !== end) {
     throw new HttpsError(
       "invalid-argument",
       "La durata del piano non è valida in Europe/Rome",
@@ -204,6 +209,22 @@ function guidedRecord(
   };
 }
 
+function migratedConsumption(
+  data: Record<string, unknown>,
+  subscriptionId: string,
+): Record<string, unknown> {
+  const raw = data.enrollmentConsumption;
+  const source = raw && typeof raw === "object" && !Array.isArray(raw)
+    ? raw as Record<string, Record<string, unknown>>
+    : {};
+  return Object.fromEntries(Object.entries(source).map(([courseId, record]) => [
+    courseId,
+    record?.kind === "LEGACY_ENTRY"
+      ? { ...record, kind: "SUBSCRIPTION_ENTRY", subscriptionId }
+      : record,
+  ]));
+}
+
 export async function migrateLegacyUserHandler(
   request: { auth?: { uid: string } | null; data: unknown },
   db: admin.firestore.Firestore,
@@ -224,10 +245,10 @@ export async function migrateLegacyUserHandler(
     const user = await tx.get(userRef);
     if (!user.exists) throw new HttpsError("not-found", "Utente inesistente");
     const userData = user.data()!;
-    if (fingerprint(userData) !== expected)
-      throw new HttpsError("aborted", "SOURCE_DRIFT");
     if (userData.legacySubscriptionMigration)
       return { status: "MIGRATED", alreadyApplied: true };
+    if (fingerprint(userData) !== expected)
+      throw new HttpsError("aborted", "SOURCE_DRIFT");
     const automatic = transformUser(userId, userData, Date.now());
     let record: UserSubscriptionRecord;
     if (mode === "AUTO") {
@@ -255,6 +276,8 @@ export async function migrateLegacyUserHandler(
       activeSubscriptions: computeActiveSnapshot(all, Date.now()).map(
         recordToSnapshotEntry,
       ),
+      subscriptionModelVersion: 2,
+      enrollmentConsumption: migratedConsumption(userData, record.id!),
       legacySubscriptionMigration: {
         ...legacySubscriptionMigrationMarker(
           mode === "AUTO" ? "ADMIN_AUTO" : "ADMIN_GUIDED",

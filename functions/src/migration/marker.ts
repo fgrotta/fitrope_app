@@ -9,7 +9,7 @@ export function legacySubscriptionMigrationMarker(
   actor: string,
 ): Record<string, unknown> {
   return {
-    version: 1,
+    version: 2,
     source,
     subscriptionId,
     planKey,

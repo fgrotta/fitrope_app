@@ -32,7 +32,7 @@ Tutti i 109 corsi futuri sono convertibili.
 
 ### Utenti
 
-Un utente viene convertito solo quando:
+Un abbonamento temporale viene convertito automaticamente quando:
 
 - `role == 'User'`;
 - non contiene Hey Mamma;
@@ -49,6 +49,11 @@ Un utente viene convertito solo quando:
 | Semestrale | 2/3/illimitato | `open_2x_6m` / `open_3x_6m` / `open_unlim_6m` |
 | Annuale | 2/3/illimitato | `open_2x_12m` / `open_3x_12m` / `open_unlim_12m` |
 
+I modelli a ingressi seguono la matrice descritta in
+[PROVA_E_PACCHETTI.md](PROVA_E_PACCHETTI.md): Prova Open da un ingresso e 30
+giorni, Pacchetto Open/PT da 10 ingressi e tre mesi. Saldo e scadenza vengono
+conservati esattamente; anomalie e prenotazioni future non coperte sono escluse.
+
 Distribuzione delle 58 conversioni automatiche:
 
 | Piano | Utenti |
@@ -63,7 +68,8 @@ Distribuzione delle 58 conversioni automatiche:
 
 Vengono ignorati e riportati:
 
-- 334 pacchetti ingressi o prove;
+- pacchetti/prove che non rispettano saldo, tag, scadenza o copertura delle
+  prenotazioni future;
 - 53 documenti con ruolo diverso da User o assente;
 - 32 shape invalide o ambigue;
 - 8 utenti Hey Mamma;
@@ -137,8 +143,9 @@ Codici principali di esclusione:
 
 - `HEY_MAMMA`
 - `ROLE_NOT_USER`
-- `NO_EXACT_ENTRIES_PLAN`
-- `TRIAL_NOT_SUPPORTED`
+- `INVALID_ENTRY_BALANCE`
+- `ENTRY_BALANCE_EXCEEDS_PLAN`
+- `FUTURE_BOOKING_NOT_COVERED`
 - `INVALID_LEGACY_TYPE`
 - `INVALID_TAG_SHAPE`
 - `INVALID_WEEKLY_FREQUENCY`

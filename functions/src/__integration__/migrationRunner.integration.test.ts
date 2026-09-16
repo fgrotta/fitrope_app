@@ -224,8 +224,9 @@ describe("runner migrazione contro Firestore Emulator", () => {
       planKey: "pt_10i_1m",
     });
     await db.collection("users").doc(userId).update({
+      subscriptionModelVersion: 2,
       legacySubscriptionMigration: {
-        version: 1,
+        version: 2,
         source: "ADMIN_GUIDED",
         subscriptionId: "legacy_guided_guided-before-batch",
       },

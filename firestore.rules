@@ -118,7 +118,7 @@ service cloud.firestore {
             || !request.resource.data.tipologiaCorsoTags.hasAny(['Tutti i corsi']))
         && !request.resource.data.keys().hasAny(
              ['activeSubscriptions', 'enrollmentConsumption', 'waitlistCourses',
-              'legacySubscriptionMigration'])
+              'legacySubscriptionMigration', 'subscriptionModelVersion'])
         && (!('cancelledEnrollments' in request.resource.data)
             || request.resource.data.cancelledEnrollments == []);
 
@@ -142,7 +142,7 @@ service cloud.firestore {
              ['uid', 'email', 'createdAt', 'regolamentoAccettatoIl',
               'courses', 'waitlistCourses', 'activeSubscriptions',
               'enrollmentConsumption', 'cancelledEnrollments',
-              'legacySubscriptionMigration']);
+              'legacySubscriptionMigration', 'subscriptionModelVersion']);
 
       // TRAINER su utenti con ruolo User: solo anagrafica (mirror della UI
       // _canEditSpecificField in UserDetailPage).

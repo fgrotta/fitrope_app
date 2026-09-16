@@ -90,6 +90,20 @@ function openFreqSubDoc(weeklyFrequency: number | null): Data {
   };
 }
 
+function trialSubDoc(remaining: number): Data {
+  return {
+    userId: "u1",
+    planKey: "open_trial_1i_30d",
+    family: "OPEN",
+    billingMode: "ENTRIES",
+    courseTypeTags: ["Open"],
+    weeklyFrequency: null,
+    remainingEntries: remaining,
+    startDate: Timestamp.fromMillis(NOW - 86400000),
+    endDate: Timestamp.fromMillis(NOW + 29 * 86400000),
+  };
+}
+
 function snapshotEntry(id: string, doc: Data): Data {
   const { userId: _u, ...rest } = doc;
   return { id, ...rest };
@@ -556,6 +570,32 @@ describe("subscribeToCourseHandler", () => {
     );
     expect(calls).toEqual([]);
     expect(store.users.u1.courses).toEqual(["c1"]);
+  });
+
+  test("piano Prova V2 conserva conferma e promemoria", async () => {
+    const calls: string[] = [];
+    const trial = trialSubDoc(1);
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          subscriptionModelVersion: 2,
+          activeSubscriptions: [snapshotEntry("trial", trial)],
+        }),
+      },
+      courses: { c1: course() },
+      subs: { trial },
+    };
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      makeDb(store),
+      {
+        notifyTrialReminder: async () => void calls.push("reminder"),
+        notifyTrialConfirmation: async () => void calls.push("confirmation"),
+      },
+      NOW
+    );
+    expect(calls.sort()).toEqual(["confirmation", "reminder"]);
+    expect(store.subs.trial.remainingEntries).toBe(0);
   });
 
   test("corso già iniziato → failed-precondition; force admin lo consente", async () => {

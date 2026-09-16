@@ -9,8 +9,9 @@ export type ReasonCode =
   | "OK"
   | "HEY_MAMMA"
   | "ROLE_NOT_USER"
-  | "NO_EXACT_ENTRIES_PLAN"
-  | "TRIAL_NOT_SUPPORTED"
+  | "INVALID_ENTRY_BALANCE"
+  | "ENTRY_BALANCE_EXCEEDS_PLAN"
+  | "FUTURE_BOOKING_NOT_COVERED"
   | "INVALID_LEGACY_TYPE"
   | "INVALID_TAG_SHAPE"
   | "INVALID_WEEKLY_FREQUENCY"
@@ -38,13 +39,12 @@ export interface SubscriptionMigrationTarget {
   userId: string;
   createdBy: "legacy-migration";
   planKey: string;
-  family: "OPEN";
-  billingMode: "FREQUENCY";
-  courseTypeTags: ["Open"];
+  family: "OPEN" | "PT";
+  billingMode: "FREQUENCY" | "ENTRIES";
+  courseTypeTags: string[];
   weeklyFrequency: 2 | 3 | null;
-  remainingEntries: null;
+  remainingEntries: number | null;
   startDateMillis: number;
   endDateMillis: number;
   createdAtMillis: number;
 }
-

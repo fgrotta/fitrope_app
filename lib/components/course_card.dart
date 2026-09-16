@@ -601,7 +601,7 @@ class _CourseCardState extends State<CourseCard> {
     if (user.isAnonymous) {
       return '$baseName - (Anonimo)';
     }
-    if (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+    if (user.isTrialSubscriptionUser) {
       return '$baseName - (Prova)';
     }
     return baseName;
@@ -785,18 +785,16 @@ class _CourseCardState extends State<CourseCard> {
             }
           : null,
       style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.all(action.background),
-          minimumSize: WidgetStateProperty.all(Size.zero),
-          padding: WidgetStateProperty.all(
-              const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 10)),
-          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-              RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ))),
-      child: Text(
-        action.label,
-        style: TextStyle(color: action.foreground),
+        backgroundColor: WidgetStateProperty.all(action.background),
+        minimumSize: WidgetStateProperty.all(Size.zero),
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 10),
+        ),
+        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       ),
+      child: Text(action.label, style: TextStyle(color: action.foreground)),
     );
   }
 

@@ -15,8 +15,10 @@ class SubscriptionPlan {
   /// ENTRIES: numero di ingressi del pacchetto.
   final int? entries;
 
-  /// Durata/validità in mesi: 1, 3, 6, 12.
-  final int durationMonths;
+  /// Durata/validità: i piani ordinari usano mesi di calendario; la Prova usa
+  /// 30 giorni esatti per conservare la semantica del legacy.
+  final int? durationMonths;
+  final int? durationDays;
 
   /// Tipologie di corso sbloccate (tag).
   final Set<String> grantedCourseTypeTags;
@@ -28,7 +30,8 @@ class SubscriptionPlan {
     required this.billingMode,
     this.weeklyFrequency,
     this.entries,
-    required this.durationMonths,
+    this.durationMonths,
+    this.durationDays,
     required this.grantedCourseTypeTags,
   });
 }
@@ -41,7 +44,17 @@ class SubscriptionPlans {
 
   static String _durLabel(int m) => m == 1 ? '1 mese' : '$m mesi';
 
-  static List<SubscriptionPlan> get all => [...open, ...pt];
+  static const SubscriptionPlan trial = SubscriptionPlan(
+    key: 'open_trial_1i_30d',
+    displayName: 'Prova Open · 1 ingresso · 30 giorni',
+    family: SubscriptionFamily.OPEN,
+    billingMode: BillingMode.ENTRIES,
+    entries: 1,
+    durationDays: 30,
+    grantedCourseTypeTags: {CourseTags.OPEN},
+  );
+
+  static List<SubscriptionPlan> get all => [trial, ...open, ...pt];
 
   static List<SubscriptionPlan> get open => [
         for (final d in durations) ...[

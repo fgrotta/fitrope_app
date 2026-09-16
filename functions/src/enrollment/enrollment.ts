@@ -335,6 +335,10 @@ export function resolveCreditMode(
     return { creditMode: "NONE", subscriptionId: null };
   }
 
+  if (((user.subscriptionModelVersion as number | null) ?? 1) >= 2) {
+    return { creditMode: "NONE", subscriptionId: null };
+  }
+
   const tip = (user.tipologiaIscrizione as string | null) ?? null;
   if (tip === "PACCHETTO_ENTRATE" || tip === "ABBONAMENTO_PROVA") {
     return { creditMode: "ENTRIES_LEGACY", subscriptionId: null };
@@ -477,6 +481,8 @@ export async function subscribeToCourseHandler(
       courseStartMillis,
       nowMillis,
       activeSubscriptions: records,
+      subscriptionModelVersion:
+        (user.subscriptionModelVersion as number | null) ?? 1,
       tipologia: (user.tipologiaIscrizione as string | null) ?? null,
       entrateDisponibili: (user.entrateDisponibili as number | null) ?? null,
       entrateSettimanali: (user.entrateSettimanali as number | null) ?? null,
@@ -493,8 +499,13 @@ export async function subscribeToCourseHandler(
     // Promemoria prova: solo per utenti ancora sul modello legacy (uno snapshot
     // vivo significa che l'utente è stato convertito al multi-abbonamento, anche
     // se tipologiaIscrizione legacy è rimasta PROVA).
-    isTrialUser =
-      liveRecords.length === 0 && user.tipologiaIscrizione === "ABBONAMENTO_PROVA";
+    isTrialUser = liveRecords.some(
+      (record) => record.planKey === "open_trial_1i_30d"
+    ) || (
+      liveRecords.length === 0 &&
+      ((user.subscriptionModelVersion as number | null) ?? 1) < 2 &&
+      user.tipologiaIscrizione === "ABBONAMENTO_PROVA"
+    );
 
     // ----- scritture (array ricostruiti dai doc letti in transazione) -----
     const subscribed = (course.data.subscribed as number) ?? 0;
@@ -885,6 +896,8 @@ export async function joinWaitlistHandler(
       courseStartMillis,
       nowMillis,
       activeSubscriptions: records,
+      subscriptionModelVersion:
+        (user.subscriptionModelVersion as number | null) ?? 1,
       tipologia: (user.tipologiaIscrizione as string | null) ?? null,
       entrateDisponibili: (user.entrateDisponibili as number | null) ?? null,
       entrateSettimanali: (user.entrateSettimanali as number | null) ?? null,

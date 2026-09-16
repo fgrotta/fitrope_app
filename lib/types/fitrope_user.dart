@@ -86,6 +86,7 @@ class FitropeUser {
   final bool pushNotificationsEnabled; // Preferenza notifiche push
   final List<UserSubscription>
       activeSubscriptions; // Snapshot abbonamenti attivi (multi-abbonamento)
+  final int subscriptionModelVersion; // 2 = nessun fallback ai campi legacy
 
   const FitropeUser({
     required this.name,
@@ -110,7 +111,12 @@ class FitropeUser {
     this.emailNotificationsEnabled = true,
     this.pushNotificationsEnabled = true,
     this.activeSubscriptions = const [],
+    this.subscriptionModelVersion = 1,
   });
+
+  bool get isTrialSubscriptionUser => subscriptionModelVersion >= 2
+      ? activeSubscriptions.any((s) => s.planKey == 'open_trial_1i_30d')
+      : tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA;
 
   Map<String, dynamic> toJson() {
     return {
@@ -138,6 +144,7 @@ class FitropeUser {
       'pushNotificationsEnabled': pushNotificationsEnabled,
       'activeSubscriptions':
           activeSubscriptions.map((s) => s.toJson()).toList(),
+      'subscriptionModelVersion': subscriptionModelVersion,
     };
   }
 
@@ -196,6 +203,7 @@ class FitropeUser {
       activeSubscriptions: _parseActiveSubscriptions(
         json['activeSubscriptions'],
       ),
+      subscriptionModelVersion: json['subscriptionModelVersion'] as int? ?? 1,
     );
   }
 }
@@ -226,7 +234,9 @@ List<UserSubscription> _parseActiveSubscriptions(dynamic raw) {
     } catch (error) {
       debugPrint('Snapshot abbonamento non valido: $error');
       throw FormatException(
-          'activeSubscriptions contiene un piano invalido', error);
+        'activeSubscriptions contiene un piano invalido',
+        error,
+      );
     }
   }
   return result;

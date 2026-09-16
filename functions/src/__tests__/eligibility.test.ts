@@ -568,6 +568,17 @@ describe("boundary di scadenza al millisecondo", () => {
     );
     expect(fallback.reason).toBe("OK");
     expect(fallback.consume).toEqual({ kind: "LEGACY_ENTRY" });
+
+    const migrated = evaluateSubscribe(input({
+      subscriptionModelVersion: 2,
+      tipologia: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 5,
+      activeSubscriptions: [
+        sub({ endDateMillis: NOW - 1, billingMode: "FREQUENCY", weeklyFrequency: 2 }),
+      ],
+    }));
+    expect(migrated.reason).toBe("EXPIRED");
+    expect(migrated.consume).toEqual({ kind: "NONE" });
   });
 });
 

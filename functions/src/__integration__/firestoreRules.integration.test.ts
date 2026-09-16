@@ -364,6 +364,7 @@ describe("rules: users — update self (whitelist profilo)", () => {
       { waitlistCourses: ["c1"] },
       { activeSubscriptions: [{ planKey: "open_10i_3m", remainingEntries: 99 }] },
       { legacySubscriptionMigration: { version: 1 } },
+      { subscriptionModelVersion: 2 },
       { enrollmentConsumption: {} },
       { cancelledEnrollments: [{ courseId: "x" }] },
     ];
@@ -391,6 +392,7 @@ describe("rules: users — update Admin/Trainer", () => {
       { waitlistCourses: ["c1"] },
       { activeSubscriptions: [{ planKey: "x" }] },
       { legacySubscriptionMigration: { version: 1 } },
+      { subscriptionModelVersion: 2 },
       { enrollmentConsumption: {} },
       { cancelledEnrollments: [{ courseId: "x" }] as unknown[] },
       { email: "altro@test.it" },

@@ -48,7 +48,9 @@ export function buildSubscriptionFromPlan(
     weeklyFrequency: plan.weeklyFrequency,
     remainingEntries: plan.billingMode === "ENTRIES" ? plan.entries : null,
     startDateMillis: startMillis,
-    endDateMillis: addMonths(startMillis, plan.durationMonths),
+    endDateMillis: plan.durationDays !== null
+      ? startMillis + plan.durationDays * 86400000
+      : addMonths(startMillis, plan.durationMonths!),
   };
 }
 

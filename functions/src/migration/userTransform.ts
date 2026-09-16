@@ -19,6 +19,16 @@ const PLAN_VARIANT: Record<string, string> = {
   null: "unlim",
 };
 
+const TRIAL_DAYS = 30;
+const PACKAGE_MONTHS = 3;
+const PACKAGE_ENTRIES = 10;
+
+export interface FutureBookingForMigration {
+  courseId: string;
+  startDateMillis: number;
+  courseTypeTag: string | null;
+}
+
 interface ZonedParts {
   year: number;
   month: number;
@@ -122,14 +132,40 @@ export function timestampMillis(value: unknown): number | null {
   return null;
 }
 
-export function deterministicSubscriptionId(documentId: string): string {
-  return `legacy_open_${documentId}`;
+export function deterministicSubscriptionId(
+  documentId: string,
+  family: "OPEN" | "PT" = "OPEN"
+): string {
+  return `legacy_${family.toLowerCase()}_${documentId}`;
+}
+
+function exactTags(tags: unknown, expected: string): boolean {
+  return Array.isArray(tags) && tags.length === 1 && tags[0] === expected;
+}
+
+function entryBalance(data: Data, maximum: number): number | null {
+  const value = data.entrateDisponibili;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return null;
+  return value <= maximum ? value : Number.POSITIVE_INFINITY;
+}
+
+function uncoveredFutureBooking(
+  bookings: FutureBookingForMigration[],
+  target: SubscriptionMigrationTarget
+): FutureBookingForMigration | undefined {
+  return bookings.find((booking) =>
+    booking.startDateMillis < target.startDateMillis ||
+    booking.startDateMillis > target.endDateMillis ||
+    booking.courseTypeTag === null ||
+    !target.courseTypeTags.includes(booking.courseTypeTag)
+  );
 }
 
 export function transformUser(
   documentId: string,
   data: Data,
-  evaluatedAtMillis: number
+  evaluatedAtMillis: number,
+  futureBookings: FutureBookingForMigration[] = []
 ): MigrationDecision<SubscriptionMigrationTarget> {
   const tags = data.tipologiaCorsoTags;
   if (Array.isArray(tags) && tags.includes("Hey Mamma")) {
@@ -140,15 +176,85 @@ export function transformUser(
   }
 
   const legacyType = data.tipologiaIscrizione;
-  if (legacyType === "PACCHETTO_ENTRATE") {
-    return ignored(
-      "NO_EXACT_ENTRIES_PLAN",
-      "il legacy a ingressi non contiene una durata target esatta"
-    );
+  const endDateMillis = timestampMillis(data.fineIscrizione);
+  if (endDateMillis === null) {
+    return ignored("MISSING_END_DATE", "fineIscrizione assente o invalida");
   }
+
+  let target: SubscriptionMigrationTarget;
   if (legacyType === "ABBONAMENTO_PROVA") {
-    return ignored("TRIAL_NOT_SUPPORTED", "la prova non ha un piano target");
-  }
+    if (!exactTags(tags, "Open")) {
+      return ignored(
+        "INVALID_TAG_SHAPE",
+        `la prova richiede il solo tag Open: ${JSON.stringify(tags)}`
+      );
+    }
+    const remaining = entryBalance(data, 1);
+    if (remaining === null) {
+      return ignored("INVALID_ENTRY_BALANCE", "entrateDisponibili negativo o invalido");
+    }
+    if (!Number.isFinite(remaining)) {
+      return ignored("ENTRY_BALANCE_EXCEEDS_PLAN", "la prova ammette al massimo 1 ingresso");
+    }
+    const startDateMillis = endDateMillis - TRIAL_DAYS * 86400000;
+    if (startDateMillis > evaluatedAtMillis) {
+      return ignored("FUTURE_START", "la data iniziale nominale e successiva al dry-run");
+    }
+    target = {
+      id: deterministicSubscriptionId(documentId),
+      userId: documentId,
+      createdBy: "legacy-migration",
+      planKey: "open_trial_1i_30d",
+      family: "OPEN",
+      billingMode: "ENTRIES",
+      courseTypeTags: ["Open"],
+      weeklyFrequency: null,
+      remainingEntries: remaining,
+      startDateMillis,
+      endDateMillis,
+      createdAtMillis: evaluatedAtMillis,
+    };
+  } else if (legacyType === "PACCHETTO_ENTRATE") {
+    const family = exactTags(tags, "Open")
+      ? "OPEN"
+      : exactTags(tags, "Personal Trainer") ? "PT" : null;
+    if (family === null) {
+      return ignored(
+        "INVALID_TAG_SHAPE",
+        `il pacchetto richiede un solo tag Open o Personal Trainer: ${JSON.stringify(tags)}`
+      );
+    }
+    const remaining = entryBalance(data, PACKAGE_ENTRIES);
+    if (remaining === null) {
+      return ignored("INVALID_ENTRY_BALANCE", "entrateDisponibili negativo o invalido");
+    }
+    if (!Number.isFinite(remaining)) {
+      return ignored(
+        "ENTRY_BALANCE_EXCEEDS_PLAN",
+        `entrateDisponibili supera il massimo ${PACKAGE_ENTRIES}`
+      );
+    }
+    const startDateMillis = subtractMonthsInRome(endDateMillis, PACKAGE_MONTHS);
+    if (startDateMillis > evaluatedAtMillis) {
+      return ignored("FUTURE_START", "la data iniziale nominale e successiva al dry-run");
+    }
+    const prefix = family === "OPEN" ? "open" : "pt";
+    const tag = family === "OPEN" ? "Open" : "Personal Trainer";
+    target = {
+      id: deterministicSubscriptionId(documentId, family),
+      userId: documentId,
+      createdBy: "legacy-migration",
+      planKey: `${prefix}_10i_3m`,
+      family,
+      billingMode: "ENTRIES",
+      courseTypeTags: [tag],
+      weeklyFrequency: null,
+      remainingEntries: remaining,
+      startDateMillis,
+      endDateMillis,
+      createdAtMillis: evaluatedAtMillis,
+    };
+  } else {
   if (typeof legacyType !== "string" || MONTHS_BY_TYPE[legacyType] === undefined) {
     return ignored("INVALID_LEGACY_TYPE", `tipologia=${String(legacyType)}`);
   }
@@ -166,11 +272,6 @@ export function transformUser(
       `entrateSettimanali=${String(weekly)}`
     );
   }
-  const endDateMillis = timestampMillis(data.fineIscrizione);
-  if (endDateMillis === null) {
-    return ignored("MISSING_END_DATE", "fineIscrizione assente o invalida");
-  }
-
   const months = MONTHS_BY_TYPE[legacyType];
   const startDateMillis = subtractMonthsInRome(endDateMillis, months);
   if (startDateMillis > evaluatedAtMillis) {
@@ -182,7 +283,7 @@ export function transformUser(
 
   const id = deterministicSubscriptionId(documentId);
   const variant = PLAN_VARIANT[String(weekly)];
-  const target: SubscriptionMigrationTarget = {
+  target = {
     id,
     userId: documentId,
     createdBy: "legacy-migration",
@@ -196,6 +297,15 @@ export function transformUser(
     endDateMillis,
     createdAtMillis: evaluatedAtMillis,
   };
+  }
+
+  const uncovered = uncoveredFutureBooking(futureBookings, target);
+  if (uncovered) {
+    return ignored(
+      "FUTURE_BOOKING_NOT_COVERED",
+      `prenotazione futura ${uncovered.courseId} non coperta dal target`
+    );
+  }
   return {
     conversionStatus: "CONVERTIBLE",
     reasonCode: "OK",

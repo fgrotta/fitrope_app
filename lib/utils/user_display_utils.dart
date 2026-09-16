@@ -13,7 +13,7 @@ class UserDisplayUtils {
       if (user.isAnonymous) {
         return '$baseName - (Anonimo)';
       }
-      if (user.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
+      if (user.isTrialSubscriptionUser) {
         return '$baseName - (Prova)';
       }
       return baseName;
