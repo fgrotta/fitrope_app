@@ -71,7 +71,7 @@ di staging.yml e il `Banner` STAGING in `main.dart`.)*
 
 ### Functions e OneSignal
 
-Functions staging usa lo stesso `ONESIGNAL_APP_ID` e lo stesso `ONESIGNAL_REST_API_KEY` della produzione. I valori vanno impostati anche nel Secret Manager staging, perche i progetti Firebase non condividono secret.
+Staging ha una **app OneSignal dedicata** (Site URL `https://fgrotta.github.io`, integrazione "Custom Code"): `ONESIGNAL_APP_ID` e `ONESIGNAL_REST_API_KEY` sono quelli di quell'app, non quelli di produzione. Il secret va impostato nel Secret Manager staging, perche i progetti Firebase non condividono secret. **App id e REST key devono atterrare nello stesso deploy**: disallineati producono 401 su ogni invio, email comprese.
 
 `ONESIGNAL_APP_ID` e parametrizzato tramite la configurazione runtime Functions (`.env.<projectId>`). Il valore resta uguale oggi e puo cambiare senza refactor.
 
@@ -82,11 +82,13 @@ Guardrail obbligatori staging:
 - soggetto e contenuto marcati `[STAGING]`;
 - destinatari fuori allowlist soppressi e loggati;
 - nessun import di utenti, email o device token produzione;
-- il backend staging sopprime ogni payload push server-side. ⚠️ NB: il Web SDK OneSignal lato client è ATTIVO e l'appId in `lib/main.dart` è quello di produzione anche nella build staging — vedi il TODO "OneSignal web" in `CLAUDE.md`.
+- le push **non** sono piu soppresse in blocco: valgono gli stessi UID `stg_` delle email (l'allowlist email e un vincolo da inbox e non si applica al push);
+- guardrail dedicato: se l'app OneSignal configurata e quella di **produzione**, la push viene soppressa con `logger.error` e il deploy fallisce prima (assert in `staging.yml`);
+- l'appId del client arriva da `--dart-define=ONESIGNAL_APP_ID` (vars dell'environment `staging`): senza, la build staging salta l'init invece di registrare device sull'app di produzione.
 
 ## Configurazione GitHub e Firebase
 
-Il workflow richiede il GitHub Environment `staging` e queste **Actions variables**: `FIREBASE_STAGING_PROJECT_ID`, `FIREBASE_STAGING_API_KEY`, `FIREBASE_STAGING_APP_ID`, `FIREBASE_STAGING_MESSAGING_SENDER_ID`, `FIREBASE_STAGING_AUTH_DOMAIN`, `FIREBASE_STAGING_STORAGE_BUCKET`, `FIREBASE_STAGING_MEASUREMENT_ID` (opzionale), `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_STAGING_DEPLOY_SERVICE_ACCOUNT`, `ONESIGNAL_APP_ID`, `STAGING_NOTIFICATION_EMAIL_ALLOWLIST`.
+Il workflow richiede il GitHub Environment `staging` e queste **Actions variables**: `FIREBASE_STAGING_PROJECT_ID`, `FIREBASE_STAGING_API_KEY`, `FIREBASE_STAGING_APP_ID`, `FIREBASE_STAGING_MESSAGING_SENDER_ID`, `FIREBASE_STAGING_AUTH_DOMAIN`, `FIREBASE_STAGING_STORAGE_BUCKET`, `FIREBASE_STAGING_MEASUREMENT_ID` (opzionale), `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_STAGING_DEPLOY_SERVICE_ACCOUNT`, `ONESIGNAL_APP_ID`, `STAGING_NOTIFICATION_EMAIL_ALLOWLIST`, `STAGING_APP_BASE_URL` (base URL della PWA, usata come deeplink `web_url` delle push).
 
 Prima del primo deploy impostare nel Secret Manager del **progetto staging** la stessa chiave usata in produzione:
 

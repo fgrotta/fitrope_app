@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fitrope_app/api/authentication/update_user.dart';
 import 'package:fitrope_app/api/authentication/toggle_user_status.dart';
 import 'package:fitrope_app/authentication/logout.dart';
@@ -116,8 +118,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
     }
   }
 
-  Future<bool> _showPushEnableSoftPrompt() async {
-    final result = await showDialog<bool>(
+  /// Soft prompt + richiesta del permesso.
+  ///
+  /// `requestPushPermission()` è la **prima istruzione** dell'`onPressed` di
+  /// "Continua" e il suo `Future` viene passato a `Navigator.pop`: solo così la
+  /// chiamata resta dentro la transient activation del tap. Se si aspettasse la
+  /// chiusura del dialog (≥3 turni di event loop) su iOS il prompt di sistema
+  /// non comparirebbe affatto.
+  ///
+  /// Ritorna `null` se l'utente ha scelto "Non ora" (nessuna richiesta fatta),
+  /// altrimenti l'esito del permesso.
+  Future<bool?> _requestPushWithSoftPrompt() async {
+    final requested = await showDialog<Future<bool>>(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -129,14 +141,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context),
               child: const Text(
                 'Non ora',
                 style: TextStyle(color: onPrimaryColor),
               ),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () {
+                // PRIMA istruzione: vedi doc sopra.
+                final granted = OneSignalService.requestPushPermission();
+                Navigator.pop(context, granted);
+              },
               child: const Text(
                 'Continua',
                 style: TextStyle(color: primaryColor),
@@ -147,7 +163,28 @@ class _UserDetailPageState extends State<UserDetailPage> {
       },
     );
 
-    return result ?? false;
+    if (requested == null) return null;
+    return requested;
+  }
+
+  /// Gestisce il tap sul toggle "Notifiche Push".
+  ///
+  /// Un diniego del browser **non** scrive mai `pushNotificationsEnabled =
+  /// false` su Firestore da solo: il flag è cross-device (un rifiuto su Chrome
+  /// desktop spegnerebbe le push anche sull'iPhone). Qui il toggle resta
+  /// semplicemente spento e il salvataggio non cambia nulla.
+  Future<void> _onPushToggleChanged(bool value) async {
+    if (!value) {
+      setState(() => selectedPushNotifications = false);
+      return;
+    }
+
+    final granted = await _requestPushWithSoftPrompt();
+    if (!mounted) return;
+    if (granted == null) return; // "Non ora": il toggle resta com'era
+
+    setState(() => selectedPushNotifications = granted);
+    if (!granted) await _showPushPermissionHelp();
   }
 
   Future<void> _showPushPermissionHelp() async {
@@ -407,28 +444,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
     bool pushPreferenceApplied = false;
 
     try {
-      if (pushPreferenceChanged) {
-        if (selectedPushNotifications) {
-          final confirmed = await _showPushEnableSoftPrompt();
-          if (!confirmed) {
-            selectedPushNotifications = previousPushPreference;
-          }
-        }
-
-        await OneSignalService.setPushEnabled(selectedPushNotifications);
+      // Sola persistenza: il permesso (e quindi l'opt-in) è già stato chiesto al
+      // tap sul toggle, dentro la transient activation. Qui resta solo
+      // l'opt-out, che un gesto utente non lo richiede.
+      if (pushPreferenceChanged && !selectedPushNotifications) {
+        await OneSignalService.setPushEnabled(false);
         pushPreferenceApplied = true;
-
-        if (selectedPushNotifications) {
-          final hasPermission = await OneSignalService.hasPushPermission();
-          if (!hasPermission) {
-            final canRequest =
-                await OneSignalService.canRequestPushPermission();
-            if (!canRequest) {
-              await _showPushPermissionHelp();
-            }
-            selectedPushNotifications = false;
-          }
-        }
       }
 
       await updateUser(
@@ -1178,7 +1199,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   'Notifiche Push',
                   Icons.notifications_active,
                   selectedPushNotifications,
-                  (value) => setState(() => selectedPushNotifications = value),
+                  (value) => unawaited(_onPushToggleChanged(value)),
                   enabled: isEditing,
                 ),
                 _buildNotificationToggle(

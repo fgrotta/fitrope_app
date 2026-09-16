@@ -179,17 +179,22 @@ Future<void> sendTestTrialConfirmationEmail({
 /// Il template vive server-side (TS), quindi passa per la callable dedicata
 /// `sendTestCertificateEmail` che renderizza e invia. `isExpiryDay` sceglie tra
 /// l'email "10 giorni prima" (false) e quella "scadenza oggi" (true).
+/// Con [asPush] la stessa callable manda una **push** invece dell'email: è
+/// l'unico modo di provare una push su staging senza aspettare il cron delle
+/// 08:00.
 Future<void> sendTestCertificateExpiryEmail({
   required String userId,
   required String firstName,
   required String email,
   required bool isExpiryDay,
+  bool asPush = false,
 }) async {
   SimulationSession.assertNotSimulating('sendTestCertificateEmail');
   assert(kDebugMode);
   final kind = isExpiryDay ? 'expiryToday' : 'reminder10';
+  final channel = asPush ? 'push' : 'email';
   debugPrint(
-      '🔔 [OneSignal API] Certificate Email [TEST] — userId: $userId, kind: $kind');
+      '🔔 [OneSignal API] Certificate Email [TEST] — userId: $userId, kind: $kind, channel: $channel');
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
         .httpsCallable('sendTestCertificateEmail');
@@ -198,6 +203,7 @@ Future<void> sendTestCertificateExpiryEmail({
       'firstName': firstName,
       'email': email,
       'kind': kind,
+      'channel': channel,
     });
     debugPrint(
         '🔔 [OneSignal API] Certificate Email [TEST] — RESPONSE: ${result.data}');

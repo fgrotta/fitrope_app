@@ -13,6 +13,7 @@ import {
   certificateReminderBody,
   certificateExpiryTodayBody,
 } from "./certificateEmailTemplates";
+import { buildPushPayload } from "./push";
 
 // ──────────────────────────────────────────────
 //  Tipi
@@ -26,6 +27,7 @@ export interface CandidateUser {
   email: string | null;
   isActive: boolean;
   emailNotificationsEnabled: boolean;
+  pushNotificationsEnabled: boolean;
   certificatoScadenza: Timestamp | null;
 }
 
@@ -109,6 +111,8 @@ export function mapUserDoc(doc: UserDocLike): CandidateUser {
     isActive: (data.isActive as boolean | undefined) ?? true,
     emailNotificationsEnabled:
       (data.emailNotificationsEnabled as boolean | undefined) ?? true,
+    pushNotificationsEnabled:
+      (data.pushNotificationsEnabled as boolean | undefined) ?? true,
     certificatoScadenza: (data.certificatoScadenza as Timestamp | undefined) ?? null,
   };
 }
@@ -130,13 +134,25 @@ export async function queryUsersInWindow(
   return snap.docs.map((doc) => mapUserDoc(doc));
 }
 
-/** Tiene solo utenti attivi, con email abilitate e certificato presente. */
+/** Base comune ai due canali: utenti attivi con un certificato da segnalare. */
+function selectCandidates(users: CandidateUser[]): CandidateUser[] {
+  return users.filter((u) => u.isActive === true && !!u.certificatoScadenza);
+}
+
+/** Destinatari email: candidati con `emailNotificationsEnabled !== false`. */
 export function selectRecipients(users: CandidateUser[]): CandidateUser[] {
-  return users.filter(
-    (u) =>
-      u.isActive === true &&
-      u.emailNotificationsEnabled !== false &&
-      !!u.certificatoScadenza
+  return selectCandidates(users).filter(
+    (u) => u.emailNotificationsEnabled !== false
+  );
+}
+
+/**
+ * Destinatari push: lista **distinta** da quella email, perché le due
+ * preferenze sono indipendenti. Chi ha le email spente può volere le push.
+ */
+export function selectPushRecipients(users: CandidateUser[]): CandidateUser[] {
+  return selectCandidates(users).filter(
+    (u) => u.pushNotificationsEnabled !== false
   );
 }
 
@@ -172,6 +188,38 @@ export function buildCertificateEmailPayload(
   };
 }
 
+/**
+ * Payload push del certificato. Non passa dall'ensure: il token push nasce sul
+ * device e non esiste un equivalente server-side di
+ * `ensureOneSignalEmailSubscription` (chi non l'ha mai concesso viene
+ * semplicemente saltato da OneSignal, vedi `postToOneSignal`).
+ */
+export function buildCertificatePushPayload(
+  user: CandidateUser,
+  kind: EmailKind,
+  titlePrefix = ""
+): Record<string, unknown> {
+  const firstName = (user.name ?? "").trim();
+  const saluto = firstName ? `${firstName}, ` : "";
+  return kind === "reminder10"
+    ? buildPushPayload({
+        externalIds: [user.uid],
+        source: "certificate_reminder",
+        heading: `${titlePrefix}Certificato medico in scadenza`,
+        headingEn: `${titlePrefix}Medical certificate expiring`,
+        content: `${saluto}il tuo certificato medico scade tra 10 giorni: ricordati di rinnovarlo.`,
+        contentEn: "Your medical certificate expires in 10 days: remember to renew it.",
+      })
+    : buildPushPayload({
+        externalIds: [user.uid],
+        source: "certificate_expiry",
+        heading: `${titlePrefix}Certificato medico scaduto`,
+        headingEn: `${titlePrefix}Medical certificate expired`,
+        content: `${saluto}il tuo certificato medico scade oggi: consegnane uno nuovo per continuare ad allenarti.`,
+        contentEn: "Your medical certificate expires today: hand in a new one to keep training.",
+      });
+}
+
 export interface RunDeps {
   db: Firestore;
   apiKey: string;
@@ -198,7 +246,12 @@ export interface RunDeps {
  */
 export async function runCertificateEmails(
   deps: RunDeps
-): Promise<{ reminderSent: number; expirySent: number }> {
+): Promise<{
+  reminderSent: number;
+  expirySent: number;
+  reminderPushSent: number;
+  expiryPushSent: number;
+}> {
   const [reminderUsers, expiryUsers] = await Promise.all([
     queryUsersInWindow(deps.db, romeDayWindow(deps.now, 10)),
     queryUsersInWindow(deps.db, romeDayWindow(deps.now, 0)),
@@ -228,11 +281,34 @@ export async function runCertificateEmails(
     return sent;
   };
 
+  const sendPushBatch = async (
+    users: CandidateUser[],
+    kind: EmailKind
+  ): Promise<number> => {
+    let sent = 0;
+    for (const u of selectPushRecipients(users)) {
+      try {
+        await deps.post(buildCertificatePushPayload(u, kind), deps.apiKey);
+        sent++;
+      } catch (err) {
+        logger.error("Invio push certificato fallito", { uid: u.uid, kind, err });
+      }
+    }
+    return sent;
+  };
+
   const reminderSent = await sendBatch(reminderUsers, "reminder10");
   const expirySent = await sendBatch(expiryUsers, "expiryToday");
+  const reminderPushSent = await sendPushBatch(reminderUsers, "reminder10");
+  const expiryPushSent = await sendPushBatch(expiryUsers, "expiryToday");
 
-  logger.info("Certificate emails run completata", { reminderSent, expirySent });
-  return { reminderSent, expirySent };
+  logger.info("Certificate emails run completata", {
+    reminderSent,
+    expirySent,
+    reminderPushSent,
+    expiryPushSent,
+  });
+  return { reminderSent, expirySent, reminderPushSent, expiryPushSent };
 }
 
 // ──────────────────────────────────────────────
@@ -252,7 +328,13 @@ export async function sendTestCertificateEmailHandler(
     throw new HttpsError("unauthenticated", "Login richiesto");
   }
   const payload = request.data as
-    | { externalId?: string; firstName?: string; kind?: string; email?: string }
+    | {
+        externalId?: string;
+        firstName?: string;
+        kind?: string;
+        email?: string;
+        channel?: string;
+      }
     | null;
   if (!payload || typeof payload !== "object" || !payload.externalId) {
     throw new HttpsError("invalid-argument", "externalId obbligatorio");
@@ -266,8 +348,18 @@ export async function sendTestCertificateEmailHandler(
     email: payload.email?.trim() ?? null,
     isActive: true,
     emailNotificationsEnabled: true,
+    pushNotificationsEnabled: true,
     certificatoScadenza: null,
   };
+
+  // Canale push: e' l'unico modo di provare una push su staging senza aspettare
+  // il cron delle 08:00. Nessun ensure, il token push nasce sul device.
+  if (payload.channel === "push") {
+    return postToOneSignal(
+      buildCertificatePushPayload(user, kind, "TEST - "),
+      apiKey
+    );
+  }
 
   // Come il cron, assicura la subscription email così il test funziona anche
   // verso utenti che non si sono mai loggati.

@@ -44,6 +44,7 @@ jobs:
           FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_STAGING_AUTH_DOMAIN }}
           FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STAGING_STORAGE_BUCKET }}
           FIREBASE_MEASUREMENT_ID: ${{ vars.FIREBASE_STAGING_MEASUREMENT_ID }}
+          ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
         run: |
           test -n "$FIREBASE_API_KEY"
           test -n "$FIREBASE_APP_ID"
@@ -51,6 +52,9 @@ jobs:
           test -n "$FIREBASE_PROJECT_ID"
           test -n "$FIREBASE_AUTH_DOMAIN"
           test -n "$FIREBASE_STORAGE_BUCKET"
+          # Senza la guardia una var mancante diventa una stringa vuota e
+          # l'init OneSignal sparisce in silenzio dalla build staging.
+          test -n "$ONESIGNAL_APP_ID"
       - name: Build staging web
         run: >-
           flutter build web --wasm --release --base-href /fitrope_app/
@@ -62,6 +66,7 @@ jobs:
           --dart-define=FIREBASE_AUTH_DOMAIN=${{ vars.FIREBASE_STAGING_AUTH_DOMAIN }}
           --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STAGING_STORAGE_BUCKET }}
           --dart-define=FIREBASE_MEASUREMENT_ID=${{ vars.FIREBASE_STAGING_MEASUREMENT_ID }}
+          --dart-define=ONESIGNAL_APP_ID=${{ vars.ONESIGNAL_APP_ID }}
       # Gate anti-regressione del conditional export di onesignal_service.dart:
       # sotto --wasm `dart.library.html` e' false, quindi una direttiva scritta
       # male compila il ramo *mobile* sul web (MissingPluginException a runtime,
@@ -145,11 +150,21 @@ jobs:
         env:
           ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
           STAGING_NOTIFICATION_EMAIL_ALLOWLIST: ${{ vars.STAGING_NOTIFICATION_EMAIL_ALLOWLIST }}
+          STAGING_APP_BASE_URL: ${{ vars.STAGING_APP_BASE_URL }}
         run: |
           test -n "$ONESIGNAL_APP_ID"
           test -n "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST"
-          printf "APP_ENV=staging\nONESIGNAL_APP_ID=%s\nSTAGING_NOTIFICATION_EMAIL_ALLOWLIST=%s\n" \
-            "$ONESIGNAL_APP_ID" "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST" > ".env.$STAGING_PROJECT_ID"
+          test -n "$STAGING_APP_BASE_URL"
+          # Guardrail: con l'app OneSignal di PRODUZIONE le push di staging
+          # finirebbero sui device reali dei soci. Lo stesso assert esiste a
+          # runtime in handler.ts, ma il deploy deve fallire prima.
+          if [ "$ONESIGNAL_APP_ID" = "154fc17b-3ef8-4421-a1e6-466172fa48db" ]; then
+            echo "::error::ONESIGNAL_APP_ID e' l'app di PRODUZIONE: configurare l'app OneSignal di staging"
+            exit 1
+          fi
+          printf "APP_ENV=staging\nONESIGNAL_APP_ID=%s\nSTAGING_NOTIFICATION_EMAIL_ALLOWLIST=%s\nAPP_BASE_URL=%s\n" \
+            "$ONESIGNAL_APP_ID" "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST" "$STAGING_APP_BASE_URL" \
+            > ".env.$STAGING_PROJECT_ID"
       - name: Deploy Functions staging
         run: firebase deploy --project "$STAGING_PROJECT_ID" --only functions --non-interactive
       - name: Seed staging data
@@ -227,6 +242,14 @@ jobs:
             curl -fsS --retry 5 --retry-delay 5 --retry-all-errors \
               -o /dev/null "${PAGE_URL}${path}"
           done
+          # Service worker OneSignal: si verifica il CONTENUTO, non solo il 200.
+          # GitHub Pages risponde 200 con la pagina 404 HTML per i path
+          # inesistenti sotto un base-href, quindi un `curl -f` passerebbe
+          # comunque e la registrazione del worker fallirebbe solo a runtime.
+          echo "GET ${PAGE_URL}push/onesignal/OneSignalSDKWorker.js"
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors \
+            "${PAGE_URL}push/onesignal/OneSignalSDKWorker.js" \
+            | grep -q "OneSignalSDK.sw.js"
       - name: Smoke test callable staging
         run: |
           firebase functions:list --project "$STAGING_PROJECT_ID" --json > functions.json

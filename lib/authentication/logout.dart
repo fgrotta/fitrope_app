@@ -15,8 +15,11 @@ Future<void> signOut() async {
   //   await removeOneSignalEmail(email);
   //   await OneSignalService.removeEmail(email);
   // }
-  await OneSignalService.setPushEnabled(false);
-  await OneSignalService.logout();
+  // `await` reali da quando il bridge web ritorna Promise: il timeout evita che
+  // una rete lenta (o un CDN OneSignal irraggiungibile) tenga l'utente dentro
+  // l'app. Il logout Firebase non deve mai dipendere da OneSignal.
+  await _bestEffort(OneSignalService.setPushEnabled(false));
+  await _bestEffort(OneSignalService.logout());
   await FirebaseAuth.instance.signOut();
   debugPrint("User signed out");
 }
@@ -25,5 +28,15 @@ void logoutRedirect(BuildContext context) {
   // Verifica se il context è ancora valido prima di navigare
   if (context.mounted) {
     Navigator.of(context).pushReplacementNamed(WELCOME_ROUTE);
+  }
+}
+
+/// Attende [operation] al massimo 3 secondi e ne ignora gli errori: nessun
+/// passo OneSignal può bloccare o far fallire l'uscita.
+Future<void> _bestEffort(Future<void> operation) async {
+  try {
+    await operation.timeout(const Duration(seconds: 3));
+  } catch (error) {
+    debugPrint('Logout: passo OneSignal saltato ($error)');
   }
 }

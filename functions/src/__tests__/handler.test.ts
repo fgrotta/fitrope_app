@@ -4,6 +4,8 @@ import {
   ensureOneSignalEmailSubscription,
   removeOneSignalEmailHandler,
   ONESIGNAL_APP_ID,
+  PROD_ONESIGNAL_APP_ID,
+  postToOneSignal,
   ONESIGNAL_API_URL,
   ONESIGNAL_USERS_URL,
   ONESIGNAL_SUBSCRIPTIONS_URL,
@@ -944,5 +946,121 @@ describe("Guardrail OneSignal staging", () => {
 
     expect(result).toEqual({ suppressed: true });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("le push verso UID sintetici partono (non sono piu' soppresse in blocco)", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ id: "staging-push" }),
+    } as Response);
+
+    await postToOneSignal(
+      {
+        app_id: "staging-app-id",
+        include_aliases: { external_id: ["stg_user"] },
+        target_channel: "push",
+        headings: { it: "Titolo" },
+        contents: { it: "Corpo" },
+      },
+      API_KEY
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    // `headings` oltre a `contents`: senza, il titolo arriverebbe pulito.
+    expect(body.headings.it).toBe("[STAGING] Titolo");
+    expect(body.contents.it).toBe("[STAGING] Corpo");
+  });
+
+  test("push soppressa se ONESIGNAL_APP_ID e' quello di PRODUZIONE", async () => {
+    // Senza ONESIGNAL_APP_ID nell'env si ricade sull'app di prod: e' esattamente
+    // il misconfig che il guardrail deve intercettare.
+    expect(ONESIGNAL_APP_ID).toBe(PROD_ONESIGNAL_APP_ID);
+
+    const result = await postToOneSignal(
+      {
+        app_id: ONESIGNAL_APP_ID,
+        include_aliases: { external_id: ["stg_user"] },
+        target_channel: "push",
+      },
+      API_KEY
+    );
+
+    expect(result).toEqual({ suppressed: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("le email restano funzionanti anche col guardrail push attivo", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ id: "staging-email" }),
+    } as Response);
+
+    await postToOneSignal(
+      {
+        app_id: PROD_ONESIGNAL_APP_ID,
+        include_aliases: { external_id: ["stg_user"] },
+        target_channel: "email",
+        email_subject: "Avviso",
+      },
+      API_KEY
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("postToOneSignal: destinatari push senza subscription", () => {
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  test("400 'not subscribed' sul canale push non e' un errore", async () => {
+    // "alias esistente ma senza subscription push" e' lo stato NORMALE di gran
+    // parte dei soci: il token nasce sul device, non c'e' un ensure server-side.
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ errors: ["All included players are not subscribed"] }),
+    } as Response);
+
+    const result = await postToOneSignal(
+      { include_aliases: { external_id: ["u1"] }, target_channel: "push" },
+      API_KEY
+    );
+
+    expect(result).toEqual({ skipped: true, reason: "no_push_subscription" });
+  });
+
+  test("lo stesso 400 sul canale email resta un errore", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ errors: ["All included players are not subscribed"] }),
+    } as Response);
+
+    await expect(
+      postToOneSignal(
+        { include_aliases: { external_id: ["u1"] }, target_channel: "email" },
+        API_KEY
+      )
+    ).rejects.toThrow(HttpsError);
+  });
+
+  test("un 400 con un altro errore continua a propagare", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ errors: ["Invalid app_id"] }),
+    } as Response);
+
+    await expect(
+      postToOneSignal(
+        { include_aliases: { external_id: ["u1"] }, target_channel: "push" },
+        API_KEY
+      )
+    ).rejects.toThrow(HttpsError);
   });
 });
