@@ -223,7 +223,35 @@ describe("sendTrialEnrollmentConfirmation (orchestrazione)", () => {
     await scheduleTrialReminder(db, "key", "u1", "c1", late);
     expect(fetchMock).not.toHaveBeenCalled();
     await sendTrialEnrollmentConfirmation(db, "key", "u1", "c1", late);
-    expect(sentPayloads()).toHaveLength(1);
+    // Il promemoria non partira' piu': la conferma esce su entrambi i canali.
+    const payloads = sentPayloads();
+    expect(payloads.map((p) => p.target_channel).sort()).toEqual([
+      "email",
+      "push",
+    ]);
+  });
+
+  test("lezione non imminente: solo email, la push duplicherebbe il promemoria", async () => {
+    const { db } = makeNotifyDb({
+      users: { u1: { uid: "u1" } },
+      courses: { c1: courseDoc() },
+    });
+    await sendTrialEnrollmentConfirmation(db, "key", "u1", "c1", NOW);
+    const payloads = sentPayloads();
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0].target_channel).toBe("email");
+  });
+
+  test("email spente ma push accese: la conferma esce comunque via push", async () => {
+    const late = Date.UTC(2026, 5, 9, 18);
+    const { db } = makeNotifyDb({
+      users: { u1: { uid: "u1", emailNotificationsEnabled: false } },
+      courses: { c1: courseDoc() },
+    });
+    await sendTrialEnrollmentConfirmation(db, "key", "u1", "c1", late);
+    const payloads = sentPayloads();
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0].target_channel).toBe("push");
   });
 
   test("corso inesistente → nessun invio (no throw)", async () => {
@@ -291,16 +319,37 @@ describe("notifyWaitlistUsers (orchestrazione)", () => {
     await notifyWaitlistUsers(db, "key", "c1");
     expect(commits()).toBe(0); // nessuna rimozione
     const payloads = sentPayloads();
-    expect(payloads).toHaveLength(1);
-    expect((payloads[0].include_aliases as Data).external_id).toEqual([
-      "u-converted",
+    expect(payloads.map((p) => p.target_channel).sort()).toEqual([
+      "email",
+      "push",
     ]);
-    expect(payloads[0].target_channel).toBe("email");
+    for (const payload of payloads) {
+      expect((payload.include_aliases as Data).external_id).toEqual([
+        "u-converted",
+      ]);
+    }
   });
 
-  test("rispetta emailNotificationsEnabled=false (nessun destinatario → nessun invio)", async () => {
+  test("email e push sono liste distinte: email spente → resta solo la push", async () => {
     const { db } = makeNotifyDb({
       users: { u1: { uid: "u1", emailNotificationsEnabled: false } },
+      courses: { c1: courseDoc({ waitlist: ["u1"], subscribed: 5 }) },
+    });
+    await notifyWaitlistUsers(db, "key", "c1");
+    const payloads = sentPayloads();
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0].target_channel).toBe("push");
+  });
+
+  test("entrambe le preferenze spente → nessun invio", async () => {
+    const { db } = makeNotifyDb({
+      users: {
+        u1: {
+          uid: "u1",
+          emailNotificationsEnabled: false,
+          pushNotificationsEnabled: false,
+        },
+      },
       courses: { c1: courseDoc({ waitlist: ["u1"], subscribed: 5 }) },
     });
     await notifyWaitlistUsers(db, "key", "c1");
@@ -330,9 +379,14 @@ describe("notifyWaitlistUsers (orchestrazione)", () => {
     });
     await notifyWaitlistUsers(db, "key", "c1");
     const payloads = sentPayloads();
-    expect(payloads).toHaveLength(1);
-    const recipients = (payloads[0].include_aliases as Data).external_id as string[];
-    expect(recipients.sort()).toEqual(["u-converted", "u-ok"]);
+    expect(payloads.map((p) => p.target_channel).sort()).toEqual([
+      "email",
+      "push",
+    ]);
+    for (const payload of payloads) {
+      const recipients = (payload.include_aliases as Data).external_id as string[];
+      expect([...recipients].sort()).toEqual(["u-converted", "u-ok"]);
+    }
     expect(
       batchUpdates.filter((u) => u.refKind === "userDoc").map((u) => u.refId)
     ).toEqual(["u-expired"]);

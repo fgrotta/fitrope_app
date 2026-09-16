@@ -1,6 +1,7 @@
 import {
   romeDayWindow,
   selectRecipients,
+  selectPushRecipients,
   buildCertificateEmailPayload,
   mapUserDoc,
   queryUsersInWindow,
@@ -40,6 +41,7 @@ function user(overrides: Partial<CandidateUser> = {}): CandidateUser {
     email: "mario@test.it",
     isActive: true,
     emailNotificationsEnabled: true,
+    pushNotificationsEnabled: true,
     certificatoScadenza: Timestamp.fromMillis(0),
     ...overrides,
   };
@@ -103,6 +105,23 @@ describe("selectRecipients", () => {
   });
 });
 
+describe("selectPushRecipients", () => {
+  test("scarta utenti con push disabilitate", () => {
+    expect(selectPushRecipients([user({ pushNotificationsEnabled: false })])).toHaveLength(0);
+  });
+
+  test("le due preferenze sono indipendenti: email spente, push accese", () => {
+    const u = user({ emailNotificationsEnabled: false });
+    expect(selectRecipients([u])).toHaveLength(0);
+    expect(selectPushRecipients([u])).toHaveLength(1);
+  });
+
+  test("scarta utenti non attivi o senza certificato", () => {
+    expect(selectPushRecipients([user({ isActive: false })])).toHaveLength(0);
+    expect(selectPushRecipients([user({ certificatoScadenza: null })])).toHaveLength(0);
+  });
+});
+
 describe("buildCertificateEmailPayload", () => {
   test("reminder10: canale email, alias e app_id corretti, nessun send_after", () => {
     const p = buildCertificateEmailPayload(user({ uid: "abc" }), "reminder10");
@@ -142,6 +161,7 @@ describe("mapUserDoc", () => {
       email: null,
       isActive: true,
       emailNotificationsEnabled: true,
+      pushNotificationsEnabled: true,
       certificatoScadenza: null,
     });
   });
@@ -211,8 +231,13 @@ describe("runCertificateEmails", () => {
 
     const res = await runCertificateEmails({ db, apiKey: API_KEY, post, ensure, now });
 
-    expect(res).toEqual({ reminderSent: 1, expirySent: 2 });
-    expect(post).toHaveBeenCalledTimes(3);
+    expect(res).toEqual({
+      reminderSent: 1,
+      expirySent: 2,
+      reminderPushSent: 1,
+      expiryPushSent: 2,
+    });
+    expect(post).toHaveBeenCalledTimes(6); // 3 email + 3 push
     const subjects = post.mock.calls.map((c) => (c[0] as Record<string, unknown>).email_subject);
     expect(subjects.filter((s) => s === certificateReminderSubject())).toHaveLength(1);
     expect(subjects.filter((s) => s === certificateExpiryTodaySubject())).toHaveLength(2);
@@ -235,7 +260,8 @@ describe("runCertificateEmails", () => {
     await runCertificateEmails({ db, apiKey: API_KEY, post, ensure, now });
 
     expect(ensure).toHaveBeenCalledWith("r1", "a@x.it", API_KEY);
-    expect(order).toEqual(["ensure", "post"]);
+    // La push non passa dall'ensure: arriva dopo, senza un secondo ensure.
+    expect(order).toEqual(["ensure", "post", "post"]);
   });
 
   test("senza email non chiama ensure ma tenta comunque l'invio via external_id", async () => {
@@ -249,8 +275,9 @@ describe("runCertificateEmails", () => {
     const res = await runCertificateEmails({ db, apiKey: API_KEY, post, ensure, now });
 
     expect(ensure).not.toHaveBeenCalled();
-    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledTimes(2); // email + push
     expect(res.reminderSent).toBe(1);
+    expect(res.reminderPushSent).toBe(1);
   });
 
   test("un ensure fallito salta l'utente senza interrompere il run", async () => {
@@ -269,8 +296,14 @@ describe("runCertificateEmails", () => {
 
     const res = await runCertificateEmails({ db, apiKey: API_KEY, post, ensure, now });
 
-    expect(res).toEqual({ reminderSent: 1, expirySent: 0 });
-    expect(post).toHaveBeenCalledTimes(1); // solo il secondo utente
+    // L'ensure serve solo all'email: la push parte per entrambi gli utenti.
+    expect(res).toEqual({
+      reminderSent: 1,
+      expirySent: 0,
+      reminderPushSent: 2,
+      expiryPushSent: 0,
+    });
+    expect(post).toHaveBeenCalledTimes(3); // 1 email + 2 push
   });
 
   test("un invio fallito non interrompe il run", async () => {
@@ -289,8 +322,13 @@ describe("runCertificateEmails", () => {
 
     const res = await runCertificateEmails({ db, apiKey: API_KEY, post, ensure, now });
 
-    expect(res).toEqual({ reminderSent: 1, expirySent: 0 });
-    expect(post).toHaveBeenCalledTimes(2);
+    expect(res).toEqual({
+      reminderSent: 1,
+      expirySent: 0,
+      reminderPushSent: 2,
+      expiryPushSent: 0,
+    });
+    expect(post).toHaveBeenCalledTimes(4); // 2 email (una fallita) + 2 push
   });
 });
 

@@ -23,6 +23,7 @@ import {
   waitlistSpotAvailableBody,
 } from "./emailTemplates";
 import { calendarUrlsForCourse } from "./calendarLinks";
+import { sendPush } from "../push";
 
 const DAY_NAMES = [
   "Lunedì",
@@ -235,18 +236,14 @@ export async function scheduleTrialReminder(
   const tasks: Promise<void>[] = [];
   if (pushEnabled) {
     tasks.push(
-      postOneSignal(apiKey, "Trial Push Reminder", {
-        include_aliases: { external_id: [userId] },
-        target_channel: "push",
-        send_after: sendAfter,
-        headings: {
-          it: "Promemoria lezione di prova",
-          en: "Trial lesson reminder",
-        },
-        contents: {
-          it: `La tua lezione di prova "${name}" è domani (${courseDate}, ${courseTime}). Ti aspettiamo!`,
-          en: `Your trial lesson "${name}" is tomorrow (${courseDate}, ${courseTime}). See you there!`,
-        },
+      sendPush(apiKey, "Trial Push Reminder", {
+        externalIds: [userId],
+        sendAfter,
+        source: "trial_reminder",
+        heading: "Promemoria lezione di prova",
+        headingEn: "Trial lesson reminder",
+        content: `La tua lezione di prova "${name}" è domani (${courseDate}, ${courseTime}). Ti aspettiamo!`,
+        contentEn: `Your trial lesson "${name}" is tomorrow (${courseDate}, ${courseTime}). See you there!`,
       })
     );
   }
@@ -280,8 +277,9 @@ export async function scheduleTrialReminder(
  * parte se l'iscrizione arriva a lezione imminente (`trialReminderSendAtMillis`
  * già passato).
  *
- * Solo email, nessuna push: l'utente ha appena usato l'app, la push sarebbe
- * rumore.
+ * La push parte **solo** se il promemoria non partirà (`trialReminderSendAtMillis`
+ * già passato, cioè lezione imminente): altrimenti l'utente, che ha appena usato
+ * l'app, riceverebbe due push per la stessa iscrizione.
  */
 export async function sendTrialEnrollmentConfirmation(
   db: Firestore,
@@ -302,8 +300,17 @@ export async function sendTrialEnrollmentConfirmation(
   const userSnap = await db.collection("users").doc(userId).get();
   const userData = userSnap.data() ?? {};
   const email = (userData.email as string | undefined)?.trim();
-  if (userData.emailNotificationsEnabled === false) return;
-  if (!isStagingIdentityAllowed(userId, email)) return;
+  // Gate **per canale**, non `return` globali: con i return, chi ha le email
+  // spente (o è fuori allowlist in staging) non riceveva nemmeno la push.
+  const emailEnabled =
+    userData.emailNotificationsEnabled !== false &&
+    isStagingIdentityAllowed(userId, email);
+  // La push duplicherebbe il promemoria della sera prima: si manda solo quando
+  // quello non partirà più.
+  const pushEnabled =
+    userData.pushNotificationsEnabled !== false &&
+    trialReminderSendAtMillis(startMillis) <= nowMillis;
+  if (!emailEnabled && !pushEnabled) return;
 
   const name = (courseDoc.name as string) ?? "";
   const sala = (courseDoc.sala as string | undefined) ?? null;
@@ -314,29 +321,53 @@ export async function sendTrialEnrollmentConfirmation(
     sala,
   });
 
-  await postOneSignal(apiKey, "Trial Email Confirmation", {
-    include_aliases: { external_id: [userId] },
-    target_channel: "email",
-    email_subject: trialConfirmationSubject(name),
-    email_body: trialConfirmationBody({
-      courseName: name,
-      courseDate: formatCourseDate(startMillis),
-      courseTime: formatCourseTime(startMillis, endMillis),
-      sala,
-      ...calendarUrls,
-    }),
-  });
+  const courseDate = formatCourseDate(startMillis);
+  const courseTime = formatCourseTime(startMillis, endMillis);
+
+  const tasks: Promise<void>[] = [];
+  if (emailEnabled) {
+    tasks.push(
+      postOneSignal(apiKey, "Trial Email Confirmation", {
+        include_aliases: { external_id: [userId] },
+        target_channel: "email",
+        email_subject: trialConfirmationSubject(name),
+        email_body: trialConfirmationBody({
+          courseName: name,
+          courseDate,
+          courseTime,
+          sala,
+          ...calendarUrls,
+        }),
+      })
+    );
+  }
+  if (pushEnabled) {
+    tasks.push(
+      sendPush(apiKey, "Trial Push Confirmation", {
+        externalIds: [userId],
+        source: "trial_confirmation",
+        heading: "Iscrizione confermata",
+        headingEn: "Enrollment confirmed",
+        content: `Sei iscritto a "${name}" (${courseDate}, ${courseTime}). Ti aspettiamo!`,
+        contentEn: `You are enrolled in "${name}" (${courseDate}, ${courseTime}). See you there!`,
+      })
+    );
+  }
+  await Promise.all(tasks);
 }
 
 /**
- * Notifica via email gli utenti in lista d'attesa che si è liberato un posto, e
- * rimuove dalla waitlist quelli con abbonamento (legacy) scaduto. Rispetta il flag
- * `waitlistEnabled` del corso e le preferenze email utente.
+ * Notifica gli utenti in lista d'attesa che si è liberato un posto (email +
+ * push), e rimuove dalla waitlist quelli con abbonamento (legacy) scaduto.
+ * Rispetta il flag `waitlistEnabled` del corso e le preferenze utente.
  *
- * NB: push disabilitata (come nel client). Il controllo scadenza usa il campo
- * legacy `fineIscrizione`; gli utenti col nuovo modello (snapshot
- * `activeSubscriptions` non vuoto) sono ESCLUSI dalla rimozione anche se
- * conservano un `fineIscrizione` stantio nel passato.
+ * I destinatari email e push sono **liste distinte**: i filtri sono diversi
+ * (l'allowlist email di staging è un vincolo da inbox e non si applica alla
+ * push, dove il guardrail è il prefisso `stg_` sull'external_id).
+ *
+ * Il controllo scadenza usa il campo legacy `fineIscrizione`; gli utenti col
+ * nuovo modello (snapshot `activeSubscriptions` non vuoto) sono ESCLUSI dalla
+ * rimozione anche se conservano un `fineIscrizione` stantio nel passato.
  */
 export async function notifyWaitlistUsers(
   db: Firestore,
@@ -379,6 +410,7 @@ export async function notifyWaitlistUsers(
   }
 
   const emailUserIds: string[] = [];
+  const pushUserIds: string[] = [];
   const expiredUserIds: string[] = [];
   for (const data of userDocs) {
     const uid = data.uid as string;
@@ -392,6 +424,9 @@ export async function notifyWaitlistUsers(
     const email = (data.email as string | undefined)?.trim();
     if (data.emailNotificationsEnabled !== false && isStagingIdentityAllowed(uid, email)) {
       emailUserIds.push(uid);
+    }
+    if (data.pushNotificationsEnabled !== false) {
+      pushUserIds.push(uid);
     }
   }
 
@@ -411,21 +446,44 @@ export async function notifyWaitlistUsers(
     );
   }
 
-  if (emailUserIds.length === 0) return;
+  if (emailUserIds.length === 0 && pushUserIds.length === 0) return;
 
   const courseDate = formatCourseDate(startMillis);
   const courseTime = formatCourseTime(startMillis, endMillis);
   const name = (courseDoc.name as string) ?? "";
 
-  await postOneSignal(apiKey, "Waitlist Email", {
-    include_aliases: { external_id: emailUserIds },
-    target_channel: "email",
-    email_subject: waitlistSpotAvailableSubject(name),
-    email_body: waitlistSpotAvailableBody({
-      courseName: name,
-      courseDate,
-      courseTime,
-      spotsAvailable,
-    }),
-  });
+  const tasks: Promise<void>[] = [];
+  if (emailUserIds.length > 0) {
+    tasks.push(
+      postOneSignal(apiKey, "Waitlist Email", {
+        include_aliases: { external_id: emailUserIds },
+        target_channel: "email",
+        email_subject: waitlistSpotAvailableSubject(name),
+        email_body: waitlistSpotAvailableBody({
+          courseName: name,
+          courseDate,
+          courseTime,
+          spotsAvailable,
+        }),
+      })
+    );
+  }
+  if (pushUserIds.length > 0) {
+    tasks.push(
+      sendPush(apiKey, "Waitlist Push", {
+        externalIds: pushUserIds,
+        source: "waitlist_spot",
+        // Il posto si esaurisce in fretta: oltre l'ora la notifica non vale
+        // più nulla, e un secondo avviso sullo stesso corso deve sostituire il
+        // primo invece di accumularsi.
+        ttlSeconds: 3600,
+        collapseId: courseId,
+        heading: "Si è liberato un posto",
+        headingEn: "A spot is available",
+        content: `"${name}" (${courseDate}, ${courseTime}): affrettati a iscriverti!`,
+        contentEn: `"${name}" (${courseDate}, ${courseTime}): hurry up and book your spot!`,
+      })
+    );
+  }
+  await Promise.all(tasks);
 }

@@ -30,6 +30,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   bool _sendingConfirmation = false;
   bool _sendingCert10 = false;
   bool _sendingCertExpiry = false;
+  bool _sendingCertPush = false;
 
   @override
   void initState() {
@@ -196,11 +197,20 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     }
   }
 
-  Future<void> _sendCertificateEmail({required bool isExpiryDay}) async {
+  /// Con [asPush] la callable manda una push invece dell'email: è l'unico modo
+  /// di provare una push senza aspettare il cron delle 08:00. La push arriva
+  /// solo se questo dispositivo è iscritto (permesso concesso + opt-in): usa
+  /// `await oneSignalDiagnostics()` da console per verificarlo.
+  Future<void> _sendCertificateEmail({
+    required bool isExpiryDay,
+    bool asPush = false,
+  }) async {
     if (SimulationGuard.blockIfSimulating(context)) return;
     if (_resolvedUid == null) return;
     setState(() {
-      if (isExpiryDay) {
+      if (asPush) {
+        _sendingCertPush = true;
+      } else if (isExpiryDay) {
         _sendingCertExpiry = true;
       } else {
         _sendingCert10 = true;
@@ -212,13 +222,16 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
         firstName: _firstNameCtrl.text.trim(),
         email: _recipientEmailCtrl.text.trim(),
         isExpiryDay: isExpiryDay,
+        asPush: asPush,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isExpiryDay
-                ? 'Email certificato (scadenza oggi) inviata'
-                : 'Email certificato (10 giorni) inviata'),
+            content: Text(asPush
+                ? 'Push certificato inviata'
+                : isExpiryDay
+                    ? 'Email certificato (scadenza oggi) inviata'
+                    : 'Email certificato (10 giorni) inviata'),
             backgroundColor: Colors.green,
           ),
         );
@@ -234,6 +247,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
         setState(() {
           _sendingCertExpiry = false;
           _sendingCert10 = false;
+          _sendingCertPush = false;
         });
       }
     }
@@ -467,6 +481,26 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                       )
                     : const Icon(Icons.event_busy_outlined),
                 label: const Text('Certificato — scadenza oggi'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: canSend && !_sendingCertPush
+                    ? () => _sendCertificateEmail(
+                          isExpiryDay: false,
+                          asPush: true,
+                        )
+                    : null,
+                icon: _sendingCertPush
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.notifications_active_outlined),
+                label: const Text('Push di test (certificato)'),
               ),
             ),
           ],

@@ -518,9 +518,11 @@ Dart) è duplicato nei due file: se cambia la sede vanno aggiornati entrambi.
 
 - **Mobile** (`lib/services/onesignal_mobile.dart`): wrapper di `onesignal_flutter` con `requestPermission` — push native attive
 - **Web** (`lib/services/onesignal_web.dart`): **attivo** — binding `dart:js_interop` completo (init, login/logout, email, push opt-in/opt-out) verso il bridge JS definito in `web/index.html`, che carica il Web SDK v16 e registra il service worker.
-- **Facade** (`lib/services/onesignal_service.dart`): `export ... if (dart.library.html)` per scelta automatica
+- **Facade** (`lib/services/onesignal_service.dart`): `export ... if (dart.library.js_interop)` per scelta automatica. **Mai `dart.library.html`**: sotto `--wasm` è false e verrebbe compilato il ramo mobile sul web (`MissingPluginException` a runtime). Gate: `test/conditional_imports_test.dart`.
 
-Su web le email applicative passano via Cloud Function (`ensureOneSignalUser` crea l'utente server-side, poi `sendOneSignalNotification` invia). Il service worker sta in `web/push/onesignal/OneSignalSDKWorker.js` e viene registrato da `OneSignal.init` con scope calcolato dal `base href`. ATTENZIONE: l'appId in `lib/main.dart` è hardcoded ed è quello di produzione anche nella build staging (vedi TODO in CLAUDE.md).
+Su web le email applicative passano via Cloud Function (`ensureOneSignalUser` crea l'utente server-side, poi `sendOneSignalNotification` invia). Il service worker sta in `web/push/onesignal/OneSignalSDKWorker.js` e viene registrato da `OneSignal.init` con scope calcolato dal `base href`. L'appId arriva da `--dart-define=ONESIGNAL_APP_ID` (`lib/main.dart`): prod senza define usa l'app di produzione, staging senza define salta l'init.
+
+Il permesso push si chiede **dentro il gesto utente**: `OneSignalService.requestPushPermission()` va invocata come prima istruzione dell'`onPressed`, perché il bridge chiama `requestPermission()` in modo sincrono rispetto al tap (su WebKit la transient activation si perde al primo await). I due percorsi che la usano sono il toggle in `user_detail_page.dart` e il bottone "Attiva" di `PushEnableBanner`.
 
 ### Flag per corso
 

@@ -2,8 +2,13 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import type { Firestore } from "firebase-admin/firestore";
 
+/// App OneSignal di produzione. Serve anche come guardrail: in staging un
+/// ONESIGNAL_APP_ID uguale a questo significa configurazione sbagliata, e le
+/// push finirebbero sui device reali dei soci.
+export const PROD_ONESIGNAL_APP_ID = "154fc17b-3ef8-4421-a1e6-466172fa48db";
+
 export const ONESIGNAL_APP_ID =
-  process.env.ONESIGNAL_APP_ID ?? "154fc17b-3ef8-4421-a1e6-466172fa48db";
+  process.env.ONESIGNAL_APP_ID ?? PROD_ONESIGNAL_APP_ID;
 export const ONESIGNAL_API_URL = "https://api.onesignal.com/notifications";
 export const ONESIGNAL_USERS_URL = `https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}/users`;
 export const ONESIGNAL_SUBSCRIPTIONS_URL = `https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}/subscriptions`;
@@ -12,7 +17,7 @@ export const ONESIGNAL_SUBSCRIPTIONS_BY_TOKEN_URL =
 
 const STAGING_EXTERNAL_ID_PREFIX = "stg_";
 
-function isStagingEnvironment(): boolean {
+export function isStagingEnvironment(): boolean {
   return process.env.APP_ENV === "staging";
 }
 
@@ -41,18 +46,26 @@ function isStagingNotificationAllowed(payload: Record<string, unknown>): boolean
     externalIds.every((externalId) => externalId.startsWith(STAGING_EXTERNAL_ID_PREFIX));
 }
 
+/** Prefissa in-place ogni locale di un campo localizzato (contents, headings). */
+function prefixLocalizedField(payload: Record<string, unknown>, key: string): void {
+  const field = payload[key];
+  if (!field || typeof field !== "object") return;
+  const localized = field as Record<string, unknown>;
+  for (const [locale, value] of Object.entries(localized)) {
+    if (typeof value === "string") localized[locale] = `[STAGING] ${value}`;
+  }
+}
+
 function markStagingNotification(payload: Record<string, unknown>): void {
   if (!isStagingEnvironment()) return;
 
   if (typeof payload.email_subject === "string") {
     payload.email_subject = `[STAGING] ${payload.email_subject}`;
   }
-  if (payload.contents && typeof payload.contents === "object") {
-    const contents = payload.contents as Record<string, unknown>;
-    for (const [locale, value] of Object.entries(contents)) {
-      if (typeof value === "string") contents[locale] = `[STAGING] ${value}`;
-    }
-  }
+  // `headings` oltre a `contents`: senza, una push di staging arriverebbe con
+  // il titolo pulito e solo il corpo marcato.
+  prefixLocalizedField(payload, "contents");
+  prefixLocalizedField(payload, "headings");
 }
 
 export interface HandlerRequest {
@@ -69,8 +82,21 @@ export async function postToOneSignal(
   payload: Record<string, unknown>,
   apiKey: string
 ): Promise<Record<string, unknown>> {
-  if (payload.target_channel === "push" && isStagingEnvironment()) {
-    logger.warn("OneSignal push notification suppressed in staging");
+  // Le push in staging sono abilitate, ma solo verso l'app OneSignal di
+  // staging: con l'app di prod finirebbero sui device reali dei soci.
+  // `isStagingNotificationAllowed` (sotto) applica gia' il vincolo `stg_` sugli
+  // external_id, agnostico al canale. Qui il deploy sbagliato, non l'utente.
+  const targetAppId =
+    typeof payload.app_id === "string" ? payload.app_id : ONESIGNAL_APP_ID;
+  if (
+    payload.target_channel === "push" &&
+    isStagingEnvironment() &&
+    targetAppId === PROD_ONESIGNAL_APP_ID
+  ) {
+    logger.error(
+      "Push staging soppressa: ONESIGNAL_APP_ID e' quello di PRODUZIONE. " +
+        "Configurare l'app OneSignal di staging."
+    );
     return { suppressed: true };
   }
   if (!isStagingNotificationAllowed(payload)) {
@@ -99,8 +125,26 @@ export async function postToOneSignal(
   const data = (await response.json()) as Record<string, unknown>;
 
   if (!response.ok) {
+    // "alias esistente ma senza subscription push" e' lo stato NORMALE di gran
+    // parte dei soci: il token push nasce sul device e non esiste un
+    // equivalente server-side di `ensureOneSignalEmailSubscription`. OneSignal
+    // risponde 400 "All included players are not subscribed": non e' un errore
+    // da propagare, e trasformarlo in HttpsError farebbe fallire un'iscrizione
+    // per una push mancata.
+    const errorText = (data.errors as string[] | undefined)?.join(", ") ?? "";
+    if (
+      payload.target_channel === "push" &&
+      response.status === 400 &&
+      /not subscribed/i.test(errorText)
+    ) {
+      logger.info("Push saltata: destinatari senza subscription push", {
+        include_aliases: payload.include_aliases,
+      });
+      return { skipped: true, reason: "no_push_subscription" };
+    }
+
     logger.error("OneSignal error", { status: response.status, data });
-    const errors = (data.errors as string[] | undefined)?.join(", ") ?? "Errore OneSignal";
+    const errors = errorText || "Errore OneSignal";
     throw new HttpsError("internal", errors);
   }
 
@@ -111,7 +155,14 @@ export async function postToOneSignal(
     logger.warn("OneSignal 200 ma con errors nel body (possibile invio parziale)", { data });
   }
   if (data.recipients === 0) {
-    logger.warn("OneSignal 200 ma recipients: 0 (nessun destinatario raggiunto)", { data });
+    // Sul canale push e' l'esito atteso per chi non ha mai concesso il permesso
+    // (la copertura push reale si misura proprio da qui); sull'email resta un
+    // warning, li' l'ensure dovrebbe averlo reso impossibile.
+    if (payload.target_channel === "push") {
+      logger.info("Push senza destinatari raggiunti (recipients: 0)", { data });
+    } else {
+      logger.warn("OneSignal 200 ma recipients: 0 (nessun destinatario raggiunto)", { data });
+    }
   }
 
   logger.info("OneSignal response", { status: response.status, data });
