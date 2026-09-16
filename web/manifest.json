@@ -2,7 +2,7 @@
     "name": "Fit House Monza",
     "short_name": "Fit House Monza",
     "start_url": ".",
-    "scope": "/",
+    "scope": ".",
     "display": "standalone",
     "capture_links": "existing-client-navigate",
     "background_color": "#ffffff",

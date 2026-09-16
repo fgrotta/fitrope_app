@@ -44,6 +44,7 @@ jobs:
           FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_STAGING_AUTH_DOMAIN }}
           FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STAGING_STORAGE_BUCKET }}
           FIREBASE_MEASUREMENT_ID: ${{ vars.FIREBASE_STAGING_MEASUREMENT_ID }}
+          ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
         run: |
           test -n "$FIREBASE_API_KEY"
           test -n "$FIREBASE_APP_ID"
@@ -51,6 +52,9 @@ jobs:
           test -n "$FIREBASE_PROJECT_ID"
           test -n "$FIREBASE_AUTH_DOMAIN"
           test -n "$FIREBASE_STORAGE_BUCKET"
+          # Senza la guardia una var mancante diventa una stringa vuota e
+          # l'init OneSignal sparisce in silenzio dalla build staging.
+          test -n "$ONESIGNAL_APP_ID"
       - name: Build staging web
         run: >-
           flutter build web --wasm --release --base-href /fitrope_app/
@@ -62,6 +66,7 @@ jobs:
           --dart-define=FIREBASE_AUTH_DOMAIN=${{ vars.FIREBASE_STAGING_AUTH_DOMAIN }}
           --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STAGING_STORAGE_BUCKET }}
           --dart-define=FIREBASE_MEASUREMENT_ID=${{ vars.FIREBASE_STAGING_MEASUREMENT_ID }}
+          --dart-define=ONESIGNAL_APP_ID=${{ vars.ONESIGNAL_APP_ID }}
       # Gate anti-regressione del conditional export di onesignal_service.dart:
       # sotto --wasm `dart.library.html` e' false, quindi una direttiva scritta
       # male compila il ramo *mobile* sul web (MissingPluginException a runtime,

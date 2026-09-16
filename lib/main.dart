@@ -16,8 +16,26 @@ import 'package:fitrope_app/services/onesignal_service.dart';
 import 'firebase_options.dart' as prod;
 import 'firebase_options_staging.dart';
 
-// TODO: Sostituire con il tuo OneSignal App ID dalla dashboard
-const String oneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
+/// App OneSignal usata dal client. **Non** deve essere una costante secca sulla
+/// app di produzione: senza `--dart-define` la build di staging registrerebbe
+/// device e utenti sull'app OneSignal di prod (era il comportamento precedente).
+///
+/// - build di produzione (manuale, senza define) → app di prod, identica a prima;
+/// - build di staging (staging.yml passa il define) → app OneSignal di staging;
+/// - build di staging **senza** define → stringa vuota, init saltata con
+///   warning: meglio nessuna push che push sull'app sbagliata.
+///
+/// Lato Functions l'equivalente è la env `ONESIGNAL_APP_ID`: client e backend di
+/// uno stesso ambiente devono puntare alla **stessa** app, altrimenti ogni invio
+/// finisce con `recipients: 0`.
+const String _prodOneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
+const String _oneSignalAppIdFromEnv =
+    String.fromEnvironment('ONESIGNAL_APP_ID');
+// `!= ''` e non `.isNotEmpty`: le getter non sono const-evaluabili, e questa
+// costante deve restare const perché il ramo `isStaging` sia tree-shakato.
+const String oneSignalAppId = _oneSignalAppIdFromEnv != ''
+    ? _oneSignalAppIdFromEnv
+    : (isStaging ? '' : _prodOneSignalAppId);
 
 /// Ambiente di test locale (Firebase Emulator Suite). Avvio:
 ///   firebase emulators:start
@@ -130,7 +148,16 @@ void main() async {
     // In modalità emulatore OneSignal NON va inizializzato: su device fisico
     // registrerebbe il device (e al login gli utenti seed) sull'app OneSignal
     // di PRODUZIONE, rompendo l'isolamento del QA.
-    OneSignalService.initialize(oneSignalAppId);
+    if (oneSignalAppId.isEmpty) {
+      // Solo staging può arrivare qui (vedi `oneSignalAppId`): manca il
+      // --dart-define=ONESIGNAL_APP_ID. Fail-closed e rumoroso.
+      debugPrint(
+        '🔔 [OneSignal] init saltata: ONESIGNAL_APP_ID non configurato '
+        '(build staging senza --dart-define).',
+      );
+    } else {
+      OneSignalService.initialize(oneSignalAppId);
+    }
   }
 
   await initializeDateFormatting('it_IT', null);
