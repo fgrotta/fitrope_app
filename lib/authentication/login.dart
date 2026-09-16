@@ -74,10 +74,12 @@ Future<SignInResponse> signInWithEmailPassword(
 
         print(
             '🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
-        // Client SDK (per push future): identifica l'utente se abbiamo un permesso push
-        OneSignalService.login(fitropeUser.uid);
+        // Client SDK (per push future): identifica l'utente se abbiamo un permesso push.
+        // Fire-and-forget: da quando il bridge web ritorna Promise vere,
+        // attendere qui allungherebbe il login del round-trip verso OneSignal.
+        unawaited(OneSignalService.login(fitropeUser.uid));
         if (fitropeUser.email.isNotEmpty) {
-          OneSignalService.addEmail(fitropeUser.email);
+          unawaited(OneSignalService.addEmail(fitropeUser.email));
         }
         unawaited(OneSignalService.syncPushPreference(
             fitropeUser.pushNotificationsEnabled));

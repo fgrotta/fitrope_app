@@ -186,22 +186,76 @@
       return fitHouseBasePath() + path;
     }
 
-    function withOneSignal(action, label) {
-      const initPromise = window.__fitHouseOneSignalInitPromise || Promise.resolve();
-      initPromise.then(() => {
-        window.OneSignalDeferred.push(async function(OneSignal) {
-          try {
-            await action(OneSignal);
-          } catch (error) {
-            console.error('[OneSignal Web] ' + label + ' error:', error);
-          }
+    // Timeout di sicurezza: se il CDN di OneSignal non carica, i callback di
+    // `OneSignalDeferred` non vengono mai eseguiti e la Promise non si
+    // risolverebbe mai — un `await` Dart resterebbe appeso per sempre (il caso
+    // che fa piu' male e' `signOut`). Meglio un fallback esplicito.
+    var FIT_HOUSE_ONESIGNAL_TIMEOUT_MS = 10000;
+
+    function fitHouseSettle(promise, fallback, label) {
+      return new Promise(function(resolve) {
+        var settled = false;
+        function done(value) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(value);
+        }
+        var timer = setTimeout(function() {
+          console.warn('[OneSignal Web] ' + label + ': SDK non pronto entro il timeout');
+          done(fallback);
+        }, FIT_HOUSE_ONESIGNAL_TIMEOUT_MS);
+        promise.then(done, function(error) {
+          console.error('[OneSignal Web] ' + label + ' error:', error);
+          done(fallback);
         });
       });
     }
 
+    // Ogni funzione del bridge RITORNA una Promise che risolve *sempre*, anche
+    // in errore: i wrapper Dart fanno `.toDart` e un reject non gestito
+    // arriverebbe come eccezione Dart dentro `saveChanges`/`signOut`. Prima
+    // erano tutte fire-and-forget, quindi ogni `await` lato Dart era finto.
+    function withOneSignal(action, label, fallback) {
+      var initPromise = window.__fitHouseOneSignalInitPromise || Promise.resolve();
+      var chained = initPromise.then(function() {
+        return new Promise(function(resolve, reject) {
+          window.OneSignalDeferred.push(async function(OneSignal) {
+            try {
+              resolve(await action(OneSignal));
+            } catch (error) {
+              reject(error);
+            }
+          });
+        });
+      });
+      return fitHouseSettle(chained, fallback, label);
+    }
+
+    /** true se il permesso notifiche e' concesso adesso. */
+    function fitHousePushGranted(OneSignal) {
+      if (OneSignal && OneSignal.Notifications &&
+          OneSignal.Notifications.permission === true) {
+        return true;
+      }
+      return !!window.Notification && Notification.permission === 'granted';
+    }
+
+    /** optIn solo a permesso concesso. Ritorna true se il device e' iscritto. */
+    async function fitHouseOptInIfGranted(OneSignal) {
+      if (!fitHousePushGranted(OneSignal)) return false;
+      try {
+        await OneSignal.User.PushSubscription.optIn();
+        return true;
+      } catch (error) {
+        console.error('[OneSignal Web] optIn error:', error);
+        return false;
+      }
+    }
+
     window.oneSignalInit = function(appId) {
       if (window.__fitHouseOneSignalInitPromise) {
-        return;
+        return window.__fitHouseOneSignalInitPromise;
       }
 
       window.__fitHouseOneSignalInitPromise = new Promise((resolve) => {
@@ -234,78 +288,163 @@
           resolve();
         });
       });
+
+      return window.__fitHouseOneSignalInitPromise;
+    };
+
+    /** Risolve quando l'init e' completata (o subito, se non e' mai partita). */
+    window.oneSignalWhenReady = function() {
+      return fitHouseSettle(
+        window.__fitHouseOneSignalInitPromise || Promise.resolve(),
+        undefined,
+        'whenReady'
+      );
     };
 
     window.oneSignalLogin = function(userId) {
-      withOneSignal(async function(OneSignal) {
+      return withOneSignal(async function(OneSignal) {
         await OneSignal.login(userId);
-      }, 'login');
+      }, 'login', undefined);
     };
 
     window.oneSignalLogout = function() {
-      withOneSignal(async function(OneSignal) {
+      return withOneSignal(async function(OneSignal) {
         await OneSignal.logout();
-      }, 'logout');
+      }, 'logout', undefined);
     };
 
     window.oneSignalAddEmail = function(email) {
-      withOneSignal(async function(OneSignal) {
+      return withOneSignal(async function(OneSignal) {
         await OneSignal.User.addEmail(email);
-      }, 'addEmail');
+      }, 'addEmail', undefined);
     };
 
     window.oneSignalRemoveEmail = function(email) {
-      withOneSignal(async function(OneSignal) {
+      return withOneSignal(async function(OneSignal) {
         await OneSignal.User.removeEmail(email);
-      }, 'removeEmail');
+      }, 'removeEmail', undefined);
     };
 
     window.oneSignalSyncPushPreference = function(enabled) {
-      withOneSignal(async function(OneSignal) {
+      return withOneSignal(async function(OneSignal) {
         if (!OneSignal.Notifications.isPushSupported()) {
           return;
         }
 
         if (enabled) {
-          if (OneSignal.Notifications.permission === true) {
-            await OneSignal.User.PushSubscription.optIn();
-          }
+          await fitHouseOptInIfGranted(OneSignal);
           return;
         }
 
         await OneSignal.User.PushSubscription.optOut();
-      }, 'syncPushPreference');
+      }, 'syncPushPreference', undefined);
     };
 
+    /**
+     * Applica la preferenza push SENZA chiedere il permesso: l'opt-in richiede
+     * un gesto utente e passa da `oneSignalRequestPushPermission`. Qui resta
+     * l'opt-out (che un gesto non lo richiede) e il ri-opt-in a permesso gia'
+     * concesso. Ritorna lo stato effettivo del device.
+     */
     window.oneSignalSetPushEnabled = function(enabled) {
-      withOneSignal(async function(OneSignal) {
+      return withOneSignal(async function(OneSignal) {
         if (!OneSignal.Notifications.isPushSupported()) {
-          return;
+          return false;
         }
 
         if (enabled) {
-          await OneSignal.User.PushSubscription.optIn();
-          return;
+          return await fitHouseOptInIfGranted(OneSignal);
         }
 
         await OneSignal.User.PushSubscription.optOut();
-      }, 'setPushEnabled');
+        return false;
+      }, 'setPushEnabled', false);
     };
 
-    window.oneSignalHasPushPermission = function() {
-      if (!window.Notification) {
-        return false;
+    /**
+     * Chiede il permesso notifiche e, se concesso, iscrive il device.
+     *
+     * `requestPermission()` viene invocata in modo **sincrono** rispetto al tap:
+     * NON passa da `withOneSignal` (che incatenerebbe `initPromise.then` +
+     * `OneSignalDeferred`, cioe' >= 3 turni di event loop). Su WebKit la
+     * transient activation si perde al primo await e il prompt iOS non compare.
+     * Il fallback asincrono serve solo quando l'SDK non e' ancora caricato:
+     * meglio un prompt che non compare su iOS che nessun prompt altrove.
+     */
+    window.oneSignalRequestPushPermission = function() {
+      var OneSignal = window.OneSignal;
+      var notifications = OneSignal && OneSignal.Notifications;
+      if (!notifications || typeof notifications.requestPermission !== 'function') {
+        console.warn('[OneSignal Web] requestPushPermission: SDK non pronto, fallback asincrono');
+        return withOneSignal(async function(OneSignal) {
+          await OneSignal.Notifications.requestPermission();
+          return await fitHouseOptInIfGranted(OneSignal);
+        }, 'requestPushPermission', false);
       }
 
-      return Notification.permission === 'granted';
+      var requested;
+      try {
+        requested = notifications.requestPermission();
+      } catch (error) {
+        console.error('[OneSignal Web] requestPushPermission error:', error);
+        return Promise.resolve(false);
+      }
+
+      return fitHouseSettle(
+        Promise.resolve(requested).then(function() {
+          return fitHouseOptInIfGranted(OneSignal);
+        }),
+        false,
+        'requestPushPermission'
+      );
     };
 
-    window.oneSignalCanRequestPushPermission = function() {
-      if (!window.Notification) {
-        return false;
-      }
+    /**
+     * Stato push del dispositivo, sincrono e indipendente dall'SDK: serve a
+     * decidere se e quale banner mostrare prima ancora che OneSignal sia
+     * pronto.
+     */
+    window.oneSignalPushEnvironment = function() {
+      var nav = window.navigator || {};
+      // iPadOS >= 13 manda uno UA da Mac: il tell e' il touch screen.
+      var ios = /iPad|iPhone|iPod/.test(nav.platform || '') ||
+        (nav.platform === 'MacIntel' && (nav.maxTouchPoints || 0) > 1);
+      // `navigator.standalone` e' l'unico segnale affidabile su iOS < 16.4;
+      // `display-mode` copre gli altri browser. Servono entrambi, in OR.
+      var standalone = nav.standalone === true ||
+        (typeof window.matchMedia === 'function' &&
+          window.matchMedia('(display-mode: standalone)').matches);
+      // Anche PushManager, non solo Notification: su iOS in tab Safari la Web
+      // Push API non esiste affatto.
+      var hasApi = typeof window.Notification !== 'undefined' &&
+        typeof window.PushManager !== 'undefined' &&
+        'serviceWorker' in nav;
+      return {
+        hasApi: hasApi,
+        permission: hasApi ? Notification.permission : 'unsupported',
+        ios: ios === true,
+        standalone: standalone === true,
+      };
+    };
 
-      return Notification.permission === 'default';
+    /**
+     * Helper di debug da console (`await oneSignalDiagnostics()`): dice se il
+     * device e' davvero iscritto e con quale scope e' registrato il worker.
+     * Non viene chiamata dal codice Dart.
+     */
+    window.oneSignalDiagnostics = function() {
+      return withOneSignal(async function(OneSignal) {
+        var registrations = navigator.serviceWorker
+          ? await navigator.serviceWorker.getRegistrations()
+          : [];
+        return {
+          environment: window.oneSignalPushEnvironment(),
+          optedIn: OneSignal.User.PushSubscription.optedIn,
+          subscriptionId: OneSignal.User.PushSubscription.id,
+          hasToken: !!OneSignal.User.PushSubscription.token,
+          serviceWorkerScopes: registrations.map(function(r) { return r.scope; }),
+        };
+      }, 'diagnostics', null);
     };
   </script>
 

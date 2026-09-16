@@ -1,33 +1,49 @@
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
+import 'package:fitrope_app/services/push_environment.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 
+// Le funzioni del bridge (`web/index.html`) ritornano tutte una Promise che
+// risolve SEMPRE, anche in errore: un reject attraverserebbe `JSPromise.toDart`
+// come eccezione Dart e farebbe fallire i chiamanti (`saveChanges`, `signOut`).
+// Prima erano fire-and-forget e ogni `await` qui sotto era finto.
+
 @JS('oneSignalInit')
-external void _init(JSString appId);
+external JSPromise<JSAny?> _init(JSString appId);
+
+@JS('oneSignalWhenReady')
+external JSPromise<JSAny?> _whenReady();
 
 @JS('oneSignalLogin')
-external void _login(JSString userId);
+external JSPromise<JSAny?> _login(JSString userId);
 
 @JS('oneSignalLogout')
-external void _logout();
+external JSPromise<JSAny?> _logout();
 
 @JS('oneSignalAddEmail')
-external void _addEmail(JSString email);
+external JSPromise<JSAny?> _addEmail(JSString email);
 
 @JS('oneSignalRemoveEmail')
-external void _removeEmail(JSString email);
+external JSPromise<JSAny?> _removeEmail(JSString email);
 
 @JS('oneSignalSetPushEnabled')
-external void _setPushEnabled(JSBoolean enabled);
+external JSPromise<JSBoolean> _setPushEnabled(JSBoolean enabled);
 
 @JS('oneSignalSyncPushPreference')
-external void _syncPushPreference(JSBoolean enabled);
+external JSPromise<JSAny?> _syncPushPreference(JSBoolean enabled);
 
-@JS('oneSignalHasPushPermission')
-external JSBoolean _hasPushPermission();
+@JS('oneSignalRequestPushPermission')
+external JSPromise<JSBoolean> _requestPushPermission();
 
-@JS('oneSignalCanRequestPushPermission')
-external JSBoolean _canRequestPushPermission();
+@JS('oneSignalPushEnvironment')
+external _JsPushEnvironment _pushEnvironment();
+
+extension type _JsPushEnvironment._(JSObject _) implements JSObject {
+  external JSBoolean get hasApi;
+  external JSString get permission;
+  external JSBoolean get ios;
+  external JSBoolean get standalone;
+}
 
 class OneSignalService {
   // MODALITÀ SIMULAZIONE — difesa strutturale.
@@ -37,52 +53,80 @@ class OneSignalService {
   // simulazione non si chiama MAI OneSignal, il device resta legato all'admin.
   // Per questo `SimulationController.stop()` non deve ripristinare nulla.
 
+  /// Resta `void`: gira al boot e non deve bloccarsi in attesa dello
+  /// `<script defer>` del CDN. Chi ha bisogno dell'init completata usa
+  /// [whenReady].
   static void initialize(String appId) {
     debugPrint('🔔 [OneSignal Web] initialize(appId: $appId)');
     _init(appId.toJS);
   }
 
-  static void login(String userId) {
-    SimulationSession.assertNotSimulating('OneSignal.login');
-    debugPrint('🔔 [OneSignal Web] login(userId: $userId)');
-    _login(userId.toJS);
+  /// Risolve quando l'init OneSignal è completata (o subito, se non è mai
+  /// partita). Non lancia mai.
+  static Future<void> whenReady() async {
+    await _whenReady().toDart;
   }
 
-  static void addEmail(String email) {
+  static Future<void> login(String userId) async {
+    SimulationSession.assertNotSimulating('OneSignal.login');
+    debugPrint('🔔 [OneSignal Web] login(userId: $userId)');
+    await _login(userId.toJS).toDart;
+  }
+
+  static Future<void> addEmail(String email) async {
     SimulationSession.assertNotSimulating('OneSignal.addEmail');
     debugPrint('🔔 [OneSignal Web] addEmail(email: $email)');
-    _addEmail(email.toJS);
+    await _addEmail(email.toJS).toDart;
   }
 
   static Future<void> removeEmail(String email) async {
     SimulationSession.assertNotSimulating('OneSignal.removeEmail');
     debugPrint('🔔 [OneSignal Web] removeEmail(email: $email)');
-    _removeEmail(email.toJS);
+    await _removeEmail(email.toJS).toDart;
   }
 
-  static Future<void> setPushEnabled(bool enabled) async {
+  /// Applica la preferenza **senza** chiedere il permesso: l'opt-in richiede un
+  /// gesto utente e passa da [requestPushPermission]. Ritorna lo stato
+  /// effettivo del device.
+  static Future<bool> setPushEnabled(bool enabled) async {
     SimulationSession.assertNotSimulating('OneSignal.setPushEnabled');
     debugPrint('🔔 [OneSignal Web] setPushEnabled(enabled: $enabled)');
-    _setPushEnabled(enabled.toJS);
+    return (await _setPushEnabled(enabled.toJS).toDart).toDart;
   }
 
   static Future<void> syncPushPreference(bool enabled) async {
     SimulationSession.assertNotSimulating('OneSignal.syncPushPreference');
     debugPrint('🔔 [OneSignal Web] syncPushPreference(enabled: $enabled)');
-    _syncPushPreference(enabled.toJS);
+    await _syncPushPreference(enabled.toJS).toDart;
   }
 
-  static Future<bool> hasPushPermission() async {
-    return _hasPushPermission().toDart;
+  /// Chiede il permesso notifiche e, se concesso, iscrive il device.
+  ///
+  /// Va chiamata come **prima istruzione** dell'`onPressed`: il bridge invoca
+  /// `requestPermission()` in modo sincrono rispetto al tap, perché su WebKit
+  /// la transient activation si perde al primo await e il prompt iOS non
+  /// comparirebbe.
+  static Future<bool> requestPushPermission() async {
+    SimulationSession.assertNotSimulating('OneSignal.requestPushPermission');
+    debugPrint('🔔 [OneSignal Web] requestPushPermission()');
+    return (await _requestPushPermission().toDart).toDart;
   }
 
-  static Future<bool> canRequestPushPermission() async {
-    return _canRequestPushPermission().toDart;
+  /// Stato push del dispositivo. Nessuna guardia simulazione: non tocca
+  /// l'identità, e il banner la interroga prima di decidere.
+  static Future<PushEnvironment> pushEnvironment() async {
+    final raw = _pushEnvironment();
+    return PushEnvironment(
+      hasApi: raw.hasApi.toDart,
+      permission: raw.permission.toDart,
+      ios: raw.ios.toDart,
+      standalone: raw.standalone.toDart,
+    );
   }
 
   static Future<void> logout() async {
     SimulationSession.assertNotSimulating('OneSignal.logout');
     debugPrint('🔔 [OneSignal Web] logout()');
-    _logout();
+    await _logout().toDart;
   }
 }

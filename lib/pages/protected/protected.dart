@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/api/get_user_data.dart';
@@ -124,11 +126,14 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   /// Regola: in simulazione non si chiama mai OneSignal.
   void _syncOneSignalIdentity(FitropeUser u) {
     if (SimulationSession.isActive) return;
-    OneSignalService.login(u.uid);
+    // Fire-and-forget esplicito: le chiamate ritornano Future vere (il bridge
+    // web ora restituisce Promise), ma questo è un percorso di boot e non deve
+    // attendere il round-trip verso OneSignal.
+    unawaited(OneSignalService.login(u.uid));
     if (u.email.isNotEmpty) {
-      OneSignalService.addEmail(u.email);
+      unawaited(OneSignalService.addEmail(u.email));
     }
-    OneSignalService.syncPushPreference(u.pushNotificationsEnabled);
+    unawaited(OneSignalService.syncPushPreference(u.pushNotificationsEnabled));
   }
 
   Future<void> resetUser() async {
