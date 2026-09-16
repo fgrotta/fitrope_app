@@ -76,8 +76,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   /// Filtro tipologia abbonamento: null = tutte le tipologie
   TipologiaIscrizione? selectedTipologiaFilter;
 
-  /// Filtro stato: null = tutti, true = solo attivi, false = solo disattivati
-  bool? activeFilter;
+  /// Filtro stato: null = tutti, true = solo attivi, false = solo disattivati.
+  /// Default "solo attivi": è il sottoinsieme su cui si lavora normalmente, e
+  /// gli account disattivati restano a un click di distanza dal dropdown.
+  bool? activeFilter = true;
 
   /// Solo Admin: filtro su fine iscrizione (allineato al KPI dashboard per i 30 gg)
   AbbonamentoScadenzaListFilter _abbonamentoScadenzaFilter =

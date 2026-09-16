@@ -26,6 +26,10 @@ dependencies:
   intl: ^0.20.2
   onesignal_flutter: ^5.2.7
   timezone: ^0.9.4
+  # Promossa da transitiva a diretta: `download_file_web.dart` usa Blob / URL /
+  # HTMLAnchorElement tipizzati. Già a 1.1.1 nel pubspec.lock, la risoluzione
+  # non cambia.
+  web: ^1.1.1
   flutter_localizations:
     sdk: flutter
 
