@@ -45,6 +45,7 @@ admin.initializeApp(appOptions);
 const db = new Firestore({ projectId });
 const PASSWORD = "test1234";
 const MEMBER_UID = "stg_member";
+const E2E_WAITER_UID = "stg_e2e_waiter";
 const MEMBER_SUBSCRIPTIONS = [
   {
     planKey: "open_10i_3m",
@@ -130,6 +131,9 @@ async function main() {
     ["stg_admin", "test.staging@example.com", "Admin"],
     ["stg_trainer", "trainer.staging@example.com", "Trainer"],
     [MEMBER_UID, "member.staging@example.com", "User"],
+    // Identità riservata al test E2E waitlist; la relativa email deve restare
+    // nella STAGING_NOTIFICATION_EMAIL_ALLOWLIST del progetto staging.
+    [E2E_WAITER_UID, "stg-e2e-waiter@example.com", "User"],
   ];
 
   for (const [uid, email, role] of users) {
