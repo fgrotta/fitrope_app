@@ -150,6 +150,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 children: [
                   Expanded(
                     child: TextFormField(
+                      key: const Key('user-name-field'),
                       controller: _nameController,
                       decoration: const InputDecoration(
                         labelText: 'Nome *',
@@ -168,6 +169,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: TextFormField(
+                      key: const Key('user-last-name-field'),
                       controller: _lastNameController,
                       decoration: const InputDecoration(
                         labelText: 'Cognome *',
@@ -189,6 +191,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Numero di Telefono (opzionale)
               TextFormField(
+                key: const Key('user-phone-field'),
                 controller: _numeroTelefonoController,
                 decoration: const InputDecoration(
                   labelText: 'Numero di Telefono (opzionale)',
@@ -217,6 +220,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Email (opzionale)
               TextFormField(
+                key: const Key('user-email-field'),
                 controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email (opzionale)',
@@ -240,6 +244,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Password (opzionale)
               TextFormField(
+                key: const Key('user-password-field'),
                 controller: _passwordController,
                 decoration: const InputDecoration(
                   labelText: 'Password (opzionale)',
@@ -274,6 +279,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
               // Ruolo (solo per Admin)
               if (widget.currentUserRole == 'Admin') ...[
                 DropdownButtonFormField<String>(
+                  key: const Key('user-role-select'),
                   initialValue: _selectedRole,
                   decoration: const InputDecoration(
                     labelText: 'Ruolo *',
@@ -297,6 +303,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Tipologia Iscrizione
               DropdownButtonFormField<TipologiaIscrizione?>(
+                key: const Key('user-subscription-type-select'),
                 initialValue: _selectedTipologia,
                 decoration: const InputDecoration(
                   labelText: 'Tipologia Iscrizione',
@@ -348,6 +355,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Entrate Disponibili
               TextFormField(
+                key: const Key('user-entries-field'),
                 controller: _entrateDisponibiliController,
                 decoration: const InputDecoration(
                   labelText: 'Entrate Disponibili',
@@ -366,6 +374,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
               // Entrate Settimanali
               TextFormField(
+                key: const Key('user-weekly-limit-field'),
                 controller: _entrateSettimanaliController,
                 decoration: const InputDecoration(
                   labelText: 'Entrate Settimanali',
@@ -467,6 +476,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
+                      key: const Key('user-save-button'),
                       onPressed: _isLoading ? null : _createUser,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,

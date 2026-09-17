@@ -182,6 +182,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     height: 10,
                   ),
                   CustomTextField(
+                    key: const Key('registration-email-field'),
                     controller: _emailController,
                     hintText: 'Inserisci la tua email',
                     onTapOutside: (_) => setState(() {
@@ -205,6 +206,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     height: 10,
                   ),
                   CustomTextField(
+                    key: const Key('registration-password-field'),
                     controller: _passwordController,
                     hintText: 'Inserisci la password',
                     obscureText: true,
@@ -229,6 +231,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     height: 10,
                   ),
                   CustomTextField(
+                    key: const Key('registration-confirm-password-field'),
                     controller: _confirmPasswordController,
                     hintText: 'Conferma la password',
                     obscureText: true,
@@ -253,6 +256,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     height: 10,
                   ),
                   CustomTextField(
+                    key: const Key('registration-name-field'),
                     controller: _nameController,
                     hintText: 'Inserisci il tuo nome',
                     onTapOutside: (_) => setState(() {
@@ -276,6 +280,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     height: 10,
                   ),
                   CustomTextField(
+                    key: const Key('registration-last-name-field'),
                     controller: _lastNameController,
                     hintText: 'Inserisci il tuo cognome',
                     onTapOutside: (_) => setState(() {
@@ -299,6 +304,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     height: 10,
                   ),
                   CustomTextField(
+                    key: const Key('registration-phone-field'),
                     controller: _numeroTelefonoController,
                     hintText: 'Inserisci il tuo numero di telefono',
                     onTapOutside: (_) => setState(() {
@@ -322,6 +328,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   Row(
                     children: [
                       Checkbox(
+                        key: const Key('registration-privacy-checkbox'),
                         value: privacyAccepted,
                         onChanged: (value) {
                           setState(() {
@@ -368,6 +375,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+                  key: const Key('registration-submit-button'),
                   onPressed: () {
                     setState(() {
                       validateName();

@@ -83,6 +83,24 @@ Future<void> selectFerragosto(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> selectE2eCourseDate(WidgetTester tester) async {
+  const year = String.fromEnvironment('E2E_COURSE_YEAR');
+  const month = String.fromEnvironment('E2E_COURSE_MONTH');
+  const day = String.fromEnvironment('E2E_COURSE_DAY');
+  if (year.isEmpty || month.isEmpty || day.isEmpty) {
+    throw StateError('Date E2E non presente nel manifest defines');
+  }
+  final target = DateTime(int.parse(year), int.parse(month));
+  final now = DateTime.now();
+  final delta = (target.year - now.year) * 12 + target.month - now.month;
+  for (var i = 0; i < delta; i++) {
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.text(day).last);
+  await tester.pumpAndSettle();
+}
+
 // ---------------------------------------------------------------------------
 // Helper sulle card dei corsi (identificate per uid via Key)
 // ---------------------------------------------------------------------------

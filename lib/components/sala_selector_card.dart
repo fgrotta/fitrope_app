@@ -29,6 +29,7 @@ class SalaSelectorCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String?>(
+              key: const Key('course-sala-select'),
               initialValue: value,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),

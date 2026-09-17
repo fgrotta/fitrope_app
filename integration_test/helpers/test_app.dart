@@ -1,26 +1,20 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:fitrope_app/firebase_options.dart';
+import 'package:fitrope_app/app_bootstrap.dart';
 import 'package:fitrope_app/main.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:intl/date_symbol_data_local.dart';
 
 bool _firebaseReady = false;
 
 /// Avvia l'app reale ([MyApp]) per un test E2E, puntando all'ambiente di
-/// PRODUZIONE (stesse opzioni di [DefaultFirebaseOptions]).
+/// ambiente selezionato dai dart-define (emulatore oppure staging).
 ///
-/// Replica il minimo dell'init di `main.dart` SENZA OneSignal (che richiede il
-/// browser/SDK e non serve ai test) e supera lo SplashScreen, che ha un delay
+/// Usa lo stesso bootstrap dell'app, ma senza OneSignal, e supera lo SplashScreen, che ha un delay
 /// di 2s e uno spinner infinito (quindi non si può usare `pumpAndSettle` lì).
 Future<void> launchTestApp(WidgetTester tester) async {
   if (!_firebaseReady) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    await initializeDateFormatting('it_IT', null);
+    await bootstrapApp(oneSignalAppId: '', enableOneSignal: false);
     _firebaseReady = true;
   }
 
@@ -29,9 +23,7 @@ Future<void> launchTestApp(WidgetTester tester) async {
   // sessione tra un test e l'altro nella stessa esecuzione).
   await FirebaseAuth.instance.signOut();
 
-  await tester.pumpWidget(
-    StoreProvider(store: store, child: const MyApp()),
-  );
+  await tester.pumpWidget(StoreProvider(store: store, child: const MyApp()));
 
   // SplashScreen: aspetta il redirect reale (Future.delayed di 2s).
   // Non usiamo pumpAndSettle perché lo spinner anima all'infinito.
