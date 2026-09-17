@@ -47,6 +47,10 @@ void main() {
     await selectE2eCourseDate(tester);
     await expectCourseAction(tester, courseId, "Lista d'attesa");
     await tapCourseAction(tester, courseId);
+    // L'iscrizione alla lista d'attesa richiede una conferma esplicita nel
+    // dialog mostrato dall'app; il tap precedente apre il dialog, non invia
+    // ancora la callable.
+    await confirmDialog(tester, 'Conferma');
     await expectCourseAction(tester, courseId, "Esci dalla lista d'attesa");
     await logoutAndRestart(tester);
     await login(
