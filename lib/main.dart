@@ -1,20 +1,16 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:fitrope_app/app_bootstrap.dart';
+import 'package:firebase_core/firebase_core.dart' show defaultFirebaseAppName;
+import 'package:fitrope_app/firebase_options.dart' as prod;
+import 'package:fitrope_app/firebase_options_staging.dart';
 import 'package:fitrope_app/components/simulation_banner.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/app_environment.dart';
 import 'package:fitrope_app/state/store.dart';
-import 'package:fitrope_app/utils/clear_auth_persistence.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
-import 'package:fitrope_app/services/onesignal_service.dart';
-import 'firebase_options.dart' as prod;
-import 'firebase_options_staging.dart';
+import 'package:fitrope_app/utils/clear_auth_persistence.dart';
 
 // TODO: Sostituire con il tuo OneSignal App ID dalla dashboard
 const String oneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
@@ -24,15 +20,6 @@ const String oneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
 ///   flutter run -d chrome --dart-define=USE_EMULATOR=true
 /// Da device fisico sulla LAN aggiungere --dart-define=EMULATOR_HOST=<IP Mac>.
 /// Vedi docs/AMBIENTI_DI_TEST.md.
-const bool useEmulator = bool.fromEnvironment('USE_EMULATOR');
-const String emulatorHost =
-    String.fromEnvironment('EMULATOR_HOST', defaultValue: 'localhost');
-const int authEmulatorPort =
-    int.fromEnvironment('AUTH_EMULATOR_PORT', defaultValue: 9099);
-const int firestoreEmulatorPort =
-    int.fromEnvironment('FIRESTORE_EMULATOR_PORT', defaultValue: 8080);
-const int functionsEmulatorPort =
-    int.fromEnvironment('FUNCTIONS_EMULATOR_PORT', defaultValue: 5001);
 
 /// Credenziali con cui entrare da soli in modalità emulatore, per non passare
 /// dal form a ogni avvio: la persistenza viene azzerata a ogni caricamento
@@ -43,50 +30,8 @@ const int functionsEmulatorPort =
 /// comunque **solo** se `useEmulator` è true. In una build di produzione
 /// `useEmulator` è una costante false, quindi il ramo viene eliminato dal
 /// tree-shaking e queste stringhe non finiscono nel bundle.
-const String emulatorAutologinEmail =
-    String.fromEnvironment('EMULATOR_AUTOLOGIN_EMAIL');
-const String emulatorAutologinPassword =
-    String.fromEnvironment('EMULATOR_AUTOLOGIN_PASSWORD');
-
-/// Entra con le credenziali seed. Non blocca l'avvio se fallisce: un errore
-/// qui è un problema del seed o dell'emulatore, non dell'app, e conviene
-/// vedere la schermata di login con il suo messaggio piuttosto che un crash.
-Future<void> _autologin() async {
-  if (emulatorAutologinEmail.isEmpty || emulatorAutologinPassword.isEmpty) {
-    return;
-  }
-  try {
-    await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: emulatorAutologinEmail,
-      password: emulatorAutologinPassword,
-    );
-    debugPrint('🔓 Autologin emulatore: $emulatorAutologinEmail');
-  } catch (e) {
-    debugPrint('⚠️ Autologin emulatore fallito: $e');
-  }
-}
-
-Future<void> _connectToEmulators() async {
-  await FirebaseAuth.instance.useAuthEmulator(emulatorHost, authEmulatorPort);
-  FirebaseFirestore.instance
-      .useFirestoreEmulator(emulatorHost, firestoreEmulatorPort);
-  // Le callable usano sempre instanceFor(region: 'europe-west8'): l'emulatore
-  // va agganciato alla STESSA istanza/region, altrimenti le chiamate andrebbero
-  // in produzione.
-  FirebaseFunctions.instanceFor(region: 'europe-west8')
-      .useFunctionsEmulator(emulatorHost, functionsEmulatorPort);
-  debugPrint('⚠️ EMULATORE FIREBASE ATTIVO '
-      '($emulatorHost; auth:$authEmulatorPort, '
-      'firestore:$firestoreEmulatorPort, functions:$functionsEmulatorPort) '
-      '— nessun dato reale');
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final firebaseOptions = isStaging
-      ? StagingFirebaseOptions.currentPlatform
-      : prod.DefaultFirebaseOptions.currentPlatform;
-
   // PRIMA di `Firebase.initializeApp`, non dopo: su web
   // `firebase_core_web.initializeApp` ATTENDE l'`ensurePluginInitialized` di
   // ogni servizio registrato, e quello di `firebase_auth_web` crea l'istanza JS
@@ -103,7 +48,10 @@ void main() async {
   if (useEmulator) {
     try {
       await clearFirebaseAuthPersistence(
-        apiKey: firebaseOptions.apiKey,
+        apiKey: (isStaging
+                ? StagingFirebaseOptions.currentPlatform
+                : prod.DefaultFirebaseOptions.currentPlatform)
+            .apiKey,
         appName: defaultFirebaseAppName,
       );
     } catch (error, stackTrace) {
@@ -117,28 +65,17 @@ void main() async {
     }
   }
 
-  await Firebase.initializeApp(
-    options: firebaseOptions,
+  await bootstrapApp(
+    oneSignalAppId: oneSignalAppId,
+    clearEmulatorPersistence: false,
   );
-
-  if (useEmulator) {
-    await _connectToEmulators();
-    // Dopo aver agganciato l'emulatore, mai prima: sarebbe un uso di auth che
-    // impedisce a `useAuthEmulator` di attaccarsi.
-    await _autologin();
-  } else {
-    // In modalità emulatore OneSignal NON va inizializzato: su device fisico
-    // registrerebbe il device (e al login gli utenti seed) sull'app OneSignal
-    // di PRODUZIONE, rompendo l'isolamento del QA.
-    OneSignalService.initialize(oneSignalAppId);
-  }
-
-  await initializeDateFormatting('it_IT', null);
   initItalianTime(); // l'app mostra/salva sempre l'orario italiano (Europe/Rome)
 
-  runApp(SafeArea(
-    child: StoreProvider(store: store, child: const MyApp()),
-  ));
+  runApp(
+    SafeArea(
+      child: StoreProvider(store: store, child: const MyApp()),
+    ),
+  );
 
   // tests();
 }
@@ -164,14 +101,19 @@ class EmulatorStartupErrorApp extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.gpp_bad_outlined,
-                        size: 56, color: Colors.red),
+                    const Icon(
+                      Icons.gpp_bad_outlined,
+                      size: 56,
+                      color: Colors.red,
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       'Avvio emulatore bloccato',
                       textAlign: TextAlign.center,
-                      style:
-                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     const Text(
@@ -209,8 +151,9 @@ class MyApp extends StatelessWidget {
       // per restare sopra dialog ed endDrawer. A simulazione spenta
       // SimulationBanner ritorna il child identico, quindi l'albero non cambia.
       builder: (context, child) {
-        final content =
-            SimulationBanner(child: child ?? const SizedBox.shrink());
+        final content = SimulationBanner(
+          child: child ?? const SizedBox.shrink(),
+        );
         return isStaging
             ? Banner(
                 message: 'STAGING',
@@ -227,10 +170,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('it', 'IT'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('it', 'IT'), Locale('en', 'US')],
       initialRoute: INITIAL_ROUTE,
       routes: routes,
     );

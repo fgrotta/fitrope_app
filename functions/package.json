@@ -13,6 +13,9 @@
     "test:integration": "npm run build && cd .. && firebase emulators:exec --only auth,firestore,functions --project demo-fitrope \"cd functions && npx jest -c jest.integration.config.js\"",
     "seed:emulator": "node scripts/seedEmulator.js",
     "seed:staging": "node scripts/seedStaging.js --confirm-staging",
+    "e2e:setup": "node scripts/e2eControlPlane.js setup",
+    "e2e:assert": "node scripts/e2eControlPlane.js assert",
+    "e2e:cleanup": "node scripts/e2eControlPlane.js cleanup",
     "migration:course-model": "npm run build && node ../scripts/backfillCourseModel.js"
   },
   "engines": {

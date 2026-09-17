@@ -198,7 +198,7 @@ jobs:
   # davvero sul progetto staging — un deploy Functions parziale altrimenti
   # passerebbe silenziosamente e romperebbe l'app solo al primo click.
   smoke-test:
-    needs: [deploy-pages, deploy-rules]
+    needs: [deploy-pages, deploy-rules, e2e]
     runs-on: ubuntu-latest
     environment: staging
     env:
@@ -227,6 +227,73 @@ jobs:
             curl -fsS --retry 5 --retry-delay 5 --retry-all-errors \
               -o /dev/null "${PAGE_URL}${path}"
           done
+
+  # UI E2E usa Chrome contro Firebase staging e Admin SDK solo per fixture,
+  # assert server-side e cleanup. Il job resta seriale dopo le rules.
+  e2e:
+    needs: deploy-rules
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      E2E_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+      APP_ENV: staging
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.6"
+          channel: stable
+          cache: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_STAGING_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - run: npm install -g firebase-tools@15
+      - run: flutter pub get
+      - working-directory: functions
+        run: npm ci
+      - name: Install matching ChromeDriver
+        run: |
+          CHROME_VERSION="$(google-chrome --product-version)"
+          npm install -g chromedriver@"$CHROME_VERSION"
+      - name: Create E2E fixture manifest
+        working-directory: functions
+        run: npm run e2e:setup -- --manifest ../integration_test/e2e_manifest.json
+      - name: Run Flutter E2E against staging
+        env:
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_STAGING_API_KEY }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_STAGING_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_STAGING_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_STAGING_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STAGING_STORAGE_BUCKET }}
+          FIREBASE_MEASUREMENT_ID: ${{ vars.FIREBASE_STAGING_MEASUREMENT_ID }}
+        run: |
+          chromedriver --port=4444 > chromedriver.log 2>&1 &
+          flutter drive --driver=test_driver/integration_test.dart --target=integration_test/e2e_test.dart -d chrome \
+            --dart-define-from-file=integration_test/e2e_manifest.defines.json \
+            --dart-define=APP_ENV=staging \
+            --dart-define=FIREBASE_API_KEY="$FIREBASE_API_KEY" \
+            --dart-define=FIREBASE_APP_ID="$FIREBASE_APP_ID" \
+            --dart-define=FIREBASE_MESSAGING_SENDER_ID="$FIREBASE_MESSAGING_SENDER_ID" \
+            --dart-define=FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
+            --dart-define=FIREBASE_AUTH_DOMAIN="$FIREBASE_AUTH_DOMAIN" \
+            --dart-define=FIREBASE_STORAGE_BUCKET="$FIREBASE_STORAGE_BUCKET" \
+            --dart-define=FIREBASE_MEASUREMENT_ID="$FIREBASE_MEASUREMENT_ID"
+      - name: Assert E2E backend state
+        if: always()
+        working-directory: functions
+        run: npm run e2e:assert -- --manifest ../integration_test/e2e_manifest.json
+      - name: Cleanup E2E fixture
+        if: always()
+        working-directory: functions
+        run: npm run e2e:cleanup -- --manifest ../integration_test/e2e_manifest.json
       - name: Smoke test callable staging
         run: |
           firebase functions:list --project "$STAGING_PROJECT_ID" --json > functions.json
