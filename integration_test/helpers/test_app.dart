@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/app_bootstrap.dart';
 import 'package:fitrope_app/main.dart';
+import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:flutter_redux/flutter_redux.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 bool _firebaseReady = false;
@@ -22,8 +24,12 @@ Future<void> launchTestApp(WidgetTester tester) async {
   // così lo Splash instrada sempre su Welcome (FirebaseAuth persiste la
   // sessione tra un test e l'altro nella stessa esecuzione).
   await FirebaseAuth.instance.signOut();
+  store.dispatch(SetUserAction(null));
 
-  await tester.pumpWidget(StoreProvider(store: store, child: const MyApp()));
+  // MyApp usa un Navigator globale; una nuova key impedisce a pumpWidget di
+  // riutilizzare la route protetta della sessione precedente.
+  await tester
+      .pumpWidget(StoreProvider(store: store, child: MyApp(key: UniqueKey())));
 
   // SplashScreen: aspetta il redirect reale (Future.delayed di 2s).
   // Non usiamo pumpAndSettle perché lo spinner anima all'infinito.
