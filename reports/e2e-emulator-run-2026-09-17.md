@@ -2,49 +2,58 @@
 
 ## Esito
 
-**Non eseguito fino alla suite Flutter.** I tentativi hanno correttamente
-usato OpenJDK 21.0.12.1 da `/usr/local/opt/openjdk@21` e ha avviato gli
-emulatori isolati, ma ChromeDriver non ha aperto la porta 4444: `flutter drive`
-è rimasto in attesa del debug service. Non ci sono quindi asserzioni
-UI/backend da considerare superate.
+**Superato.** La suite E2E su Emulator Suite ha completato i 3 scenari Flutter
+e l'assert backend finale. Il run ha usato OpenJDK 21, Chrome 152 e
+ChromeDriver 152.0.7977.83.
 
-Le fixture create dal control plane sono state eliminate manualmente e il file
-manifest è stato rimosso; il cleanup è stato verificato.
+Le fixture sono state eliminate allo shutdown degli emulatori; non sono rimasti
+processi Firebase o ChromeDriver attivi.
 
 ## Run
 
-- Project previsto: `demo-fitrope` (emulatore)
-- Run ID: `e2e_1789626782363`
-- Corso fixture: `e2e_e2e_1789626782363_course`
+- Project: `demo-fitrope` (emulatore)
+- Run ID: `e2e_1789648066755`
+- Corso v2: `e2e_e2e_1789648066755_course`
+- Corso legacy: `e2e_e2e_1789648066755_legacy_course`
 
 ## Utenti creati e rimossi
 
 | Ruolo | UID | Email |
 | --- | --- | --- |
-| Admin | `e2e_e2e_1789626782363_admin` | `e2e_e2e_1789626782363_admin@example.test` |
-| Trainer | `e2e_e2e_1789626782363_trainer` | `e2e_e2e_1789626782363_trainer@example.test` |
-| Socio | `e2e_e2e_1789626782363_member` | `e2e_e2e_1789626782363_member@example.test` |
-| Socio waitlist | `e2e_e2e_1789626782363_waiter` | `e2e_e2e_1789626782363_waiter@example.test` |
+| Admin | `e2e_e2e_1789648066755_admin` | `e2e_e2e_1789648066755_admin@example.test` |
+| Trainer | `e2e_e2e_1789648066755_trainer` | `e2e_e2e_1789648066755_trainer@example.test` |
+| Socio | `e2e_e2e_1789648066755_member` | `e2e_e2e_1789648066755_member@example.test` |
+| Socio waitlist | `e2e_e2e_1789648066755_waiter` | `e2e_e2e_1789648066755_waiter@example.test` |
+| Socio legacy | `e2e_e2e_1789648066755_legacy` | `e2e_e2e_1789648066755_legacy@example.test` |
+| Registrazione | creato durante il test e poi eliminato | `e2e_e2e_1789648066755_registration@example.test` |
 
 ## Abbonamenti creati e rimossi
 
 | Utente | Subscription ID | Piano | Famiglia | Limite |
 | --- | --- | --- | --- | --- |
-| Socio | `e2e_e2e_1789626782363_member_open_2x_1m` | `open_2x_1m` | OPEN | 2 volte/settimana, 1 mese |
-| Socio waitlist | `e2e_e2e_1789626782363_waiter_open_2x_1m` | `open_2x_1m` | OPEN | 2 volte/settimana, 1 mese |
+| Socio | `e2e_e2e_1789648066755_member_open_2x_1m` | `open_2x_1m` | OPEN | 2 volte/settimana, 1 mese |
+| Socio waitlist | `e2e_e2e_1789648066755_waiter_open_2x_1m` | `open_2x_1m` | OPEN | 2 volte/settimana, 1 mese |
 
-## Azione necessaria
+L'utente legacy ha usato il modello `PACCHETTO_ENTRATE` con 2 crediti (nessun
+documento `subscriptions`); il test ha verificato decremento a 1 e rimborso a
+2 dopo la disiscrizione.
 
-Riparare o reinstallare una versione di ChromeDriver compatibile e nativa con
-Chrome/macOS, verificando prima che apra davvero la porta:
+## Assert finale
 
-```bash
-chromedriver --port=4444
-lsof -nP -iTCP:4444 -sTCP:LISTEN
+```json
+{"courseId":"e2e_e2e_1789648066755_course","subscribed":1,"waitlist":[],"memberCourses":[],"waiterCourses":["e2e_e2e_1789648066755_course"]}
 ```
 
-Il probe ChromeDriver ora riesce e apre la porta 4444. L'ultimo run ha però
-avviato Chrome 152.0.7977.83 con ChromeDriver 150.0.7871.24 e `flutter drive`
-è rimasto in attesa del debug service per oltre due minuti, senza avviare una
-sessione WebDriver. Allineare ChromeDriver alla major 152, poi rieseguire
-`scripts/e2e.sh emulator`.
+Scenari coperti: iscrizione socio, lista d'attesa con conferma, rilascio posto
+e subentro del socio in waitlist; registrazione con prova e verifica email;
+iscrizione/disiscrizione legacy con rimborso.
+
+Test automatici: Flutter **541** test superati; Cloud Functions **400** test
+superati.
+
+## Comando di ripetizione
+
+```bash
+export PATH="/tmp/chromedriver-152.0.7977.83.ChzD4r/chromedriver-mac-x64:$PATH"
+scripts/e2e.sh emulator
+```
