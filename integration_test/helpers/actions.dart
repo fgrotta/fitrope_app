@@ -91,15 +91,37 @@ Future<void> selectE2eCourseDate(WidgetTester tester) async {
     throw StateError('Date E2E non presente nel manifest defines');
   }
   final target = DateTime(int.parse(year), int.parse(month));
+  final dayNumber = int.parse(day);
+  final targetDate = DateTime(target.year, target.month, dayNumber);
+
+  // Vista mese: i giorni sono identificati dal componente Calendar vendored.
+  final monthDay = find.byKey(ValueKey<DateTime>(targetDate));
+  if (monthDay.evaluate().isNotEmpty) {
+    await tester.ensureVisible(monthDay);
+    await tester.tap(monthDay);
+    await tester.pumpAndSettle();
+    return;
+  }
+
+  // Vista settimana (default su tablet/Chrome): avanza di settimana finché
+  // la giornata target entra nella striscia, poi usa la chiave esplicita.
   final now = DateTime.now();
-  final delta = (target.year - now.year) * 12 + target.month - now.month;
-  for (var i = 0; i < delta; i++) {
-    await tester.tap(find.byIcon(Icons.chevron_right));
+  DateTime monday = DateTime(now.year, now.month, now.day)
+      .subtract(Duration(days: now.weekday - 1));
+  final weekDelta = targetDate.difference(monday).inDays ~/ 7;
+  final weekDay = find.byKey(ValueKey<String>(
+      'calendar-day-${targetDate.year}-${targetDate.month}-${targetDate.day}'));
+  for (var i = 0; i < weekDelta; i++) {
+    final nextWeek = find.byIcon(Icons.chevron_right);
+    if (nextWeek.evaluate().isEmpty) {
+      throw StateError('Freccia settimana successiva non trovata');
+    }
+    await tester.tap(nextWeek.last);
     await tester.pumpAndSettle();
   }
-  await tester.tap(find.byKey(ValueKey<DateTime>(
-    DateTime(target.year, target.month, int.parse(day)),
-  )));
+  await pumpUntilFound(tester, weekDay);
+  await tester.ensureVisible(weekDay);
+  await tester.tap(weekDay);
   await tester.pumpAndSettle();
 }
 
@@ -122,16 +144,45 @@ Future<void> expectCourseAction(
   String uid,
   String label,
 ) async {
-  await pumpUntilFound(
-    tester,
-    find.descendant(of: courseCard(uid), matching: find.text(label)),
+  // L'agenda ora mostra le tile in forma compatta: la `CoursePreviewCard`
+  // (e quindi il finder `course-card-*`) esiste solo dopo aver aperto la riga.
+  // Le azioni sono però disponibili direttamente anche sulla riga, che è il
+  // percorso più fedele all'interazione reale dell'utente.
+  final cardAction =
+      find.descendant(of: courseCard(uid), matching: find.text(label));
+  final agendaAction = find.descendant(
+      of: find.byKey(Key('agenda-row-$uid')), matching: find.text(label));
+  const timeout = Duration(seconds: 20);
+  final end = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(end)) {
+    await tester.pump(const Duration(milliseconds: 250));
+    if (cardAction.evaluate().isNotEmpty ||
+        agendaAction.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+  throw StateError(
+    'Timeout (${timeout.inSeconds}s): azione "$label" non trovata per il corso $uid',
   );
 }
 
 /// Tappa il bottone di azione del corso [uid] (assicurandosi sia visibile).
 Future<void> tapCourseAction(WidgetTester tester, String uid) async {
-  final f = courseActionButton(uid);
-  await pumpUntilFound(tester, f);
+  final cardAction = courseActionButton(uid);
+  final agendaAction = find.byKey(Key('agenda-row-action-$uid'));
+  const timeout = Duration(seconds: 20);
+  final end = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(end) &&
+      cardAction.evaluate().isEmpty &&
+      agendaAction.evaluate().isEmpty) {
+    await tester.pump(const Duration(milliseconds: 250));
+  }
+  if (cardAction.evaluate().isEmpty && agendaAction.evaluate().isEmpty) {
+    throw StateError(
+      'Timeout (${timeout.inSeconds}s): azione del corso $uid non trovata',
+    );
+  }
+  final f = cardAction.evaluate().isNotEmpty ? cardAction : agendaAction;
   await tester.ensureVisible(f);
   await tester.pumpAndSettle();
   await tester.tap(f);

@@ -72,7 +72,6 @@ async function setup() {
   const users = Object.entries(ids).map(([kind, uid]) => ({
     kind, uid, email: `${uid}@example.test`, role: kind === "admin" ? "Admin" : kind === "trainer" ? "Trainer" : "User",
   }));
-  users.push({ kind: 'legacy', uid: ids.legacy, email: `${prefix}${runId}_legacy@example.test`, role: 'User' });
   for (const item of users) {
     await ensureAuth(item.uid, item.email, `E2E ${item.kind}`);
     await db.collection("users").doc(item.uid).set(item.kind === 'legacy'
@@ -95,13 +94,13 @@ async function setup() {
   const courseId = `${prefix}${runId}_course`;
   const courseDate = new Date(Date.now() + 7 * 86400000);
   await db.collection("courses").doc(courseId).set({
-    uid: courseId, name: `[E2E] ${runId}`, startDate: admin.firestore.Timestamp.fromDate(courseDate), endDate: admin.firestore.Timestamp.fromMillis(courseDate.getTime() + 3600000),
+    id: courseId, uid: courseId, name: `[E2E] ${runId}`, startDate: admin.firestore.Timestamp.fromDate(courseDate), endDate: admin.firestore.Timestamp.fromMillis(courseDate.getTime() + 3600000),
     capacity: 1, subscribed: 0, trainerId: ids.trainer, courseType: "open", tags: ["Open"],
-    sala: "Sala 1", waitlist: [], reminderEnabled: false, waitlistEnabled: true,
+    tag: null, courseModelV2: true, sala: "Sala 1", waitlist: [], reminderEnabled: false, waitlistEnabled: true,
   });
   const legacyCourseId = `${prefix}${runId}_legacy_course`;
   await db.collection('courses').doc(legacyCourseId).set({
-    uid: legacyCourseId, name: `[E2E Legacy] ${runId}`, startDate: admin.firestore.Timestamp.fromDate(courseDate),
+    id: legacyCourseId, uid: legacyCourseId, name: `[E2E Legacy] ${runId}`, startDate: admin.firestore.Timestamp.fromDate(courseDate),
     endDate: admin.firestore.Timestamp.fromMillis(courseDate.getTime() + 3600000), capacity: 10, subscribed: 0,
     trainerId: ids.trainer, courseType: 'open', tags: ['Open'], sala: 'Sala 1', waitlist: [], reminderEnabled: false, waitlistEnabled: true,
   });
