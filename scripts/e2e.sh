@@ -55,6 +55,22 @@ fi
 
 (cd functions && npm run e2e:setup -- --manifest "../$manifest")
 chromedriver --port=4444 > .context/e2e-chromedriver.log 2>&1 & CHROMEDRIVER_PID=$!
+# ChromeDriver può impiegare alcuni secondi ad aprire la porta, soprattutto
+# quando Chrome è stato appena aggiornato. Aspettiamo il suo endpoint di
+# stato prima di invocare Flutter, evitando AppConnectionException dovute a
+# una semplice race di avvio.
+driver_ready=false
+for _ in {1..30}; do
+  if curl -fsS http://127.0.0.1:4444/status >/dev/null 2>&1; then
+    driver_ready=true
+    break
+  fi
+  sleep 1
+done
+if [[ "$driver_ready" != true ]]; then
+  echo "ChromeDriver non disponibile sulla porta 4444" >&2
+  exit 1
+fi
 flutter drive --driver=test_driver/integration_test.dart --target=integration_test/e2e_test.dart -d chrome \
   --dart-define-from-file="${manifest%.json}.defines.json" "${defines[@]}"
 (cd functions && npm run e2e:assert -- --manifest "../$manifest")
