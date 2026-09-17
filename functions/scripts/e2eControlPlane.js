@@ -74,7 +74,7 @@ async function setup() {
   }));
   users.push({ kind: 'legacy', uid: ids.legacy, email: `${prefix}${runId}_legacy@example.test`, role: 'User' });
   for (const item of users) {
-    if (item.kind !== 'legacy') await ensureAuth(item.uid, item.email, `E2E ${item.kind}`);
+    await ensureAuth(item.uid, item.email, `E2E ${item.kind}`);
     await db.collection("users").doc(item.uid).set(item.kind === 'legacy'
       ? { ...user(item.uid, item.email, item.role), tipologiaIscrizione: 'PACCHETTO_ENTRATE', entrateDisponibili: 2, entrateSettimanali: 0, fineIscrizione: future(30) }
       : user(item.uid, item.email, item.role));
@@ -180,12 +180,19 @@ async function cleanup() {
   subscriptions.docs.forEach((doc) => batch.delete(doc.ref));
   receipts.docs.forEach((doc) => batch.delete(doc.ref));
   userIds.forEach((uid) => batch.delete(db.collection("users").doc(uid)));
+  const runUsers = await db.collection('users').get();
+  runUsers.docs.filter((doc) => String(doc.data().email || '').includes(manifest.runId))
+    .forEach((doc) => batch.delete(doc.ref));
   await batch.commit();
   await Promise.all(userIds.map(async (uid) => {
     try { await admin.auth().deleteUser(uid); } catch (error) {
       if (error.code !== "auth/user-not-found") throw error;
     }
   }));
+  const authUsers = await admin.auth().listUsers(1000);
+  await Promise.all(authUsers.users
+    .filter((record) => record.uid.includes(manifest.runId))
+    .map((record) => admin.auth().deleteUser(record.uid)));
   if (fs.existsSync(manifestPath)) fs.unlinkSync(manifestPath);
   if (fs.existsSync(definesPath)) fs.unlinkSync(definesPath);
   if (process.env.APP_ENV === 'staging') {

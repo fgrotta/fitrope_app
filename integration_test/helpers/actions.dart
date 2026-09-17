@@ -97,7 +97,9 @@ Future<void> selectE2eCourseDate(WidgetTester tester) async {
     await tester.tap(find.byIcon(Icons.chevron_right));
     await tester.pumpAndSettle();
   }
-  await tester.tap(find.text(day).last);
+  await tester.tap(find.byKey(ValueKey<DateTime>(
+    DateTime(target.year, target.month, int.parse(day)),
+  )));
   await tester.pumpAndSettle();
 }
 

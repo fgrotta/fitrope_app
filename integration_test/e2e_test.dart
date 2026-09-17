@@ -100,7 +100,6 @@ void main() {
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     expect(userDoc.data()?['tipologiaIscrizione'], 'ABBONAMENTO_PROVA');
     expect(userDoc.data()?['role'], 'User');
-    await userDoc.reference.delete();
     await registered.delete();
   });
 
