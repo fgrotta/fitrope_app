@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/app_bootstrap.dart';
 import 'package:fitrope_app/main.dart';
+import 'package:fitrope_app/pages/welcome/welcome_page.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -24,6 +25,16 @@ Future<void> launchTestApp(WidgetTester tester) async {
   // così lo Splash instrada sempre su Welcome (FirebaseAuth persiste la
   // sessione tra un test e l'altro nella stessa esecuzione).
   await FirebaseAuth.instance.signOut();
+  // Sul web l'emulatore può propagare il cambio di sessione su
+  // `currentUser` con un tick asincrono successivo al completamento di
+  // `signOut()`. Aspettiamo che sia effettivamente nullo prima di montare lo
+  // Splash, altrimenti può leggere ancora la sessione precedente e instradare
+  // erroneamente su Protected.
+  final authDeadline = DateTime.now().add(const Duration(seconds: 5));
+  while (FirebaseAuth.instance.currentUser != null &&
+      DateTime.now().isBefore(authDeadline)) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
   store.dispatch(SetUserAction(null));
 
   // MyApp usa un Navigator globale; una nuova key impedisce a pumpWidget di
@@ -35,6 +46,7 @@ Future<void> launchTestApp(WidgetTester tester) async {
   // Non usiamo pumpAndSettle perché lo spinner anima all'infinito.
   await tester.pump();
   await Future<void>.delayed(const Duration(seconds: 3));
+  await pumpUntilFound(tester, find.byType(WelcomePage));
   await tester.pumpAndSettle();
 }
 
