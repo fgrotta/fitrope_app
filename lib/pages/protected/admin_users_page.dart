@@ -864,6 +864,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: ListTile(
+                                      key: Key('admin-user-row-${user.uid}'),
                                       leading: Stack(
                                         children: [
                                           CircleAvatar(
