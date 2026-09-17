@@ -28,9 +28,17 @@ if [[ "$target" != "emulator" && "$target" != "staging" ]]; then
 fi
 
 manifest="integration_test/e2e_manifest.json"
+stop_process_tree() {
+  local root_pid="$1"
+  local child_pid
+  for child_pid in $(pgrep -P "$root_pid" 2>/dev/null || true); do
+    stop_process_tree "$child_pid"
+  done
+  kill "$root_pid" 2>/dev/null || true
+}
 cleanup() {
   (cd functions && E2E_PROJECT_ID="$E2E_PROJECT_ID" APP_ENV="${APP_ENV:-}" npm run e2e:cleanup -- --manifest "../$manifest") || true
-  [[ -n "${CHROMEDRIVER_PID:-}" ]] && kill "$CHROMEDRIVER_PID" 2>/dev/null || true
+  [[ -n "${CHROMEDRIVER_PID:-}" ]] && stop_process_tree "$CHROMEDRIVER_PID"
 }
 trap cleanup EXIT
 
@@ -43,7 +51,7 @@ if [[ "$target" == "emulator" ]]; then
   (cd functions && npm run build)
   firebase emulators:start --config firebase.e2e.json --only auth,firestore,functions --project "$E2E_PROJECT_ID" > .context/e2e-emulator.log 2>&1 &
   EMULATOR_PID=$!
-  trap 'kill "$EMULATOR_PID" 2>/dev/null || true; cleanup' EXIT
+  trap 'stop_process_tree "$EMULATOR_PID"; cleanup' EXIT
   until curl -fsS http://127.0.0.1:14000 >/dev/null; do sleep 1; done
   defines=(--dart-define=USE_EMULATOR=true --dart-define=EMULATOR_HOST=127.0.0.1 --dart-define=EMULATOR_PROJECT_ID="$E2E_PROJECT_ID" --dart-define=AUTH_EMULATOR_PORT=19099 --dart-define=FIRESTORE_EMULATOR_PORT=18080 --dart-define=FUNCTIONS_EMULATOR_PORT=15001)
 else
