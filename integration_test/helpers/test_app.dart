@@ -18,6 +18,13 @@ bool _firebaseReady = false;
 Future<void> launchTestApp(WidgetTester tester) async {
   if (!_firebaseReady) {
     await bootstrapApp(oneSignalAppId: '', enableOneSignal: false);
+    // Le sessioni E2E vivono in una sola pagina Chrome: non devono essere
+    // ripristinate da IndexedDB tra un avvio della suite e l'altro. La
+    // persistenza NONE è supportata dal backend web e rende il reset
+    // deterministico anche quando Chrome riusa un profilo temporaneo.
+    if (kIsWeb) {
+      await FirebaseAuth.instance.setPersistence(Persistence.NONE);
+    }
     _firebaseReady = true;
   }
 
