@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/app_bootstrap.dart';
 import 'package:fitrope_app/main.dart';
 import 'package:fitrope_app/pages/welcome/welcome_page.dart';
+import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -53,6 +54,14 @@ Future<void> launchTestApp(WidgetTester tester) async {
   // Non usiamo pumpAndSettle perché lo spinner anima all'infinito.
   await tester.pump();
   await Future<void>.delayed(const Duration(seconds: 3));
+  // Dopo un logout il Navigator globale può conservare brevemente la route
+  // protetta mentre il vecchio albero viene smontato. Con Auth già nullo,
+  // reimpostiamo esplicitamente lo stack sulla Welcome: è lo stesso punto di
+  // arrivo dello Splash, ma rende deterministico ogni nuovo scenario E2E.
+  appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+    WELCOME_ROUTE,
+    (_) => false,
+  );
   await pumpUntilFound(tester, find.byType(WelcomePage));
   await tester.pumpAndSettle();
 }
