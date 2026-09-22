@@ -3,7 +3,7 @@ import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/utils/sale.dart';
 
 /// Card di selezione della Sala, condivisa dalle pagine di creazione/modifica
-/// corso (CourseManagementPage, RecurringCoursePage). `value == null` = nessuna sala.
+/// corso (CourseManagementPage, RecurringCoursePage).
 class SalaSelectorCard extends StatelessWidget {
   final String? value;
   final ValueChanged<String?> onChanged;
@@ -36,16 +36,14 @@ class SalaSelectorCard extends StatelessWidget {
                 fillColor: Colors.white,
               ),
               hint: const Text('Seleziona una sala'),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Nessuna sala'),
-                ),
-                ...Sale.all.map((sala) => DropdownMenuItem<String?>(
+              items: Sale.all
+                  .map(
+                    (sala) => DropdownMenuItem<String?>(
                       value: sala,
                       child: Text(sala),
-                    )),
-              ],
+                    ),
+                  )
+                  .toList(),
               onChanged: onChanged,
             ),
           ],
