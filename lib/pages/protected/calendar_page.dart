@@ -55,7 +55,7 @@ class _CalendarPageState extends State<CalendarPage> {
   // Filtro della lista corsi, su un'unica dimensione: la tipologia. Set vuoto
   // = "tutti" (lo stato che il chip "Tutti" mostra come selezionato); più
   // tipologie selezionate si combinano in OR.
-  // Il valore iniziale dipende dagli abbonamenti (vedi initState); da lì in poi
+  // Il valore iniziale dipende da ruolo e abbonamenti (vedi initState); da lì in poi
   // comanda l'utente, e il filtro NON si azzera al cambio giorno: così si può
   // seguire una tipologia lungo la settimana senza riselezionarla ogni volta.
   final Set<String> _typeFilter = {};
@@ -85,10 +85,10 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     currentDate = DateTime.now();
     user = store.state.user!;
-    // Una volta sola, all'apertura: chi ha solo abbonamenti PT parte filtrato
-    // su Personal Trainer. Dopo, ogni tocco sui chip ha la precedenza.
-    _typeFilter
-        .addAll(defaultTypeFilterForSubscriptions(user.activeSubscriptions));
+    // Una volta sola, all'apertura: il calendario parte sulla tipologia a cui
+    // l'utente ha davvero accesso (staff e accessi ambigui restano su "Tutti").
+    // Dopo, ogni tocco sui chip ha la precedenza.
+    _typeFilter.addAll(defaultTypeFilterForUser(user));
     getTrainers().then((List<FitropeUser> response) {
       if (!mounted) return;
       setState(() {

@@ -47,6 +47,19 @@ void main() {
       expect(CourseTypes.primaryForTags(['Sconosciuto']), isNull);
     });
 
+    test('forFamily risolve ogni famiglia a una sola tipologia', () {
+      expect(CourseTypes.forFamily(SubscriptionFamily.OPEN), CourseTypes.open);
+      expect(CourseTypes.forFamily(SubscriptionFamily.PT),
+          CourseTypes.personalTrainer);
+      // Ogni famiglia deve avere esattamente una tipologia: se in futuro se ne
+      // aggiunge una senza tipologia, il default del calendario la ignora.
+      for (final family in SubscriptionFamily.values) {
+        expect(CourseTypes.forFamily(family), isNotNull,
+            reason: 'famiglia ${family.name} senza tipologia registrata');
+        expect(CourseTypes.all.where((t) => t.family == family), hasLength(1));
+      }
+    });
+
     test('defaultSala, se valorizzata, e valida', () {
       for (final type in CourseTypes.all) {
         expect(Sale.isValid(type.defaultSala), true);
