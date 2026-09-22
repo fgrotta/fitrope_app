@@ -19,6 +19,20 @@ const reportRoot = path.join(repoRoot, ".context", "migrations");
 const testRoot = path.join(reportRoot, `jest-${process.pid}-${Date.now()}`);
 let lastRunnerOutput = "";
 
+/**
+ * Scadenza dell'abbonamento legacy, sempre nel futuro.
+ *
+ * Una data fissa rende questo test una bomba a orologeria: la migrazione calcola
+ * `activeSubscriptions` con `evaluatedAtMillis: Date.now()` e tiene solo i record
+ * con `endDate >= evaluatedAtMillis` (`scripts/backfillCourseModel.js`, stessa
+ * regola di `computeActiveSnapshot`). Con una scadenza nel passato lo snapshot
+ * esce vuoto e l'assert `toHaveLength(1)` fallisce senza che nessuno abbia
+ * toccato il codice — e' successo con il precedente `2026-09-20T16:00:00.000Z`.
+ */
+function futureEnd(): Timestamp {
+  return Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+}
+
 function run(args: string[]): Record<string, unknown> {
   const stdout = execFileSync(
     process.execPath,
@@ -51,7 +65,7 @@ afterAll(async () => {
 
 describe("runner migrazione contro Firestore Emulator", () => {
   test("dry-run non scrive; apply e atomica e la seconda apply non scrive", async () => {
-    const end = Timestamp.fromDate(new Date("2026-09-20T16:00:00.000Z"));
+    const end = futureEnd();
     await db.collection("courses").doc("legacy-course").set({
       uid: "legacy-course",
       tags: ["Open"],
@@ -151,7 +165,7 @@ describe("runner migrazione contro Firestore Emulator", () => {
       tags: ["Personal Trainer"],
     });
 
-    const end = Timestamp.fromDate(new Date("2026-09-20T16:00:00.000Z"));
+    const end = futureEnd();
     await db.collection("users").doc("conflict-user").set({
       uid: "conflict-user",
       role: "User",
