@@ -8,8 +8,7 @@ const { createRequire } = require("module");
 const requireFromFunctions = createRequire(
   path.resolve(__dirname, "../functions/package.json")
 );
-const admin = requireFromFunctions("firebase-admin");
-const { Timestamp } = requireFromFunctions("firebase-admin/firestore");
+const { Firestore, Timestamp } = requireFromFunctions("@google-cloud/firestore");
 const {
   transformCourse,
   targetMatchesCourse,
@@ -747,8 +746,11 @@ async function main() {
   const repoRoot = path.resolve(__dirname, "..");
   const runId = runIdNow();
   const reportDir = safeReportDir(repoRoot, args["report-dir"], runId);
-  admin.initializeApp({ projectId: args.project });
-  const db = admin.firestore();
+  // Firebase Admin 12 does not recognize the external-account credentials
+  // file emitted by google-github-actions/auth@v3. The Google Cloud Firestore
+  // client does, so use it directly for CI verification/migration jobs (and
+  // keep ADC for local/service account execution). This avoids long-lived keys.
+  const db = new Firestore({ projectId: args.project });
 
   if (args.mode === "apply") {
     if (args["confirm-project"] !== args.project) {
