@@ -19,7 +19,6 @@ import 'package:fitrope_app/utils/get_course_state.dart';
 import 'package:fitrope_app/utils/user_display_utils.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
-import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/state.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -960,7 +959,6 @@ class _CalendarPageState extends State<CalendarPage> {
                   child: _buildAdminFab(),
                 ),
               ],
-              if (state.isLoading) const Loader(),
             ],
           );
         });
