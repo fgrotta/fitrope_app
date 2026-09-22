@@ -1,0 +1,9 @@
+{
+  "projectId": "demo-fitrope",
+  "runId": "e2e_example",
+  "password": "E2e-test-123!",
+  "E2E_MEMBER_EMAIL": "e2e_example_member@example.test",
+  "E2E_PASSWORD": "E2e-test-123!",
+  "courseId": "e2e_example_course",
+  "ids": {"admin": "e2e_example_admin", "trainer": "e2e_example_trainer", "member": "e2e_example_member", "waiter": "e2e_example_waiter"}
+}

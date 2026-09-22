@@ -789,6 +789,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ElevatedButton.icon(
+                        key: const Key('admin-users-create-button'),
                         onPressed: _navigateToCreateUser,
                         icon: const Icon(Icons.person_add, color: Colors.white),
                         label: const Text('Crea Utente',
@@ -804,6 +805,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
+                        key: const Key('admin-users-create-button'),
                         onPressed: _navigateToCreateUser,
                         icon: const Icon(Icons.person_add, color: Colors.white),
                         label: const Text('Crea Utente',
@@ -864,6 +866,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: ListTile(
+                                      key: Key('admin-user-row-${user.uid}'),
                                       leading: Stack(
                                         children: [
                                           CircleAvatar(

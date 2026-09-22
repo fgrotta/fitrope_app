@@ -565,6 +565,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                 // Campo Durata (solo per creazione e duplicazione)
                 if (widget.mode != 'edit')
                   TextField(
+                    key: const Key('course-duration-field'),
                     controller: durationController,
                     decoration: const InputDecoration(
                       labelText: 'Durata (ore)',
@@ -578,6 +579,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
                 // Campo Capacità
                 TextField(
+                  key: const Key('course-capacity-field'),
                   controller: capacityController,
                   decoration: const InputDecoration(
                     labelText: 'Numero massimo partecipanti',
@@ -607,6 +609,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
+                            key: const Key('course-trainer-select'),
                             initialValue: selectedTrainerId,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
@@ -872,6 +875,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         ),
                         const SizedBox(height: 8),
                         SwitchListTile(
+                          key: const Key('course-reminder-switch'),
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Promemoria corso'),
                           subtitle: const Text(
@@ -885,6 +889,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                           activeThumbColor: primaryLightColor,
                         ),
                         SwitchListTile(
+                          key: const Key('course-waitlist-switch'),
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Lista d\'attesa'),
                           subtitle: const Text(
@@ -939,6 +944,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
+                        key: const Key('course-save-button'),
                         onPressed: isLoading ? null : _saveCourse,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryLightColor,

@@ -173,6 +173,17 @@ class _CalendarPageState extends State<CalendarPage> {
     try {
       await subscribeToCourse(course.uid, user.uid);
       if (!mounted) return;
+
+      // La callable aggiorna anche `users.courses`/la fonte di consumo, ma il
+      // widget conserva uno snapshot dell'utente catturato in initState. Senza
+      // ricaricarlo qui, dopo una prenotazione il corso pieno apparirebbe come
+      // "Corso pieno" invece di "Rimuovi iscrizione".
+      final userData = await getUserData(user.uid);
+      if (!mounted) return;
+      if (userData != null) {
+        final refreshed = FitropeUser.fromJson(userData);
+        dispatchUserRefreshIfCurrent(refreshed);
+      }
       await updateCourses();
     } catch (e) {
       // Da PR4 il server può rifiutare (idoneità/limiti/capienza/corso chiuso):
@@ -503,6 +514,8 @@ class _CalendarPageState extends State<CalendarPage> {
               child: GestureDetector(
                 onTap: () => onSelectDate(DateTime(d.year, d.month, d.day)),
                 child: Container(
+                  key: ValueKey<String>(
+                      'calendar-day-${d.year}-${d.month}-${d.day}'),
                   margin: const EdgeInsets.all(2),
                   height: 52,
                   decoration: BoxDecoration(

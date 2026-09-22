@@ -162,6 +162,25 @@ async function postOneSignal(
 type Firestore = admin.firestore.Firestore;
 type FsData = admin.firestore.DocumentData;
 
+// Ricevute strettamente diagnostiche: utili alla suite E2E, ma mai presenti
+// nel progetto production né contenenti indirizzi email o contenuto messaggi.
+function e2eReceiptsEnabled(): boolean {
+  return process.env.FUNCTIONS_EMULATOR === "true" || process.env.APP_ENV === "staging";
+}
+
+async function writeWaitlistReceipt(
+  db: Firestore,
+  courseId: string,
+  recipients: string[],
+  requested: boolean,
+): Promise<void> {
+  if (!e2eReceiptsEnabled()) return;
+  await db.collection("e2eNotificationReceipts").add({
+    kind: "waitlist", courseId, recipients, channel: "email", requested,
+    createdAt: FieldValue.serverTimestamp(),
+  }).catch((error) => logger.warn("Impossibile scrivere ricevuta E2E", error));
+}
+
 function toMillis(ts: unknown): number | null {
   if (ts && typeof (ts as { toMillis?: () => number }).toMillis === "function") {
     return (ts as { toMillis: () => number }).toMillis();
@@ -411,7 +430,10 @@ export async function notifyWaitlistUsers(
     );
   }
 
-  if (emailUserIds.length === 0) return;
+  if (emailUserIds.length === 0) {
+    await writeWaitlistReceipt(db, courseId, [], false);
+    return;
+  }
 
   const courseDate = formatCourseDate(startMillis);
   const courseTime = formatCourseTime(startMillis, endMillis);
@@ -428,4 +450,5 @@ export async function notifyWaitlistUsers(
       spotsAvailable,
     }),
   });
+  await writeWaitlistReceipt(db, courseId, emailUserIds, true);
 }
