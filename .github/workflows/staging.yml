@@ -160,6 +160,8 @@ jobs:
           npm run seed:staging
       - name: Repair and verify staging course shapes
         run: |
+          # google-github-actions/auth@v3 exposes short-lived external-account
+          # ADC; the scripts use @google-cloud/firestore, which understands it.
           node scripts/repair_staging_courses.js --project=fit-rope-staging --apply --confirm-project=fit-rope-staging
           node scripts/backfillCourseModel.js --verify --scope=courses --project=fit-rope-staging
 

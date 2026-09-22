@@ -6,8 +6,7 @@
 const path = require("path");
 const { createRequire } = require("module");
 const requireFromFunctions = createRequire(path.resolve(__dirname, "../functions/package.json"));
-const admin = requireFromFunctions("firebase-admin");
-const { FieldValue } = requireFromFunctions("firebase-admin/firestore");
+const { Firestore, FieldValue } = requireFromFunctions("@google-cloud/firestore");
 const { buildCourseDocument } = require("../functions/lib/enrollment/courseDocument");
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
@@ -22,8 +21,11 @@ const apply = args.apply === true;
 if (apply && args["confirm-project"] !== project) {
   throw new Error("--apply richiede --confirm-project=fit-rope-staging");
 }
-admin.initializeApp({ projectId: project });
-const db = admin.firestore();
+// Firebase Admin 12 does not recognize the external-account credentials file
+// emitted by google-github-actions/auth@v3. The Google Cloud Firestore client
+// does, so use it directly for CI repair jobs (and keep ADC for local/service
+// account execution). This also avoids putting a long-lived key in Actions.
+const db = new Firestore({ projectId: project });
 
 const future = new Date(Date.now() + 7 * 86400000);
 const base = (uid, courseType, tag) => {
