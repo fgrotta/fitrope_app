@@ -251,6 +251,16 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                         ? _getPageFor(effectiveIndex)
                         : const SizedBox.shrink(),
                   ),
+                  // UNICO overlay di caricamento dell'area protetta per
+                  // `state.isLoading`. Le pagine montate da `_getPageFor` sono
+                  // figlie di QUESTO Stack: se una di loro monta un altro
+                  // `Loader()` sullo stesso flag, i due veli `Colors.black54`
+                  // si sommano e appaiono due spinner disallineati (uno
+                  // centrato sull'area della pagina dentro AppShell, uno
+                  // sull'intero body). Era il caso di CalendarPage durante
+                  // l'iscrizione: `callEnrollmentFunction` fa un solo dispatch,
+                  // i Loader erano due. Un loader di pagina è legittimo solo su
+                  // un flag LOCALE, distinto da questo.
                   if (isLoading) const Loader(),
                 ],
               ),
