@@ -2,6 +2,8 @@ import 'package:fitrope_app/api/courses/create_course.dart';
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_images.dart';
+import 'package:fitrope_app/utils/course_defaults.dart';
+import 'package:fitrope_app/utils/course_form_validation.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/components/sala_selector_card.dart';
@@ -39,6 +41,7 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   bool reminderEnabled = true;
   bool waitlistEnabled = true;
   String? selectedSala;
+  bool get _showLegacyFormSections => false;
   // Variabili per corsi ricorrenti
   Map<int, bool> selectedDays = {
     1: false, // Lunedì
@@ -144,7 +147,9 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     // Inizializza i controller
     nameController.text = '';
     durationController.text = '1';
-    capacityController.text = '6';
+    capacityController.text = defaultCapacityForCourseType(
+      selectedCourseType,
+    ).toString();
 
     // Inizializza il trainer
     selectedTrainerId = null;
@@ -291,9 +296,16 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     final duration = double.tryParse(durationController.text.trim()) ?? 0;
     final capacity = int.tryParse(capacityController.text.trim()) ?? 0;
 
-    if (name.isEmpty) {
+    final selectionError = validateCourseSelections(
+      name: name,
+      tag: selectedTag,
+      trainerId: selectedTrainerId,
+      sala: selectedSala,
+      capacity: capacity,
+    );
+    if (selectionError != null) {
       setState(() {
-        errorMsg = 'Il nome del corso è obbligatorio';
+        errorMsg = selectionError;
       });
       return false;
     }
@@ -333,13 +345,6 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     if (!hasSelectedDay) {
       setState(() {
         errorMsg = 'Seleziona almeno un giorno della settimana';
-      });
-      return false;
-    }
-
-    if (capacity <= 0) {
-      setState(() {
-        errorMsg = 'Il numero di partecipanti deve essere maggiore di 0';
       });
       return false;
     }
@@ -453,6 +458,217 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
     }
   }
 
+  Widget _buildCourseTypeSelector() {
+    return Card(
+      color: surfaceVariantColor,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tipologia Corso',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: CourseType.values.map((type) {
+                return ChoiceChip(
+                  label: Text(type.label),
+                  selected: selectedCourseType == type,
+                  onSelected: (selected) {
+                    if (!selected) return;
+                    setState(() {
+                      final previousType = selectedCourseType;
+                      selectedCourseType = type;
+                      if (type == CourseType.personal_trainer) {
+                        selectedTag = CourseTags.PERSONAL_TRAINER;
+                      } else if (selectedTag == CourseTags.PERSONAL_TRAINER) {
+                        selectedTag = null;
+                      }
+                      final previousDefault = defaultCapacityForCourseType(
+                        previousType,
+                      ).toString();
+                      if (capacityController.text.trim() == previousDefault) {
+                        capacityController.text = defaultCapacityForCourseType(
+                          type,
+                        ).toString();
+                      }
+                      if (selectedImageKey != null &&
+                          !CourseImages.forTag(
+                            selectedTag,
+                            type,
+                          ).contains(selectedImageKey)) {
+                        selectedImageKey = null;
+                      }
+                    });
+                  },
+                  selectedColor: primaryColor.withValues(alpha: 0.3),
+                  checkmarkColor: primaryColor,
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagSelector() {
+    return Card(
+      color: surfaceVariantColor,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tag descrittivo',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Scegli una sola etichetta (obbligatoria)',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: CourseTags.selectable.map((tag) {
+                final enabled =
+                    selectedCourseType == CourseType.personal_trainer
+                        ? tag == CourseTags.PERSONAL_TRAINER
+                        : tag != CourseTags.PERSONAL_TRAINER;
+                return ChoiceChip(
+                  label: Text(tag),
+                  selected: selectedTag == tag,
+                  onSelected: !enabled
+                      ? null
+                      : (selected) => setState(() {
+                            selectedTag = selected ? tag : selectedTag;
+                            selectedImageKey = null;
+                          }),
+                  selectedColor: primaryColor.withValues(alpha: 0.3),
+                  checkmarkColor: primaryColor,
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageSelector() {
+    final images = CourseImages.forTag(selectedTag, selectedCourseType);
+    if (images.isEmpty) return const SizedBox.shrink();
+    return Card(
+      color: surfaceVariantColor,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Immagine del Corso',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Seleziona un\'immagine per questo corso',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 100,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: images.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final imagePath = images[index];
+                  final isSelected = selectedImageKey == imagePath;
+                  return GestureDetector(
+                    onTap: () => setState(() => selectedImageKey = imagePath),
+                    child: Container(
+                      width: 140,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? primaryColor : Colors.transparent,
+                          width: 3,
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.asset(
+                          imagePath,
+                          fit: BoxFit.cover,
+                          cacheWidth: 300,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                            color: primaryLightColor.withValues(alpha: 0.3),
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrainerSelector() {
+    if (user.role != 'Admin') return const SizedBox.shrink();
+    return Card(
+      color: surfaceVariantColor,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Trainer',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: selectedTrainerId,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              hint: const Text('Seleziona un trainer'),
+              items: trainers
+                  .map(
+                    (trainer) => DropdownMenuItem<String>(
+                      value: trainer.uid,
+                      child: Text('${trainer.name} ${trainer.lastName}'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() => selectedTrainerId = value),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final courseDates = _calculateCourseDates();
@@ -483,6 +699,18 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                _buildCourseTypeSelector(),
+                const SizedBox(height: 20),
+                _buildTagSelector(),
+                const SizedBox(height: 20),
+                if (CourseImages.forTag(
+                  selectedTag,
+                  selectedCourseType,
+                ).isNotEmpty) ...[
+                  _buildImageSelector(),
+                  const SizedBox(height: 20),
+                ],
 
                 // Selezione Data di Inizio
                 Card(
@@ -663,75 +891,91 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                 ),
                 const SizedBox(height: 20),
 
+                _buildTrainerSelector(),
+                if (user.role == 'Admin') const SizedBox(height: 20),
                 SalaSelectorCard(
                   value: selectedSala,
                   onChanged: (value) => setState(() => selectedSala = value),
                 ),
                 const SizedBox(height: 20),
                 // Selezione Tipologia Corso
-                Card(
-                  color: surfaceVariantColor,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Tipologia Corso',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                if (_showLegacyFormSections)
+                  Card(
+                    color: surfaceVariantColor,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Tipologia Corso',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: CourseType.values.map((type) {
-                            final isSelected = selectedCourseType == type;
-                            return ChoiceChip(
-                              label: Text(type.label),
-                              selected: isSelected,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setState(() {
-                                    selectedCourseType = type;
-                                    if (type == CourseType.personal_trainer) {
-                                      selectedTag = CourseTags.PERSONAL_TRAINER;
-                                    } else if (selectedTag ==
-                                        CourseTags.PERSONAL_TRAINER) {
-                                      selectedTag = null;
-                                    }
-                                    // Azzera l'immagine solo se non valida per il nuovo tipo.
-                                    if (selectedImageKey != null &&
-                                        !CourseImages.forTag(
-                                          selectedTag,
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: CourseType.values.map((type) {
+                              final isSelected = selectedCourseType == type;
+                              return ChoiceChip(
+                                label: Text(type.label),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setState(() {
+                                      final previousType = selectedCourseType;
+                                      selectedCourseType = type;
+                                      if (type == CourseType.personal_trainer) {
+                                        selectedTag =
+                                            CourseTags.PERSONAL_TRAINER;
+                                      } else if (selectedTag ==
+                                          CourseTags.PERSONAL_TRAINER) {
+                                        selectedTag = null;
+                                      }
+                                      final previousDefault =
+                                          defaultCapacityForCourseType(
+                                        previousType,
+                                      ).toString();
+                                      if (capacityController.text.trim() ==
+                                          previousDefault) {
+                                        capacityController.text =
+                                            defaultCapacityForCourseType(
                                           type,
-                                        ).contains(selectedImageKey)) {
-                                      selectedImageKey = null;
-                                      selectedSala = null;
-                                    }
-                                  });
-                                }
-                              },
-                              selectedColor: primaryColor.withValues(
-                                alpha: 0.3,
-                              ),
-                              checkmarkColor: primaryColor,
-                            );
-                          }).toList(),
-                        ),
-                      ],
+                                        ).toString();
+                                      }
+                                      // Azzera l'immagine solo se non valida per il nuovo tipo.
+                                      if (selectedImageKey != null &&
+                                          !CourseImages.forTag(
+                                            selectedTag,
+                                            type,
+                                          ).contains(selectedImageKey)) {
+                                        selectedImageKey = null;
+                                      }
+                                    });
+                                  }
+                                },
+                                selectedColor: primaryColor.withValues(
+                                  alpha: 0.3,
+                                ),
+                                checkmarkColor: primaryColor,
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 20),
 
                 // Selezione Immagine Corso
-                if (CourseImages.forTag(
-                  selectedTag,
-                  selectedCourseType,
-                ).isNotEmpty)
+                if (_showLegacyFormSections &&
+                    CourseImages.forTag(
+                      selectedTag,
+                      selectedCourseType,
+                    ).isNotEmpty)
                   Card(
                     color: surfaceVariantColor,
                     child: Padding(
@@ -816,68 +1060,71 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                       ),
                     ),
                   ),
-                if (CourseImages.forTag(
-                  selectedTag,
-                  selectedCourseType,
-                ).isNotEmpty)
+                if (_showLegacyFormSections &&
+                    CourseImages.forTag(
+                      selectedTag,
+                      selectedCourseType,
+                    ).isNotEmpty)
                   const SizedBox(height: 20),
 
                 // Selezione Tipo di corso (Tag accesso)
-                Card(
-                  color: surfaceVariantColor,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Tag descrittivo',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                if (_showLegacyFormSections)
+                  Card(
+                    color: surfaceVariantColor,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Tag descrittivo',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Scegli una sola etichetta per presentazione e filtri (opzionale)',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: CourseTags.selectable.map((tag) {
-                            final isSelected = selectedTag == tag;
-                            final enabled = selectedCourseType ==
-                                    CourseType.personal_trainer
-                                ? tag == CourseTags.PERSONAL_TRAINER
-                                : tag != CourseTags.PERSONAL_TRAINER;
-                            return ChoiceChip(
-                              label: Text(tag),
-                              selected: isSelected,
-                              onSelected: !enabled
-                                  ? null
-                                  : (selected) {
-                                      setState(() {
-                                        selectedTag = selected ? tag : null;
-                                        selectedImageKey = null;
-                                      });
-                                    },
-                              selectedColor: primaryColor.withValues(
-                                alpha: 0.3,
-                              ),
-                              checkmarkColor: primaryColor,
-                            );
-                          }).toList(),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Scegli una sola etichetta per presentazione e filtri (opzionale)',
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: CourseTags.selectable.map((tag) {
+                              final isSelected = selectedTag == tag;
+                              final enabled = selectedCourseType ==
+                                      CourseType.personal_trainer
+                                  ? tag == CourseTags.PERSONAL_TRAINER
+                                  : tag != CourseTags.PERSONAL_TRAINER;
+                              return ChoiceChip(
+                                label: Text(tag),
+                                selected: isSelected,
+                                onSelected: !enabled
+                                    ? null
+                                    : (selected) {
+                                        setState(() {
+                                          selectedTag =
+                                              selected ? tag : selectedTag;
+                                          selectedImageKey = null;
+                                        });
+                                      },
+                                selectedColor: primaryColor.withValues(
+                                  alpha: 0.3,
+                                ),
+                                checkmarkColor: primaryColor,
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 20),
 
                 // Selezione Trainer (solo per admin)
-                if (user.role == 'Admin') ...[
+                if (_showLegacyFormSections && user.role == 'Admin') ...[
                   Card(
                     color: surfaceVariantColor,
                     child: Padding(
@@ -901,20 +1148,14 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
                               fillColor: Colors.white,
                             ),
                             hint: const Text('Seleziona un trainer'),
-                            items: [
-                              const DropdownMenuItem<String>(
-                                value: null,
-                                child: Text('Nessun trainer'),
-                              ),
-                              ...trainers.map((trainer) {
-                                return DropdownMenuItem<String>(
-                                  value: trainer.uid,
-                                  child: Text(
-                                    '${trainer.name} ${trainer.lastName}',
-                                  ),
-                                );
-                              }),
-                            ],
+                            items: trainers.map((trainer) {
+                              return DropdownMenuItem<String>(
+                                value: trainer.uid,
+                                child: Text(
+                                  '${trainer.name} ${trainer.lastName}',
+                                ),
+                              );
+                            }).toList(),
                             onChanged: (newValue) {
                               setState(() {
                                 selectedTrainerId = newValue;
