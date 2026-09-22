@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/course.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/course_filters.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
@@ -156,7 +157,7 @@ void main() {
     });
   });
 
-  group('defaultTypeFilterForSubscriptions', () {
+  group('defaultTypeFilterForUser', () {
     final now = DateTime(2026, 8, 21, 12);
 
     UserSubscription sub(SubscriptionFamily family, {int endOffsetDays = 30}) =>
@@ -169,62 +170,168 @@ void main() {
           endDate: Timestamp.fromDate(now.add(Duration(days: endOffsetDays))),
         );
 
-    test('senza abbonamenti si parte da "Tutti"', () {
-      expect(defaultTypeFilterForSubscriptions([], now: now), isEmpty);
+    FitropeUser user({
+      String role = 'User',
+      List<UserSubscription> subscriptions = const [],
+      int subscriptionModelVersion = 1,
+      int? fineIscrizioneOffsetDays,
+      TipologiaIscrizione? tipologia,
+    }) =>
+        FitropeUser(
+          uid: 'u1',
+          email: 'u1@example.com',
+          name: 'Test',
+          lastName: 'User',
+          courses: const [],
+          role: role,
+          createdAt: now,
+          tipologiaIscrizione: tipologia,
+          fineIscrizione: fineIscrizioneOffsetDays == null
+              ? null
+              : Timestamp.fromDate(
+                  now.add(Duration(days: fineIscrizioneOffsetDays))),
+          activeSubscriptions: subscriptions,
+          subscriptionModelVersion: subscriptionModelVersion,
+        );
+
+    test('Admin parte da "Tutti"', () {
+      expect(defaultTypeFilterForUser(user(role: 'Admin'), now: now), isEmpty);
     });
 
-    test('con il solo abbonamento PT si parte filtrato su Personal Trainer',
+    test('Trainer parte da "Tutti"', () {
+      expect(
+          defaultTypeFilterForUser(user(role: 'Trainer'), now: now), isEmpty);
+    });
+
+    test('il ruolo staff vince sugli abbonamenti', () {
+      expect(
+        defaultTypeFilterForUser(
+          user(role: 'Admin', subscriptions: [sub(SubscriptionFamily.PT)]),
+          now: now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('solo abbonamenti Open: si parte filtrato su Open', () {
+      expect(
+        defaultTypeFilterForUser(
+          user(subscriptions: [sub(SubscriptionFamily.OPEN)]),
+          now: now,
+        ),
+        {CourseTags.OPEN},
+      );
+    });
+
+    test('solo abbonamenti PT: si parte filtrato su Personal Trainer', () {
+      expect(
+        defaultTypeFilterForUser(
+          user(subscriptions: [
+            sub(SubscriptionFamily.PT),
+            sub(SubscriptionFamily.PT),
+          ]),
+          now: now,
+        ),
+        {CourseTags.PERSONAL_TRAINER},
+      );
+    });
+
+    test('famiglie diverse insieme: si parte da "Tutti"', () {
+      expect(
+        defaultTypeFilterForUser(
+          user(subscriptions: [
+            sub(SubscriptionFamily.PT),
+            sub(SubscriptionFamily.OPEN),
+          ]),
+          now: now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('un abbonamento SCADUTO non filtra: lo snapshot può essere stantio',
         () {
       expect(
-        defaultTypeFilterForSubscriptions([sub(SubscriptionFamily.PT)],
-            now: now),
-        {CourseTags.PERSONAL_TRAINER},
-      );
-    });
-
-    test('più abbonamenti, tutti PT: resta il default PT', () {
-      expect(
-        defaultTypeFilterForSubscriptions(
-            [sub(SubscriptionFamily.PT), sub(SubscriptionFamily.PT)],
-            now: now),
-        {CourseTags.PERSONAL_TRAINER},
-      );
-    });
-
-    test('PT insieme a un\'altra famiglia: si parte da "Tutti"', () {
-      expect(
-        defaultTypeFilterForSubscriptions(
-            [sub(SubscriptionFamily.PT), sub(SubscriptionFamily.OPEN)],
-            now: now),
-        isEmpty,
-      );
-    });
-
-    test('senza PT si parte da "Tutti"', () {
-      expect(
-        defaultTypeFilterForSubscriptions([sub(SubscriptionFamily.OPEN)],
-            now: now),
-        isEmpty,
-      );
-    });
-
-    test('un PT SCADUTO non filtra: lo snapshot può essere stantio', () {
-      expect(
-        defaultTypeFilterForSubscriptions(
-            [sub(SubscriptionFamily.PT, endOffsetDays: -1)],
-            now: now),
+        defaultTypeFilterForUser(
+          user(
+            subscriptions: [sub(SubscriptionFamily.PT, endOffsetDays: -1)],
+            subscriptionModelVersion: 2,
+          ),
+          now: now,
+        ),
         isEmpty,
       );
     });
 
     test('fra PT vivo e Open scaduto vince il default PT', () {
       expect(
-        defaultTypeFilterForSubscriptions([
-          sub(SubscriptionFamily.PT),
-          sub(SubscriptionFamily.OPEN, endOffsetDays: -3),
-        ], now: now),
+        defaultTypeFilterForUser(
+          user(subscriptions: [
+            sub(SubscriptionFamily.PT),
+            sub(SubscriptionFamily.OPEN, endOffsetDays: -3),
+          ]),
+          now: now,
+        ),
         {CourseTags.PERSONAL_TRAINER},
       );
+    });
+
+    test('utente V2 senza abbonamenti vivi: "Tutti", niente fallback legacy',
+        () {
+      expect(
+        defaultTypeFilterForUser(
+          user(
+            subscriptionModelVersion: 2,
+            fineIscrizioneOffsetDays: 30,
+            tipologia: TipologiaIscrizione.ABBONAMENTO_ANNUALE,
+          ),
+          now: now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('utente legacy in prova ancora valido: si parte su Open', () {
+      expect(
+        defaultTypeFilterForUser(
+          user(
+            fineIscrizioneOffsetDays: 10,
+            tipologia: TipologiaIscrizione.ABBONAMENTO_PROVA,
+          ),
+          now: now,
+        ),
+        {CourseTags.OPEN},
+      );
+    });
+
+    test('utente legacy con pacchetto entrate valido: si parte su Open', () {
+      expect(
+        defaultTypeFilterForUser(
+          user(
+            fineIscrizioneOffsetDays: 60,
+            tipologia: TipologiaIscrizione.PACCHETTO_ENTRATE,
+          ),
+          now: now,
+        ),
+        {CourseTags.OPEN},
+      );
+    });
+
+    test('utente legacy scaduto: si parte da "Tutti"', () {
+      expect(
+        defaultTypeFilterForUser(
+          user(
+            fineIscrizioneOffsetDays: -1,
+            tipologia: TipologiaIscrizione.ABBONAMENTO_MENSILE,
+          ),
+          now: now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('utente senza abbonamento né scadenza: si parte da "Tutti"', () {
+      expect(defaultTypeFilterForUser(user(), now: now), isEmpty);
     });
   });
 }

@@ -51,6 +51,17 @@ class CourseTypes {
     return null;
   }
 
+  /// Tipologia sbloccata da una famiglia di abbonamento, o `null` se nessuna
+  /// tipologia registrata appartiene a quella famiglia. Tenere il lookup qui
+  /// (invece di una tabella famiglia->tag) fa seguire da solo l'aggiunta di una
+  /// nuova famiglia al registry.
+  static CourseType? forFamily(SubscriptionFamily family) {
+    for (final type in all) {
+      if (type.family == family) return type;
+    }
+    return null;
+  }
+
   /// Resolver legacy V1. Hyrox e un tag descrittivo Open; Hey Mamma resta un
   /// valore storico speciale e viene gestito dal resolver sul modello Course.
   static CourseType? primaryForTags(List<String> tags) {

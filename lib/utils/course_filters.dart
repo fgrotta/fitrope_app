@@ -1,5 +1,5 @@
 import 'package:fitrope_app/types/course.dart';
-import 'package:fitrope_app/types/user_subscription.dart';
+import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/course_types.dart';
 import 'package:fitrope_app/utils/subscription_labels.dart';
@@ -45,24 +45,41 @@ Map<String, int> courseTypeCounts(List<Course> courses) {
   return counts;
 }
 
-/// Filtro con cui il calendario si apre, dedotto dagli abbonamenti dell'utente.
+/// Filtro con cui il calendario si apre, dedotto da ruolo e abbonamenti.
 ///
-/// Chi ha **soltanto** abbonamenti PT parte già filtrato su Personal Trainer:
-/// è l'unica tipologia a cui può iscriversi, e senza il default dovrebbe
-/// restringere a mano a ogni apertura. In ogni altro caso — nessun abbonamento
-/// vivo, oppure famiglie diverse — si parte da "Tutti", cioè dal set vuoto.
+/// Il calendario parte sulla tipologia a cui l'utente ha effettivamente
+/// accesso; quando l'accesso è ambiguo — staff, famiglie diverse, nessun
+/// abbonamento vivo — non si filtra e si parte da "Tutti" (il set vuoto).
 ///
-/// Si guarda solo agli abbonamenti **vivi** ([liveSubscriptions]): lo snapshot
-/// `activeSubscriptions` viene ricalcolato solo alle scritture, quindi una voce
-/// PT scaduta non deve continuare a filtrare il calendario.
-Set<String> defaultTypeFilterForSubscriptions(
-  List<UserSubscription> subscriptions, {
-  DateTime? now,
-}) {
-  final live = liveSubscriptions(subscriptions, now: now);
-  if (live.isEmpty) return {};
-  if (live.every((s) => s.family == SubscriptionFamily.PT)) {
-    return {CourseTags.PERSONAL_TRAINER};
+/// In ordine:
+/// 1. Admin e Trainer vedono tutto: il loro accesso non passa dagli abbonamenti.
+/// 2. Abbonamenti **vivi** ([liveSubscriptions]) di una sola famiglia: la
+///    tipologia che quella famiglia sblocca ([CourseTypes.forFamily]). Si
+///    guardano solo i vivi perché lo snapshot `activeSubscriptions` viene
+///    ricalcolato alle scritture, e una voce scaduta non deve continuare a
+///    filtrare il calendario. Famiglie diverse insieme: "Tutti".
+/// 3. Nessun abbonamento vivo e documento legacy (V1) ancora in corso —
+///    prova, abbonamenti temporali, pacchetto entrate: "Open", l'unica
+///    tipologia che il modello vecchio sapeva rappresentare. Un documento V2
+///    senza abbonamenti vivi è semplicemente scaduto: "Tutti".
+///
+/// Si applica una volta sola all'apertura della pagina: da lì comanda l'utente.
+Set<String> defaultTypeFilterForUser(FitropeUser user, {DateTime? now}) {
+  if (user.role == 'Admin' || user.role == 'Trainer') return {};
+
+  final live = liveSubscriptions(user.activeSubscriptions, now: now);
+  if (live.isNotEmpty) {
+    final families = live.map((s) => s.family).toSet();
+    if (families.length != 1) return {};
+    final key = CourseTypes.forFamily(families.single)?.key;
+    return key == null ? {} : {key};
   }
-  return {};
+
+  // Fallback legacy: ammesso ai soli documenti V1, come in `getCourseState`.
+  if (user.subscriptionModelVersion >= 2) return {};
+  final fineIscrizione = user.fineIscrizione;
+  if (fineIscrizione == null) return {};
+  final reference = now ?? DateTime.now();
+  if (reference.isAfter(fineIscrizione.toDate())) return {};
+  return {CourseTags.OPEN};
 }
