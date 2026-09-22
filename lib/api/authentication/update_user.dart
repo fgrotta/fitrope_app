@@ -21,12 +21,6 @@ bool _sameDay(DateTime? a, DateTime? b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
-bool _sameTags(List<String> a, List<String> b) {
-  final sa = a.toSet();
-  final sb = b.toSet();
-  return sa.length == sb.length && sa.containsAll(sb);
-}
-
 /// Costruisce la mappa dei SOLI campi cambiati rispetto a [original], già
 /// serializzati per Firestore. Funzione PURA (testabile senza I/O): è qui che
 /// vive la logica che, sbagliata, romperebbe il salvataggio profilo sotto le
@@ -62,24 +56,6 @@ Map<String, dynamic> buildUserUpdateDiff({
   if (name != original.name) changed['name'] = name;
   if (lastName != original.lastName) changed['lastName'] = lastName;
   if (role != original.role) changed['role'] = role;
-  if (tipologiaIscrizione != original.tipologiaIscrizione) {
-    changed['tipologiaIscrizione'] =
-        tipologiaIscrizione?.toString().split('.').last;
-  }
-  if (entrateDisponibili != null &&
-      entrateDisponibili != original.entrateDisponibili) {
-    changed['entrateDisponibili'] = entrateDisponibili;
-  }
-  if (entrateSettimanali != null &&
-      entrateSettimanali != original.entrateSettimanali) {
-    changed['entrateSettimanali'] = entrateSettimanali;
-  }
-  if (!_sameDay(fineIscrizione, original.fineIscrizione?.toDate())) {
-    changed['fineIscrizione'] = fineIscrizione != null
-        ? Timestamp.fromDate(DateTime(fineIscrizione.year, fineIscrizione.month,
-            fineIscrizione.day, 23, 59))
-        : null;
-  }
   if (isActive != null && isActive != original.isActive) {
     changed['isActive'] = isActive;
   }
@@ -94,10 +70,6 @@ Map<String, dynamic> buildUserUpdateDiff({
   }
   if (numeroTelefono != original.numeroTelefono) {
     changed['numeroTelefono'] = numeroTelefono;
-  }
-  if (tipologiaCorsoTags != null &&
-      !_sameTags(tipologiaCorsoTags, original.tipologiaCorsoTags)) {
-    changed['tipologiaCorsoTags'] = tipologiaCorsoTags;
   }
   if (emailNotificationsEnabled != null &&
       emailNotificationsEnabled != original.emailNotificationsEnabled) {
@@ -135,15 +107,10 @@ Future<void> updateUser({
       name: name,
       lastName: lastName,
       role: role,
-      tipologiaIscrizione: tipologiaIscrizione,
-      entrateDisponibili: entrateDisponibili,
-      entrateSettimanali: entrateSettimanali,
-      fineIscrizione: fineIscrizione,
       isActive: isActive,
       isAnonymous: isAnonymous,
       certificatoScadenza: certificatoScadenza,
       numeroTelefono: numeroTelefono,
-      tipologiaCorsoTags: tipologiaCorsoTags,
       emailNotificationsEnabled: emailNotificationsEnabled,
       pushNotificationsEnabled: pushNotificationsEnabled,
     );

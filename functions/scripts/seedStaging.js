@@ -25,6 +25,7 @@ const {
   recordToDoc,
   recordToSnapshotEntry,
 } = require("../lib/enrollment/subscription");
+const { buildCourseDocument } = require("../lib/enrollment/courseDocument");
 
 function stagingCredential() {
   const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN;
@@ -84,6 +85,7 @@ function user(uid, email, role, extra = {}) {
     emailNotificationsEnabled: true,
     pushNotificationsEnabled: false,
     activeSubscriptions: [],
+    subscriptionModelVersion: 2,
     ...extra,
   };
 }
@@ -130,6 +132,7 @@ async function main() {
     ["stg_admin", "test.staging@example.com", "Admin"],
     ["stg_trainer", "trainer.staging@example.com", "Trainer"],
     [MEMBER_UID, "member.staging@example.com", "User"],
+    ["stg_unprovisioned", "unprovisioned.staging@example.com", "User"],
   ];
 
   for (const [uid, email, role] of users) {
@@ -203,8 +206,8 @@ async function main() {
     await db
       .collection("courses")
       .doc(course.id)
-      .set(
-        {
+    .set(
+        buildCourseDocument({
           uid: course.id,
           name: course.name,
           startDate: Timestamp.fromDate(start),
@@ -214,13 +217,11 @@ async function main() {
           trainerId: "stg_trainer",
           courseType: course.courseType,
           tag: course.tag,
-          courseModelV2: true,
-          tags: course.tags,
           sala: course.tag === "Hyrox" ? "Sala 2" : "Sala 1",
           waitlist: course.waitlist ?? [],
           reminderEnabled: true,
           waitlistEnabled: true,
-        },
+        }),
         { merge: true },
       );
   }

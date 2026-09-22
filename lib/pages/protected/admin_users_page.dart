@@ -1,7 +1,6 @@
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/authentication/toggle_user_status.dart';
 import 'package:fitrope_app/authentication/reset_password.dart';
-import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
@@ -19,6 +18,7 @@ import 'package:intl/intl.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/utils/simulation_controller.dart';
 import 'package:fitrope_app/utils/simulation_permissions.dart';
+import 'package:fitrope_app/utils/subscription_expiry.dart';
 
 enum AbbonamentoScadenzaListFilter {
   tutti,
@@ -64,10 +64,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   }
 
   String _desktopTableScadenzaAbbonamentoCell(FitropeUser u) {
-    final ts = u.fineIscrizione;
-    return ts == null
-        ? 'Non impostata'
-        : _userTableDateFormat.format(ts.toDate());
+    final expiries = subscriptionExpiries(u);
+    if (u.subscriptionModelVersion >= 2 && expiries.isEmpty) {
+      return 'Nessun abbonamento attivo';
+    }
+    return expiries
+        .where((expiry) => expiry.endDate != null)
+        .map((expiry) =>
+            '${expiry.label}: ${_userTableDateFormat.format(expiry.endDate!.toDate())}')
+        .join(' · ');
   }
 
   /// Filtro tag: null = tutti i tag
@@ -201,14 +206,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
             break;
           case AbbonamentoScadenzaListFilter.inScadenzaProssimi30Giorni:
             result = result
-                .where((u) =>
-                    AbbonamentoHelper.isFineIscrizioneNeiProssimi30Giorni(
-                      u.fineIscrizione,
-                    ))
+                .where((u) => hasSubscriptionExpiringInNext30Days(u))
                 .toList();
             break;
           case AbbonamentoScadenzaListFilter.senzaScadenza:
-            result = result.where((u) => u.fineIscrizione == null).toList();
+            result = result
+                .where((u) => u.subscriptionModelVersion >= 2
+                    ? u.activeSubscriptions.isEmpty
+                    : u.fineIscrizione == null)
+                .toList();
             break;
         }
       }

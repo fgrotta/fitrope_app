@@ -25,6 +25,7 @@ const {
   recordToDoc,
   recordToSnapshotEntry,
 } = require("../lib/enrollment/subscription");
+const { buildCourseDocument } = require("../lib/enrollment/courseDocument");
 
 admin.initializeApp({ projectId: "fit-rope-app-1f575" });
 const db = admin.firestore();
@@ -76,10 +77,7 @@ function baseUser(uid, email, name, lastName, role, extra = {}) {
 
 function course(uid, name, courseType, tag, start, capacity, subscribed, extra = {}) {
   const end = new Date(start.getTime() + 60 * 60 * 1000);
-  const typeTag = courseType === "personal_trainer" ? "Personal Trainer" : "Open";
-  const tags = tag && tag !== typeTag ? [typeTag, tag] : [typeTag];
-  return {
-    id: uid,
+  return buildCourseDocument({
     uid,
     name,
     startDate: Timestamp.fromDate(start),
@@ -89,14 +87,12 @@ function course(uid, name, courseType, tag, start, capacity, subscribed, extra =
     trainerId: "trainer-test",
     courseType,
     tag,
-    courseModelV2: true,
-    tags,
     waitlist: [],
     reminderEnabled: true,
     waitlistEnabled: true,
     sala: tag === "Hyrox" ? "Sala 2" : "Sala 1",
     ...extra,
-  };
+  });
 }
 
 async function createAuthUser(uid, email, displayName) {

@@ -5,11 +5,8 @@
 /// `scripts/backfillCourseModel.js` dove il dato è lo stesso, così i due export
 /// restano confrontabili.
 ///
-/// **Limite noto e accettato**: la migrazione al modello V2 non cancella i campi
-/// legacy, quindi per un utente già convertito le colonne `tipologia_iscrizione`
-/// / `fine_iscrizione` / `entrate_disponibili` contengono valori **stantii**, e
-/// il CSV non permette di distinguerlo da un utente ancora legacy. Il marker
-/// `legacySubscriptionMigration` che lo direbbe non è esposto su [FitropeUser].
+/// Le colonne V1 restano valorizzate solo per utenti V1; per i profili V2 la
+/// proiezione autorevole è `abbonamenti_attivi`/`scadenze_abbonamenti`.
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -72,12 +69,18 @@ String buildUsersCsv(List<FitropeUser> users, {bool withBom = true}) {
       // Lista: il mirror server la serializzerebbe in JSON, ma qui la colonna è
       // destinata a un occhio umano in un foglio di calcolo.
       'tipologia_corso_tags': _join(u.tipologiaCorsoTags),
-      'tipologia_iscrizione': u.tipologiaIscrizione == null
+      'tipologia_iscrizione':
+          u.subscriptionModelVersion >= 2 || u.tipologiaIscrizione == null
+              ? ''
+              : getTipologiaIscrizioneLabel(u.tipologiaIscrizione),
+      'entrate_disponibili': u.subscriptionModelVersion >= 2
           ? ''
-          : getTipologiaIscrizioneLabel(u.tipologiaIscrizione),
-      'entrate_disponibili': u.entrateDisponibili?.toString() ?? '',
-      'entrate_settimanali': u.entrateSettimanali?.toString() ?? '',
-      'fine_iscrizione': _timestamp(u.fineIscrizione),
+          : u.entrateDisponibili?.toString() ?? '',
+      'entrate_settimanali': u.subscriptionModelVersion >= 2
+          ? ''
+          : u.entrateSettimanali?.toString() ?? '',
+      'fine_iscrizione':
+          u.subscriptionModelVersion >= 2 ? '' : _timestamp(u.fineIscrizione),
       'abbonamenti_attivi': _join(subs.map(getSubscriptionTitle)),
       'scadenze_abbonamenti': _join(subs.map((s) => _timestamp(s.endDate))),
       'scadenza_certificato': _timestamp(u.certificatoScadenza),

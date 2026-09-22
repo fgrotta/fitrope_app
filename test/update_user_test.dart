@@ -121,25 +121,22 @@ void main() {
           {'emailNotificationsEnabled': false});
     });
 
-    test('admin cambia ruolo e crediti → {role, entrateDisponibili}', () {
+    test('admin cambia ruolo; i crediti legacy non sono piu scrivibili', () {
       final u = original(entrate: 5);
       final diff = diffWith(u, role: 'Trainer', entrateDisponibili: 10);
-      expect(diff, {'role': 'Trainer', 'entrateDisponibili': 10});
+      expect(diff, {'role': 'Trainer'});
     });
 
-    test('fineIscrizione giorno diverso → emessa normalizzata a 23:59', () {
+    test('fineIscrizione legacy non viene mai emessa', () {
       final u = original(fine: DateTime(2026, 7, 1, 11, 30));
       final diff = diffWith(u, fineIscrizione: DateTime(2026, 8, 15));
-      final ts = diff['fineIscrizione'] as Timestamp;
-      final d = ts.toDate();
-      expect([d.year, d.month, d.day, d.hour, d.minute], [2026, 8, 15, 23, 59]);
+      expect(diff.containsKey('fineIscrizione'), isFalse);
     });
 
-    test('tag realmente cambiati → emessi', () {
+    test('tag legacy realmente cambiati non sono emessi', () {
       final u = original(tags: ['Open']);
       final diff = diffWith(u, tipologiaCorsoTags: ['Open', 'Hyrox']);
-      expect(diff.containsKey('tipologiaCorsoTags'), isTrue);
-      expect((diff['tipologiaCorsoTags'] as List).toSet(), {'Open', 'Hyrox'});
+      expect(diff.containsKey('tipologiaCorsoTags'), isFalse);
     });
 
     test(
@@ -150,9 +147,7 @@ void main() {
       expect(diff, {'numeroTelefono': null});
     });
 
-    test(
-        'data prima ASSENTE poi impostata → emessa a 23:59 (assegnazione scadenza)',
-        () {
+    test('data legacy prima assente non puo essere impostata dal client', () {
       // Utente legacy/manuale senza scadenza: l'admin la imposta per la prima volta.
       final u = FitropeUser(
         uid: 'u1',
@@ -185,8 +180,7 @@ void main() {
         emailNotificationsEnabled: u.emailNotificationsEnabled,
         pushNotificationsEnabled: u.pushNotificationsEnabled,
       );
-      expect((fine['fineIscrizione'] as Timestamp).toDate(),
-          DateTime(2026, 8, 15, 23, 59));
+      expect(fine.containsKey('fineIscrizione'), isFalse);
 
       final cert = buildUserUpdateDiff(
         original: u,
@@ -207,9 +201,7 @@ void main() {
           DateTime(2026, 9, 1, 23, 59));
     });
 
-    test(
-        'campi finora scoperti, cambiati → chiave corretta (lastName/entrateSettimanali/isAnonymous/push)',
-        () {
+    test('campi gestibili cambiati → le chiavi legacy sono escluse', () {
       final u = original();
       expect(
           diffWith(
@@ -236,7 +228,6 @@ void main() {
         ),
         {
           'lastName': 'Bianchi',
-          'entrateSettimanali': 3,
           'isAnonymous': true,
           'pushNotificationsEnabled': false
         },
@@ -255,10 +246,7 @@ void main() {
     });
   });
 
-  // Azzeramenti VOLUTI dall'admin (dropdown "Nessuna" tipologia, rimozione
-  // data): il diff DEVE emettere null per persistere lo svuotamento. Le rules
-  // Admin lo consentono (blacklist). Test espliciti per fissare l'intenzione e
-  // prevenire regressioni distruttive (i campi governano l'eligibility).
+  // I campi V1 sono read-only: neppure l'Admin puo azzerarli dal client.
   // NB: questi azzeramenti passano `null` ESPLICITO a buildUserUpdateDiff (non
   // via l'helper diffWith, che col `??` lo rimpiazzerebbe col valore originale).
   Map<String, dynamic> diffClearing(
@@ -287,18 +275,16 @@ void main() {
     );
   }
 
-  group('buildUserUpdateDiff — azzeramenti gestionali (admin) sono VOLUTI', () {
-    test('tipologiaIscrizione → null (dropdown "Nessuna") → emesso null', () {
+  group('buildUserUpdateDiff — V1 read-only', () {
+    test('tipologiaIscrizione → null non viene emesso', () {
       final diff = diffClearing(original(), clearTipologia: true);
-      expect(diff.containsKey('tipologiaIscrizione'), isTrue);
-      expect(diff['tipologiaIscrizione'], isNull);
+      expect(diff.containsKey('tipologiaIscrizione'), isFalse);
     });
 
-    test('fineIscrizione → null (data rimossa) → emesso null', () {
+    test('fineIscrizione → null non viene emesso', () {
       final diff = diffClearing(original(fine: DateTime(2026, 7, 1, 11, 30)),
           clearFine: true);
-      expect(diff.containsKey('fineIscrizione'), isTrue);
-      expect(diff['fineIscrizione'], isNull);
+      expect(diff.containsKey('fineIscrizione'), isFalse);
     });
 
     test('certificatoScadenza → null (rimosso) → emesso null', () {

@@ -83,44 +83,20 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(
              ['uid', 'email', 'createdAt', 'name', 'lastName', 'courses',
-              'tipologiaIscrizione', 'entrateDisponibili', 'entrateSettimanali',
-              'fineIscrizione', 'role', 'numeroTelefono', 'isActive',
-              'isAnonymous', 'tipologiaCorsoTags', 'emailNotificationsEnabled',
-              'pushNotificationsEnabled'])
+              'role', 'numeroTelefono', 'isActive', 'isAnonymous',
+              'emailNotificationsEnabled',
+              'pushNotificationsEnabled', 'signupTrialRequested'])
         && request.resource.data.uid == userId
         && request.resource.data.role == 'User'
         && request.resource.data.courses == []
-        && request.resource.data.tipologiaIscrizione == 'ABBONAMENTO_PROVA'
-        && request.resource.data.entrateDisponibili == 1
-        && request.resource.data.entrateSettimanali == 0
         && request.resource.data.isActive == true
-        && request.resource.data.tipologiaCorsoTags == ['Open']
-        && request.resource.data.fineIscrizione < request.time + duration.value(40, 'd');
+        && request.resource.data.signupTrialRequested == true;
 
-      // Creazione manuale da Admin/Trainer (utenti gestiti senza account auth,
-      // lib/api/authentication/createUser.dart). I Trainer creano solo utenti
-      // 'User' (la UI mostra il selettore ruolo solo all'Admin).
-      //
-      // DECISIONE (documentata in docs/AVANZAMENTO): per i Trainer NON si
-      // vincolano entrate/fineIscrizione/tipologiaCorsoTags-specifici — è un
-      // flusso gestionale legittimo (un Trainer crea il cliente con la sua
-      // tipologia e i suoi ingressi) e i doc manuali nascono con id casuale ≠
-      // auth-uid, quindi non sono loggabili. UNICO hardening: ai Trainer è
-      // negato il tag jolly 'Tutti i corsi' (accesso TOTALE), che la UI non
-      // offre comunque. Resta vietato creare ruoli privilegiati e campi
-      // server-owned. TODO(server-migration): portare createUser su callable
-      // Admin-SDK (come createCourse/updateCourse) per chiudere il debito.
-      allow create: if (isAdmin() || isTrainer())
-        && request.resource.data.courses == []
-        && (isAdmin() || request.resource.data.role == 'User')
-        && (isAdmin()
-            || !('tipologiaCorsoTags' in request.resource.data)
-            || !request.resource.data.tipologiaCorsoTags.hasAny(['Tutti i corsi']))
-        && !request.resource.data.keys().hasAny(
-             ['activeSubscriptions', 'enrollmentConsumption', 'waitlistCourses',
-              'legacySubscriptionMigration', 'subscriptionModelVersion'])
-        && (!('cancelledEnrollments' in request.resource.data)
-            || request.resource.data.cancelledEnrollments == []);
+      // Il provisioning gestionale passa dalla callable Admin-only
+      // `createManagedUser`, che crea profilo e subscription/snapshot in una
+      // transazione. Nessun client può creare direttamente un profilo gestito
+      // o scegliere campi economici/server-owned.
+      allow create: if false;
 
       // SELF: solo campi profilo. `isActive` solo per auto-disattivarsi
       // ("Cancella account"); la riattivazione è solo admin.
@@ -142,7 +118,10 @@ service cloud.firestore {
              ['uid', 'email', 'createdAt', 'regolamentoAccettatoIl',
               'courses', 'waitlistCourses', 'activeSubscriptions',
               'enrollmentConsumption', 'cancelledEnrollments',
-              'legacySubscriptionMigration', 'subscriptionModelVersion']);
+              'legacySubscriptionMigration', 'subscriptionModelVersion',
+              'signupTrialRequested', 'signupTrialGrantedAt',
+              'tipologiaIscrizione', 'entrateDisponibili',
+              'entrateSettimanali', 'fineIscrizione', 'tipologiaCorsoTags']);
 
       // TRAINER su utenti con ruolo User: solo anagrafica (mirror della UI
       // _canEditSpecificField in UserDetailPage).

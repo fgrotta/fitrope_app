@@ -1,8 +1,8 @@
 import "package:flutter/foundation.dart";
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
-import 'package:fitrope_app/utils/abbonamento_helper.dart';
+import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/utils/refresh_manager.dart';
+import 'package:fitrope_app/utils/subscription_expiry.dart';
 
 List<FitropeUser>? _cachedUsersWithExpiringSubscriptions;
 DateTime? _lastCacheTimeWithExpiringSubscriptions;
@@ -21,24 +21,8 @@ Future<List<FitropeUser>> getUsersWithExpiringSubscriptions() async {
       }
     }
 
-    final oggi = DateTime.now();
-    final dataLimite = oggi.add(const Duration(
-        days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
-
-    // Query ottimizzata: cerca solo utenti con abbonamento in scadenza
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('fineIscrizione', isNull: false)
-        .where('fineIscrizione',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(oggi))
-        .where('fineIscrizione',
-            isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
-        .orderBy('fineIscrizione', descending: false)
-        .get();
-
-    _cachedUsersWithExpiringSubscriptions = querySnapshot.docs
-        .map((doc) => FitropeUser.fromJson(doc.data()))
-        .toList();
+    _cachedUsersWithExpiringSubscriptions =
+        (await getUsers()).where(hasSubscriptionExpiringInNext30Days).toList();
     _lastCacheTimeWithExpiringSubscriptions = DateTime.now();
 
     return _cachedUsersWithExpiringSubscriptions!;
@@ -61,22 +45,8 @@ Future<int> getCountUsersWithExpiringSubscriptions() async {
   }
 
   try {
-    final oggi = DateTime.now();
-    final dataLimite = oggi.add(const Duration(
-        days: AbbonamentoHelper.GIORNI_SOGLIA_SCADENZA_ABBONAMENTO));
-
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('fineIscrizione', isNull: false)
-        .where('fineIscrizione',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(oggi))
-        .where('fineIscrizione',
-            isLessThanOrEqualTo: Timestamp.fromDate(dataLimite))
-        .get();
-
-    _cachedUsersWithExpiringSubscriptions = querySnapshot.docs
-        .map((doc) => FitropeUser.fromJson(doc.data()))
-        .toList();
+    _cachedUsersWithExpiringSubscriptions =
+        (await getUsers()).where(hasSubscriptionExpiringInNext30Days).toList();
     _lastCacheTimeWithExpiringSubscriptions = DateTime.now();
 
     return _cachedUsersWithExpiringSubscriptions!.length;

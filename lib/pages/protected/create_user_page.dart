@@ -1,8 +1,7 @@
 import 'package:fitrope_app/api/authentication/create_user.dart';
-import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/utils/subscription_plans.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/style.dart';
-import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -21,21 +20,14 @@ class CreateUserPage extends StatefulWidget {
 class _CreateUserPageState extends State<CreateUserPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _numeroTelefonoController = TextEditingController();
-  final _entrateDisponibiliController = TextEditingController(text: '1');
-  final _entrateSettimanaliController = TextEditingController(text: '0');
 
   String _selectedRole = 'User';
-  TipologiaIscrizione? _selectedTipologia =
-      TipologiaIscrizione.ABBONAMENTO_PROVA;
-  int? _entrateDisponibili = 1;
-  int? _entrateSettimanali = 0;
+  String? _selectedPlanKey = SubscriptionPlans.trial.key;
   bool _isAnonymous = false;
   bool _isLoading = false;
-  final List<String> _selectedTipologiaCorsoTags = CourseTags.defaultUserTags;
 
   @override
   void initState() {
@@ -45,16 +37,20 @@ class _CreateUserPageState extends State<CreateUserPage> {
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     _nameController.dispose();
     _lastNameController.dispose();
     _numeroTelefonoController.dispose();
-    _entrateDisponibiliController.dispose();
-    _entrateSettimanaliController.dispose();
     super.dispose();
   }
 
   void _createUser() async {
+    if (widget.currentUserRole != 'Admin') {
+      SnackBarUtils.showErrorSnackBar(
+        context,
+        'Solo un Admin può creare utenti con un piano',
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -66,20 +62,14 @@ class _CreateUserPageState extends State<CreateUserPage> {
         email: _emailController.text.trim().isEmpty
             ? null
             : _emailController.text.trim(),
-        password: _passwordController.text.trim().isEmpty
-            ? null
-            : _passwordController.text.trim(),
         name: _nameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         role: _selectedRole,
-        tipologiaIscrizione: _selectedTipologia,
-        entrateDisponibili: _entrateDisponibili,
-        entrateSettimanali: _entrateSettimanali,
+        planKey: _selectedRole == 'User' ? _selectedPlanKey : null,
         isAnonymous: _isAnonymous,
         numeroTelefono: _numeroTelefonoController.text.trim().isNotEmpty
             ? _numeroTelefonoController.text.trim()
             : null,
-        tipologiaCorsoTags: _selectedTipologiaCorsoTags,
       );
       if (!mounted) return;
 
@@ -238,26 +228,6 @@ class _CreateUserPageState extends State<CreateUserPage> {
               ),
               const SizedBox(height: 16),
 
-              // Password (opzionale)
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password (opzionale)',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                  helperText: 'Lascia vuoto per creare un utente senza accesso',
-                ),
-                obscureText: true,
-                validator: (value) {
-                  if (value != null && value.trim().isNotEmpty) {
-                    if (value.trim().length < 6) {
-                      return 'La password deve essere di almeno 6 caratteri';
-                    }
-                  }
-                  return null;
-                },
-              ),
               const SizedBox(height: 24),
 
               // Ruolo e configurazioni
@@ -295,92 +265,26 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 const SizedBox(height: 16),
               ],
 
-              // Tipologia Iscrizione
-              DropdownButtonFormField<TipologiaIscrizione?>(
-                initialValue: _selectedTipologia,
-                decoration: const InputDecoration(
-                  labelText: 'Tipologia Iscrizione',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                  helperText: 'Abbonamento Prova selezionato di default',
-                ),
-                items: [
-                  const DropdownMenuItem<TipologiaIscrizione?>(
-                    value: null,
-                    child: Text('Nessuna'),
+              if (_selectedRole == 'User') ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedPlanKey,
+                  decoration: const InputDecoration(
+                    labelText: 'Piano iniziale *',
+                    border: OutlineInputBorder(),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
-                  ...TipologiaIscrizione.values.map((tipologia) {
-                    String displayName;
-                    switch (tipologia) {
-                      case TipologiaIscrizione.PACCHETTO_ENTRATE:
-                        displayName = 'Pacchetto Entrate';
-                        break;
-                      case TipologiaIscrizione.ABBONAMENTO_MENSILE:
-                        displayName = 'Abbonamento Mensile';
-                        break;
-                      case TipologiaIscrizione.ABBONAMENTO_TRIMESTRALE:
-                        displayName = 'Abbonamento Trimestrale';
-                        break;
-                      case TipologiaIscrizione.ABBONAMENTO_SEMESTRALE:
-                        displayName = 'Abbonamento Semestrale';
-                        break;
-                      case TipologiaIscrizione.ABBONAMENTO_ANNUALE:
-                        displayName = 'Abbonamento Annuale';
-                        break;
-                      case TipologiaIscrizione.ABBONAMENTO_PROVA:
-                        displayName = 'Lezione di Prova';
-                        break;
-                    }
-                    return DropdownMenuItem<TipologiaIscrizione?>(
-                      value: tipologia,
-                      child: Text(displayName),
-                    );
-                  }),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedTipologia = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Entrate Disponibili
-              TextFormField(
-                controller: _entrateDisponibiliController,
-                decoration: const InputDecoration(
-                  labelText: 'Entrate Disponibili',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                  helperText: 'Default: 1',
+                  items: SubscriptionPlans.all
+                      .map((plan) => DropdownMenuItem(
+                          value: plan.key, child: Text(plan.displayName)))
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => _selectedPlanKey = value),
+                  validator: (value) =>
+                      value == null ? 'Seleziona un piano' : null,
                 ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  _entrateDisponibili =
-                      value.isEmpty ? null : int.tryParse(value);
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Entrate Settimanali
-              TextFormField(
-                controller: _entrateSettimanaliController,
-                decoration: const InputDecoration(
-                  labelText: 'Entrate Settimanali',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                  helperText: 'Default: 0',
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  _entrateSettimanali =
-                      value.isEmpty ? null : int.tryParse(value);
-                },
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
 
               // Checkbox Anonimo
               CheckboxListTile(
@@ -396,57 +300,6 @@ class _CreateUserPageState extends State<CreateUserPage> {
               ),
               const SizedBox(height: 16),
 
-              // Selezione Tag Tipologia Corso
-              Card(
-                color: surfaceVariantColor,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Tipologia Corso',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Seleziona i tag che limitano l\'accesso ai corsi per questo utente',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: CourseTags.legacyUserTypeTags.map((tag) {
-                          final isSelected =
-                              _selectedTipologiaCorsoTags.contains(tag);
-                          return FilterChip(
-                            label: Text(tag),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                if (selected) {
-                                  _selectedTipologiaCorsoTags.add(tag);
-                                } else {
-                                  _selectedTipologiaCorsoTags.remove(tag);
-                                }
-                              });
-                            },
-                            selectedColor: primaryColor.withValues(alpha: 0.3),
-                            checkmarkColor: primaryColor,
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               const SizedBox(height: 32),
 
               // Pulsanti

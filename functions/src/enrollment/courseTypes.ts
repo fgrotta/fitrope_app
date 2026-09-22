@@ -82,7 +82,9 @@ export function typeTagOf(course: CourseDocument): string {
   }
 
   const typeTag = typeTagForCourseType(course.courseType);
-  const tag = course.tag;
+  // Firestore omette i campi `undefined`: per un corso Open senza etichetta
+  // descrittiva l'assenza e il null esplicito sono quindi la stessa shape.
+  const tag = course.tag ?? null;
   if (tag !== null &&
       (typeof tag !== "string" || !SELECTABLE_TAGS.includes(tag as typeof SELECTABLE_TAGS[number]))) {
     throw new Error(`tag corso V2 sconosciuto: ${String(tag)}`);

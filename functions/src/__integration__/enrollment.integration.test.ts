@@ -244,7 +244,13 @@ describe("integrazione emulatore — write-path enrollment", () => {
 
     // Iscritto nuovo modello: abbonamento Hyrox via assignSubscription + subscribe.
     const uSub = uniq("u-ds");
-    const tSub = await createUser(uSub, { tipologiaCorsoTags: [] });
+    const tSub = await createUser(uSub, {
+      // Profilo V2 puro: nessun campo economico legacy, così la callable può
+      // assegnare il primo abbonamento senza una migrazione preliminare.
+      tipologiaCorsoTags: [],
+      fineIscrizione: null,
+      subscriptionModelVersion: 2,
+    });
     const assign = await call("assignSubscription", bossToken, {
       userId: uSub,
       planKey: "open_10i_3m",

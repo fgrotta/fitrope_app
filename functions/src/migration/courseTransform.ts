@@ -25,7 +25,8 @@ export function targetMatchesCourse(
 ): boolean {
   return data.courseModelV2 === true &&
     data.courseType === target.courseType &&
-    data.tag === target.tag &&
+    // Firestore non serializza undefined: normalizziamo come il resolver V2.
+    (data.tag ?? null) === target.tag &&
     sameList(data.tags, target.tags);
 }
 
@@ -33,7 +34,7 @@ function existingV2Target(data: Data): CourseMigrationTarget | null {
   if (data.courseModelV2 !== true) return null;
   try {
     const typeTag = typeTagForCourseType(data.courseType);
-    const tag = data.tag;
+    const tag = data.tag ?? null;
     if (tag !== null &&
         (typeof tag !== "string" ||
           !SELECTABLE_TAGS.includes(tag as typeof SELECTABLE_TAGS[number]))) {
@@ -127,4 +128,3 @@ function ignored(
     target: null,
   };
 }
-

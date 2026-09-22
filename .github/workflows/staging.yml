@@ -158,6 +158,10 @@ jobs:
           GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
           export GOOGLE_OAUTH_ACCESS_TOKEN
           npm run seed:staging
+      - name: Repair and verify staging course shapes
+        run: |
+          node scripts/repair_staging_courses.js --project=fit-rope-staging --apply --confirm-project=fit-rope-staging
+          node scripts/backfillCourseModel.js --verify --scope=courses --project=fit-rope-staging
 
   deploy-pages:
     needs: deploy-functions
@@ -238,6 +242,7 @@ jobs:
           # dei bottoni "aggiungi al calendario": functions:list la elenca uguale.
           for fn in subscribeToCourse unsubscribeFromCourse joinWaitlist \
                     leaveWaitlist assignSubscription deleteCourse \
+                    createManagedUser grantSignupTrial \
                     recountCourseSubscribed sendOneSignalNotification \
                     courseIcs \
                     previewLegacyUserMigration migrateLegacyUser \

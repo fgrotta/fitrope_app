@@ -7,6 +7,7 @@ interface FakeOpts {
   callerRole?: string | null; // ruolo del chiamante (ADMIN_UID); undefined = doc inesistente
   existingSubs?: Array<Record<string, unknown>>; // doc esistenti in `subscriptions`
   targetUserExists?: boolean;
+  targetUser?: Record<string, unknown>;
 }
 
 function makeFakeDb(opts: FakeOpts) {
@@ -15,7 +16,7 @@ function makeFakeDb(opts: FakeOpts) {
     users[ADMIN_UID] = { role: opts.callerRole };
   }
   if (opts.targetUserExists !== false) {
-    users.u1 = { uid: "u1", role: "User" };
+    users.u1 = { uid: "u1", role: "User", ...(opts.targetUser ?? {}) };
   }
   const subs: Record<string, Record<string, unknown>> = {};
   (opts.existingSubs ?? []).forEach((s, i) => (subs[`existing-${i}`] = s));
@@ -174,11 +175,43 @@ describe("assignSubscriptionHandler", () => {
     expect(res.ok).toBe(true);
     expect(Object.keys(writes.subs).length).toBe(1);
 
-    const snap = writes.users["u1"] as { activeSubscriptions: any[] };
+    const snap = writes.users["u1"] as {
+      activeSubscriptions: any[];
+      subscriptionModelVersion: number;
+    };
     expect(snap.activeSubscriptions.length).toBe(1);
     expect(snap.activeSubscriptions[0].family).toBe("OPEN");
     expect(snap.activeSubscriptions[0].remainingEntries).toBe(10);
     expect(snap.activeSubscriptions[0].id).toBe(res.subscriptionId);
+    expect(snap.subscriptionModelVersion).toBe(2);
+  });
+
+  test("utente legacy con crediti o consumi legacy -> failed-precondition", async () => {
+    const { db } = makeFakeDb({
+      callerRole: "Admin",
+      targetUser: {
+        tipologiaIscrizione: "ABBONAMENTO_PROVA",
+        enrollmentConsumption: { c1: { kind: "LEGACY_ENTRY" } },
+      },
+    });
+    await expectCode(
+      assignSubscriptionHandler({ auth, data: { userId: "u1", planKey: "open_2x_1m" } }, db),
+      "failed-precondition",
+    );
+  });
+
+  test("anche un profilo marcato V2 ma misto resta bloccato", async () => {
+    const { db } = makeFakeDb({
+      callerRole: "Admin",
+      targetUser: {
+        subscriptionModelVersion: 2,
+        fineIscrizione: { toMillis: () => Date.now() + 86400000 },
+      },
+    });
+    await expectCode(
+      assignSubscriptionHandler({ auth, data: { userId: "u1", planKey: "open_2x_1m" } }, db),
+      "failed-precondition",
+    );
   });
 
   test("famiglia diversa da una già attiva -> consentito, snapshot fonde entrambi", async () => {
