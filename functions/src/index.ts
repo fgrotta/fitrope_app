@@ -16,6 +16,10 @@ import {
 } from "./certificateEmails";
 import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
 import {
+  createManagedUserHandler,
+  grantSignupTrialHandler,
+} from "./enrollment/provisioning";
+import {
   subscribeToCourseHandler,
   unsubscribeFromCourseHandler,
   joinWaitlistHandler,
@@ -124,6 +128,20 @@ export const assignSubscription = onCall(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
     ),
+);
+
+export const createManagedUser = onCall(
+  { region: "europe-west8", cors: true },
+  (request) => createManagedUserHandler(
+    { auth: request.auth ?? null, data: request.data }, admin.firestore(),
+  ),
+);
+
+export const grantSignupTrial = onCall(
+  { region: "europe-west8", cors: true },
+  (request) => grantSignupTrialHandler(
+    { auth: request.auth ?? null, data: request.data }, admin.firestore(),
+  ),
 );
 
 /** Anteprima non mutante della conversione legacy di un singolo utente (Admin). */

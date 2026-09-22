@@ -123,17 +123,13 @@ describe("rules: users — lettura e registrazione", () => {
       name: "N",
       lastName: "C",
       courses: [],
-      tipologiaIscrizione: "ABBONAMENTO_PROVA",
-      entrateDisponibili: 1,
-      entrateSettimanali: 0,
-      fineIscrizione: new Date(Date.now() + 30 * 86400 * 1000),
       role: "User",
       numeroTelefono: null,
       isActive: true,
       isAnonymous: false,
-      tipologiaCorsoTags: ["Open"],
       emailNotificationsEnabled: true,
       pushNotificationsEnabled: true,
+      signupTrialRequested: true,
       ...over,
     };
   }
@@ -172,7 +168,7 @@ describe("rules: users — lettura e registrazione", () => {
     await assertFails(as(USER).doc("users/qualcun-altro").set(registrationDoc("qualcun-altro")));
   });
 
-  test("creazione manuale Admin/Trainer: ok senza campi server-owned; Trainer crea solo User", async () => {
+  test("creazione manuale Admin/Trainer: negata, passa solo dalla callable", async () => {
     const manual = {
       uid: "manuale",
       email: "-",
@@ -184,18 +180,8 @@ describe("rules: users — lettura e registrazione", () => {
       entrateDisponibili: 3,
       cancelledEnrollments: [],
     };
-    await assertSucceeds(as(ADMIN).doc("users/manuale").set(manual));
-    await assertSucceeds(as(TRAINER).doc("users/manuale2").set({ ...manual, uid: "manuale2" }));
-    // Admin può creare Trainer; il Trainer NO (mirror UI: selettore ruolo solo Admin).
-    await assertSucceeds(
-      as(ADMIN).doc("users/manualeT").set({ ...manual, uid: "manualeT", role: "Trainer" })
-    );
-    await assertFails(
-      as(TRAINER).doc("users/manuale3").set({ ...manual, uid: "manuale3", role: "Trainer" })
-    );
-    await assertFails(
-      as(TRAINER).doc("users/manuale3b").set({ ...manual, uid: "manuale3b", role: "Admin" })
-    );
+    await assertFails(as(ADMIN).doc("users/manuale").set(manual));
+    await assertFails(as(TRAINER).doc("users/manuale2").set({ ...manual, uid: "manuale2" }));
     await assertFails(
       as(ADMIN)
         .doc("users/manuale4")
@@ -207,27 +193,7 @@ describe("rules: users — lettura e registrazione", () => {
     );
   });
 
-  // DECISIONE deliberata (vedi commento nelle rules + AVANZAMENTO): un Trainer
-  // può creare un cliente manuale con la sua tipologia/tag/entrate. Non è un
-  // buco: i doc manuali hanno id casuale ≠ auth-uid → non loggabili.
-  test("Trainer crea cliente manuale con tag/entrate specifici → OK (flusso gestionale)", async () => {
-    await assertSucceeds(
-      as(TRAINER).doc("users/cliente-hyrox").set({
-        uid: "cliente-hyrox",
-        email: "-",
-        name: "Cli",
-        lastName: "Ente",
-        role: "User",
-        courses: [],
-        tipologiaIscrizione: "PACCHETTO_ENTRATE",
-        entrateDisponibili: 10,
-        tipologiaCorsoTags: ["Hyrox"],
-        cancelledEnrollments: [],
-      })
-    );
-  });
-
-  test("Trainer NON può grant il tag jolly 'Tutti i corsi' (accesso totale) → NEGATA; Admin sì", async () => {
+  test("provisioning manuale dal client → NEGATO per Admin e Trainer", async () => {
     const base = {
       email: "-",
       name: "X",
@@ -240,7 +206,7 @@ describe("rules: users — lettura e registrazione", () => {
       cancelledEnrollments: [],
     };
     await assertFails(as(TRAINER).doc("users/jolly").set({ ...base, uid: "jolly" }));
-    await assertSucceeds(as(ADMIN).doc("users/jollyA").set({ ...base, uid: "jollyA" }));
+    await assertFails(as(ADMIN).doc("users/jollyA").set({ ...base, uid: "jollyA" }));
   });
 });
 
@@ -375,19 +341,19 @@ describe("rules: users — update self (whitelist profilo)", () => {
 });
 
 describe("rules: users — update Admin/Trainer", () => {
-  test("Admin: campi gestionali di altri → OK; server-owned → NEGATI", async () => {
+  test("Admin: anagrafica di altri → OK; V1 e server-owned → NEGATI", async () => {
     await assertSucceeds(
       as(ADMIN).doc(`users/${USER}`).update({
         role: "Trainer",
-        tipologiaIscrizione: "ABBONAMENTO_MENSILE",
-        entrateDisponibili: 10,
-        entrateSettimanali: 3,
-        fineIscrizione: new Date(2026, 11, 31),
         isActive: true,
-        tipologiaCorsoTags: ["Open", "Hyrox"],
       })
     );
     for (const update of [
+      { tipologiaIscrizione: "ABBONAMENTO_MENSILE" },
+      { entrateDisponibili: 10 },
+      { entrateSettimanali: 3 },
+      { fineIscrizione: new Date(2026, 11, 31) },
+      { tipologiaCorsoTags: ["Open", "Hyrox"] },
       { courses: ["c1"] },
       { waitlistCourses: ["c1"] },
       { activeSubscriptions: [{ planKey: "x" }] },

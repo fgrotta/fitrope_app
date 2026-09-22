@@ -126,7 +126,7 @@ void main() async {
     // Dopo aver agganciato l'emulatore, mai prima: sarebbe un uso di auth che
     // impedisce a `useAuthEmulator` di attaccarsi.
     await _autologin();
-  } else {
+  } else if (!isStaging) {
     // In modalità emulatore OneSignal NON va inizializzato: su device fisico
     // registrerebbe il device (e al login gli utenti seed) sull'app OneSignal
     // di PRODUZIONE, rompendo l'isolamento del QA.

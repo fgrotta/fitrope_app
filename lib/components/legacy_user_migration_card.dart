@@ -6,7 +6,6 @@ import 'package:fitrope_app/utils/subscription_plans.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:fitrope_app/layout/breakpoints.dart';
 
 typedef LegacyPreview = Future<Map<String, dynamic>> Function(String userId);
 typedef LegacyAutoMigration = Future<Map<String, dynamic>> Function(
@@ -23,7 +22,7 @@ typedef LegacyGuidedMigration = Future<Map<String, dynamic>> Function(
 );
 
 bool shouldShowLegacyUserMigration(BuildContext context, String? role) =>
-    role == 'Admin' && isDesktop(context);
+    role == 'Admin';
 
 /// Conversione controllata del modello abbonamento legacy. Il parent decide
 /// visibilità per ruolo e breakpoint; la card nasconde gli stati già migrati o

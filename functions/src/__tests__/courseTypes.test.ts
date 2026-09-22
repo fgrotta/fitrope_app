@@ -35,6 +35,14 @@ describe("course type resolver V1/V2", () => {
     })).toBe(TAG_OPEN);
   });
 
+  test("tag V2 assente equivale a null per un corso Open", () => {
+    expect(typeTagOf({
+      courseType: "open",
+      courseModelV2: true,
+      tags: ["Open"],
+    })).toBe(TAG_OPEN);
+  });
+
   test.each([
     { courseType: "open", tag: "Personal Trainer", tags: ["Open", "Personal Trainer"] },
     { courseType: "personal_trainer", tag: "Yoga", tags: ["Personal Trainer"] },

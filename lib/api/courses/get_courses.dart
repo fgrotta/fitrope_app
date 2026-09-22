@@ -30,9 +30,18 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
   List<Course> courses = [];
 
   for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-    if ((doc.data() as Map<String, dynamic>)['id'] != null) {
-      Course course = Course.fromJson(doc.data() as Map<String, dynamic>);
+    try {
+      // L'id del documento e' la fonte canonica: i documenti legacy possono
+      // non avere id/uid, o contenerne una copia incoerente.
+      final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>)
+        ..['id'] = doc.id
+        ..['uid'] = doc.id;
+      final Course course = Course.fromJson(data);
       courses.add(course);
+    } catch (error) {
+      // Un record malformato non deve rendere inutilizzabile il calendario.
+      // ignore: avoid_print
+      print('Corso ${doc.id} non deserializzabile, saltato: $error');
     }
   }
 

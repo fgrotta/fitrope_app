@@ -23,7 +23,7 @@ Map<String, dynamic> result(String status) => <String, dynamic>{
     };
 
 void main() {
-  testWidgets('il gate richiede Admin e breakpoint desktop', (tester) async {
+  testWidgets('il gate richiede Admin anche su mobile', (tester) async {
     final values = <bool>[];
     await tester.pumpWidget(
       host(
@@ -50,7 +50,7 @@ void main() {
         width: 700,
       ),
     );
-    expect(values, [false]);
+    expect(values, [true]);
   });
 
   testWidgets('mostra anteprima automatica e scompare dopo il successo',

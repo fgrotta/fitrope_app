@@ -94,7 +94,22 @@ const doc = ([id, name, tag, sala, hour, capacity, subscribed]) => ({
     capacity: { integerValue: String(capacity) },
     subscribed: { integerValue: String(subscribed) },
     trainerId: { stringValue: 'trainer-test' },
-    tags: { arrayValue: { values: [{ stringValue: tag }] } },
+    // Hey Mamma resta l'unica shape V1 read-only. Tutti gli altri seed sono
+    // V2 e mantengono il mirror tags canonico dell'app.
+    tags: { arrayValue: { values: (tag === 'Hey Mamma'
+      ? [tag]
+      : tag === 'Personal Trainer' ? ['Personal Trainer']
+      : tag === 'Open' ? ['Open'] : ['Open', tag]
+    ).map((value) => ({ stringValue: value })) } },
+    ...(tag !== 'Hey Mamma' ? {
+      courseType: {
+        stringValue: tag === 'Personal Trainer' ? 'personal_trainer' : 'open',
+      },
+      tag: tag === 'Open'
+        ? { nullValue: null }
+        : { stringValue: tag },
+      courseModelV2: { booleanValue: true },
+    } : {}),
     waitlist: { arrayValue: {} },
     reminderEnabled: { booleanValue: true },
     waitlistEnabled: { booleanValue: true },

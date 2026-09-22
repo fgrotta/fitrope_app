@@ -50,6 +50,13 @@ describe("course migration matrix", () => {
     expect(targetMatchesCourse(data, result.target!)).toBe(true);
   });
 
+  test("un V2 Open con tag assente equivale a tag null", () => {
+    const data = { courseType: "open", courseModelV2: true, tags: ["Open"] };
+    const result = transformCourse(data);
+    expect(result.conversionStatus).toBe("ALREADY_APPLIED");
+    expect(targetMatchesCourse(data, result.target!)).toBe(true);
+  });
+
   test.each([
     { courseType: "open", tag: "Personal Trainer", tags: ["Open", "Personal Trainer"] },
     { courseType: "personal_trainer", tag: "Yoga", tags: ["Personal Trainer"] },
@@ -60,4 +67,3 @@ describe("course migration matrix", () => {
     expect(result.conversionStatus).toBe("TARGET_CONFLICT");
   });
 });
-

@@ -436,15 +436,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         name: name,
         lastName: lastName,
         role: selectedRole,
-        tipologiaIscrizione: selectedTipologiaIscrizione,
-        entrateDisponibili: entrateDisponibili,
-        entrateSettimanali: entrateSettimanali,
-        fineIscrizione: selectedFineIscrizione,
         isActive: selectedIsActive,
         isAnonymous: selectedIsAnonymous,
         certificatoScadenza: selectedCertificatoScadenza,
         numeroTelefono: numeroTelefono.isNotEmpty ? numeroTelefono : null,
-        tipologiaCorsoTags: selectedTipologiaCorsoTags,
         emailNotificationsEnabled: selectedEmailNotifications,
         pushNotificationsEnabled: selectedPushNotifications,
       );
@@ -1118,52 +1113,62 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
             const SizedBox(height: 24),
 
-            // Sezione piano di iscrizione
-            _buildSection('Piano di Iscrizione', [
-              _buildInfoRow(
-                'Tipologia',
-                _getTipologiaLabel(widget.user.tipologiaIscrizione),
-                null,
-                _canEditSpecificField('Tipologia') && isEditing,
-                isTipologiaDropdown: true,
-              ),
-              _buildInfoRow(
-                'Tipologia Corso',
-                widget.user.tipologiaCorsoTags.join(', '),
-                null,
-                _canEditSpecificField('Tipologia Corso') && isEditing,
-                isTagsMultiSelect: true,
-              ),
-              if (widget.user.tipologiaIscrizione ==
-                      TipologiaIscrizione.PACCHETTO_ENTRATE ||
-                  isAdmin) ...[
-                _buildInfoRow(
-                  'Entrate Disponibili',
-                  widget.user.entrateDisponibili?.toString() ?? '0',
-                  entrateDisponibiliController,
-                  _canEditSpecificField('Entrate Disponibili') && isEditing,
-                ),
-              ],
-              _buildInfoRow(
-                'Entrate Settimanali',
-                widget.user.entrateSettimanali?.toString() ?? '0',
-                entrateSettimanaliController,
-                _canEditSpecificField('Entrate Settimanali') && isEditing,
-              ),
-              _buildInfoRow(
-                'Fine Iscrizione',
-                widget.user.fineIscrizione != null
-                    ? DateFormat(
-                        'dd/MM/yyyy',
-                      ).format(widget.user.fineIscrizione!.toDate())
-                    : 'Non impostata',
-                null,
-                _canEditSpecificField('Fine Iscrizione') && isEditing,
-                isDatePicker: true,
-              ),
-            ]),
-
-            const SizedBox(height: 24),
+            // I dati legacy restano consultabili durante il rollout, ma non
+            // devono sembrare il piano effettivo di un profilo V2.
+            if (widget.user.subscriptionModelVersion < 2) ...[
+              _buildSection(
+                  'Piano di Iscrizione',
+                  [
+                    const Text(
+                      'Modello superato — migrare l\'utente al nuovo modello abbonamenti.',
+                      style: TextStyle(color: dangerColor),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInfoRow(
+                      'Tipologia',
+                      _getTipologiaLabel(widget.user.tipologiaIscrizione),
+                      null,
+                      false,
+                      isTipologiaDropdown: true,
+                    ),
+                    _buildInfoRow(
+                      'Tipologia Corso',
+                      widget.user.tipologiaCorsoTags.join(', '),
+                      null,
+                      false,
+                      isTagsMultiSelect: true,
+                    ),
+                    if (widget.user.tipologiaIscrizione ==
+                            TipologiaIscrizione.PACCHETTO_ENTRATE ||
+                        isAdmin) ...[
+                      _buildInfoRow(
+                        'Entrate Disponibili',
+                        widget.user.entrateDisponibili?.toString() ?? '0',
+                        entrateDisponibiliController,
+                        false,
+                      ),
+                    ],
+                    _buildInfoRow(
+                      'Entrate Settimanali',
+                      widget.user.entrateSettimanali?.toString() ?? '0',
+                      entrateSettimanaliController,
+                      false,
+                    ),
+                    _buildInfoRow(
+                      'Fine Iscrizione',
+                      widget.user.fineIscrizione != null
+                          ? DateFormat(
+                              'dd/MM/yyyy',
+                            ).format(widget.user.fineIscrizione!.toDate())
+                          : 'Non impostata',
+                      null,
+                      false,
+                      isDatePicker: true,
+                    ),
+                  ],
+                  highlighted: true),
+              const SizedBox(height: 24),
+            ],
 
             // Sezione abbonamenti del modello multi-abbonamento (sola lettura;
             // l'assegnazione avviene server-side via AssignSubscriptionCard, in
@@ -1466,13 +1471,15 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   bool get isAdmin => store.state.user?.role == 'Admin';
 
-  Widget _buildSection(String title, List<Widget> children) {
+  Widget _buildSection(String title, List<Widget> children,
+      {bool highlighted = false}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: outlineColor,
         borderRadius: BorderRadius.circular(12),
+        border: highlighted ? Border.all(color: dangerColor, width: 1.5) : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -1486,10 +1493,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: primaryLightColor,
+              color: highlighted ? dangerColor : primaryLightColor,
             ),
           ),
           const SizedBox(height: 16),

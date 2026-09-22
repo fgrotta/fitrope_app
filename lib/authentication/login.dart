@@ -9,6 +9,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
 import 'package:fitrope_app/services/notification_service.dart';
+import 'package:fitrope_app/api/subscriptions/signup_trial.dart';
 
 class SignInResponse {
   final FitropeUser? user;
@@ -54,7 +55,7 @@ Future<SignInResponse> signInWithEmailPassword(
       store.dispatch(FinishLoadingAction());
 
       if (userData != null) {
-        final fitropeUser = FitropeUser.fromJson(userData);
+        var fitropeUser = FitropeUser.fromJson(userData);
 
         // Controlla se l'utente è attivo
         if (!fitropeUser.isActive) {
@@ -63,6 +64,16 @@ Future<SignInResponse> signInWithEmailPassword(
           return SignInResponse(
               error:
                   "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
+        }
+
+        // Best effort: per i nuovi signup il server completa la prova dal
+        // marker create-only. I profili legacy ricevono un no-op.
+        try {
+          await grantSignupTrial();
+          final refreshed = await getUserData(uid);
+          if (refreshed != null) fitropeUser = FitropeUser.fromJson(refreshed);
+        } catch (error) {
+          print('Retry prova signup fallito: $error');
         }
 
         // Popola la cache degli utenti in background

@@ -11,6 +11,7 @@ import {
   recordToSnapshotEntry,
   UserSubscriptionRecord,
 } from "./subscription";
+import { hasLegacyEconomicState, hasLegacyEntryConsumption } from "./provisioning";
 
 export interface AssignRequest {
   auth?: { uid: string } | null;
@@ -64,6 +65,13 @@ export async function assignSubscriptionHandler(
     if (!userSnap.exists) {
       throw new HttpsError("not-found", "Utente inesistente");
     }
+    const userData = userSnap.data()!;
+    if (hasLegacyEconomicState(userData) || hasLegacyEntryConsumption(userData)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "L'utente è ancora sul modello legacy: eseguire prima la migrazione",
+      );
+    }
 
     const existing = await tx.get(subColl.where("userId", "==", userId));
     const records = existing.docs.map((d) => recordFromDoc(d.id, d.data()));
@@ -80,7 +88,10 @@ export async function assignSubscriptionHandler(
 
     const newActive: UserSubscriptionRecord = { ...record, id: newRef.id };
     const snapshot = [...active, newActive].map(recordToSnapshotEntry);
-    tx.set(userRef, { activeSubscriptions: snapshot }, { merge: true });
+    tx.set(userRef, {
+      activeSubscriptions: snapshot,
+      subscriptionModelVersion: 2,
+    }, { merge: true });
   });
 
   logger.info("Abbonamento assegnato", {
