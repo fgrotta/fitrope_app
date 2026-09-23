@@ -61,8 +61,8 @@ String _join(Iterable<String> values) => values.join(' | ');
 /// l'admin vede nel drawer, e l'export deve corrispondere a ciò che si vede.
 String buildUsersCsv(List<FitropeUser> users, {bool withBom = true}) {
   final rows = users.map<Map<String, Object?>>((u) {
-    final open = u.activeSubscriptions
-        .where((s) => s.family == SubscriptionFamily.OPEN);
+    final open =
+        u.activeSubscriptions.where((s) => s.family == SubscriptionFamily.OPEN);
     final pt =
         u.activeSubscriptions.where((s) => s.family == SubscriptionFamily.PT);
     return {
