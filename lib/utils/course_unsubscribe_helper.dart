@@ -32,7 +32,7 @@ class CourseUnsubscribeHelper {
 
     if (unsubscribeInfo['requiresConfirmation']) {
       // Mostra dialog di conferma per perdita credito/ingresso settimanale
-      bool confirmed = await _showConfirmationDialog(
+      bool confirmed = await showConfirmationDialog(
         context,
         course,
         isTemporalSubscription:
@@ -85,7 +85,8 @@ class CourseUnsubscribeHelper {
   /// giornata. Il dialog dice quanto spazio di recupero c'è DAVVERO, così chi
   /// disdice l'ultimo corso della giornata lo scopre prima di confermare e non
   /// dopo.
-  static Future<bool> _showConfirmationDialog(
+  @visibleForTesting
+  static Future<bool> showConfirmationDialog(
     BuildContext context,
     Course course, {
     required bool isTemporalSubscription,
