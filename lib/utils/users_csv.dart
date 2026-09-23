@@ -6,11 +6,13 @@
 /// restano confrontabili.
 ///
 /// Le colonne V1 restano valorizzate solo per utenti V1; per i profili V2 la
-/// proiezione autorevole è `abbonamenti_attivi`/`scadenze_abbonamenti`.
+/// proiezione autorevole sono le colonne `abbonamenti_attivo_*` /
+/// `scadenze_abbonamenti_*`, una coppia per famiglia (OPEN, PT).
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/csv.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
 import 'package:fitrope_app/utils/subscription_labels.dart';
@@ -33,8 +35,10 @@ const List<String> kUsersCsvColumns = [
   'entrate_disponibili',
   'entrate_settimanali',
   'fine_iscrizione',
-  'abbonamenti_attivi',
-  'scadenze_abbonamenti',
+  'abbonamenti_attivo_open',
+  'abbonamenti_attivo_pt',
+  'scadenze_abbonamenti_open',
+  'scadenze_abbonamenti_pt',
   'scadenza_certificato',
   'regolamento_accettato_il',
   'notifiche_email',
@@ -57,7 +61,10 @@ String _join(Iterable<String> values) => values.join(' | ');
 /// l'admin vede nel drawer, e l'export deve corrispondere a ciò che si vede.
 String buildUsersCsv(List<FitropeUser> users, {bool withBom = true}) {
   final rows = users.map<Map<String, Object?>>((u) {
-    final subs = u.activeSubscriptions;
+    final open = u.activeSubscriptions
+        .where((s) => s.family == SubscriptionFamily.OPEN);
+    final pt =
+        u.activeSubscriptions.where((s) => s.family == SubscriptionFamily.PT);
     return {
       'nome': u.name,
       'cognome': u.lastName,
@@ -81,8 +88,13 @@ String buildUsersCsv(List<FitropeUser> users, {bool withBom = true}) {
           : u.entrateSettimanali?.toString() ?? '',
       'fine_iscrizione':
           u.subscriptionModelVersion >= 2 ? '' : _timestamp(u.fineIscrizione),
-      'abbonamenti_attivi': _join(subs.map(getSubscriptionTitle)),
-      'scadenze_abbonamenti': _join(subs.map((s) => _timestamp(s.endDate))),
+      // Una coppia di colonne per famiglia; più abbonamenti della stessa
+      // famiglia restano nella stessa cella, separati da `|`.
+      'abbonamenti_attivo_open': _join(open.map(getSubscriptionTitle)),
+      'abbonamenti_attivo_pt': _join(pt.map(getSubscriptionTitle)),
+      'scadenze_abbonamenti_open':
+          _join(open.map((s) => _timestamp(s.endDate))),
+      'scadenze_abbonamenti_pt': _join(pt.map((s) => _timestamp(s.endDate))),
       'scadenza_certificato': _timestamp(u.certificatoScadenza),
       'regolamento_accettato_il': _timestamp(u.regolamentoAccettatoIl),
       'notifiche_email': _bool(u.emailNotificationsEnabled),
