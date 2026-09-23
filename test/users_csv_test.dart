@@ -93,6 +93,14 @@ void main() {
       expect(cells[kUsersCsvColumns.indexOf('fine_iscrizione')], '');
       expect(cells[kUsersCsvColumns.indexOf('entrate_disponibili')], '');
       expect(cells[kUsersCsvColumns.indexOf('scadenza_certificato')], '');
+      for (final column in const [
+        'abbonamenti_attivo_open',
+        'abbonamenti_attivo_pt',
+        'scadenze_abbonamenti_open',
+        'scadenze_abbonamenti_pt',
+      ]) {
+        expect(cells[kUsersCsvColumns.indexOf(column)], '', reason: column);
+      }
     });
 
     test('il telefono con prefisso + non diventa una formula', () {
@@ -165,7 +173,7 @@ void main() {
       expect(cells[kUsersCsvColumns.indexOf('entrate_settimanali')], '3');
     });
 
-    test('tag e abbonamenti multipli separati da | dentro una sola cella', () {
+    test('tag multipli in una cella, abbonamenti divisi per famiglia', () {
       final csv = buildUsersCsv(
         [
           _user(
@@ -201,12 +209,58 @@ void main() {
       final cells = _cells(row);
       expect(cells[kUsersCsvColumns.indexOf('tipologia_corso_tags')],
           'Open | Personal Trainer');
-      expect(cells[kUsersCsvColumns.indexOf('scadenze_abbonamenti')],
+      expect(cells[kUsersCsvColumns.indexOf('scadenze_abbonamenti_open')],
+          '01/04/2025');
+      expect(cells[kUsersCsvColumns.indexOf('scadenze_abbonamenti_pt')],
+          '01/02/2025');
+      for (final column in const [
+        'abbonamenti_attivo_open',
+        'abbonamenti_attivo_pt',
+      ]) {
+        final cell = cells[kUsersCsvColumns.indexOf(column)];
+        expect(cell, isNotEmpty, reason: column);
+        expect(cell, isNot(contains('|')), reason: column);
+      }
+    });
+
+    test('più abbonamenti della stessa famiglia restano nella sua cella', () {
+      final csv = buildUsersCsv(
+        [
+          _user(
+            activeSubscriptions: [
+              UserSubscription(
+                planKey: 'open_2x_3m',
+                family: SubscriptionFamily.OPEN,
+                billingMode: BillingMode.FREQUENCY,
+                courseTypeTags: const {'Open'},
+                weeklyFrequency: 2,
+                startDate: Timestamp.fromDate(DateTime(2025, 1, 1)),
+                endDate: Timestamp.fromDate(DateTime(2025, 4, 1)),
+              ),
+              UserSubscription(
+                planKey: 'open_10i_1m',
+                family: SubscriptionFamily.OPEN,
+                billingMode: BillingMode.ENTRIES,
+                courseTypeTags: const {'Open'},
+                remainingEntries: 10,
+                startDate: Timestamp.fromDate(DateTime(2025, 1, 1)),
+                endDate: Timestamp.fromDate(DateTime(2025, 2, 1)),
+              ),
+            ],
+          )
+        ],
+        withBom: false,
+      );
+
+      final cells = _cells(_dataRows(csv).single);
+      expect(cells[kUsersCsvColumns.indexOf('scadenze_abbonamenti_open')],
           '01/04/2025 | 01/02/2025');
       expect(
-        cells[kUsersCsvColumns.indexOf('abbonamenti_attivi')],
+        cells[kUsersCsvColumns.indexOf('abbonamenti_attivo_open')],
         contains('|'),
       );
+      expect(cells[kUsersCsvColumns.indexOf('abbonamenti_attivo_pt')], '');
+      expect(cells[kUsersCsvColumns.indexOf('scadenze_abbonamenti_pt')], '');
     });
 
     test('un campo con ; o accenti resta leggibile e quotato dove serve', () {
