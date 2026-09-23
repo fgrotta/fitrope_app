@@ -48,6 +48,7 @@ import {
   migrateLegacyUserHandler,
   previewLegacyUserMigrationHandler,
 } from "./migration/userHandler";
+import { isStagingCloneMode, stagingCloneGuarded } from "./stagingCloneGuard";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -68,12 +69,12 @@ export const sendOneSignalNotification = onCall(
     region: "europe-west8",
     cors: true,
   },
-  (request) =>
+  stagingCloneGuarded((request) =>
     sendOneSignalNotificationHandler(
       { auth: request.auth ?? null, data: request.data },
       oneSignalApiKey.value(),
       { db: admin.firestore(), ensure: ensureOneSignalEmailSubscription },
-    ),
+    )),
 );
 
 /**
@@ -89,11 +90,11 @@ export const ensureOneSignalUser = onCall(
     region: "europe-west8",
     cors: true,
   },
-  (request) =>
+  stagingCloneGuarded((request) =>
     ensureOneSignalUserHandler(
       { auth: request.auth ?? null, data: request.data },
       oneSignalApiKey.value(),
-    ),
+    )),
 );
 
 /**
@@ -107,11 +108,11 @@ export const removeOneSignalEmail = onCall(
     region: "europe-west8",
     cors: true,
   },
-  (request) =>
+  stagingCloneGuarded((request) =>
     removeOneSignalEmailHandler(
       { auth: request.auth ?? null, data: request.data },
       oneSignalApiKey.value(),
-    ),
+    )),
 );
 
 /**
@@ -125,18 +126,18 @@ export const assignSubscription = onCall(
     region: "europe-west8",
     cors: true,
   },
-  (request) =>
+  stagingCloneGuarded((request) =>
     assignSubscriptionHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
-    ),
+    )),
 );
 
 export const createManagedUser = onCall(
   { region: "europe-west8", cors: true },
-  (request) => createManagedUserHandler(
+  stagingCloneGuarded((request) => createManagedUserHandler(
     { auth: request.auth ?? null, data: request.data }, admin.firestore(),
-  ),
+  )),
 );
 
 export const checkEmailAvailability = onCall(
@@ -155,29 +156,29 @@ export const setManagedUserEmail = onCall(
 
 export const grantSignupTrial = onCall(
   { region: "europe-west8", cors: true },
-  (request) => grantSignupTrialHandler(
+  stagingCloneGuarded((request) => grantSignupTrialHandler(
     { auth: request.auth ?? null, data: request.data }, admin.firestore(),
-  ),
+  )),
 );
 
 /** Anteprima non mutante della conversione legacy di un singolo utente (Admin). */
 export const previewLegacyUserMigration = onCall(
   { region: "europe-west8", cors: true },
-  (request) =>
+  stagingCloneGuarded((request) =>
     previewLegacyUserMigrationHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
-    ),
+    )),
 );
 
 /** Conversione esplicita AUTO/GUIDED, protetta da fingerprint e transazione. */
 export const migrateLegacyUser = onCall(
   { region: "europe-west8", cors: true },
-  (request) =>
+  stagingCloneGuarded((request) =>
     migrateLegacyUserHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
-    ),
+    )),
 );
 
 /**
@@ -188,7 +189,7 @@ export const migrateLegacyUser = onCall(
  */
 export const subscribeToCourse = onCall(
   { region: "europe-west8", cors: true, secrets: [oneSignalApiKey] },
-  (request) =>
+  stagingCloneGuarded((request) =>
     subscribeToCourseHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
@@ -210,7 +211,7 @@ export const subscribeToCourse = onCall(
             Date.now(),
           ),
       },
-    ),
+    )),
 );
 
 /**
@@ -225,6 +226,10 @@ export const subscribeToCourse = onCall(
 export const courseIcs = onRequest(
   { region: "europe-west8", cors: true },
   async (req, res) => {
+    if (isStagingCloneMode()) {
+      res.status(403).send("Endpoint non disponibile sul clone staging");
+      return;
+    }
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.status(405).set("Allow", "GET, HEAD").send("Metodo non consentito");
       return;
@@ -288,7 +293,7 @@ export const courseIcs = onRequest(
  */
 export const unsubscribeFromCourse = onCall(
   { region: "europe-west8", cors: true, secrets: [oneSignalApiKey] },
-  (request) =>
+  stagingCloneGuarded((request) =>
     unsubscribeFromCourseHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
@@ -300,7 +305,7 @@ export const unsubscribeFromCourse = onCall(
             courseId,
           ),
       },
-    ),
+    )),
 );
 
 /**
@@ -310,11 +315,11 @@ export const unsubscribeFromCourse = onCall(
  */
 export const joinWaitlist = onCall(
   { region: "europe-west8", cors: true },
-  (request) =>
+  stagingCloneGuarded((request) =>
     joinWaitlistHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
-    ),
+    )),
 );
 
 /**
@@ -324,11 +329,11 @@ export const joinWaitlist = onCall(
  */
 export const leaveWaitlist = onCall(
   { region: "europe-west8", cors: true },
-  (request) =>
+  stagingCloneGuarded((request) =>
     leaveWaitlistHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
-    ),
+    )),
 );
 
 /**
@@ -339,11 +344,11 @@ export const leaveWaitlist = onCall(
  */
 export const deleteCourse = onCall(
   { region: "europe-west8", cors: true },
-  (request) =>
+  stagingCloneGuarded((request) =>
     deleteCourseHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
-    ),
+    )),
 );
 
 /**
@@ -354,11 +359,11 @@ export const deleteCourse = onCall(
  */
 export const recountCourseSubscribed = onCall(
   { region: "europe-west8", cors: true },
-  (request) =>
+  stagingCloneGuarded((request) =>
     recountCourseSubscribedHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
-    ),
+    )),
 );
 
 // ──────────────────────────────────────────────
@@ -452,7 +457,7 @@ export { firestoreBackupDaily, firestoreBackupDailyCheck };
 export const sendTestCertificateEmail = certificateFunctionsEnabled()
   ? onCall(
       { secrets: [oneSignalApiKey], region: "europe-west8", cors: true },
-      (request) => {
+      stagingCloneGuarded((request) => {
         if (!certificateFunctionsEnabled()) {
           throw new HttpsError(
             "failed-precondition",
@@ -463,7 +468,7 @@ export const sendTestCertificateEmail = certificateFunctionsEnabled()
           { auth: request.auth ?? null, data: request.data },
           oneSignalApiKey.value(),
         );
-      },
+      }),
     )
   : undefined;
 
@@ -482,7 +487,7 @@ export const certificateEmailsDaily = certificateFunctionsEnabled()
         secrets: [oneSignalApiKey],
       },
       async () => {
-        if (!certificateFunctionsEnabled()) {
+        if (!certificateFunctionsEnabled() || isStagingCloneMode()) {
           logger.warn(
             "certificateEmailsDaily invocata fuori da emulatore/staging: no-op",
           );
