@@ -264,6 +264,32 @@ describe("runDemoLessonReminders", () => {
     });
   });
 
+  test("un errore Firestore prima della POST fa ritentare il job, che riprende solo quel promemoria", async () => {
+    const store: Store = {
+      users: { u1: trialV2(1), u2: trialV2(2) },
+      courses: { c1: courseDoc("c1") },
+    };
+    const flaky = makeWhatsappDb(store, {
+      createError: (key) => (key.endsWith("reminder_u2_c1") ? new Error("14 UNAVAILABLE") : undefined),
+    });
+    const first = setup(store);
+    await expect(run({ ...first.deps, db: flaky.db })).rejects.toThrow(/ritentare/i);
+    expect(first.phonesPosted()).toEqual([`+39${phone(1)}`]);
+
+    const second = setup(store);
+    await expect(run(second.deps)).resolves.toMatchObject({ sent: 1, skipped: 1, failed: 0 });
+    expect(second.phonesPosted()).toEqual([`+39${phone(2)}`]);
+  });
+
+  test("un invio incerto non fa ritentare il job", async () => {
+    const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => ({
+      ok: false,
+      status: 503,
+    }));
+    const { deps } = setup({ users: { u1: trialV2(1) }, courses: { c1: courseDoc("c1") } }, { post });
+    await expect(run(deps)).resolves.toMatchObject({ sent: 0, failed: 1 });
+  });
+
   test(`non tiene mai più di ${MAX_CONCURRENT_SENDS} POST contemporanee`, async () => {
     const users: Record<string, Data> = {};
     for (let i = 1; i <= 25; i++) users[`u${i}`] = trialV2(i);

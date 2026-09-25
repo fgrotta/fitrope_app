@@ -8,7 +8,10 @@
 //
 // Su staging i dati possono essere un clone della produzione, con numeri reali:
 // lì un numero passa solo se è in STAGING_WHATSAPP_ALLOWLIST (lista separata da
-// virgole, anche senza prefisso: viene normalizzata).
+// virgole, anche senza prefisso: viene normalizzata). Stessa regola
+// sull'emulatore: parte con `--project fit-rope-app-1f575`, quindi eredita la
+// modalità della produzione, legge i secret Make da Secret Manager se mancano
+// in `.secret.local` e può contenere un export dei dati reali.
 
 import { normalizePhoneE164 } from "./phone";
 
@@ -20,7 +23,7 @@ export function whatsappDemoMode(env: NodeJS.ProcessEnv): WhatsappDemoMode {
 }
 
 export function isWhatsappRecipientAllowed(e164: string, env: NodeJS.ProcessEnv): boolean {
-  if (env.APP_ENV !== "staging") return true;
+  if (env.APP_ENV !== "staging" && env.FUNCTIONS_EMULATOR !== "true") return true;
   const allowed = (env.STAGING_WHATSAPP_ALLOWLIST ?? "")
     .split(",")
     .map((entry) => normalizePhoneE164(entry).e164)

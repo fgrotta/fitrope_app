@@ -24,6 +24,16 @@ describe("isWhatsappRecipientAllowed", () => {
     expect(isWhatsappRecipientAllowed("+393331234567", { APP_ENV: "staging" })).toBe(false);
   });
 
+  test("sull'emulatore senza allowlist non passa nessuno (carica la modalità di produzione)", () => {
+    expect(isWhatsappRecipientAllowed("+393331234567", { FUNCTIONS_EMULATOR: "true" })).toBe(false);
+    expect(
+      isWhatsappRecipientAllowed("+393331234567", {
+        FUNCTIONS_EMULATOR: "true",
+        STAGING_WHATSAPP_ALLOWLIST: "3331234567",
+      })
+    ).toBe(true);
+  });
+
   test("su staging passa solo chi è in allowlist, anche se scritto senza prefisso", () => {
     const env = {
       APP_ENV: "staging",

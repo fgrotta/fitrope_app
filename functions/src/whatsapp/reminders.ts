@@ -131,6 +131,7 @@ export async function runDemoLessonReminders(
 
   let next = 0;
   let deadlineReached = false;
+  let retryable = 0;
   const worker = async () => {
     while (next < candidates.length) {
       if (now() >= options.deadlineMillis) {
@@ -158,8 +159,10 @@ export async function runDemoLessonReminders(
           logger.info("Promemoria WhatsApp saltato", { ...ids, reason: outcome.reason });
         }
       } catch (err) {
-        // Tipicamente Firestore sul claim: nessuna POST partita, il retry del job lo riprende.
+        // Tipicamente Firestore su registro o claim, prima della POST: il retry del
+        // job lo riprende (un claim già creato torna needs_review, senza doppio invio).
         result.failed++;
+        retryable++;
         logger.error("Promemoria WhatsApp fallito", {
           ...ids,
           error: err instanceof Error ? err.message : String(err),
@@ -172,11 +175,20 @@ export async function runDemoLessonReminders(
   );
 
   const remaining = candidates.length - next;
-  logger.info("Run promemoria WhatsApp completata", { ...result, remaining, deadlineReached });
+  logger.info("Run promemoria WhatsApp completata", {
+    ...result,
+    remaining,
+    retryable,
+    deadlineReached,
+  });
   if (deadlineReached) {
     throw new Error(
       `Deadline del run raggiunta: ${remaining} promemoria da elaborare al prossimo tentativo`
     );
+  }
+  if (retryable > 0) {
+    // Gli esiti incerti o rifiutati NON contano qui: quelli si verificano in Make.
+    throw new Error(`${retryable} promemoria falliti prima della POST: da ritentare`);
   }
   return result;
 }
