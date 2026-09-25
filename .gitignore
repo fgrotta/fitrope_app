@@ -61,4 +61,5 @@ integration_test/test_env.json
 # Firebase Functions runtime configuration (local/deploy generated)
 /functions/.env.*
 !/functions/.env.staging.example
+!/functions/.env.fit-rope-app-1f575
 /functions/.env.fit-rope-staging

@@ -49,6 +49,11 @@ import {
   previewLegacyUserMigrationHandler,
 } from "./migration/userHandler";
 import { isStagingCloneMode, stagingCloneGuarded } from "./stagingCloneGuard";
+import { whatsappDemoMode } from "./whatsapp/environment";
+import { postToMake } from "./whatsapp/makeClient";
+import { WhatsappDeps, notifyDemoLessonBooked } from "./whatsapp/demoLesson";
+import { runDemoLessonReminders } from "./whatsapp/reminders";
+import { sendTestDemoLessonWebhookHandler } from "./whatsapp/testWebhook";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -57,6 +62,46 @@ if (admin.apps.length === 0) {
 // Secret gestito da Google Secret Manager.
 // Setup: firebase functions:secrets:set ONESIGNAL_REST_API_KEY
 const oneSignalApiKey = defineSecret("ONESIGNAL_REST_API_KEY");
+
+// ──────────────────────────────────────────────
+//  WhatsApp lezioni demo (webhook Make)
+// ──────────────────────────────────────────────
+//
+// WHATSAPP_DEMO_MODE, in `.env.<projectId>`, viene letta in DISCOVERY come i
+// gate dei certificati:
+//   off (default) → nessuna function e nessun secret dichiarato;
+//   test          → solo la callable di prova (Admin), per verificare lo scenario Make;
+//   live          → + WhatsApp di conferma in subscribeToCourse + cron delle 19:00.
+// Mergiare significa deployare: è questo gate, e non la scelta di cosa
+// deployare, a tenere spento il cron finché scenario Make e template Meta non
+// sono pronti. I secret vengono dichiarati solo se servono: su staging, di norma
+// in modalità off, il deploy non deve chiedere secret che lì non esistono.
+const whatsappMode = whatsappDemoMode(process.env);
+const makeSecret =
+  whatsappMode === "off"
+    ? null
+    : {
+        url: defineSecret("MAKE_WEBHOOK_URL"),
+        key: defineSecret("MAKE_WEBHOOK_KEY"),
+      };
+const makeSecrets = makeSecret ? [makeSecret.url, makeSecret.key] : [];
+
+function makeWhatsappDeps(): WhatsappDeps {
+  if (!makeSecret) {
+    throw new HttpsError(
+      "failed-precondition",
+      "WhatsApp demo disattivato (WHATSAPP_DEMO_MODE=off)",
+    );
+  }
+  return {
+    db: admin.firestore(),
+    webhookUrl: makeSecret.url.value(),
+    apiKey: makeSecret.key.value(),
+    post: postToMake,
+    nowMillis: Date.now(),
+    env: process.env,
+  };
+}
 
 /**
  * Proxy verso OneSignal REST API.
@@ -188,7 +233,12 @@ export const migrateLegacyUser = onCall(
  * Payload: { courseId: string, userId: string, force?: boolean }
  */
 export const subscribeToCourse = onCall(
-  { region: "europe-west8", cors: true, secrets: [oneSignalApiKey] },
+  {
+    region: "europe-west8",
+    cors: true,
+    secrets:
+      whatsappMode === "live" ? [oneSignalApiKey, ...makeSecrets] : [oneSignalApiKey],
+  },
   stagingCloneGuarded((request) =>
     subscribeToCourseHandler(
       { auth: request.auth ?? null, data: request.data },
@@ -210,6 +260,16 @@ export const subscribeToCourse = onCall(
             courseId,
             Date.now(),
           ),
+        // async: anche un errore sincrono (es. secret non leggibile) diventa un
+        // rifiuto, che subscribeToCourseHandler ignora come le altre notifiche.
+        // Senza async farebbe fallire un'iscrizione già committata.
+        ...(whatsappMode === "live"
+          ? {
+              notifyTrialWhatsapp: async (userId: string, courseId: string) => {
+                await notifyDemoLessonBooked(makeWhatsappDeps(), userId, courseId);
+              },
+            }
+          : {}),
       },
     )),
 );
@@ -503,3 +563,53 @@ export const certificateEmailsDaily = certificateFunctionsEnabled()
       },
     )
   : undefined;
+
+/**
+ * WhatsApp di prova verso il numero indicato (DebugEmailPage, kDebugMode).
+ * Solo Admin. Esiste con WHATSAPP_DEMO_MODE=test|live.
+ * Payload: { numeroTelefono: string, kind?: "booked"|"reminder", nome?, corso?, giorno?, orario? }
+ */
+export const sendTestDemoLessonWebhook =
+  whatsappMode === "off"
+    ? undefined
+    : onCall(
+        { secrets: makeSecrets, region: "europe-west8", cors: true },
+        stagingCloneGuarded((request) =>
+          sendTestDemoLessonWebhookHandler(
+            { auth: request.auth ?? null, data: request.data },
+            makeWhatsappDeps(),
+          )),
+      );
+
+/**
+ * Promemoria WhatsApp delle lezioni di prova di domani, ogni sera alle 19:00
+ * Europe/Rome. Esiste solo con WHATSAPP_DEMO_MODE=live. La condizione viene
+ * rivalutata a runtime come guardia difensiva, come per i certificati.
+ */
+export const sendDemoLessonWhatsappReminders =
+  whatsappMode === "live"
+    ? onSchedule(
+        {
+          schedule: "0 19 * * *",
+          timeZone: "Europe/Rome",
+          region: "europe-west8",
+          secrets: makeSecrets,
+          timeoutSeconds: 540,
+          maxInstances: 1,
+          retryCount: 3,
+          minBackoffSeconds: 30,
+        },
+        async (event) => {
+          if (whatsappDemoMode(process.env) !== "live" || isStagingCloneMode()) {
+            logger.warn(
+              "sendDemoLessonWhatsappReminders fuori da WHATSAPP_DEMO_MODE=live o su clone staging: no-op",
+            );
+            return;
+          }
+          await runDemoLessonReminders(makeWhatsappDeps(), {
+            scheduledAtMillis: new Date(event.scheduleTime).getTime(),
+            deadlineMillis: Date.now() + 480_000,
+          });
+        },
+      )
+    : undefined;
