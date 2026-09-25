@@ -7,14 +7,16 @@ import {
   statSync,
 } from "fs";
 import * as path from "path";
-import { execFileSync } from "child_process";
+import { execFile, execFileSync } from "child_process";
+import { promisify } from "util";
 
-const PROJECT_ID = "demo-fitrope-migration";
+const PROJECT_ID = process.env.GCLOUD_PROJECT || "demo-fitrope";
 const app = admin.apps.find((candidate) => candidate?.name === "migration-runner") ??
   admin.initializeApp({ projectId: PROJECT_ID }, "migration-runner");
 const db = app.firestore();
 const repoRoot = path.resolve(__dirname, "../../..");
 const runner = path.join(repoRoot, "scripts", "backfillCourseModel.js");
+const execFileAsync = promisify(execFile);
 const reportRoot = path.join(repoRoot, ".context", "migrations");
 const testRoot = path.join(reportRoot, `jest-${process.pid}-${Date.now()}`);
 let lastRunnerOutput = "";
@@ -45,6 +47,15 @@ function run(args: string[]): Record<string, unknown> {
   ).trim();
   lastRunnerOutput = stdout;
   return JSON.parse(stdout.split(/\r?\n/).at(-1) ?? "{}");
+}
+
+async function runAsync(args: string[]): Promise<Record<string, unknown>> {
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [runner, `--project=${PROJECT_ID}`, ...args],
+    { cwd: repoRoot, env: process.env, encoding: "utf8" }
+  );
+  return JSON.parse(stdout.trim().split(/\r?\n/).at(-1) ?? "{}");
 }
 
 function reportArg(name: string): string {
@@ -144,6 +155,67 @@ describe("runner migrazione contro Firestore Emulator", () => {
     expect(verified.hyroxSnapshots).toBe(0);
   });
 
+  test("normalizza i campi anche senza conversione e verifica zero residui", async () => {
+    await db.collection("users").doc("normalize-only").set({
+      uid: "normalize-only",
+      role: null,
+      tipologiaCorsoTags: [],
+    });
+    const before = await db.collection("users").doc("normalize-only").get();
+    run(["--dry-run", "--scope=users", reportArg("normalize-dry")]);
+    expect((await db.collection("users").doc("normalize-only").get()).updateTime)
+      .toEqual(before.updateTime);
+    const manifest = `--manifest=.context/migrations/${path.basename(testRoot)}/normalize-dry/manifest.jsonl`;
+    const applied = run([
+      "--apply", "--scope=users", manifest,
+      `--confirm-project=${PROJECT_ID}`, reportArg("normalize-apply"),
+    ]);
+    expect((applied.counts as Record<string, number>).APPLIED).toBe(1);
+    expect((await db.collection("users").doc("normalize-only").get()).data())
+      .toMatchObject({ role: "User" });
+    const updateTime = (await db.collection("users").doc("normalize-only").get())
+      .updateTime!.toMillis();
+    const repeated = run([
+      "--apply", "--scope=users", manifest,
+      `--confirm-project=${PROJECT_ID}`, reportArg("normalize-reapply"),
+    ]);
+    expect((repeated.counts as Record<string, number>).ALREADY_APPLIED).toBeGreaterThanOrEqual(1);
+    expect((await db.collection("users").doc("normalize-only").get())
+      .updateTime!.toMillis()).toBe(updateTime);
+    const verified = run(["--verify", "--scope=users", reportArg("normalize-verify")]);
+    expect(verified.normalizationPending).toBe(0);
+  });
+
+  test("due apply concorrenti non duplicano subscription né scritture", async () => {
+    const userId = "normalization-race";
+    await db.collection("users").doc(userId).set({
+      uid: userId,
+      role: null,
+      tipologiaCorsoTags: [],
+      tipologiaIscrizione: "ABBONAMENTO_MENSILE",
+      entrateSettimanali: 2,
+      fineIscrizione: futureEnd(),
+    });
+    run(["--dry-run", "--scope=users", reportArg("race-dry")]);
+    const manifest = `--manifest=.context/migrations/${path.basename(testRoot)}/race-dry/manifest.jsonl`;
+    const applyArgs = (name: string) => [
+      "--apply", "--scope=users", manifest,
+      `--confirm-project=${PROJECT_ID}`, reportArg(name),
+    ];
+    const outcomes = await Promise.all([
+      runAsync(applyArgs("race-apply-a")),
+      runAsync(applyArgs("race-apply-b")),
+    ]);
+    const applied = outcomes.reduce((sum, outcome) =>
+      sum + Number((outcome.counts as Record<string, number>).APPLIED ?? 0), 0);
+    const already = outcomes.reduce((sum, outcome) =>
+      sum + Number((outcome.counts as Record<string, number>).ALREADY_APPLIED ?? 0), 0);
+    expect(applied).toBe(1);
+    expect(already).toBeGreaterThanOrEqual(1);
+    expect((await db.collection("subscriptions").doc(`legacy_open_${userId}`).get()).exists)
+      .toBe(true);
+  });
+
   test("SOURCE_DRIFT e TARGET_CONFLICT non sovrascrivono dati correnti", async () => {
     await db.collection("courses").doc("drift-course").set({
       uid: "drift-course",
@@ -168,8 +240,8 @@ describe("runner migrazione contro Firestore Emulator", () => {
     const end = futureEnd();
     await db.collection("users").doc("conflict-user").set({
       uid: "conflict-user",
-      role: "User",
-      tipologiaCorsoTags: ["Open"],
+      role: null,
+      tipologiaCorsoTags: [],
       tipologiaIscrizione: "ABBONAMENTO_MENSILE",
       entrateSettimanali: 2,
       fineIscrizione: end,

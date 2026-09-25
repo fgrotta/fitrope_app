@@ -25,6 +25,7 @@ function makeDb(options: {
   adminRole?: string;
   user?: Record<string, unknown>;
   subscriptions?: Record<string, Record<string, unknown>>;
+  failCreate?: boolean;
 }) {
   const users: Record<string, Record<string, unknown>> = {
     [ADMIN]: { role: options.adminRole ?? "Admin" },
@@ -79,6 +80,7 @@ function makeDb(options: {
           ref: ReturnType<typeof subDoc>,
           data: Record<string, unknown>,
         ) => {
+          if (options.failCreate) throw new Error("transaction write failed");
           if (subscriptions[ref.id]) throw new Error("already exists");
           subscriptions[ref.id] = data;
         },
@@ -213,6 +215,91 @@ describe("migrazione puntuale utente legacy", () => {
     expect(Object.values(state.subscriptions)[0]).toEqual(
       expect.objectContaining({ family: "PT", remainingEntries: 7 }),
     );
+  });
+
+  test("NORMALIZE salva solo i default, idempotente anche senza piano", async () => {
+    const state = makeDb({
+      user: {
+        uid: USER,
+        role: null,
+        email: "",
+        tipologiaCorsoTags: null,
+      },
+    });
+    const before = await preview(state.db);
+    expect(before).toMatchObject({
+      status: "NOT_APPLICABLE",
+      normalization: { role: "User" },
+    });
+    const request = {
+      auth: { uid: ADMIN },
+      data: {
+        userId: USER,
+        mode: "NORMALIZE",
+        expectedFingerprint: before.expectedFingerprint,
+      },
+    };
+    expect(await migrateLegacyUserHandler(request, state.db)).toEqual({
+      status: "NORMALIZED",
+      writes: 1,
+    });
+    expect(state.users[USER]).toMatchObject({ role: "User" });
+    const after = await preview(state.db);
+    expect(after.normalization).toEqual({});
+    expect(await migrateLegacyUserHandler({
+      ...request,
+      data: { ...request.data, expectedFingerprint: after.expectedFingerprint },
+    }, state.db)).toEqual({
+      status: "NORMALIZED",
+      alreadyApplied: true,
+      writes: 0,
+    });
+  });
+
+  test("GUIDED consente PT quando il tag normalizzato è Open", async () => {
+    const state = makeDb({
+      user: legacyUser({ tipologiaCorsoTags: [] }),
+    });
+    const before = await preview(state.db);
+    expect(before.normalization).toEqual({ tipologiaCorsoTags: ["Open"] });
+    const start = Date.parse("2026-01-31T17:00:00.000Z");
+    await migrateLegacyUserHandler({
+      auth: { uid: ADMIN },
+      data: {
+        userId: USER,
+        mode: "GUIDED",
+        expectedFingerprint: before.expectedFingerprint,
+        target: {
+          planKey: "pt_10i_1m",
+          startDateMillis: start,
+          endDateMillis: addMonthsInRome(start, 1),
+          remainingEntries: 5,
+        },
+      },
+    }, state.db);
+    expect(state.users[USER].tipologiaCorsoTags).toEqual(["Open"]);
+    expect(Object.values(state.subscriptions)[0]).toMatchObject({ family: "PT" });
+  });
+
+  test("un errore nella transazione non lascia il profilo normalizzato a metà", async () => {
+    const state = makeDb({
+      user: legacyUser({ role: null, tipologiaCorsoTags: [] }),
+      failCreate: true,
+    });
+    const before = await preview(state.db);
+    await expect(migrateLegacyUserHandler({
+      auth: { uid: ADMIN },
+      data: {
+        userId: USER,
+        mode: "AUTO",
+        expectedFingerprint: before.expectedFingerprint,
+      },
+    }, state.db)).rejects.toThrow("transaction write failed");
+    expect(state.users[USER]).toMatchObject({
+      role: null,
+      tipologiaCorsoTags: [],
+    });
+    expect(state.subscriptions).toEqual({});
   });
 
   test("AUTO converte pacchetto e riallinea il registro consumi", async () => {

@@ -2,6 +2,7 @@ import {
   deterministicSubscriptionId,
   subtractMonthsInRome,
   transformUser,
+  userNormalization,
 } from "../migration/userTransform";
 
 const NOW = Date.parse("2026-08-26T10:00:00.000Z");
@@ -20,6 +21,33 @@ function source(extra: Record<string, unknown> = {}): Record<string, unknown> {
 }
 
 describe("user legacy migration matrix", () => {
+  test.each([
+    [{ role: undefined }, { role: "User" }],
+    [{ role: null }, { role: "User" }],
+    [{ role: "" }, { role: "User" }],
+    [{ tipologiaCorsoTags: null }, { tipologiaCorsoTags: ["Open"] }],
+    [{ tipologiaCorsoTags: [], role: "User" }, { tipologiaCorsoTags: ["Open"] }],
+  ])("applica i default condivisi a %s", (change, expected) => {
+    expect(userNormalization(source(change)).fields).toEqual(expected);
+  });
+
+  test("preserva ruolo esplicito e tag ambigui", () => {
+    expect(userNormalization(source({ role: "Admin" })).fields).toEqual({});
+    expect(userNormalization(source({ role: "Trainer" })).fields).toEqual({});
+    expect(userNormalization(source({ role: 7 })).fields).toEqual({});
+    expect(userNormalization(source({ tipologiaCorsoTags: "Open" })).fields).toEqual({});
+    expect(userNormalization(source({
+      tipologiaCorsoTags: ["Open", "Personal Trainer"],
+    })).fields).toEqual({});
+  });
+
+  test("normalizza i tag solo per piani legacy riconosciuti", () => {
+    expect(userNormalization(source({
+      tipologiaIscrizione: "SCONOSCIUTA",
+      tipologiaCorsoTags: [],
+    })).fields).toEqual({});
+  });
+
   test.each([
     ["ABBONAMENTO_MENSILE", 1, 2, "open_2x_1m", "2026-09-26T10:00:00.000Z"],
     ["ABBONAMENTO_TRIMESTRALE", 3, 3, "open_3x_3m", "2026-11-26T11:00:00.000Z"],
@@ -52,7 +80,7 @@ describe("user legacy migration matrix", () => {
     [{ tipologiaCorsoTags: ["Hey Mamma"] }, "HEY_MAMMA"],
     [{ role: "Trainer" }, "ROLE_NOT_USER"],
     [{ tipologiaIscrizione: "SCONOSCIUTA" }, "INVALID_LEGACY_TYPE"],
-    [{ tipologiaCorsoTags: [] }, "INVALID_TAG_SHAPE"],
+    [{ tipologiaCorsoTags: [] }, "FUTURE_START"],
     [{ tipologiaCorsoTags: ["Open", "Personal Trainer"] }, "INVALID_TAG_SHAPE"],
     [{ entrateSettimanali: 4 }, "INVALID_WEEKLY_FREQUENCY"],
     [{ entrateSettimanali: undefined }, "INVALID_WEEKLY_FREQUENCY"],

@@ -8,6 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 typedef LegacyPreview = Future<Map<String, dynamic>> Function(String userId);
+typedef LegacyNormalization = Future<Map<String, dynamic>> Function(
+  String userId,
+  String fingerprint,
+);
 typedef LegacyAutoMigration = Future<Map<String, dynamic>> Function(
   String userId,
   String fingerprint,
@@ -31,6 +35,7 @@ class LegacyUserMigrationCard extends StatefulWidget {
   final String userId;
   final VoidCallback? onMigrated;
   final LegacyPreview? preview;
+  final LegacyNormalization? normalize;
   final LegacyAutoMigration? migrateAuto;
   final LegacyGuidedMigration? migrateGuided;
 
@@ -39,6 +44,7 @@ class LegacyUserMigrationCard extends StatefulWidget {
     required this.userId,
     this.onMigrated,
     this.preview,
+    this.normalize,
     this.migrateAuto,
     this.migrateGuided,
   });
@@ -52,6 +58,7 @@ class _LegacyUserMigrationCardState extends State<LegacyUserMigrationCard> {
   Map<String, dynamic>? _preview;
   bool _loading = true;
   bool _applying = false;
+  bool _showGuided = false;
   String? _error;
   SubscriptionPlan? _plan;
   DateTime? _startDate;
@@ -105,6 +112,23 @@ class _LegacyUserMigrationCardState extends State<LegacyUserMigrationCard> {
     });
   }
 
+  Future<void> _normalize() async {
+    final fingerprint = _preview?['expectedFingerprint'] as String?;
+    if (fingerprint == null) return;
+    await _run(() async {
+      final operation = widget.normalize ??
+          (String userId, String expected) => LegacyUserMigrationApi.normalize(
+                userId: userId,
+                expectedFingerprint: expected,
+              );
+      await operation(widget.userId, fingerprint);
+    }, successMessage: 'Profilo normalizzato');
+    if (!mounted || _applying) return;
+    setState(() => _loading = true);
+    await _loadPreview();
+    if (!mounted) return;
+  }
+
   Future<void> _applyGuided() async {
     final fingerprint = _preview?['expectedFingerprint'] as String?;
     final plan = _plan;
@@ -149,7 +173,10 @@ class _LegacyUserMigrationCardState extends State<LegacyUserMigrationCard> {
     });
   }
 
-  Future<void> _run(Future<void> Function() operation) async {
+  Future<void> _run(
+    Future<void> Function() operation, {
+    String successMessage = 'Abbonamento legacy migrato',
+  }) async {
     setState(() {
       _applying = true;
       _error = null;
@@ -161,7 +188,7 @@ class _LegacyUserMigrationCardState extends State<LegacyUserMigrationCard> {
         _applying = false;
         _preview = <String, dynamic>{'status': 'MIGRATED'};
       });
-      SnackBarUtils.showSuccessSnackBar(context, 'Abbonamento legacy migrato');
+      SnackBarUtils.showSuccessSnackBar(context, successMessage);
       widget.onMigrated?.call();
     } on FirebaseFunctionsException catch (error) {
       if (!mounted) return;
@@ -245,7 +272,11 @@ class _LegacyUserMigrationCardState extends State<LegacyUserMigrationCard> {
       );
     }
     final status = _preview?['status'] as String?;
-    if (status == 'MIGRATED' || status == 'NOT_APPLICABLE') {
+    final normalization = Map<String, dynamic>.from(
+      (_preview?['normalization'] as Map?) ?? const {},
+    );
+    final canNormalize = normalization.isNotEmpty;
+    if ((status == 'MIGRATED' || status == 'NOT_APPLICABLE') && !canNormalize) {
       return const SizedBox.shrink();
     }
     return Card(
@@ -263,6 +294,18 @@ class _LegacyUserMigrationCardState extends State<LegacyUserMigrationCard> {
             const SizedBox(height: 8),
             Text(_legacySummary()),
             const SizedBox(height: 8),
+            if (normalization.containsKey('role'))
+              const Text('Ruolo da normalizzare: User'),
+            if (normalization.containsKey('tipologiaCorsoTags'))
+              const Text('Tag da normalizzare: Open'),
+            if (canNormalize) ...[
+              const SizedBox(height: 8),
+              OutlinedButton(
+                key: const Key('legacy-migration-normalize'),
+                onPressed: _applying ? null : _normalize,
+                child: const Text('Normalizza profilo'),
+              ),
+            ],
             if (status == 'CONFLICT')
               Text(
                 _preview?['reasonDetail'] as String? ??
@@ -279,8 +322,19 @@ class _LegacyUserMigrationCardState extends State<LegacyUserMigrationCard> {
                 onPressed: _applying ? null : _applyAuto,
                 child: const Text('Migra automaticamente'),
               ),
+              TextButton(
+                key: const Key('legacy-migration-guided-choice'),
+                onPressed: _applying
+                    ? null
+                    : () => setState(() => _showGuided = !_showGuided),
+                child: Text(
+                  _showGuided
+                      ? 'Nascondi scelta piano'
+                      : 'Scegli un altro piano',
+                ),
+              ),
             ],
-            if (status == 'MANUAL_REQUIRED') ...[
+            if (status == 'MANUAL_REQUIRED' || _showGuided) ...[
               DropdownButtonFormField<SubscriptionPlan>(
                 key: const Key('legacy-migration-plan'),
                 initialValue: _plan,

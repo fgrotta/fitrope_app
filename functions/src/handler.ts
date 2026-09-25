@@ -1,6 +1,7 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import type { Firestore } from "firebase-admin/firestore";
+import { isStagingCloneMode, isStagingCloneUidAllowed } from "./stagingCloneGuard";
 
 export const ONESIGNAL_APP_ID =
   process.env.ONESIGNAL_APP_ID ?? "154fc17b-3ef8-4421-a1e6-466172fa48db";
@@ -26,7 +27,8 @@ export function isStagingIdentityAllowed(externalId: string, email?: string): bo
       .filter(Boolean)
   );
   const normalizedEmail = email?.trim().toLowerCase();
-  return externalId.startsWith(STAGING_EXTERNAL_ID_PREFIX) &&
+  return (isStagingCloneMode() ? isStagingCloneUidAllowed(externalId) :
+    externalId.startsWith(STAGING_EXTERNAL_ID_PREFIX)) &&
     !!normalizedEmail && allowedEmails.has(normalizedEmail);
 }
 
@@ -34,11 +36,24 @@ function isStagingNotificationAllowed(payload: Record<string, unknown>): boolean
   if (!isStagingEnvironment()) return true;
 
   const aliases = payload.include_aliases as { external_id?: unknown } | undefined;
+  if (isStagingCloneMode()) {
+    // OneSignal accepts multiple recipient selectors. Reject every selector
+    // except the checked external_id list so an allowed QA alias cannot be
+    // combined with an arbitrary production email, subscription, or segment.
+    if (!aliases || Object.keys(aliases).some((key) => key !== "external_id") ||
+        Object.keys(payload).some((key) =>
+          (key.startsWith("include_") && key !== "include_aliases") ||
+          ["included_segments", "excluded_segments", "filters", "email_to", "email_tokens"].includes(key))) {
+      return false;
+    }
+  }
   const externalIds = Array.isArray(aliases?.external_id)
     ? aliases.external_id.filter((id): id is string => typeof id === "string")
     : [];
   return externalIds.length > 0 &&
-    externalIds.every((externalId) => externalId.startsWith(STAGING_EXTERNAL_ID_PREFIX));
+    externalIds.every((externalId) => isStagingCloneMode()
+      ? isStagingCloneUidAllowed(externalId)
+      : externalId.startsWith(STAGING_EXTERNAL_ID_PREFIX));
 }
 
 function markStagingNotification(payload: Record<string, unknown>): void {

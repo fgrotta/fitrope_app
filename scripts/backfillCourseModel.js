@@ -16,6 +16,8 @@ const {
 const {
   transformUser,
   timestampMillis,
+  userNormalization,
+  withUserNormalization,
 } = require("../functions/lib/migration/userTransform");
 const {
   legacySubscriptionMigrationMarker,
@@ -33,6 +35,7 @@ const USER_COLUMNS = [
   "target_billing_mode", "target_course_type_tags", "target_weekly_frequency",
   "target_remaining_entries", "target_start_date", "target_end_date", "apply_status",
   "future_bookings_checked", "target_subscription_model_version",
+  "normalize_role_to", "normalize_tags_to", "normalization_pending",
 ];
 
 const COURSE_COLUMNS = [
@@ -265,6 +268,9 @@ function userReport(
     apply_status: applyStatus,
     future_bookings_checked: futureBookings.length,
     target_subscription_model_version: target ? 2 : "",
+    normalize_role_to: userNormalization(data).fields.role ?? "",
+    normalize_tags_to: userNormalization(data).fields.tipologiaCorsoTags ?? [],
+    normalization_pending: userNormalization(data).pending,
   };
 }
 
@@ -448,7 +454,7 @@ async function scan(db, run, scope) {
       const data = doc.data();
       const decision = transformCourse(data);
       const entry = {
-        version: 1,
+        version: 2,
         ...run,
         kind: "course",
         documentId: doc.id,
@@ -477,7 +483,7 @@ async function scan(db, run, scope) {
       );
       const decision = transformUser(
         doc.id,
-        data,
+        withUserNormalization(data),
         run.evaluatedAtMillis,
         futureBookings
       );
@@ -515,11 +521,20 @@ async function scan(db, run, scope) {
         }
       }
       const entry = {
-        version: 1,
+        version: 2,
         ...run,
         kind: "user",
         documentId: doc.id,
         sourceFingerprint: fingerprint(userSource(data)),
+        normalization: {
+          fields: userNormalization(data).fields,
+          before: Object.fromEntries(
+            Object.keys(userNormalization(data).fields).map((key) => [key, {
+              present: Object.prototype.hasOwnProperty.call(data, key),
+              value: data[key] === undefined ? null : data[key],
+            }])
+          ),
+        },
         enrollmentFingerprint: fingerprint(enrollmentSource(data)),
         futureBookings,
         futureBookingFingerprint: fingerprint(futureBookings),
@@ -561,6 +576,11 @@ function summarize(entries) {
   for (const entry of entries) {
     const key = `${entry.kind}:${entry.decision.conversionStatus}`;
     counts[key] = (counts[key] || 0) + 1;
+    if (entry.kind === "user" &&
+        Object.keys(entry.normalization?.fields || {}).length > 0) {
+      counts["user:NORMALIZATION_PENDING"] =
+        (counts["user:NORMALIZATION_PENDING"] || 0) + 1;
+    }
   }
   return counts;
 }
@@ -607,6 +627,19 @@ function migratedConsumption(data, subscriptionId) {
       ? { ...record, kind: "SUBSCRIPTION_ENTRY", subscriptionId }
       : record,
   ]));
+}
+
+function normalizationState(data, normalization) {
+  const fields = normalization?.fields || {};
+  const pending = Object.keys(fields).some((key) =>
+    fingerprint(data[key]) !== fingerprint(fields[key])
+  );
+  const restored = { ...data };
+  for (const [key, before] of Object.entries(normalization?.before || {})) {
+    if (before.present) restored[key] = before.value;
+    else delete restored[key];
+  }
+  return { pending, originalFingerprint: fingerprint(userSource(restored)) };
 }
 
 async function applyManifest(db, entries) {
@@ -656,18 +689,34 @@ async function applyManifest(db, entries) {
 
   for (const entry of entries.filter((item) => item.kind === "user")) {
     const target = entry.decision.target;
-    if (!target || entry.decision.conversionStatus !== "CONVERTIBLE") {
+    const hasTarget = target && ["CONVERTIBLE", "ALREADY_APPLIED"].includes(
+      entry.decision.conversionStatus
+    );
+    const hasNormalization = Object.keys(entry.normalization?.fields || {}).length > 0;
+    if (!hasTarget && !hasNormalization) {
       statuses.set(`user:${entry.documentId}`, "SKIPPED");
       continue;
     }
     const status = await db.runTransaction(async (tx) => {
       const userRef = db.collection("users").doc(entry.documentId);
-      const targetRef = db.collection("subscriptions").doc(target.id);
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) return "SOURCE_DRIFT";
       const userData = userSnap.data();
+      const normalization = normalizationState(userData, entry.normalization);
       if (userData.legacySubscriptionMigration &&
-          userData.subscriptionModelVersion === 2) return "ALREADY_APPLIED";
+          userData.subscriptionModelVersion === 2) {
+        if (normalization.pending) tx.update(userRef, entry.normalization.fields);
+        return normalization.pending ? "APPLIED" : "ALREADY_APPLIED";
+      }
+      const sourceMatches = fingerprint(userSource(userData)) === entry.sourceFingerprint ||
+        normalization.originalFingerprint === entry.sourceFingerprint;
+      if (!sourceMatches) return "SOURCE_DRIFT";
+      if (!hasTarget) {
+        if (!normalization.pending) return "ALREADY_APPLIED";
+        tx.update(userRef, entry.normalization.fields);
+        return "APPLIED";
+      }
+      const targetRef = db.collection("subscriptions").doc(target.id);
       const currentFutureBookings = [];
       for (const booking of entry.futureBookings ?? []) {
         const courseSnap = await tx.get(
@@ -689,21 +738,23 @@ async function applyManifest(db, entries) {
         if (!snapshotMatchesTarget(userData, target, entry.evaluatedAtMillis)) {
           return "TARGET_CONFLICT";
         }
-        if (fingerprint(userSource(userData)) !== entry.sourceFingerprint ||
+        if (!sourceMatches ||
             fingerprint(enrollmentSource(userData)) !== entry.enrollmentFingerprint) {
           return "SOURCE_DRIFT";
         }
-        tx.update(userRef, {
+        const patch = {
+          ...(normalization.pending ? entry.normalization.fields : {}),
           subscriptionModelVersion: 2,
           enrollmentConsumption: migratedConsumption(userData, target.id),
           legacySubscriptionMigration: legacySubscriptionMigrationMarker(
             "BATCH", target.id, target.planKey, `batch:${entry.projectId}`
           ),
-        });
+        };
+        const alreadyMarked = userData.legacySubscriptionMigration &&
+          userData.subscriptionModelVersion === 2;
+        if (!alreadyMarked || normalization.pending) tx.update(userRef, patch);
+        if (alreadyMarked && !normalization.pending) return "ALREADY_APPLIED";
         return "APPLIED";
-      }
-      if (fingerprint(userSource(userData)) !== entry.sourceFingerprint) {
-        return "SOURCE_DRIFT";
       }
       if (fingerprint(enrollmentSource(userData)) !== entry.enrollmentFingerprint) {
         return "SOURCE_DRIFT";
@@ -714,6 +765,7 @@ async function applyManifest(db, entries) {
       if (targetSnap.exists || subsSnap.docs.some(
         (doc) => doc.data().family === target.family
       )) {
+        if (normalization.pending) tx.update(userRef, entry.normalization.fields);
         return "TARGET_CONFLICT";
       }
 
@@ -727,6 +779,7 @@ async function applyManifest(db, entries) {
         .map((item) => snapshotEntry(item.id, item.data));
       tx.create(targetRef, targetData);
       tx.update(userRef, {
+        ...(normalization.pending ? entry.normalization.fields : {}),
         activeSubscriptions,
         subscriptionModelVersion: 2,
         enrollmentConsumption: migratedConsumption(userData, target.id),
@@ -767,6 +820,9 @@ async function main() {
     const entries = readJsonl(manifestPath);
     if (entries.length === 0 || entries.some((entry) => entry.projectId !== args.project)) {
       throw new Error("Manifest vuoto o riferito a un progetto diverso");
+    }
+    if (entries.some((entry) => entry.version !== 2)) {
+      throw new Error("Manifest obsoleto: rigenerare un dry-run con versione 2");
     }
     const scoped = entries.filter((entry) =>
       args.scope === "all" ||
@@ -837,6 +893,9 @@ async function main() {
     entry.decision.conversionStatus === "CONVERTIBLE" ||
     entry.decision.conversionStatus === "TARGET_CONFLICT"
   );
+  const normalizationPending = result.entries.filter((entry) =>
+    entry.kind === "user" && Object.keys(entry.normalization?.fields || {}).length > 0
+  ).length;
   for (const row of result.userRows) {
     row.apply_status = row.conversion_status === "ALREADY_APPLIED"
       ? "VERIFIED"
@@ -860,6 +919,7 @@ async function main() {
     mode: "verify",
     project: args.project,
     failures: failures.length,
+    normalizationPending,
     hyroxSubscriptions: hyrox.length,
     hyroxSnapshots: result.hyroxSnapshots,
     enrollmentBlockers,
@@ -867,7 +927,7 @@ async function main() {
     reportDir: path.relative(repoRoot, reportDir),
     counts: summarize(result.entries),
   }));
-  if (failures.length > 0 || hyrox.length > 0 ||
+  if (failures.length > 0 || normalizationPending > 0 || hyrox.length > 0 ||
       result.hyroxSnapshots > 0 || enrollmentBlockers > 0) {
     process.exitCode = 2;
   }

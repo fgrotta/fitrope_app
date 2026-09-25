@@ -791,7 +791,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   const SizedBox(height: 12),
                   _buildFiltersRow(context),
                   const SizedBox(height: 12),
-                  if (useUserTable)
+                  if (user.role == 'Admin' && useUserTable)
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ElevatedButton.icon(
@@ -806,7 +806,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                         ),
                       ),
                     )
-                  else
+                  else if (user.role == 'Admin')
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(

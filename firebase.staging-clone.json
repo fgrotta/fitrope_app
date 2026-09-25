@@ -1,0 +1,5 @@
+{
+  "firestore": {
+    "rules": ".context/staging-clone.rules"
+  }
+}

@@ -125,6 +125,8 @@ jobs:
     environment: staging
     env:
       STAGING_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+      # Keep this enabled for every deploy while the PRD clone is present.
+      STAGING_CLONE_MODE: "true"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -146,19 +148,27 @@ jobs:
           ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
           STAGING_NOTIFICATION_EMAIL_ALLOWLIST: ${{ vars.STAGING_NOTIFICATION_EMAIL_ALLOWLIST }}
         run: |
+          test "$STAGING_PROJECT_ID" = fit-rope-staging
+          test "$STAGING_CLONE_MODE" = true
           test -n "$ONESIGNAL_APP_ID"
-          test -n "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST"
-          printf "APP_ENV=staging\nONESIGNAL_APP_ID=%s\nSTAGING_NOTIFICATION_EMAIL_ALLOWLIST=%s\n" \
-            "$ONESIGNAL_APP_ID" "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST" > ".env.$STAGING_PROJECT_ID"
+          if [ "$STAGING_CLONE_MODE" = true ]; then
+            STAGING_NOTIFICATION_EMAIL_ALLOWLIST='admin.develop@example.com,trainer.develop@example.com,utente1.develop@example.com,utente2.develop@example.com,utente3.develop@example.com'
+          else
+            test -n "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST"
+          fi
+          printf "APP_ENV=staging\nONESIGNAL_APP_ID=%s\nSTAGING_NOTIFICATION_EMAIL_ALLOWLIST=%s\nSTAGING_CLONE_MODE=%s\nSTAGING_CLONE_ALLOWED_UIDS=dev_admin,dev_trainer,dev_member_open_2x,dev_member_open_unlimited,dev_member_pt_entries\n" \
+            "$ONESIGNAL_APP_ID" "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST" "$STAGING_CLONE_MODE" > ".env.$STAGING_PROJECT_ID"
       - name: Deploy Functions staging
         run: firebase deploy --project "$STAGING_PROJECT_ID" --only functions --non-interactive
       - name: Seed staging data
+        if: env.STAGING_CLONE_MODE != 'true'
         working-directory: functions
         run: |
           GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
           export GOOGLE_OAUTH_ACCESS_TOKEN
           npm run seed:staging
       - name: Repair and verify staging course shapes
+        if: env.STAGING_CLONE_MODE != 'true'
         run: |
           # google-github-actions/auth@v3 exposes short-lived external-account
           # ADC; the scripts use @google-cloud/firestore, which understands it.
@@ -166,7 +176,7 @@ jobs:
           node scripts/backfillCourseModel.js --verify --scope=courses --project=fit-rope-staging
 
   deploy-pages:
-    needs: deploy-functions
+    needs: deploy-rules
     runs-on: ubuntu-latest
     environment:
       name: staging
@@ -178,11 +188,12 @@ jobs:
         uses: actions/deploy-pages@v5
 
   deploy-rules:
-    needs: deploy-pages
+    needs: deploy-functions
     runs-on: ubuntu-latest
     environment: staging
     env:
       STAGING_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+      STAGING_CLONE_MODE: "true"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -197,7 +208,15 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
       - run: npm install -g firebase-tools@15
       - name: Deploy Firestore Rules staging
-        run: firebase deploy --project "$STAGING_PROJECT_ID" --only firestore:rules --non-interactive
+        run: |
+          test "$STAGING_PROJECT_ID" = fit-rope-staging
+          test "$STAGING_CLONE_MODE" = true
+          if [ "$STAGING_CLONE_MODE" = true ]; then
+            python3 scripts/generate_staging_clone_rules.py
+            firebase deploy --project "$STAGING_PROJECT_ID" --config firebase.staging-clone.json --only firestore:rules --non-interactive
+          else
+            firebase deploy --project "$STAGING_PROJECT_ID" --only firestore:rules --non-interactive
+          fi
 
   # Step 9 del PIANO_STAGING: smoke test di sito e callable dopo il deploy.
   # Verifica che la PWA risponda e che tutte le callable enrollment esistano

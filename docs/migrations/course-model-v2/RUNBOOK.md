@@ -21,6 +21,20 @@ Con `--apply`, il runner può effettuare due classi di scrittura:
 Il runner non elimina i campi legacy dell'utente. I corsi e gli utenti esclusi
 rimangono invariati e vengono elencati nei report.
 
+Per i documenti utente il dry-run v2 espone, separatamente dalla decisione di
+conversione V2, i default da normalizzare: ruolo `User` se assente, `null` o
+vuoto; tag `Open` se assenti, `null` o `[]` e `tipologiaIscrizione` è un piano
+legacy riconosciuto. Ruoli espliciti e tag non vuoti sono conservati, anche se
+ambigui. Il ruolo viene assegnato anche senza piano legacy. `--verify` riporta
+`normalizationPending`; deve essere zero dopo l'apply. L'apply accetta solo
+manifest versione 2 e confronta il fingerprint della sorgente originale,
+anche quando una precedente apply ha già salvato i default.
+
+L'anteprima Admin mostra gli stessi default. `NORMALIZE` salva solo quei campi;
+`AUTO` e `GUIDED` li salvano nella stessa transazione della subscription.
+L'azione è disponibile anche per profili esclusi o già migrati. La scelta
+guidata PT resta valida anche se il default legacy è `Open`.
+
 Le tre modalità sono separate:
 
 1. `--dry-run` legge Firestore e genera manifest e CSV senza scritture;
@@ -192,6 +206,7 @@ ls -la .context/migrations/prod-2026-08-26-1800-dry-run
 ```
 
 Directory e file sono creati rispettivamente con permessi `0700` e `0600`.
+Gli artefatti sono tre CSV e un manifest JSONL.
 
 Il manifest contiene decisioni, target e fingerprint delle sorgenti. Non va
 modificato manualmente e non va aperto/salvato con Excel. Per congelarne
@@ -227,6 +242,14 @@ devono comunque essere revisionate. Il fingerprint del manifest include
 `courses`, `waitlistCourses`, `cancelledEnrollments` ed
 `enrollmentConsumption`: se uno di questi campi cambia prima dell'apply,
 l'utente viene classificato `SOURCE_DRIFT` e non viene scritto.
+
+Il dry-run PRD del 16 settembre ha trovato un
+`SUBSCRIBED_COUNT_MISMATCH` su un corso futuro (`subscribed=7`, sei riferimenti
+utente). Prima del dry-run definitivo, ricontrollare corso e sei riferimenti
+nei dati correnti e stabilire il valore corretto. Usare
+`recountCourseSubscribed` solo se il conteggio dei riferimenti è affidabile;
+poi rifare il dry-run. Una sola approvazione dell'anomalia non rende verde
+`--verify`: il runner restituisce codice 2 finché esiste un `BLOCKER`.
 
 Codici di esclusione utente attesi:
 
@@ -356,14 +379,15 @@ cd ..
 - target V2 in conflitto;
 - subscription con famiglia `HYROX` o piano `hyrox_*`;
 - snapshot utente HYROX.
+- anomalie `BLOCKER` nell'audit integrità delle iscrizioni.
 
 Codici di uscita:
 
 | Codice | Significato |
 |---:|---|
-| 0 | nessun record migrabile/conflitto e nessun residuo HYROX |
+| 0 | nessun record migrabile/conflitto, residuo HYROX o blocker di integrità |
 | 1 | errore di configurazione, credenziali, argomenti o runtime |
-| 2 | verifica fallita: migrazioni/conflitti o residui HYROX presenti |
+| 2 | verifica fallita: migrazioni/conflitti, residui HYROX o blocker presenti |
 
 I record `IGNORED` approvati non fanno fallire automaticamente `--verify`. Il
 gate sugli utenti attivi esclusi resta quindi una verifica gestionale obbligatoria
@@ -372,32 +396,83 @@ basata sul CSV, non soltanto sul codice di uscita.
 ## 15. Verificare l'idempotenza
 
 Dopo un apply riuscito è possibile rilanciare lo stesso comando con lo stesso
-manifest. Il risultato atteso per i record già scritti è `ALREADY_APPLIED`, con
-zero nuove scritture.
+manifest. Il risultato atteso è `ALREADY_APPLIED` per i convertiti e `SKIPPED`
+per gli esclusi, con zero nuove scritture.
 
 Un risultato diverso indica drift o conflitto e deve essere analizzato prima di
 proseguire con web app e rules.
 
-## 16. Completare il rollout
+## 16. Completare il rollout PRD
 
-La sequenza completa resta:
+I conteggi del [dry-run del 16 settembre](DRY_RUN_PRD_2026-09-16.md) e lo
+stato «zero subscription, zero corsi V2» verificato l'8 settembre sono
+fotografie storiche. Non descrivono lo stato live al momento del cutover.
 
-1. deploy delle Functions tolleranti V1/V2 e del nuovo catalogo;
-2. export Firestore;
-3. dry-run completo e revisione dei CSV;
-4. freeze delle modifiche interessate;
-5. apply corsi e utenti dal manifest approvato;
-6. `--verify` completo;
-7. deploy della nuova web app;
-8. deploy delle rules strette;
-9. nuovo `--verify`;
-10. bonifica manuale degli utenti attivi/correnti esclusi;
-11. gate: zero utenti correnti senza subscription valida o esclusione approvata;
-12. solo in una modifica successiva, rimozione del ramo legacy e cleanup del
-    dual-write.
-
-Non invertire il deploy della web app e delle rules senza verificare la
-compatibilità dei client in circolazione.
+1. Da un commit approvato di `develop`, eseguire i gate locali della sezione 3
+   e pubblicare le Functions tolleranti V1/V2 con
+   `firebase deploy --project prod --only functions`. Verificare su PRD con
+   `firebase functions:list --project prod` le callable
+   `subscribeToCourse`, `unsubscribeFromCourse`, `joinWaitlist`,
+   `leaveWaitlist`, `assignSubscription`, `deleteCourse`,
+   `recountCourseSubscribed`, `createManagedUser`, `grantSignupTrial`,
+   `previewLegacyUserMigration`, `migrateLegacyUser`,
+   `sendOneSignalNotification`, `ensureOneSignalUser`,
+   `removeOneSignalEmail` e la HTTP `courseIcs`. Verificare anche
+   `firestoreBackupDaily` e `firestoreBackupDailyCheck`. Le funzioni
+   `sendTestCertificateEmail` e `certificateEmailsDaily` sono solo staging e
+   devono essere assenti su PRD.
+2. Ricontrollare ogni blocker futuro dell'audit come nella sezione 9. Prima
+   di un eventuale `recountCourseSubscribed` creare e verificare un export di
+   sicurezza; dopo la correzione, creare un nuovo export dello stato da
+   migrare. Scaricare quest'ultimo e ripetere la sequenza su emulatori della
+   sezione 21 prima dell'apply PRD.
+3. Eseguire un nuovo dry-run completo, revisionare manifest e tre CSV con un
+   secondo operatore, registrare l'hash e approvare le esclusioni. Se il
+   manifest supera un giorno di età o cambiano i dati, rifare dry-run e
+   revisione nella stessa finestra dell'apply.
+4. Concordare e comunicare la finestra di manutenzione. Servire una pagina di
+   manutenzione ai nuovi accessi web, sospendere registrazioni e operazioni
+   gestionali (creazione/modifica corsi e utenti, assegnazioni), e far
+   chiudere le schede già aperte a staff e operatori. Il freeze è operativo:
+   la pagina di manutenzione non spegne le schede già aperte e il runner non
+   blocca le scritture dei client. Se non si può assicurare questa
+   sospensione, fermarsi prima dell'apply e predisporre un blocco tecnico
+   delle scritture.
+5. Confrontare l'hash, quindi applicare corsi e utenti dal manifest approvato.
+   `SOURCE_DRIFT` e `TARGET_CONFLICT` impongono lo stop anche con exit code 0.
+6. Dalla root del repository eseguire
+   `node scripts/reconcile_subscription_model_version.js --project=fit-rope-app-1f575`
+   sui profili già V2 senza marker; revisionare `safe` e `manual`, poi applicare
+   solo `safe` durante il freeze aggiungendo
+   `--apply --confirm-project=fit-rope-app-1f575`. Risolvere i `manual`
+   separatamente: lo script non li modifica.
+7. Eseguire `--verify --scope=all`: attesi `failures: 0`, zero residui HYROX,
+   `enrollmentBlockers: 0` ed exit code 0. Ripetere l'apply con lo stesso
+   manifest: convertiti `ALREADY_APPLIED`, esclusi `SKIPPED`, zero scritture.
+8. Eseguire `flutter build web --wasm --release`, pubblicare `build/web/` su
+   Hostinger e subito dopo eseguire
+   `firebase deploy --project prod --only firestore:rules` nella stessa
+   finestra. La web nuova con rules vecchie non può registrare
+   utenti; la web vecchia con rules nuove fallisce sulla registrazione e sulla
+   creazione utenti. Comunicare a tutti la chiusura e riapertura delle schede;
+   il controllo di `version.json` in `web/index.html` tenta il reload ma non
+   garantisce l'aggiornamento immediato di una scheda già aperta. Tenere
+   sospese le operazioni finché l'upload, le rules e un accesso fresco al sito
+   non sono verificati.
+9. Rieseguire `--verify`, poi smoke funzionale con account di prova controllati:
+   registrazione, creazione utente Admin, iscrizione/disiscrizione e rimborso
+   nei piani Prova, Pacchetto e Frequenza. Verificare la versione caricata
+   riaprendo il sito e controllando il `version.json` pubblicato; raccogliere
+   conferma dallo staff che le schede precedenti siano state chiuse.
+10. Bonificare gli utenti attivi/correnti esclusi. La card Admin di
+    `UserDetailPage` gestisce i profili `User` `AUTO_CONVERTIBLE` o
+    `MANUAL_REQUIRED` su ogni breakpoint; `CONFLICT` è sola lettura. Se un
+    profilo escluso o già migrato ha default pendenti, la card espone
+    `NORMALIZE`; ruoli espliciti e tag ambigui restano invariati. Documentare e
+    approvare separatamente le esclusioni di conversione. Gate:
+    nessun utente corrente senza subscription valida o esclusione approvata.
+11. Rimuovere il freeze solo dopo smoke e gate degli esclusi. La rimozione del
+    ramo legacy e del dual-write appartiene a una modifica successiva.
 
 ## 17. Rollback e arresto sicuro
 
@@ -409,10 +484,19 @@ Il runner non include un comando di rollback. In caso di risultato inatteso:
 4. identificare con precisione le scritture `APPLIED`;
 5. concordare il ripristino dall'export Firestore o uno script inverso revisionato.
 
+L'export non comprende Firebase Auth, rules, indici o TTL. L'import non elimina
+documenti creati dopo il backup: seguire la procedura di
+[backup e ripristino](../../operations/FIRESTORE_BACKUP_RESTORE.md), che prevede
+una destinazione temporanea per la verifica e, per il ripristino esatto su
+`(default)`, freeze, nuovo export di sicurezza e svuotamento controllato.
+
 Non cancellare manualmente subscription e snapshot: la migrazione utente è
 atomica e un rollback parziale può rendere incoerente la fonte di verità. I campi
 legacy non vengono eliminati dall'apply, quindi le Functions V1/V2 permettono di
 fermarsi e investigare prima delle fasi irreversibili successive.
+Se il problema emerge dopo web e rules, mantenere la pagina di manutenzione e
+coordinare anche il ripristino di web/rules con lo stato dati scelto: il solo
+import Firestore non ripristina il client né le regole.
 
 ## 18. Riferimento CLI
 
@@ -456,11 +540,11 @@ intenzionale e non va aggirata.
 Leggere `failures`, `hyroxSubscriptions`, `hyroxSnapshots` e i CSV di verifica.
 Il codice 2 segnala un gate non soddisfatto, non un crash del runner.
 
-Il gate include anche `enrollmentBlockers > 0`. Con i dati PRD attuali `--verify`
-termina quindi con 2 **anche dopo un apply perfetto**, perché quei blocker sono
-anomalie preesistenti dei dati e non fallimenti della migrazione. Un apply
-riuscito si riconosce da `failures: 0` con tutti i record in `ALREADY_APPLIED` o
-`IGNORED`: il codice di uscita non va letto da solo.
+Il gate include anche `enrollmentBlockers > 0`. Il dry-run PRD del 16 settembre
+ne riportava uno: se è ancora presente, `--verify` termina con 2 anche dopo un
+apply senza conflitti. Non considerarlo un successo del rollout: risolvere il
+blocker e ripetere il dry-run prima dell'apply. Gli esclusi approvati compaiono
+come `IGNORED` nel verify e `SKIPPED` nell'apply.
 
 ### Apply termina con codice 0 ma mostra conflitti
 
@@ -472,14 +556,21 @@ operativi e produrre un nuovo piano per quei record.
 
 - [ ] commit e versione del runner registrati
 - [ ] export Firestore completato e verificato
+- [ ] callable PRD verificate, funzioni solo staging assenti
+- [ ] blocker futuri risolti dopo controllo dei riferimenti utente
+- [ ] replay dell'export su Emulator completato
 - [ ] dry-run completo revisionato da almeno un secondo operatore
 - [ ] hash del manifest approvato registrato privatamente
 - [ ] nessun dato personale copiato in Git o nella PR
 - [ ] apply corsi senza drift/conflitti non risolti
 - [ ] apply utenti senza drift/conflitti non risolti
+- [ ] reconcile V2 senza marker eseguito, casi `manual` risolti o registrati
 - [ ] prima verifica con codice 0
-- [ ] web app e rules pubblicate nell'ordine previsto
+- [ ] finestra di manutenzione attiva, staff fuori dalle schede precedenti
+- [ ] web app e rules pubblicate nella stessa finestra, build fresca verificata
 - [ ] seconda verifica con codice 0
+- [ ] smoke funzionale con account controllati completato
+- [ ] Trainer non vedono la creazione utenti Admin-only
 - [ ] utenti attivi esclusi bonificati o approvati esplicitamente
 - [ ] freeze rimosso soltanto dopo il controllo funzionale
 - [ ] report conservati secondo le regole interne di accesso e retention
@@ -526,7 +617,8 @@ lati concordano.
 eseguire il runner a mano durante la prova: passare da un wrapper che rifiuti di
 partire se l'emulatore non risponde su `localhost:8080` e se non contiene lo
 snapshot atteso, e che esporti la variabile lui stesso. Copia di lavoro in
-`.context/sim/guard.sh`.
+`.context/sim/guard.sh`, se presente sulla postazione; `.context` non è
+versionata e il wrapper va verificato prima dell'uso.
 
 ### 21.4 Fotografare gli invarianti prima dell'apply
 
@@ -535,14 +627,16 @@ La migrazione non deve toccare `courses`, `waitlistCourses`,
 `waitlist`, `capacity` e `startDate` sui corsi. Prima dell'apply salvare un hash
 per documento di quei campi e riconfrontarlo alla fine: è l'unica prova diretta
 che l'invariante è stata rispettata. Script di riferimento in
-`.context/sim/snapshot.js`.
+`.context/sim/snapshot.js`, se disponibile sulla postazione.
 
 ### 21.5 Eseguire la sequenza
 
 Gli stessi comandi delle sezioni 7, 11, 12, 14 e 15, con la guardia davanti e
-`--project=fit-rope-app-1f575`. Esiste un orchestratore che li esegue in ordine,
-incorpora la guardia, fotografa e riconfronta gli invarianti e spegne
-l'emulatore alla fine:
+`--project=fit-rope-app-1f575`. La copia locale non versionata
+`.context/sim/run-simulation.sh`, se disponibile e verificata, li esegue in
+ordine, incorpora la guardia, fotografa e riconfronta gli invarianti e spegne
+l'emulatore alla fine. Se manca, predisporre e revisionare una guardia con i
+controlli della sezione 21.3 prima di qualsiasi apply sul replay:
 
 ```bash
 .context/sim/run-simulation.sh <dir-import> <prefisso-run-id>
@@ -555,14 +649,15 @@ Esito atteso su un export sano:
 | dry-run | manifest generato, conteggi coerenti con la revisione |
 | apply corsi | tutti `APPLIED` o `SKIPPED`, zero `SOURCE_DRIFT`/`TARGET_CONFLICT` |
 | apply utenti | come sopra |
-| verify | `failures: 0`, zero residui HYROX, tutti i record `ALREADY_APPLIED` o `IGNORED` |
-| apply ripetuto | tutti `ALREADY_APPLIED`, zero nuove scritture |
+| verify | `failures: 0`, zero residui HYROX e blocker, convertiti `ALREADY_APPLIED`, esclusi `IGNORED` |
+| apply ripetuto | convertiti `ALREADY_APPLIED`, esclusi `SKIPPED`, zero nuove scritture |
 | invarianti | zero documenti modificati nel confronto prima/dopo |
 
 ### 21.6 Chiudere la prova
 
 Spegnere l'emulatore: lo stato è in memoria e sparisce, non serve alcun
-ripristino. Verificare poi che la produzione sia intatta, leggendo **senza**
-`FIRESTORE_EMULATOR_HOST` che `subscriptions` sia ancora vuota e che nessun corso
-abbia `courseModelV2: true`. Conservare i report sotto `.context/migrations/` con
+ripristino. Verificare poi con una lettura read-only, **senza**
+`FIRESTORE_EMULATOR_HOST`, che lo stato PRD corrisponda alla fotografia presa
+prima della prova; non assumere che subscription e corsi V2 siano ancora zero.
+Conservare i report sotto `.context/migrations/` con
 i permessi soliti.

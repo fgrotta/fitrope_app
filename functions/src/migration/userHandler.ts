@@ -14,6 +14,8 @@ import {
   addMonthsInRome,
   timestampMillis,
   transformUser,
+  userNormalization,
+  withUserNormalization,
 } from "./userTransform";
 
 type PublicStatus =
@@ -75,8 +77,11 @@ function statusFor(
   target?: Record<string, unknown>;
   expectedFingerprint: string;
   legacy: Record<string, unknown>;
+  normalization: Record<string, unknown>;
 } {
   const legacy = source(data);
+  const normalization = userNormalization(data);
+  const normalizedData = withUserNormalization(data);
   if (data.legacySubscriptionMigration) {
     return {
       status: "MIGRATED",
@@ -84,9 +89,10 @@ function statusFor(
       reasonDetail: "migrazione già registrata",
       expectedFingerprint: fingerprint(data),
       legacy,
+      normalization: normalization.fields,
     };
   }
-  const decision = transformUser(id, data, now);
+  const decision = transformUser(id, normalizedData, now);
   if (decision.target) {
     if (
       existingSubscriptions.some(
@@ -99,6 +105,7 @@ function statusFor(
         reasonDetail: `esiste già una subscription ${decision.target.family}`,
         expectedFingerprint: fingerprint(data),
         legacy,
+        normalization: normalization.fields,
       };
     }
     return {
@@ -108,11 +115,12 @@ function statusFor(
       target: { ...decision.target },
       expectedFingerprint: fingerprint(data),
       legacy,
+      normalization: normalization.fields,
     };
   }
-  const tags = data.tipologiaCorsoTags;
+  const tags = normalizedData.tipologiaCorsoTags;
   const manual =
-    data.role === "User" &&
+    normalizedData.role === "User" &&
     typeof data.tipologiaIscrizione === "string" &&
     !(Array.isArray(tags) && tags.includes("Hey Mamma"));
   return {
@@ -121,6 +129,7 @@ function statusFor(
     reasonDetail: decision.reasonDetail,
     expectedFingerprint: fingerprint(data),
     legacy,
+    normalization: normalization.fields,
   };
 }
 
@@ -234,10 +243,11 @@ export async function migrateLegacyUserHandler(
   const userId = validateUserId(body);
   const mode = body?.mode;
   const expected = body?.expectedFingerprint;
-  if ((mode !== "AUTO" && mode !== "GUIDED") || typeof expected !== "string") {
+  if ((mode !== "AUTO" && mode !== "GUIDED" && mode !== "NORMALIZE") ||
+      typeof expected !== "string") {
     throw new HttpsError(
       "invalid-argument",
-      "mode AUTO/GUIDED ed expectedFingerprint sono richiesti",
+      "mode AUTO/GUIDED/NORMALIZE ed expectedFingerprint sono richiesti",
     );
   }
   return db.runTransaction(async (tx) => {
@@ -245,11 +255,26 @@ export async function migrateLegacyUserHandler(
     const user = await tx.get(userRef);
     if (!user.exists) throw new HttpsError("not-found", "Utente inesistente");
     const userData = user.data()!;
-    if (userData.legacySubscriptionMigration)
-      return { status: "MIGRATED", alreadyApplied: true };
+    const normalization = userNormalization(userData);
+    if (mode === "NORMALIZE" && !normalization.pending) {
+      return { status: "NORMALIZED", alreadyApplied: true, writes: 0 };
+    }
+    if (userData.legacySubscriptionMigration) {
+      if (normalization.pending) tx.update(userRef, normalization.fields);
+      return {
+        status: "MIGRATED",
+        alreadyApplied: true,
+        ...(normalization.pending ? { writes: 1 } : {}),
+      };
+    }
     if (fingerprint(userData) !== expected)
       throw new HttpsError("aborted", "SOURCE_DRIFT");
-    const automatic = transformUser(userId, userData, Date.now());
+    if (mode === "NORMALIZE") {
+      tx.update(userRef, normalization.fields);
+      return { status: "NORMALIZED", writes: 1 };
+    }
+    const normalizedData = withUserNormalization(userData);
+    const automatic = transformUser(userId, normalizedData, Date.now());
     let record: UserSubscriptionRecord;
     if (mode === "AUTO") {
       if (!automatic.target)
@@ -273,6 +298,7 @@ export async function migrateLegacyUserHandler(
     all.push(record);
     tx.create(subRef, recordToDoc(record, userId, "legacy-migration"));
     tx.update(userRef, {
+      ...normalization.fields,
       activeSubscriptions: computeActiveSnapshot(all, Date.now()).map(
         recordToSnapshotEntry,
       ),
