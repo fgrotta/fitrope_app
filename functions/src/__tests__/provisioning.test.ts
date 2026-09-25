@@ -2,9 +2,15 @@ import {
   canReconcileSubscriptionModel,
   hasLegacyEconomicState,
   hasLegacyEntryConsumption,
+  normalizeManagedEmail,
 } from "../enrollment/provisioning";
 
 describe("provisioning V2 guards", () => {
+  test("normalizza email e rifiuta input non valido", () => {
+    expect(normalizeManagedEmail("  Nome.Cognome@Example.IT ")).toBe("nome.cognome@example.it");
+    expect(() => normalizeManagedEmail("non-valida", true)).toThrow();
+    expect(normalizeManagedEmail(" ")).toBeNull();
+  });
   test("uno stato legacy economico non e' promuovibile", () => {
     expect(hasLegacyEconomicState({ tipologiaIscrizione: "ABBONAMENTO_PROVA" })).toBe(true);
     expect(hasLegacyEconomicState({ entrateDisponibili: 1 })).toBe(true);

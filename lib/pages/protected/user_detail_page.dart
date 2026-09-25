@@ -1,4 +1,5 @@
 import 'package:fitrope_app/api/authentication/update_user.dart';
+import 'package:fitrope_app/api/authentication/set_managed_user_email.dart';
 import 'package:fitrope_app/api/authentication/toggle_user_status.dart';
 import 'package:fitrope_app/authentication/logout.dart';
 import 'package:fitrope_app/authentication/reset_password.dart';
@@ -29,6 +30,7 @@ import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/utils/simulation_controller.dart';
 import 'package:fitrope_app/utils/simulation_permissions.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
+import 'package:fitrope_app/utils/email_validation.dart';
 
 class UserDetailPage extends StatefulWidget {
   final FitropeUser user;
@@ -50,6 +52,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   bool isEditing = false;
   late TextEditingController nameController;
   late TextEditingController lastNameController;
+  late TextEditingController emailController;
   late TextEditingController numeroTelefonoController;
   late TextEditingController entrateDisponibiliController;
   late TextEditingController entrateSettimanaliController;
@@ -63,6 +66,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late bool selectedEmailNotifications;
   late bool selectedPushNotifications;
   String? errorMsg;
+  String? emailFieldError;
   List<Course> allCourses = [];
   bool _showAllEnrollments12Months = false;
 
@@ -79,6 +83,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
     super.initState();
     nameController = TextEditingController(text: widget.user.name);
     lastNameController = TextEditingController(text: widget.user.lastName);
+    emailController = TextEditingController(
+      text: widget.user.email == '-' ? '' : widget.user.email,
+    );
     numeroTelefonoController = TextEditingController(
       text: widget.user.numeroTelefono ?? '',
     );
@@ -182,6 +189,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void dispose() {
     nameController.dispose();
     lastNameController.dispose();
+    emailController.dispose();
     numeroTelefonoController.dispose();
     entrateDisponibiliController.dispose();
     entrateSettimanaliController.dispose();
@@ -195,6 +203,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
         // Reset to original values if canceling edit
         nameController.text = widget.user.name;
         lastNameController.text = widget.user.lastName;
+        emailController.text =
+            widget.user.email == '-' ? '' : widget.user.email;
         numeroTelefonoController.text = widget.user.numeroTelefono ?? '';
         entrateDisponibiliController.text =
             widget.user.entrateDisponibili?.toString() ?? '';
@@ -210,6 +220,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         selectedEmailNotifications = widget.user.emailNotificationsEnabled;
         selectedPushNotifications = widget.user.pushNotificationsEnabled;
         errorMsg = null;
+        emailFieldError = null;
       }
     });
   }
@@ -361,6 +372,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     if (SimulationGuard.blockIfSimulating(context)) return;
     final name = nameController.text.trim();
     final lastName = lastNameController.text.trim();
+    final email = EmailValidation.normalize(emailController.text);
     final numeroTelefono = numeroTelefonoController.text.trim();
     final entrateDisponibili = int.tryParse(
       entrateDisponibiliController.text.trim(),
@@ -373,6 +385,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
       setState(() {
         errorMsg = 'Compila tutti i campi obbligatori';
       });
+      return;
+    }
+    if (email.isNotEmpty && !EmailValidation.isValid(email)) {
+      setState(() => emailFieldError = EmailValidation.invalidMessage);
       return;
     }
 
@@ -404,6 +420,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
     final previousPushPreference = widget.user.pushNotificationsEnabled;
     final pushPreferenceChanged =
         isCurrentUser && selectedPushNotifications != previousPushPreference;
+    final emailChanged = email !=
+        EmailValidation.normalize(
+          widget.user.email == '-' ? '' : widget.user.email,
+        );
+    var resetSent = true;
     bool pushPreferenceApplied = false;
 
     try {
@@ -444,10 +465,24 @@ class _UserDetailPageState extends State<UserDetailPage> {
         pushNotificationsEnabled: selectedPushNotifications,
       );
 
+      if (emailChanged) {
+        if (email.isEmpty) {
+          throw StateError(
+            'Per rimuovere l’email occorre prima concordare la procedura con la palestra.',
+          );
+        }
+        await setManagedUserEmail(userId: widget.user.uid, email: email);
+        try {
+          await resetPassword(email);
+        } catch (_) {
+          resetSent = false;
+        }
+      }
+
       // Crea un nuovo oggetto utente con i dati aggiornati
       final updatedUser = FitropeUser(
         uid: widget.user.uid,
-        email: widget.user.email,
+        email: email,
         name: name,
         lastName: lastName,
         role: selectedRole,
@@ -501,12 +536,22 @@ class _UserDetailPageState extends State<UserDetailPage> {
       setState(() {
         isEditing = false;
         errorMsg = null;
+        emailFieldError = null;
       });
 
-      SnackBarUtils.showSuccessSnackBar(
-        context,
-        'Utente aggiornato con successo',
-      );
+      if (emailChanged && !resetSent) {
+        SnackBarUtils.showWarningSnackBar(
+          context,
+          'Email aggiornata, ma invio reset fallito: puoi ritentare dal pulsante dedicato.',
+        );
+      } else {
+        SnackBarUtils.showSuccessSnackBar(
+          context,
+          emailChanged
+              ? 'Profilo aggiornato e email di reset inviata a $email.'
+              : 'Utente aggiornato con successo',
+        );
+      }
 
       // Notifica la pagina precedente del cambiamento
       Navigator.pop(context, updatedUser);
@@ -516,7 +561,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
       }
       if (mounted) {
         setState(() {
-          errorMsg = 'Errore durante l\'aggiornamento';
+          final text = e.toString();
+          if (text.contains('already-exists')) {
+            emailFieldError = text.contains('profilo')
+                ? EmailValidation.duplicateProfileMessage
+                : EmailValidation.duplicateAccountMessage;
+          } else if (e is StateError) {
+            emailFieldError = e.message.toString();
+          } else {
+            errorMsg = 'Errore durante l\'aggiornamento';
+          }
         });
       }
     }
@@ -1051,7 +1105,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 numeroTelefonoController,
                 _canEditSpecificField('Numero di Telefono') && isEditing,
               ),
-              _buildInfoRow('Email', widget.user.email, null, false),
+              _buildInfoRow(
+                'Email',
+                widget.user.email,
+                emailController,
+                isAdmin && isEditing,
+              ),
               if (isAdmin)
                 _buildInfoRow(
                   'Ruolo',
@@ -1084,7 +1143,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 isAnonymousDropdown: true,
               ),
               // Pulsante per inviare email di reset password (solo per Admin)
-              if (isAdmin) ...[
+              if (isAdmin &&
+                  widget.user.email.isNotEmpty &&
+                  widget.user.email != '-') ...[
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -1471,8 +1532,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   bool get isAdmin => store.state.user?.role == 'Admin';
 
-  Widget _buildSection(String title, List<Widget> children,
-      {bool highlighted = false}) {
+  Widget _buildSection(
+    String title,
+    List<Widget> children, {
+    bool highlighted = false,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -1617,8 +1681,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   child: isEditable && controller != null
                       ? TextField(
                           controller: controller,
-                          keyboardType:
-                              label == 'Numero di Telefono (opzionale)'
+                          keyboardType: label == 'Email'
+                              ? TextInputType.emailAddress
+                              : label == 'Numero di Telefono (opzionale)'
                                   ? TextInputType.phone
                                   : TextInputType.number,
                           decoration: const InputDecoration(
@@ -1627,7 +1692,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
                               horizontal: 12,
                               vertical: 8,
                             ),
+                          ).copyWith(
+                            errorText:
+                                label == 'Email' ? emailFieldError : null,
                           ),
+                          onChanged: label == 'Email'
+                              ? (_) {
+                                  if (emailFieldError != null) {
+                                    setState(() => emailFieldError = null);
+                                  }
+                                }
+                              : null,
                           inputFormatters: label == 'Numero di Telefono'
                               ? [
                                   FilteringTextInputFormatter.digitsOnly,

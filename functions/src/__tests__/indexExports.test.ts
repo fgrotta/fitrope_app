@@ -8,6 +8,8 @@ type IndexModule = {
   sendTestCertificateEmail: unknown;
   certificateEmailsDaily: unknown;
   sendOneSignalNotification: unknown;
+  checkEmailAvailability: unknown;
+  setManagedUserEmail: unknown;
   subscribeToCourse: unknown;
   courseIcs: unknown;
   firestoreBackupDaily: unknown;
@@ -42,6 +44,8 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     expect(mod.certificateEmailsDaily).toBeUndefined();
     // Le callable ordinarie non devono essere toccate dal gate.
     expect(mod.sendOneSignalNotification).toBeDefined();
+    expect(mod.checkEmailAvailability).toBeDefined();
+    expect(mod.setManagedUserEmail).toBeDefined();
     expect(mod.subscribeToCourse).toBeDefined();
     // courseIcs serve i link "aggiungi al calendario" delle email: va in prod.
     expect(mod.courseIcs).toBeDefined();

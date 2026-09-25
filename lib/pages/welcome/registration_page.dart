@@ -11,6 +11,7 @@ import 'package:fitrope_app/style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:fitrope_app/utils/email_validation.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -50,11 +51,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   void validateEmail() {
-    if (_emailController.text.trim().isEmpty) {
-      emailError = "L'email non è valida";
-    } else {
-      emailError = null;
-    }
+    emailError = EmailValidation.validate(_emailController.text);
   }
 
   void validatePassword() {
@@ -115,30 +112,25 @@ class _RegistrationPageState extends State<RegistrationPage> {
             Center(
               child: Column(
                 children: [
-                  const Icon(
-                    Icons.email,
-                    size: 60,
-                    color: onPrimaryColor,
+                  const Icon(Icons.email, size: 60, color: onPrimaryColor),
+                  const SizedBox(height: 30),
+                  const Text(
+                    "Email di conferma inviata!",
+                    style: TextStyle(fontSize: 20, color: onPrimaryColor),
                   ),
-                  const SizedBox(
-                    height: 30,
-                  ),
-                  const Text("Email di conferma inviata!",
-                      style: TextStyle(fontSize: 20, color: onPrimaryColor)),
-                  const SizedBox(
-                    height: 30,
-                  ),
+                  const SizedBox(height: 30),
                   ElevatedButton(
-                      style: ButtonStyle(
-                          backgroundColor:
-                              WidgetStateProperty.all(successColor)),
-                      onPressed: () {
-                        Navigator.pushNamed(context, LOGIN_ROUTE);
-                      },
-                      child: const Text(
-                        "Login",
-                        style: TextStyle(color: onPrimaryColor),
-                      ))
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.all(successColor),
+                    ),
+                    onPressed: () {
+                      Navigator.pushNamed(context, LOGIN_ROUTE);
+                    },
+                    child: const Text(
+                      "Login",
+                      style: TextStyle(color: onPrimaryColor),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -175,12 +167,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Email',
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
+                  const Text('Email'),
+                  const SizedBox(height: 10),
                   CustomTextField(
                     controller: _emailController,
                     hintText: 'Inserisci la tua email',
@@ -188,22 +176,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       validateEmail();
                     }),
                   ),
-                  const SizedBox(
-                    height: 5,
-                  ),
+                  const SizedBox(height: 5),
                   Text(
                     emailError ?? '',
                     style: const TextStyle(color: dangerColor),
                   ),
-                  const SizedBox(
-                    height: 20,
-                  ),
-                  const Text(
-                    'Password',
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
+                  const SizedBox(height: 20),
+                  const Text('Password'),
+                  const SizedBox(height: 10),
                   CustomTextField(
                     controller: _passwordController,
                     hintText: 'Inserisci la password',
@@ -212,22 +192,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       validatePassword();
                     }),
                   ),
-                  const SizedBox(
-                    height: 5,
-                  ),
+                  const SizedBox(height: 5),
                   Text(
                     passwordError ?? '',
                     style: const TextStyle(color: dangerColor),
                   ),
-                  const SizedBox(
-                    height: 20,
-                  ),
-                  const Text(
-                    'Conferma password',
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
+                  const SizedBox(height: 20),
+                  const Text('Conferma password'),
+                  const SizedBox(height: 10),
                   CustomTextField(
                     controller: _confirmPasswordController,
                     hintText: 'Conferma la password',
@@ -236,22 +208,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       validatePassword();
                     }),
                   ),
-                  const SizedBox(
-                    height: 5,
-                  ),
+                  const SizedBox(height: 5),
                   Text(
                     confirmPasswordError ?? '',
                     style: const TextStyle(color: dangerColor),
                   ),
-                  const SizedBox(
-                    height: 20,
-                  ),
-                  const Text(
-                    'Nome',
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
+                  const SizedBox(height: 20),
+                  const Text('Nome'),
+                  const SizedBox(height: 10),
                   CustomTextField(
                     controller: _nameController,
                     hintText: 'Inserisci il tuo nome',
@@ -259,22 +223,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       validateName();
                     }),
                   ),
-                  const SizedBox(
-                    height: 5,
-                  ),
+                  const SizedBox(height: 5),
                   Text(
                     nameError ?? '',
                     style: const TextStyle(color: dangerColor),
                   ),
-                  const SizedBox(
-                    height: 20,
-                  ),
-                  const Text(
-                    'Cognome',
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
+                  const SizedBox(height: 20),
+                  const Text('Cognome'),
+                  const SizedBox(height: 10),
                   CustomTextField(
                     controller: _lastNameController,
                     hintText: 'Inserisci il tuo cognome',
@@ -282,22 +238,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       validateLastName();
                     }),
                   ),
-                  const SizedBox(
-                    height: 5,
-                  ),
+                  const SizedBox(height: 5),
                   Text(
                     lastNameError ?? '',
                     style: const TextStyle(color: dangerColor),
                   ),
-                  const SizedBox(
-                    height: 20,
-                  ),
-                  const Text(
-                    'Numero di Telefono (opzionale)',
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
+                  const SizedBox(height: 20),
+                  const Text('Numero di Telefono (opzionale)'),
+                  const SizedBox(height: 10),
                   CustomTextField(
                     controller: _numeroTelefonoController,
                     hintText: 'Inserisci il tuo numero di telefono',
@@ -309,16 +257,12 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       LengthLimitingTextInputFormatter(10),
                     ],
                   ),
-                  const SizedBox(
-                    height: 5,
-                  ),
+                  const SizedBox(height: 5),
                   Text(
                     numeroTelefonoError ?? '',
                     style: const TextStyle(color: dangerColor),
                   ),
-                  const SizedBox(
-                    height: 20,
-                  ),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
                       Checkbox(
@@ -334,8 +278,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         onTap: () async {
                           final url = Uri.parse('https://www.google.it');
                           if (await canLaunchUrl(url)) {
-                            await launchUrl(url,
-                                mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              url,
+                              mode: LaunchMode.externalApplication,
+                            );
                           }
                         },
                         child: const Text(
@@ -362,9 +308,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     style: const TextStyle(color: dangerColor),
                   ),
                 ),
-              const SizedBox(
-                height: 10,
-              ),
+              const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -410,17 +354,26 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         });
                       } else {
                         setState(() {
-                          registrationError = response!.error;
+                          final message = response!.error;
+                          if (message?.contains('già associata') == true ||
+                              message?.contains('già utilizzata') == true ||
+                              message?.contains('già esistente') == true) {
+                            emailError = message;
+                          } else {
+                            registrationError = message;
+                          }
                         });
                       }
                     });
                   },
                   style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.all(secondaryColor),
-                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                          RoundedRectangleBorder(
+                    backgroundColor: WidgetStateProperty.all(secondaryColor),
+                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                      RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                      ))),
+                      ),
+                    ),
+                  ),
                   child: const Text(
                     'Registrati',
                     style: TextStyle(color: Colors.white),
