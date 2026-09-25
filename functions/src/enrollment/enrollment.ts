@@ -22,6 +22,7 @@ import {
   computeActiveSnapshot,
 } from "./subscription";
 import { typeTagOf } from "./courseTypes";
+import { isTrialUser as computeIsTrialUser } from "./trial";
 import {
   evaluateSubscribe,
   coveringSubsByType,
@@ -499,13 +500,7 @@ export async function subscribeToCourseHandler(
     // Promemoria prova: solo per utenti ancora sul modello legacy (uno snapshot
     // vivo significa che l'utente è stato convertito al multi-abbonamento, anche
     // se tipologiaIscrizione legacy è rimasta PROVA).
-    isTrialUser = liveRecords.some(
-      (record) => record.planKey === "open_trial_1i_30d"
-    ) || (
-      liveRecords.length === 0 &&
-      ((user.subscriptionModelVersion as number | null) ?? 1) < 2 &&
-      user.tipologiaIscrizione === "ABBONAMENTO_PROVA"
-    );
+    isTrialUser = computeIsTrialUser(user, liveRecords);
 
     // ----- scritture (array ricostruiti dai doc letti in transazione) -----
     const subscribed = (course.data.subscribed as number) ?? 0;
