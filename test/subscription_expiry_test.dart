@@ -71,4 +71,75 @@ void main() {
     expect(hasSubscriptionExpiringInNext30Days(user, now: now), isTrue);
     expect(hasNoActiveSubscription(user), isFalse);
   });
+
+  group('hasLiveSubscription', () {
+    final now = DateTime(2026, 9, 22);
+
+    test('V2 con un abbonamento non scaduto', () {
+      final user = makeUser(now: now, subscriptions: [
+        subscription('open_10i_1m', now.subtract(const Duration(days: 3))),
+        subscription('open_10i_3m', now.add(const Duration(days: 3))),
+      ]);
+      expect(hasLiveSubscription(user, now: now), isTrue);
+      expect(hasNoActiveSubscription(user, now: now), isFalse);
+    });
+
+    test('V2 con soli abbonamenti scaduti nello snapshot', () {
+      final user = makeUser(now: now, subscriptions: [
+        subscription('open_10i_1m', now.subtract(const Duration(days: 1))),
+      ]);
+      expect(hasLiveSubscription(user, now: now), isFalse);
+      expect(hasNoActiveSubscription(user, now: now), isTrue);
+    });
+
+    test('scadenza oggi: ancora vivo, come liveSubscriptions', () {
+      final user = makeUser(now: now, subscriptions: [
+        subscription('open_10i_1m', now),
+      ]);
+      expect(hasLiveSubscription(user, now: now), isTrue);
+    });
+
+    test('documento V1 con snapshot vivo: vale il modello nuovo', () {
+      // Come getCourseState: senza subscriptionModelVersion ma con abbonamenti
+      // vivi, la fineIscrizione (qui null) non va letta.
+      final user = makeUser(now: now, modelVersion: 1, subscriptions: [
+        subscription('open_10i_3m', now.add(const Duration(days: 60))),
+      ]);
+      expect(hasLiveSubscription(user, now: now), isTrue);
+      final expiries = subscriptionExpiries(user, now: now);
+      expect(expiries, hasLength(1));
+      expect(expiries.single.legacy, isFalse);
+      expect(expiries.single.label, 'Open 10 ingressi · 3 mesi');
+    });
+
+    test('documento V1 con snapshot solo scaduto: torna alla data legacy', () {
+      final user = makeUser(
+        now: now,
+        modelVersion: 1,
+        legacyEndDate: Timestamp.fromDate(now.add(const Duration(days: 5))),
+        subscriptions: [
+          subscription('open_10i_1m', now.subtract(const Duration(days: 1))),
+        ],
+      );
+      expect(hasLiveSubscription(user, now: now), isTrue);
+      expect(subscriptionExpiries(user, now: now).single.legacy, isTrue);
+    });
+
+    test('V1: conta la data legacy', () {
+      Timestamp at(int days) =>
+          Timestamp.fromDate(now.add(Duration(days: days)));
+      expect(
+          hasLiveSubscription(
+              makeUser(now: now, modelVersion: 1, legacyEndDate: at(5)),
+              now: now),
+          isTrue);
+      expect(
+          hasLiveSubscription(
+              makeUser(now: now, modelVersion: 1, legacyEndDate: at(-1)),
+              now: now),
+          isFalse);
+      expect(hasLiveSubscription(makeUser(now: now, modelVersion: 1), now: now),
+          isFalse);
+    });
+  });
 }

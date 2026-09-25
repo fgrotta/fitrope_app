@@ -13,8 +13,20 @@ class SubscriptionExpiry {
   const SubscriptionExpiry(this.label, this.endDate, {this.legacy = false});
 }
 
-List<SubscriptionExpiry> subscriptionExpiries(FitropeUser user) {
-  if (user.subscriptionModelVersion >= 2) {
+/// Modello multi-abbonamento se il documento è V2 o lo snapshot contiene voci
+/// non scadute; altrimenti campi legacy. Stessa selezione di `getCourseState`
+/// (e del server, `evaluateSubscribe`): un documento V1 con uno snapshot vivo
+/// è già sul modello nuovo, e leggerne la `fineIscrizione` (spesso null)
+/// farebbe sparire i suoi abbonamenti.
+bool _usesSubscriptionModel(FitropeUser user, DateTime now) =>
+    user.subscriptionModelVersion >= 2 ||
+    liveSubscriptions(user.activeSubscriptions, now: now).isNotEmpty;
+
+List<SubscriptionExpiry> subscriptionExpiries(
+  FitropeUser user, {
+  DateTime? now,
+}) {
+  if (_usesSubscriptionModel(user, now ?? DateTime.now())) {
     return user.activeSubscriptions
         .map((UserSubscription s) => SubscriptionExpiry(
               getSubscriptionTitle(s),
@@ -41,7 +53,7 @@ List<SubscriptionExpiry> subscriptionsExpiringInNext30Days(
 }) {
   final start = now ?? DateTime.now();
   final end = start.add(const Duration(days: 30));
-  return subscriptionExpiries(user).where((expiry) {
+  return subscriptionExpiries(user, now: start).where((expiry) {
     final date = expiry.endDate?.toDate();
     return date != null && date.isAfter(start) && !date.isAfter(end);
   }).toList();
@@ -58,11 +70,24 @@ int countSubscriptionsExpiringInNext30Days(
   );
 }
 
-bool hasNoActiveSubscription(FitropeUser user) {
-  return user.subscriptionModelVersion >= 2
-      ? user.activeSubscriptions.isEmpty
-      : user.fineIscrizione == null;
+/// Vero se il profilo ha almeno un abbonamento non scaduto rispetto a [now]
+/// (default: ora): uno snapshot vivo (stesso confine di `liveSubscriptions`,
+/// vivo fino a `endDate` compreso) oppure, per i soli documenti V1 senza
+/// snapshot vivo, una `fineIscrizione` non ancora passata.
+bool hasLiveSubscription(FitropeUser user, {DateTime? now}) {
+  final ref = now ?? DateTime.now();
+  if (liveSubscriptions(user.activeSubscriptions, now: ref).isNotEmpty) {
+    return true;
+  }
+  if (user.subscriptionModelVersion >= 2) return false;
+  final end = user.fineIscrizione?.toDate();
+  return end != null && !ref.isAfter(end);
 }
+
+/// Complemento di [hasLiveSubscription]: nessun abbonamento, oppure solo
+/// abbonamenti scaduti ancora presenti nello snapshot o nella data legacy.
+bool hasNoActiveSubscription(FitropeUser user, {DateTime? now}) =>
+    !hasLiveSubscription(user, now: now);
 
 bool hasSubscriptionExpiringInNext30Days(FitropeUser user, {DateTime? now}) {
   return subscriptionsExpiringInNext30Days(user, now: now).isNotEmpty;

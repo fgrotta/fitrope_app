@@ -565,8 +565,12 @@ Ogni utente ha in Firestore `emailNotificationsEnabled` e `pushNotificationsEnab
 
 `lib/pages/protected/admin_dashboard_page.dart` contiene:
 
-- `AdminDashboardPage`: sezioni analisi utenti, corsi (ultimi 6 mesi) e abbonamenti con grafici a barre
-- `UserListDrawer`: drawer laterale con lista utenti ricercabile (nome, email, telefono), aperto dalla dashboard o dall'area admin
+- `AdminDashboardPage`: sezioni analisi utenti, corsi (ultimi 6 mesi) e abbonamenti con grafici a barre. Un solo `now` per build, passato a tutte le sezioni. Le prime tre sezioni guardano solo i **clienti**: profili `isActive` con almeno un abbonamento non scaduto (`hasLiveSubscription` in `lib/utils/subscription_expiry.dart`: V2 = `liveSubscriptions` non vuoto, V1 = `fineIscrizione` non passata). L'ultima, "Clienti con nessun abbonamento attivo", è il complemento (`hasNoActiveSubscription`, Admin/Trainer esclusi): chi ha solo abbonamenti scaduti finisce lì. Nessuna distribuzione legacy `TipologiaIscrizione`:
+  - **Utenti**: KPI "Clienti con abbonamento attivo"/nuovi, poi "Per durata abbonamento" (Prova → Mensile → Trimestrale → Semestrale → Annuale, sempre tutte e cinque) e "Abbonamenti per tipologia" (Open, Personal Trainer in ordine fisso). Entrambe contano **soci**, non abbonamenti: il numero coincide con le righe del drawer; un socio con durate diverse compare in più voci, quindi la somma può superare "Totale attivi". Logica pura in `lib/utils/subscription_duration.dart`.
+  - **Abbonamenti**: "Abbonamenti in scadenza (prossimi 30 gg)" e "Ingressi medi residui", media sui soli abbonamenti vivi `billingMode == ENTRIES` (`averageRemainingEntries`).
+  - Nei grafici a barre le voci a zero non sono tappabili (niente drawer vuoto).
+  - **Corsi**: i conteggi dei corsi restano sui corsi; le liste utenti aperte al tap contengono solo clienti.
+- `UserListDrawer`: drawer laterale con lista utenti ricercabile (nome, email, telefono), aperto dalla dashboard o dall'area admin. Per ogni utente una riga per abbonamento (piano + "Scade il"/"Scaduto il" gg/mm/aaaa, in `Wrap` così la data va a capo invece di troncare); "Nessun abbonamento attivo" se non ce ne sono
 
 La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in `protected.dart` gestisce l'`endDrawer` con la chiave globale `_scaffoldKey`.
 
@@ -576,7 +580,7 @@ La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in
 
 Test focalizzati su logica iscrizioni, serializzazione modelli, sale, course types, subscription plans/labels, update diff-based e waitlist. Suite principali:
 
-- `active_subscriptions_state_test.dart`, `user_subscription_test.dart`, `subscription_plans_test.dart`, `subscription_labels_test.dart`
+- `active_subscriptions_state_test.dart`, `user_subscription_test.dart`, `subscription_plans_test.dart`, `subscription_labels_test.dart`, `subscription_duration_test.dart`
 - `course_unsubscribe_test.dart`, `enrollment_new_logic_test.dart`, `enrollment_current_logic_test.dart`, `subscribe_restriction_test.dart`, `enrollment_mismatch_test.dart`
 - `waitlist_state_test.dart`, `waitlist_operations_test.dart`, `course_flags_test.dart`, `course_state_edge_cases_test.dart`
 - `create_course_test.dart`, `update_course_test.dart`, `update_user_test.dart`, `get_users_test.dart`, `course_correction_test.dart`

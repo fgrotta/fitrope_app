@@ -6,13 +6,11 @@ import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
-import 'package:fitrope_app/types/user_subscription.dart';
-import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
 import 'package:fitrope_app/utils/subscription_labels.dart';
 import 'package:fitrope_app/utils/subscription_expiry.dart';
 import 'package:fitrope_app/utils/download_file.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
-import 'package:fitrope_app/utils/subscription_ordering.dart';
+import 'package:fitrope_app/utils/subscription_duration.dart';
 import 'package:fitrope_app/utils/users_csv.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -117,9 +115,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
     final users = _users!;
     final courses = _courses!;
-    final sixMonthsAgo = DateTime.now().subtract(const Duration(days: 180));
+    final now = DateTime.now();
+    final sixMonthsAgo = now.subtract(const Duration(days: 180));
     final coursesLast6Months = courses
         .where((c) => c.startDate.toDate().isAfter(sixMonthsAgo))
+        .toList();
+    // Le sezioni analitiche guardano solo i clienti: profili attivi con almeno
+    // un abbonamento non scaduto. L'ultima sezione elenca il complemento.
+    final clients = users
+        .where((u) => u.isActive && hasLiveSubscription(u, now: now))
         .toList();
 
     return RefreshIndicator(
@@ -138,19 +142,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   ),
             ),
             const SizedBox(height: 24),
-            _SectionUtenti(users: users, onOpenUserList: widget.onOpenUserList),
+            _SectionUtenti(
+              clients: clients,
+              now: now,
+              onOpenUserList: widget.onOpenUserList,
+            ),
             const SizedBox(height: 24),
             _SectionCorsi(
               courses: coursesLast6Months,
-              users: users,
+              clients: clients,
               onOpenUserList: widget.onOpenUserList,
             ),
             const SizedBox(height: 24),
             _SectionAbbonamenti(
-                users: users, onOpenUserList: widget.onOpenUserList),
+              clients: clients,
+              now: now,
+              onOpenUserList: widget.onOpenUserList,
+            ),
             const SizedBox(height: 24),
             _SectionAbbonamentiSenzaData(
-                users: users, onOpenUserList: widget.onOpenUserList),
+              users: users,
+              now: now,
+              onOpenUserList: widget.onOpenUserList,
+            ),
           ],
         ),
       ),
@@ -233,6 +247,7 @@ class _UserListDrawerState extends State<UserListDrawer> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredUsers;
+    final now = DateTime.now();
     return Drawer(
       child: Column(
         children: [
@@ -283,15 +298,6 @@ class _UserListDrawerState extends State<UserListDrawer> {
                 final u = filtered[index];
                 final phone = u.numeroTelefono?.trim();
                 final hasPhone = phone != null && phone.isNotEmpty;
-                final expiries = subscriptionExpiries(u);
-                final scadenzaText = u.subscriptionModelVersion >= 2 &&
-                        expiries.isEmpty
-                    ? 'Nessun abbonamento attivo'
-                    : expiries
-                        .where((expiry) => expiry.endDate != null)
-                        .map((expiry) =>
-                            '${expiry.label}: ${_dashboardUserListDateFormat.format(expiry.endDate!.toDate())}')
-                        .join(' · ');
                 return ListTile(
                   title: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,36 +333,18 @@ class _UserListDrawerState extends State<UserListDrawer> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              hasPhone ? phone : '—',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: onSurfaceVariantColor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Scadenza abb.: $scadenzaText',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.end,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: onSurfaceVariantColor,
-                              ),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 4),
+                      Text(
+                        hasPhone ? phone : '—',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: onSurfaceVariantColor,
+                        ),
                       ),
+                      const SizedBox(height: 6),
+                      _UserSubscriptionLines(user: u, now: now),
                     ],
                   ),
                   dense: true,
@@ -379,120 +367,138 @@ class _UserListDrawerState extends State<UserListDrawer> {
   }
 }
 
-class _SectionUtenti extends StatelessWidget {
-  final List<FitropeUser> users;
-  final void Function(String title, List<FitropeUser> users) onOpenUserList;
+/// Una riga per abbonamento: tipologia a sinistra, scadenza a destra (o sotto,
+/// se non c'è spazio). Prima
+/// era un'unica riga "Scadenza abb.: …" a metà larghezza e `maxLines: 1`, che
+/// veniva troncata subito dopo l'etichetta e non mostrava né piano né data.
+class _UserSubscriptionLines extends StatelessWidget {
+  final FitropeUser user;
+  final DateTime now;
 
-  const _SectionUtenti({required this.users, required this.onOpenUserList});
+  const _UserSubscriptionLines({required this.user, required this.now});
+
+  static const _style = TextStyle(fontSize: 12, color: onSurfaceVariantColor);
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final expiries = subscriptionExpiries(user, now: now)
+        .where((e) => e.endDate != null)
+        .toList();
+    if (expiries.isEmpty) {
+      return const Text('Nessun abbonamento attivo', style: _style);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final expiry in expiries)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            // Wrap e non Row: se piano e data non stanno su una riga la data
+            // va a capo, invece di troncare il piano o andare in overflow.
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 10,
+              children: [
+                Text(expiry.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _style.copyWith(color: onSurfaceColor)),
+                _expiryText(expiry.endDate!.toDate()),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _expiryText(DateTime end) {
+    final date = _dashboardUserListDateFormat.format(end);
+    if (now.isAfter(end)) {
+      return Text('Scaduto il $date',
+          style: _style.copyWith(color: errorColor));
+    }
+    return Text('Scade il $date', style: _style);
+  }
+}
+
+class _SectionUtenti extends StatelessWidget {
+  final List<FitropeUser> clients;
+  final DateTime now;
+  final void Function(String title, List<FitropeUser> users) onOpenUserList;
+
+  const _SectionUtenti({
+    required this.clients,
+    required this.now,
+    required this.onOpenUserList,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
 
-    final activeList = users.where((u) => u.isActive).toList();
-    final active = activeList.length;
     final new7List =
-        activeList.where((u) => u.createdAt.isAfter(sevenDaysAgo)).toList();
+        clients.where((u) => u.createdAt.isAfter(sevenDaysAgo)).toList();
     final new30List =
-        activeList.where((u) => u.createdAt.isAfter(thirtyDaysAgo)).toList();
+        clients.where((u) => u.createdAt.isAfter(thirtyDaysAgo)).toList();
     final new7 = new7List.length;
     final new30 = new30List.length;
 
-    final legacyActiveList =
-        activeList.where((u) => u.subscriptionModelVersion < 2).toList();
-    final byTipologia = <TipologiaIscrizione, int>{};
-    for (final u in legacyActiveList) {
-      if (u.tipologiaIscrizione != null) {
-        byTipologia[u.tipologiaIscrizione!] =
-            (byTipologia[u.tipologiaIscrizione!] ?? 0) + 1;
-      }
-    }
-    final tipologiaEntries = orderedTipologiaCounts(byTipologia)
-        .where((entry) => entry.value > 0)
-        .toList();
-
-    // Distribuzione per famiglia: conta le subscription V2, non gli utenti.
-    // La lista associata resta deduplicata per rendere sensato il tap sul KPI.
-    final byFamily = <SubscriptionFamily, int>{};
-    final usersByFamily = <SubscriptionFamily, List<FitropeUser>>{};
-    for (final u in activeList) {
-      for (final subscription in liveSubscriptions(u.activeSubscriptions)) {
-        final family = subscription.family;
-        byFamily[family] = (byFamily[family] ?? 0) + 1;
-        final familyUsers = usersByFamily[family] ??= [];
-        if (!familyUsers.any((candidate) => candidate.uid == u.uid)) {
-          familyUsers.add(u);
-        }
-      }
-    }
-    final familyEntries = byFamily.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final durationEntries = usersBySubscriptionDuration(clients, now: now);
+    final familyEntries = usersBySubscriptionFamily(clients, now: now);
 
     return _DashboardCard(
       title: 'Utenti',
       icon: Icons.people,
       children: [
-        _MetricRow('Totale attivi', '$active',
-            onTap: () => onOpenUserList('Utenti attivi', activeList)),
+        _MetricRow('Clienti con abbonamento attivo', '${clients.length}',
+            onTap: () =>
+                onOpenUserList('Clienti con abbonamento attivo', clients)),
         _MetricRow('Nuovi (ultimi 7 giorni)', '$new7',
             onTap: () => onOpenUserList('Nuovi (ultimi 7 giorni)', new7List)),
         _MetricRow('Nuovi (ultimi 30 giorni)', '$new30',
             onTap: () => onOpenUserList('Nuovi (ultimi 30 giorni)', new30List)),
-        if (tipologiaEntries.isNotEmpty) ...[
-          const Divider(height: 24),
-          Text('Per tipologia legacy', style: _sectionLabelStyle(context)),
-          const SizedBox(height: 12),
-          _TipologieCorsiChart(
-            entries: tipologiaEntries
-                .map((e) => MapEntry(_labelTipologia(e.key), e.value))
-                .toList(),
-            userListsPerEntry: tipologiaEntries
-                .map((e) => legacyActiveList
-                    .where((u) => u.tipologiaIscrizione == e.key)
-                    .toList())
-                .toList(),
-            onEntryTap: (i) => onOpenUserList(
-                _labelTipologia(tipologiaEntries[i].key),
-                legacyActiveList
-                    .where(
-                        (u) => u.tipologiaIscrizione == tipologiaEntries[i].key)
-                    .toList()),
-          ),
-        ],
-        if (familyEntries.isNotEmpty) ...[
-          const Divider(height: 24),
-          Text('Abbonamenti per famiglia', style: _sectionLabelStyle(context)),
-          const SizedBox(height: 12),
-          _TipologieCorsiChart(
-            entries: familyEntries
-                .map(
-                    (e) => MapEntry(getSubscriptionFamilyLabel(e.key), e.value))
-                .toList(),
-            userListsPerEntry:
-                familyEntries.map((e) => usersByFamily[e.key]!).toList(),
-            onEntryTap: (i) => onOpenUserList(
-                getSubscriptionFamilyLabel(familyEntries[i].key),
-                usersByFamily[familyEntries[i].key]!),
-          ),
-        ],
+        const Divider(height: 24),
+        Text('Per durata abbonamento', style: _sectionLabelStyle(context)),
+        const SizedBox(height: 12),
+        _TipologieCorsiChart(
+          entries: durationEntries
+              .map((e) => MapEntry(e.key.label, e.value.length))
+              .toList(),
+          userListsPerEntry: durationEntries.map((e) => e.value).toList(),
+          onEntryTap: (i) => onOpenUserList(
+              durationEntries[i].key.label, durationEntries[i].value),
+        ),
+        const Text(
+          'Un socio con abbonamenti di durate diverse compare in ciascuna voce.',
+          style: TextStyle(color: onSurfaceVariantColor, fontSize: 13),
+        ),
+        const Divider(height: 24),
+        Text('Abbonamenti per tipologia', style: _sectionLabelStyle(context)),
+        const SizedBox(height: 12),
+        _TipologieCorsiChart(
+          entries: familyEntries
+              .map((e) =>
+                  MapEntry(getSubscriptionFamilyLabel(e.key), e.value.length))
+              .toList(),
+          userListsPerEntry: familyEntries.map((e) => e.value).toList(),
+          onEntryTap: (i) => onOpenUserList(
+              getSubscriptionFamilyLabel(familyEntries[i].key),
+              familyEntries[i].value),
+        ),
       ],
     );
   }
-
-  String _labelTipologia(TipologiaIscrizione t) =>
-      getTipologiaIscrizioneLabel(t);
 }
 
 class _SectionCorsi extends StatelessWidget {
   final List<Course> courses;
-  final List<FitropeUser> users;
+  final List<FitropeUser> clients;
   final void Function(String title, List<FitropeUser> users) onOpenUserList;
 
   const _SectionCorsi({
     required this.courses,
-    required this.users,
+    required this.clients,
     required this.onOpenUserList,
   });
 
@@ -519,19 +525,18 @@ class _SectionCorsi extends StatelessWidget {
     final tagEntries = byTag.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final activeUsers = users.where((u) => u.isActive).toList();
     final courseIdsLast6Months = courses.map((c) => c.uid).toSet();
-    final usersWithCourseLast6Months = activeUsers
+    final usersWithCourseLast6Months = clients
         .where((u) => u.courses.any((id) => courseIdsLast6Months.contains(id)))
         .toList();
-    final usersInFullCourse = activeUsers
+    final usersInFullCourse = clients
         .where(
             (u) => u.courses.any((id) => fullCourses.any((c) => c.uid == id)))
         .toList();
 
     final userListsByTag = tagEntries.map((e) {
       final tag = e.key;
-      return activeUsers
+      return clients
           .where((u) => u.courses.any((courseId) {
                 final c = courses.where((c) => c.uid == courseId).firstOrNull;
                 if (c == null) return false;
@@ -626,7 +631,7 @@ class _TipologieCorsiChart extends StatelessWidget {
             ],
           ),
         );
-        if (canTap) {
+        if (canTap && e.value > 0) {
           return InkWell(
             onTap: () => onEntryTap!(i),
             borderRadius: BorderRadius.circular(4),
@@ -640,186 +645,62 @@ class _TipologieCorsiChart extends StatelessWidget {
 }
 
 class _SectionAbbonamenti extends StatelessWidget {
-  final List<FitropeUser> users;
+  final List<FitropeUser> clients;
+  final DateTime now;
   final void Function(String title, List<FitropeUser> users) onOpenUserList;
 
-  const _SectionAbbonamenti(
-      {required this.users, required this.onOpenUserList});
+  const _SectionAbbonamenti({
+    required this.clients,
+    required this.now,
+    required this.onOpenUserList,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final activeUsers = users.where((u) => u.isActive).toList();
-
-    final expiringSoonList =
-        activeUsers.where(hasSubscriptionExpiringInNext30Days).toList();
-    final expiringSoon = countSubscriptionsExpiringInNext30Days(activeUsers);
-
-    final pacchettoUsers = <FitropeUser>[];
-    final entryBalances = <int>[];
-    for (final u in activeUsers) {
-      if (u.subscriptionModelVersion >= 2) {
-        final entrySubscriptions = u.activeSubscriptions
-            .where((subscription) =>
-                subscription.billingMode == BillingMode.ENTRIES)
-            .toList();
-        if (entrySubscriptions.isNotEmpty) {
-          pacchettoUsers.add(u);
-          entryBalances.addAll(entrySubscriptions
-              .map((subscription) => subscription.remainingEntries ?? 0));
-        }
-      } else if (u.tipologiaIscrizione ==
-              TipologiaIscrizione.PACCHETTO_ENTRATE ||
-          u.tipologiaIscrizione == TipologiaIscrizione.ABBONAMENTO_PROVA) {
-        pacchettoUsers.add(u);
-        entryBalances.add(u.entrateDisponibili ?? 0);
-      }
-    }
-    final avgCredits = entryBalances.isEmpty
-        ? 0.0
-        : entryBalances.reduce((a, b) => a + b) / entryBalances.length;
-
-    final legacyActiveUsers =
-        activeUsers.where((u) => u.subscriptionModelVersion < 2).toList();
-    final byTipologia = <TipologiaIscrizione, int>{};
-    for (final u in legacyActiveUsers) {
-      if (u.tipologiaIscrizione != null) {
-        byTipologia[u.tipologiaIscrizione!] =
-            (byTipologia[u.tipologiaIscrizione!] ?? 0) + 1;
-      }
-    }
-
-    // V2 conta ogni piano autonomamente; finche' esistono utenti V1 il loro
-    // unico piano legacy resta visibile, senza mischiare dati stantii V1/V2.
-    final byPlan = <String, List<FitropeUser>>{};
-    for (final u in activeUsers) {
-      final now = DateTime.now();
-      final labels = u.subscriptionModelVersion >= 2
-          ? subscriptionExpiries(u)
-              .where((e) =>
-                  e.endDate != null && !e.endDate!.toDate().isBefore(now))
-              .map((e) => e.label)
-          : [
-              u.tipologiaIscrizione == null
-                  ? 'Legacy non impostato'
-                  : _labelTipologia(u.tipologiaIscrizione!),
-            ];
-      for (final label in labels) {
-        (byPlan[label] ??= []).add(u);
-      }
-    }
-
-    // Per ogni tipologia, conteggio utenti per tag (tipologiaCorsoTags)
-    final byTipologiaAndTag = <TipologiaIscrizione, Map<String, int>>{};
-    for (final u in legacyActiveUsers) {
-      if (u.tipologiaIscrizione == null) continue;
-      final tip = u.tipologiaIscrizione!;
-      byTipologiaAndTag.putIfAbsent(tip, () => {});
-      final tags =
-          u.tipologiaCorsoTags.isEmpty ? ['Nessun tag'] : u.tipologiaCorsoTags;
-      for (final tag in tags) {
-        byTipologiaAndTag[tip]![tag] = (byTipologiaAndTag[tip]![tag] ?? 0) + 1;
-      }
-    }
-
-    final tipologiaEntries = orderedTipologiaCounts(byTipologia)
-        .where((entry) => entry.value > 0)
+    final expiringSoonList = clients
+        .where((u) => hasSubscriptionExpiringInNext30Days(u, now: now))
         .toList();
+    final expiringSoon =
+        countSubscriptionsExpiringInNext30Days(clients, now: now);
+
+    final (entryUsers, avgEntries) = averageRemainingEntries(clients, now: now);
 
     return _DashboardCard(
       title: 'Abbonamenti',
       icon: Icons.card_membership,
       children: [
-        if (byPlan.isNotEmpty) ...[
-          Text('Distribuzione per piano', style: _sectionLabelStyle(context)),
-          const SizedBox(height: 8),
-          ...byPlan.entries.map((entry) => _MetricRow(
-                entry.key,
-                '${entry.value.length}',
-                onTap: () => onOpenUserList(entry.key, entry.value),
-              )),
-          const Divider(height: 24),
-        ],
-        if (tipologiaEntries.isNotEmpty)
-          Text('Distribuzione legacy per tipologia',
-              style: _sectionLabelStyle(context)),
-        const SizedBox(height: 8),
-        ...tipologiaEntries.map(
-          (e) => _MetricRow(
-            _labelTipologia(e.key),
-            '${e.value}',
-            onTap: () => onOpenUserList(
-                _labelTipologia(e.key),
-                legacyActiveUsers
-                    .where((u) => u.tipologiaIscrizione == e.key)
-                    .toList()),
-          ),
-        ),
-        ...tipologiaEntries.expand((e) {
-          final tagCounts = byTipologiaAndTag[e.key];
-          if (tagCounts == null || tagCounts.isEmpty) return <Widget>[];
-          final sorted = tagCounts.entries.toList()
-            ..sort((a, b) => b.value.compareTo(a.value));
-          final usersForTipologia = legacyActiveUsers
-              .where((u) => u.tipologiaIscrizione == e.key)
-              .toList();
-          final userListsPerTag = sorted
-              .map((tagEntry) => usersForTipologia.where((u) {
-                    final tags = u.tipologiaCorsoTags.isEmpty
-                        ? ['Nessun tag']
-                        : u.tipologiaCorsoTags;
-                    return tags.contains(tagEntry.key);
-                  }).toList())
-              .toList();
-          return [
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Text(
-              '${_labelTipologia(e.key)} – per tag',
-              style: _sectionLabelStyle(context),
-            ),
-            const SizedBox(height: 8),
-            _TipologieCorsiChart(
-              entries: sorted,
-              userListsPerEntry: userListsPerTag,
-              onEntryTap: (i) => onOpenUserList(
-                  '${_labelTipologia(e.key)} – ${sorted[i].key}',
-                  userListsPerTag[i]),
-            ),
-          ];
-        }),
-        const Divider(height: 24),
         _MetricRow('Abbonamenti in scadenza (prossimi 30 gg)', '$expiringSoon',
             onTap: () => onOpenUserList(
                 'Abbonamenti in scadenza (prossimi 30 gg)', expiringSoonList)),
         _MetricRow(
           'Ingressi medi residui (piani a ingressi)',
-          avgCredits.toStringAsFixed(1),
-          onTap: () => onOpenUserList('Piani a ingressi', pacchettoUsers),
+          avgEntries.toStringAsFixed(1),
+          onTap: () => onOpenUserList('Piani a ingressi', entryUsers),
         ),
       ],
     );
   }
-
-  String _labelTipologia(TipologiaIscrizione t) =>
-      getTipologiaIscrizioneLabel(t);
 }
 
-/// Sezione che elenca i profili senza abbonamenti attivi. Per V1 mantiene il
-/// controllo storico sulla data nulla; per V2 non interpreta piu' una data
-/// legacy stantia e mostra invece l'assenza dello snapshot attivo.
+/// Sezione che elenca i profili senza abbonamenti non scaduti: complemento
+/// dei clienti delle altre sezioni ([hasNoActiveSubscription]), Admin e
+/// Trainer esclusi. Chi ha solo abbonamenti scaduti compare qui.
 class _SectionAbbonamentiSenzaData extends StatelessWidget {
   final List<FitropeUser> users;
+  final DateTime now;
   final void Function(String title, List<FitropeUser> users) onOpenUserList;
 
-  const _SectionAbbonamentiSenzaData(
-      {required this.users, required this.onOpenUserList});
+  const _SectionAbbonamentiSenzaData({
+    required this.users,
+    required this.now,
+    required this.onOpenUserList,
+  });
 
   @override
   Widget build(BuildContext context) {
     final senzaData = users
         .where((u) =>
-            hasNoActiveSubscription(u) &&
+            hasNoActiveSubscription(u, now: now) &&
             u.role != 'Admin' &&
             u.role != 'Trainer')
         .toList()
@@ -828,7 +709,7 @@ class _SectionAbbonamentiSenzaData extends StatelessWidget {
           .compareTo(('${b.name} ${b.lastName}').toLowerCase()));
 
     return _DashboardCard(
-      title: 'Nessun abbonamento attivo',
+      title: 'Clienti con nessun abbonamento attivo',
       icon: Icons.event_busy,
       children: [
         _MetricRow(
@@ -836,7 +717,8 @@ class _SectionAbbonamentiSenzaData extends StatelessWidget {
           '${senzaData.length}',
           onTap: senzaData.isEmpty
               ? null
-              : () => onOpenUserList('Nessun abbonamento attivo', senzaData),
+              : () => onOpenUserList(
+                  'Clienti con nessun abbonamento attivo', senzaData),
         ),
         const SizedBox(height: 8),
         if (senzaData.isEmpty)
