@@ -210,3 +210,48 @@ Future<void> sendTestCertificateExpiryEmail({
     rethrow;
   }
 }
+
+/// Manda un payload di prova al webhook Make verso [numeroTelefono] e
+/// restituisce l'esito e il body effettivamente inviato, così la pagina di
+/// debug può mostrarlo. Lato server richiede il ruolo Admin e
+/// WHATSAPP_DEMO_MODE=test|live. [kind] vale `'booked'` (tipo `conferma`) o
+/// `'reminder'` (tipo `promemoria`); i campi vuoti ricadono su default.
+Future<({bool ok, int status, Map<String, String> payload})>
+    sendTestDemoLessonWebhook({
+  required String numeroTelefono,
+  String kind = 'booked',
+  String? nome,
+  String? corso,
+  String? giorno,
+  String? orario,
+}) async {
+  SimulationSession.assertNotSimulating('sendTestDemoLessonWebhook');
+  assert(kDebugMode);
+  debugPrint('📲 [Make] test webhook — kind: $kind');
+  try {
+    final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
+        .httpsCallable('sendTestDemoLessonWebhook');
+    final result = await callable.call({
+      'numeroTelefono': numeroTelefono,
+      'kind': kind,
+      'nome': nome ?? '',
+      'corso': corso ?? '',
+      'giorno': giorno ?? '',
+      'orario': orario ?? '',
+    });
+    debugPrint('📲 [Make] test webhook — RESPONSE: ${result.data}');
+    final data = (result.data as Map<Object?, Object?>?) ?? const {};
+    final payload = (data['payload'] as Map<Object?, Object?>?) ?? const {};
+    return (
+      ok: data['ok'] == true,
+      status: (data['status'] as num?)?.toInt() ?? 0,
+      payload: payload.map((key, value) => MapEntry('$key', '$value')),
+    );
+  } on FirebaseFunctionsException catch (e) {
+    debugPrint('📲 [Make] test webhook — ERROR ${e.code}: ${e.message}');
+    rethrow;
+  } catch (e) {
+    debugPrint('📲 [Make] test webhook — ERROR: $e');
+    rethrow;
+  }
+}
