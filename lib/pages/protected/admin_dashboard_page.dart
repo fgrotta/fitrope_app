@@ -252,7 +252,14 @@ class _UserListDrawerState extends State<UserListDrawer> {
       child: Column(
         children: [
           AppBar(
-            title: Text(widget.title),
+            // I titoli arrivano dalle voci della dashboard e superano spesso
+            // la larghezza del drawer: due righe invece di troncarli.
+            title: Text(
+              widget.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () {
@@ -662,6 +669,8 @@ class _SectionAbbonamenti extends StatelessWidget {
         .toList();
     final expiringSoon =
         countSubscriptionsExpiringInNext30Days(clients, now: now);
+    final expiringByDuration =
+        usersByExpiringSubscriptionDuration(clients, now: now);
 
     final (entryUsers, avgEntries) = averageRemainingEntries(clients, now: now);
 
@@ -672,6 +681,25 @@ class _SectionAbbonamenti extends StatelessWidget {
         _MetricRow('Abbonamenti in scadenza (prossimi 30 gg)', '$expiringSoon',
             onTap: () => onOpenUserList(
                 'Abbonamenti in scadenza (prossimi 30 gg)', expiringSoonList)),
+        const SizedBox(height: 12),
+        Text('In scadenza per durata', style: _sectionLabelStyle(context)),
+        const SizedBox(height: 12),
+        _TipologieCorsiChart(
+          entries: expiringByDuration
+              .map((e) => MapEntry(e.key.label, e.value.length))
+              .toList(),
+          userListsPerEntry: expiringByDuration.map((e) => e.value).toList(),
+          onEntryTap: (i) => onOpenUserList(
+              'In scadenza (30 gg) – ${expiringByDuration[i].key.label}',
+              expiringByDuration[i].value),
+        ),
+        const Text(
+          'Conta i clienti per durata dell\'abbonamento che scade: chi ne ha più '
+          'd\'uno in scadenza compare in ciascuna voce. I piani legacy non '
+          'hanno una durata e restano solo nel totale.',
+          style: TextStyle(color: onSurfaceVariantColor, fontSize: 13),
+        ),
+        const Divider(height: 24),
         _MetricRow(
           'Ingressi medi residui (piani a ingressi)',
           avgEntries.toStringAsFixed(1),

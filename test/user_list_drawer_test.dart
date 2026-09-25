@@ -108,6 +108,27 @@ void main() {
     expect(find.textContaining('Scade il '), findsOneWidget);
   });
 
+  testWidgets('titolo lungo va a capo invece di stare su una riga',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        endDrawer: UserListDrawer(
+          title: 'In scadenza (30 gg) – Abbonamento trimestrale',
+          users: [_user()],
+          onClose: () {},
+        ),
+        body: const SizedBox(),
+      ),
+    ));
+    tester.firstState<ScaffoldState>(find.byType(Scaffold)).openEndDrawer();
+    await tester.pumpAndSettle();
+
+    final title = find.text('In scadenza (30 gg) – Abbonamento trimestrale');
+    expect(title, findsOneWidget);
+    expect(tester.getSize(title).height, greaterThan(16),
+        reason: 'deve andare a capo');
+  });
+
   testWidgets('senza abbonamenti: messaggio esplicito', (tester) async {
     await _openDrawer(tester, _user());
 

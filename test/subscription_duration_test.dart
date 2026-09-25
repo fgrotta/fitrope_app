@@ -233,4 +233,118 @@ void main() {
       expect(avg, 0.0);
     });
   });
+
+  group('usersByExpiringSubscriptionDuration', () {
+    List<String> row(
+      List<MapEntry<SubscriptionDuration, List<FitropeUser>>> r,
+      SubscriptionDuration d,
+    ) =>
+        _uids(r[d.index].value);
+
+    test('input vuoto → cinque voci a zero, in ordine', () {
+      final result = usersByExpiringSubscriptionDuration(const [], now: _now);
+
+      expect(result.map((e) => e.key).toList(), SubscriptionDuration.values);
+      expect(result.every((e) => e.value.isEmpty), isTrue);
+    });
+
+    test('solo gli abbonamenti nella finestra dei 30 giorni', () {
+      final dentro = _user(
+        'dentro',
+        subscriptions: [
+          _sub('open_2x_1m', end: _now.add(const Duration(days: 10))),
+        ],
+      );
+      final bordo = _user(
+        'bordo',
+        subscriptions: [
+          _sub('open_2x_3m', end: _now.add(const Duration(days: 30))),
+        ],
+      );
+      final lontano = _user(
+        'lontano',
+        subscriptions: [
+          _sub('open_2x_6m', end: _now.add(const Duration(days: 31))),
+        ],
+      );
+      final scaduto = _user(
+        'scaduto',
+        subscriptions: [
+          _sub('open_2x_12m', end: _now.subtract(const Duration(days: 1))),
+        ],
+      );
+
+      final result = usersByExpiringSubscriptionDuration([
+        dentro,
+        bordo,
+        lontano,
+        scaduto,
+      ], now: _now);
+
+      expect(row(result, SubscriptionDuration.mensile), ['dentro']);
+      expect(row(result, SubscriptionDuration.trimestrale), ['bordo']);
+      expect(row(result, SubscriptionDuration.semestrale), isEmpty);
+      expect(row(result, SubscriptionDuration.annuale), isEmpty);
+    });
+
+    test('conta la durata dell\'abbonamento che scade, non degli altri', () {
+      final u = _user(
+        'a',
+        subscriptions: [
+          _sub('open_2x_1m', end: _now.add(const Duration(days: 5))),
+          _sub('pt_10i_12m', end: _now.add(const Duration(days: 200))),
+        ],
+      );
+
+      final result = usersByExpiringSubscriptionDuration([u], now: _now);
+
+      expect(row(result, SubscriptionDuration.mensile), ['a']);
+      expect(row(result, SubscriptionDuration.annuale), isEmpty);
+    });
+
+    test('due abbonamenti della stessa durata in scadenza → un socio', () {
+      final u = _user(
+        'a',
+        subscriptions: [
+          _sub('open_2x_1m', end: _now.add(const Duration(days: 5))),
+          _sub('pt_10i_1m', end: _now.add(const Duration(days: 8))),
+        ],
+      );
+
+      final result = usersByExpiringSubscriptionDuration([u], now: _now);
+
+      expect(row(result, SubscriptionDuration.mensile), ['a']);
+    });
+
+    test('la Prova in scadenza finisce nella sua voce', () {
+      final u = _user(
+        'p',
+        subscriptions: [
+          _sub('open_trial_1i_30d', end: _now.add(const Duration(days: 3))),
+        ],
+      );
+
+      final result = usersByExpiringSubscriptionDuration([u], now: _now);
+
+      expect(row(result, SubscriptionDuration.prova), ['p']);
+    });
+
+    test('piano legacy V1 in scadenza non ha durata e non compare', () {
+      final v1 = FitropeUser(
+        uid: 'v1',
+        email: 'v1@example.com',
+        name: 'Test',
+        lastName: 'v1',
+        role: 'User',
+        courses: const [],
+        createdAt: _now,
+        tipologiaIscrizione: TipologiaIscrizione.ABBONAMENTO_MENSILE,
+        fineIscrizione: Timestamp.fromDate(_now.add(const Duration(days: 5))),
+      );
+
+      final result = usersByExpiringSubscriptionDuration([v1], now: _now);
+
+      expect(result.every((e) => e.value.isEmpty), isTrue);
+    });
+  });
 }

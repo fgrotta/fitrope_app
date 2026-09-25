@@ -1,5 +1,6 @@
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
+import 'package:fitrope_app/utils/subscription_expiry.dart';
 import 'package:fitrope_app/utils/subscription_labels.dart';
 import 'package:fitrope_app/utils/subscription_plans.dart';
 
@@ -51,8 +52,28 @@ List<MapEntry<SubscriptionDuration, List<FitropeUser>>>
           users,
           SubscriptionDuration.values,
           subscriptionDurationOf,
-          now: now,
+          (u) => liveSubscriptions(u.activeSubscriptions, now: now),
         );
+
+/// Soci per durata degli abbonamenti che scadono nei prossimi 30 giorni
+/// ([expiresInNext30Days], la stessa finestra del KPI "Abbonamenti in
+/// scadenza"). Conta la durata dell'abbonamento che scade, non quella degli
+/// altri abbonamenti del socio. Solo modello V2: un piano legacy V1 non ha una
+/// durata di catalogo e resta fuori dalla ripartizione.
+List<MapEntry<SubscriptionDuration, List<FitropeUser>>>
+    usersByExpiringSubscriptionDuration(
+  Iterable<FitropeUser> users, {
+  DateTime? now,
+}) {
+  final ref = now ?? DateTime.now();
+  return _groupUsers(
+    users,
+    SubscriptionDuration.values,
+    subscriptionDurationOf,
+    (u) => u.activeSubscriptions
+        .where((s) => expiresInNext30Days(s.endDate.toDate(), ref)),
+  );
+}
 
 /// Soci per famiglia degli abbonamenti vivi, in ordine fisso
 /// [SubscriptionFamily.values] e con le famiglie a zero incluse. Stessa
@@ -66,21 +87,18 @@ List<MapEntry<SubscriptionFamily, List<FitropeUser>>> usersBySubscriptionFamily(
       users,
       SubscriptionFamily.values,
       (s) => s.family,
-      now: now,
+      (u) => liveSubscriptions(u.activeSubscriptions, now: now),
     );
 
 List<MapEntry<K, List<FitropeUser>>> _groupUsers<K>(
   Iterable<FitropeUser> users,
   List<K> keys,
-  K? Function(UserSubscription s) keyOf, {
-  DateTime? now,
-}) {
+  K? Function(UserSubscription s) keyOf,
+  Iterable<UserSubscription> Function(FitropeUser u) subscriptionsOf,
+) {
   final byKey = {for (final k in keys) k: <FitropeUser>[]};
   for (final u in users) {
-    final userKeys = liveSubscriptions(u.activeSubscriptions, now: now)
-        .map(keyOf)
-        .whereType<K>()
-        .toSet();
+    final userKeys = subscriptionsOf(u).map(keyOf).whereType<K>().toSet();
     for (final k in userKeys) {
       byKey[k]?.add(u);
     }

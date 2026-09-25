@@ -47,15 +47,20 @@ List<SubscriptionExpiry> subscriptionExpiries(
   ];
 }
 
+/// Finestra "in scadenza": [end] è dopo [now] e al più 30 giorni dopo
+/// (estremo finale compreso). Unica definizione, condivisa dal KPI e dalla
+/// sua ripartizione per durata, così i numeri non divergono sui bordi.
+bool expiresInNext30Days(DateTime end, DateTime now) =>
+    end.isAfter(now) && !end.isAfter(now.add(const Duration(days: 30)));
+
 List<SubscriptionExpiry> subscriptionsExpiringInNext30Days(
   FitropeUser user, {
   DateTime? now,
 }) {
   final start = now ?? DateTime.now();
-  final end = start.add(const Duration(days: 30));
   return subscriptionExpiries(user, now: start).where((expiry) {
     final date = expiry.endDate?.toDate();
-    return date != null && date.isAfter(start) && !date.isAfter(end);
+    return date != null && expiresInNext30Days(date, start);
   }).toList();
 }
 
