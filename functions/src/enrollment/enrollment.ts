@@ -50,6 +50,8 @@ export interface EnrollmentRequest {
 export interface EnrollmentDeps {
   notifyTrialReminder?: (userId: string, courseId: string) => Promise<void>;
   notifyTrialConfirmation?: (userId: string, courseId: string) => Promise<void>;
+  /** WhatsApp di conferma via webhook Make (solo con WHATSAPP_DEMO_MODE=live). */
+  notifyTrialWhatsapp?: (userId: string, courseId: string) => Promise<void>;
   notifyWaitlist?: (courseId: string) => Promise<void>;
 }
 
@@ -566,14 +568,18 @@ export async function subscribeToCourseHandler(
   });
 
   if (isTrialUser) {
-    // Best-effort e in parallelo: conferma immediata + promemoria schedulato.
-    // Un errore di notifica non deve far fallire un'iscrizione già committata.
+    // Best-effort e in parallelo: email di conferma, promemoria schedulato e
+    // WhatsApp di conferma. Un errore di notifica non deve far fallire
+    // un'iscrizione già committata.
     await Promise.all([
       deps.notifyTrialConfirmation
         ? deps.notifyTrialConfirmation(targetUserId, courseId).catch(() => undefined)
         : Promise.resolve(),
       deps.notifyTrialReminder
         ? deps.notifyTrialReminder(targetUserId, courseId).catch(() => undefined)
+        : Promise.resolve(),
+      deps.notifyTrialWhatsapp
+        ? deps.notifyTrialWhatsapp(targetUserId, courseId).catch(() => undefined)
         : Promise.resolve(),
     ]);
   }

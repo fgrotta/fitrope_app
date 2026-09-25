@@ -15,7 +15,7 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 
 | Callable | Handler | Cosa fa |
 |---|---|---|
-| `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, promemoria prova |
+| `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, notifiche prova (email di conferma, promemoria, WhatsApp di conferma via Make) |
 | `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, voce `cancelledEnrollments` con `entryLost` + `lostKind`. **La penalità segue la fonte realmente consumata** (registro `enrollmentConsumption`): se fu scalato un ingresso `lostKind` è `ENTRY` (non pesa sul limite settimanale), altrimenti `WEEKLY_SLOT`. La perdita **non è definitiva**: è recuperabile nella giornata (vedi "Recupero nella giornata"). **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
 | `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze). **`joinWaitlist` richiede l'idoneità**: esegue `evaluateSubscribe` con `courseFull: false` e rifiuta chi non potrebbe iscriversi (crediti esauriti, limite settimanale, scadenza, tag) |
 | `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot, max 1 attivo per famiglia |
@@ -143,6 +143,10 @@ Differenze deliberate rispetto al vecchio client (fix di bug, non regressioni):
   (`functions/src/enrollment/notify.ts`), con date in Europe/Rome; il promemoria
   prova NON parte per utenti già convertiti al multi-abbonamento (snapshot vivo),
   anche se `tipologiaIscrizione` legacy è rimasta `ABBONAMENTO_PROVA`.
+- il WhatsApp di conferma (webhook Make) parte dalla stessa decisione
+  `isTrialUser` (`functions/src/enrollment/trial.ts`), solo con
+  `WHATSAPP_DEMO_MODE=live`; il promemoria WhatsApp della sera prima è un cron
+  separato (`functions/src/whatsapp/reminders.ts`) che riusa lo stesso predicato.
 
 Restano client-side (con scritture dirette Firestore, migrazione pianificata,
 vedi `// TODO(server-migration)`):
