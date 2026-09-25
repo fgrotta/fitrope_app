@@ -23,6 +23,34 @@ const TRIAL_DAYS = 30;
 const PACKAGE_MONTHS = 3;
 const PACKAGE_ENTRIES = 10;
 
+const RECOGNIZED_LEGACY_TYPES = new Set([
+  "ABBONAMENTO_PROVA", "PACCHETTO_ENTRATE", ...Object.keys(MONTHS_BY_TYPE),
+]);
+
+/** Default condivisi dal batch e dalla migrazione puntuale Admin. */
+export function userNormalization(data: Data): {
+  fields: Record<string, unknown>;
+  pending: boolean;
+} {
+  const fields: Record<string, unknown> = {};
+  if (data.role === null || data.role === undefined ||
+      (typeof data.role === "string" && data.role.trim() === "")) {
+    fields.role = "User";
+  }
+  const tags = data.tipologiaCorsoTags;
+  if ((tags === null || tags === undefined ||
+      (Array.isArray(tags) && tags.length === 0)) &&
+      typeof data.tipologiaIscrizione === "string" &&
+      RECOGNIZED_LEGACY_TYPES.has(data.tipologiaIscrizione)) {
+    fields.tipologiaCorsoTags = ["Open"];
+  }
+  return { fields, pending: Object.keys(fields).length > 0 };
+}
+
+export function withUserNormalization(data: Data): Data {
+  return { ...data, ...userNormalization(data).fields };
+}
+
 export interface FutureBookingForMigration {
   courseId: string;
   startDateMillis: number;
@@ -167,6 +195,7 @@ export function transformUser(
   evaluatedAtMillis: number,
   futureBookings: FutureBookingForMigration[] = []
 ): MigrationDecision<SubscriptionMigrationTarget> {
+  data = withUserNormalization(data);
   const tags = data.tipologiaCorsoTags;
   if (Array.isArray(tags) && tags.includes("Hey Mamma")) {
     return ignored("HEY_MAMMA", "utente storico Hey Mamma");

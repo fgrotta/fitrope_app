@@ -9,10 +9,10 @@ dalla PR dedicata al modello corsi V2.
   simulare, applicare e verificare la migrazione. La sezione 21 descrive come
   provare l'intera sequenza su un replay dell'export PRD nell'emulatore, senza
   toccare il cloud.
-- [HANDOFF.md](HANDOFF.md): stato del worktree, decisioni approvate, gap e
-  ordine esatto con cui riprendere l'implementazione e le operazioni cloud. La
-  sezione 7 riporta l'esito della simulazione completa dell'8 settembre 2026 e i
-  rischi emersi, fra cui la deperibilità del manifest.
+- [HANDOFF.md](HANDOFF.md): in apertura lo stato noto al 23 settembre 2026;
+  le sezioni successive conservano lo storico del worktree iniziale. La
+  sezione 7 riporta la simulazione dell'8 settembre e la deperibilità del
+  manifest.
 - [Backup e ripristino Firestore](../../operations/FIRESTORE_BACKUP_RESTORE.md):
   prerequisito obbligatorio, drill e procedura di rollback.
 

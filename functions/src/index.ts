@@ -171,7 +171,7 @@ export const previewLegacyUserMigration = onCall(
     )),
 );
 
-/** Conversione esplicita AUTO/GUIDED, protetta da fingerprint e transazione. */
+/** Normalizzazione e conversione legacy Admin, protette da fingerprint e transazione. */
 export const migrateLegacyUser = onCall(
   { region: "europe-west8", cors: true },
   stagingCloneGuarded((request) =>

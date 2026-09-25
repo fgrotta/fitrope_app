@@ -27,6 +27,20 @@ class LegacyUserMigrationApi {
     return Map<String, dynamic>.from(result.data as Map);
   }
 
+  static Future<Map<String, dynamic>> normalize({
+    required String userId,
+    required String expectedFingerprint,
+  }) async {
+    final result = await _functions.httpsCallable('migrateLegacyUser').call(
+      <String, dynamic>{
+        'userId': userId,
+        'mode': 'NORMALIZE',
+        'expectedFingerprint': expectedFingerprint,
+      },
+    );
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
   static Future<Map<String, dynamic>> migrateGuided({
     required String userId,
     required String expectedFingerprint,

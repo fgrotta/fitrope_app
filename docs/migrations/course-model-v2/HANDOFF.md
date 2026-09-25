@@ -1,5 +1,33 @@
 # Handoff operativo — migrazione Course Model V2 e backup Firestore
 
+## Stato del repository al 23 settembre 2026
+
+`origin/develop` include le PR #29 e #30: il codice e il workflow staging
+includono il cutover V2 e il controllo delle relative callable. Lo stato live
+di staging non è stato ricontrollato in questo aggiornamento. Il cutover PRD
+non è documentato:
+l'ultimo dry-run read-only noto è quello del 16 settembre, mentre «zero
+subscription e zero corsi V2» è una verifica dell'8 settembre. Sono baseline
+storiche, non una misura dello stato live attuale. Prima di qualsiasi apply
+seguire il [runbook aggiornato](RUNBOOK.md), produrre un nuovo export e un
+nuovo dry-run PRD, poi revisionarli nella stessa finestra operativa.
+
+Il dry-run del 16 settembre riporta un blocker
+`SUBSCRIBED_COUNT_MISMATCH` su un corso futuro. Il suo conteggio va
+ricontrollato sui riferimenti utente correnti e risolto prima dell'apply:
+`--verify` fallisce finché un blocker rimane. La pubblicazione della nuova web
+app e delle rules richiede una finestra di manutenzione comune, con chiusura
+delle schede già aperte. Prima del verify eseguire anche l'audit/reconcile dei
+profili con subscription V2 senza `subscriptionModelVersion: 2`.
+
+La callable `createManagedUser` è Admin-only e la UI espone la creazione
+utenti solo agli Admin. La card `migrateLegacyUser` gestisce i profili `User`
+convertibili o guidati su tutti i breakpoint e offre `NORMALIZE` anche per
+profili esclusi o già migrati con default pendenti; i ruoli non `User` restano
+`NOT_APPLICABLE` per la conversione. Il testo seguente è uno
+storico dell'handoff iniziale: percorsi, branch, PR aperte e lavoro non
+committato delle sezioni 1–6 non descrivono più il worktree corrente.
+
 Aggiornato il 26 agosto 2026 (ripresa handoff). Questo documento permette a un nuovo agente o
 operatore di riprendere il lavoro senza ricostruire le decisioni dalla cronologia
 della conversazione.
@@ -123,9 +151,10 @@ Stati pubblici: `MIGRATED`, `AUTO_CONVERTIBLE`, `MANUAL_REQUIRED`, `CONFLICT`,
 - Batch e callable scrivono la stessa marca server-owned
   `legacySubscriptionMigration` con versione, origine, subscription, timestamp
   e attore.
-- La card in `UserDetailPage` è Admin-only, visibile soltanto su desktop e
-  soltanto per utenti non migrati. `CONFLICT` è read-only; dopo il successo la
-  cache viene invalidata e la card scompare.
+- La card in `UserDetailPage` è Admin-only, disponibile su tutti i breakpoint
+  per `AUTO_CONVERTIBLE` e `MANUAL_REQUIRED`. `CONFLICT` è read-only;
+  `NOT_APPLICABLE` non viene mostrato. Dopo il successo la cache viene
+  invalidata e la card scompare.
 
 ## 3. Lavoro presente ma non committato
 
@@ -256,8 +285,8 @@ La ripresa ha eliminato l'open handle e completato i test mirati con
 - Almeno un export PRD è stato importato e validato in un database temporaneo.
 - Backup staging e PRD sono scaricati sotto `/Users/Frank/Backups/FitRope/` con
   checksum e permessi privati.
-- Migrazione Admin automatica e guidata funzionano soltanto su desktop e solo
-  per utenti non migrati.
+- Migrazione Admin automatica e guidata disponibili su tutti i breakpoint per
+  profili `User` convertibili; `NOT_APPLICABLE` richiede decisione separata.
 - Report iscrizioni senza blocker sui corsi futuri e array storici invariati.
 - Staging è stato ripristinato allo stato originale e tutti i blocchi temporanei
   sono stati rimossi.

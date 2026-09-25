@@ -67,8 +67,12 @@ L'audit ha prodotto 1 blocker e 1.539 warning preesistenti:
 - 50 disiscrizioni riferite a corsi mancanti;
 - 300 mismatch storici del contatore iscritti.
 
-Il blocker impedisce un apply conforme al runbook finché non viene corretto o
-formalmente approvato. Il dry-run non ha effettuato alcuna scrittura.
+Il blocker impedisce un apply conforme al runbook finché non viene risolto:
+una sua approvazione non rende verde `--verify`, che restituisce codice 2 se
+`enrollmentBlockers > 0`. Prima di un eventuale recount occorre verificare i
+riferimenti utente e il conteggio reale. Il dry-run non ha effettuato alcuna
+scrittura. Questi numeri sono una fotografia del 16 settembre, non una
+verifica dello stato live successivo.
 
 ## Artefatti privati
 

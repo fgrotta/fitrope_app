@@ -9,7 +9,11 @@ Widget host(Widget child, {double width = 1200}) => MaterialApp(
       ),
     );
 
-Map<String, dynamic> result(String status) => <String, dynamic>{
+Map<String, dynamic> result(
+  String status, {
+  Map<String, dynamic> normalization = const {},
+}) =>
+    <String, dynamic>{
       'status': status,
       'expectedFingerprint': 'fingerprint',
       'reasonDetail': 'conflitto esistente',
@@ -18,6 +22,7 @@ Map<String, dynamic> result(String status) => <String, dynamic>{
         'entrateSettimanali': 2,
         'fineIscrizione': DateTime(2026, 12, 31).millisecondsSinceEpoch,
       },
+      'normalization': normalization,
       if (status == 'AUTO_CONVERTIBLE')
         'target': <String, dynamic>{'planKey': 'open_2x_1m'},
     };
@@ -93,6 +98,28 @@ void main() {
     expect(find.byType(FilledButton), findsNothing);
   });
 
+  testWidgets('un profilo auto convertibile può scegliere un piano guidato',
+      (tester) async {
+    await tester.pumpWidget(
+      host(
+        LegacyUserMigrationCard(
+          userId: 'u1',
+          preview: (_) async => result(
+            'AUTO_CONVERTIBLE',
+            normalization: <String, dynamic>{
+              'tipologiaCorsoTags': ['Open']
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('legacy-migration-guided-choice')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('legacy-migration-plan')), findsOneWidget);
+    expect(find.text('Migra con piano scelto'), findsOneWidget);
+  });
+
   testWidgets('MIGRATED e NOT_APPLICABLE non renderizzano la card',
       (tester) async {
     for (final status in ['MIGRATED', 'NOT_APPLICABLE']) {
@@ -107,6 +134,35 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('legacy-user-migration-card')), findsNothing);
+    }
+  });
+
+  testWidgets('offre NORMALIZE anche per profili esclusi o già migrati',
+      (tester) async {
+    for (final status in ['MIGRATED', 'NOT_APPLICABLE']) {
+      var normalized = false;
+      await tester.pumpWidget(
+        host(
+          LegacyUserMigrationCard(
+            key: ValueKey('normalizable-$status'),
+            userId: 'u1',
+            preview: (_) async => result(
+              status,
+              normalization: <String, dynamic>{'role': 'User'},
+            ),
+            normalize: (_, __) async {
+              normalized = true;
+              return <String, dynamic>{'status': 'NORMALIZED'};
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+          find.byKey(const Key('legacy-migration-normalize')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('legacy-migration-normalize')));
+      await tester.pumpAndSettle();
+      expect(normalized, isTrue);
     }
   });
 }
