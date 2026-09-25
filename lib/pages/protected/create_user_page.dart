@@ -4,14 +4,14 @@ import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fitrope_app/authentication/reset_password.dart';
+import 'package:fitrope_app/utils/email_validation.dart';
+import 'package:fitrope_app/utils/simulation_guard.dart';
 
 class CreateUserPage extends StatefulWidget {
   final String currentUserRole;
 
-  const CreateUserPage({
-    super.key,
-    required this.currentUserRole,
-  });
+  const CreateUserPage({super.key, required this.currentUserRole});
 
   @override
   State<CreateUserPage> createState() => _CreateUserPageState();
@@ -28,6 +28,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
   String? _selectedPlanKey = SubscriptionPlans.trial.key;
   bool _isAnonymous = false;
   bool _isLoading = false;
+  String? _emailServerError;
 
   @override
   void initState() {
@@ -44,6 +45,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
   }
 
   void _createUser() async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
     if (widget.currentUserRole != 'Admin') {
       SnackBarUtils.showErrorSnackBar(
         context,
@@ -61,7 +63,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
       final response = await createUser(
         email: _emailController.text.trim().isEmpty
             ? null
-            : _emailController.text.trim(),
+            : EmailValidation.normalize(_emailController.text),
         name: _nameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         role: _selectedRole,
@@ -74,12 +76,38 @@ class _CreateUserPageState extends State<CreateUserPage> {
       if (!mounted) return;
 
       if (response.user != null) {
-        SnackBarUtils.showSuccessSnackBar(
-          context,
-          'Utente creato con successo!',
-        );
+        var resetSent = true;
+        if (_emailController.text.trim().isNotEmpty) {
+          try {
+            await resetPassword(
+              EmailValidation.normalize(_emailController.text),
+            );
+          } catch (_) {
+            resetSent = false;
+          }
+        }
+        if (!mounted) return;
+        if (resetSent) {
+          SnackBarUtils.showSuccessSnackBar(
+            context,
+            _emailController.text.trim().isEmpty
+                ? 'Utente creato con successo!'
+                : 'Utente creato. Email di reset inviata.',
+          );
+        } else {
+          SnackBarUtils.showWarningSnackBar(
+            context,
+            'Utente creato, ma non è stato possibile inviare il reset. Potrai ritentare dal dettaglio utente.',
+          );
+        }
         Navigator.pop(context, true); // Ritorna true per indicare successo
       } else {
+        if (response.error?.contains('già associata') == true ||
+            response.error?.contains('già utilizzata') == true) {
+          setState(() => _emailServerError = response.error);
+          _formKey.currentState!.validate();
+          return;
+        }
         SnackBarUtils.showErrorSnackBar(
           context,
           response.error ?? 'Errore durante la creazione dell\'utente',
@@ -216,14 +244,10 @@ class _CreateUserPageState extends State<CreateUserPage> {
                   helperText: 'Lascia vuoto per creare un utente senza accesso',
                 ),
                 keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() => _emailServerError = null),
                 validator: (value) {
-                  if (value != null && value.trim().isNotEmpty) {
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value.trim())) {
-                      return 'Inserisci un\'email valida';
-                    }
-                  }
-                  return null;
+                  return _emailServerError ??
+                      EmailValidation.validate(value, optional: true);
                 },
               ),
               const SizedBox(height: 16),
@@ -275,8 +299,12 @@ class _CreateUserPageState extends State<CreateUserPage> {
                     fillColor: Colors.white,
                   ),
                   items: SubscriptionPlans.all
-                      .map((plan) => DropdownMenuItem(
-                          value: plan.key, child: Text(plan.displayName)))
+                      .map(
+                        (plan) => DropdownMenuItem(
+                          value: plan.key,
+                          child: Text(plan.displayName),
+                        ),
+                      )
                       .toList(),
                   onChanged: (value) =>
                       setState(() => _selectedPlanKey = value),
@@ -313,8 +341,10 @@ class _CreateUserPageState extends State<CreateUserPage> {
                         side: const BorderSide(color: onPrimaryColor),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text('Annulla',
-                          style: TextStyle(color: onPrimaryColor)),
+                      child: const Text(
+                        'Annulla',
+                        style: TextStyle(color: onPrimaryColor),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -331,12 +361,15 @@ class _CreateUserPageState extends State<CreateUserPage> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
-                          : const Text('Crea Utente',
-                              style: TextStyle(color: Colors.white)),
+                          : const Text(
+                              'Crea Utente',
+                              style: TextStyle(color: Colors.white),
+                            ),
                     ),
                   ),
                 ],

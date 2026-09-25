@@ -2,6 +2,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/utils/email_validation.dart';
 
 class CreateUserResponse {
   final FitropeUser? user;
@@ -25,7 +26,7 @@ Future<CreateUserResponse> createUser({
     final result = await FirebaseFunctions.instanceFor(region: 'europe-west8')
         .httpsCallable('createManagedUser')
         .call(<String, dynamic>{
-      'email': email,
+      'email': email == null ? null : EmailValidation.normalize(email),
       'name': name,
       'lastName': lastName,
       'role': role,
@@ -44,7 +45,7 @@ Future<CreateUserResponse> createUser({
     return CreateUserResponse(
       user: FitropeUser(
         uid: uid,
-        email: email ?? '',
+        email: email == null ? '' : EmailValidation.normalize(email),
         name: name,
         lastName: lastName,
         role: role,
@@ -60,6 +61,7 @@ Future<CreateUserResponse> createUser({
     );
   } catch (_) {
     return const CreateUserResponse(
-        error: 'Errore durante la creazione dell\'utente');
+      error: 'Errore durante la creazione dell\'utente',
+    );
   }
 }

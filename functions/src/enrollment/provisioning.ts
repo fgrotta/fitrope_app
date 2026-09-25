@@ -11,6 +11,42 @@ import {
 type Data = Record<string, unknown>;
 export interface ProvisionRequest { auth?: { uid: string } | null; data: unknown; }
 
+export function normalizeManagedEmail(value: unknown, required = false): string | null {
+  if (typeof value !== "string" || !value.trim()) {
+    if (required) throw new HttpsError("invalid-argument", "Email richiesta");
+    return null;
+  }
+  const email = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpsError("invalid-argument", "Inserisci un'email valida");
+  }
+  return email;
+}
+
+async function emailTakenByProfile(db: admin.firestore.Firestore, email: string, exceptUid?: string) {
+  // I documenti pre-normalizzazione possono avere maiuscole arbitrarie: Firestore
+  // non offre query case-insensitive, quindi il controllo confronta i valori normalizzati.
+  const matches = await db.collection("users").get();
+  return matches.docs.some((doc) => doc.id !== exceptUid &&
+    typeof doc.data().email === "string" && doc.data().email.trim().toLowerCase() === email);
+}
+
+export async function checkEmailAvailabilityHandler(
+  request: ProvisionRequest, db: admin.firestore.Firestore, authClient: admin.auth.Auth = admin.auth(),
+) {
+  const body = request.data as Data | null;
+  if (!body || typeof body !== "object") throw new HttpsError("invalid-argument", "Body mancante");
+  const email = normalizeManagedEmail(body.email, true)!;
+  if (await emailTakenByProfile(db, email)) return { available: false };
+  try {
+    await authClient.getUserByEmail(email);
+    return { available: false };
+  } catch (error) {
+    if ((error as { code?: string }).code === "auth/user-not-found") return { available: true };
+    throw error;
+  }
+}
+
 export function hasLegacyEconomicState(user: Data): boolean {
   return user.tipologiaIscrizione != null || user.entrateDisponibili != null ||
     user.entrateSettimanali != null || user.fineIscrizione != null;
@@ -39,7 +75,9 @@ function requirePlan(key: unknown) {
 }
 
 /** Crea utente gestito e primo piano nello stesso commit Firestore. */
-export async function createManagedUserHandler(request: ProvisionRequest, db: admin.firestore.Firestore) {
+export async function createManagedUserHandler(
+  request: ProvisionRequest, db: admin.firestore.Firestore, authClient: admin.auth.Auth = admin.auth(),
+) {
   await requireAdmin(request.auth, db);
   const body = request.data as Data | null;
   if (!body || typeof body !== "object") throw new HttpsError("invalid-argument", "Body mancante");
@@ -53,15 +91,54 @@ export async function createManagedUserHandler(request: ProvisionRequest, db: ad
     throw new HttpsError("invalid-argument", "Ruolo non valido");
   }
   const plan = role === "User" ? requirePlan(body.planKey) : null;
+  const email = normalizeManagedEmail(body.email);
   if (role !== "User" && body.planKey != null) {
     throw new HttpsError("invalid-argument", "Solo un utente può avere un piano iniziale");
   }
   const userRef = db.collection("users").doc();
   const subRef = db.collection("subscriptions").doc();
   const record = plan ? buildSubscriptionFromPlan(plan, Date.now()) : null;
-  await db.runTransaction(async (tx) => {
+  let authCreated = false;
+  if (email) {
+    if (await emailTakenByProfile(db, email)) throw new HttpsError("already-exists", "Questa email è già associata a un profilo. Contatta la palestra.");
+    try {
+      await authClient.getUserByEmail(email);
+      throw new HttpsError("already-exists", "Questa email è già associata a un account.");
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      if ((error as { code?: string }).code !== "auth/user-not-found") throw error;
+    }
+    try {
+      await authClient.createUser({ uid: userRef.id, email });
+      authCreated = true;
+    } catch (error) {
+      if ((error as { code?: string }).code === "auth/email-already-exists") {
+        throw new HttpsError("already-exists", "Questa email è già associata a un account.");
+      }
+      // Se la chiamata Auth è terminata con timeout dopo il commit remoto,
+      // controlla l'UID scelto e rimuovi l'account orfano prima di rispondere.
+      try {
+        const possiblyCreated = await authClient.getUser(userRef.id);
+        if (possiblyCreated.email?.toLowerCase() === email) {
+          await authClient.deleteUser(userRef.id);
+        }
+      } catch (_) {
+        // Mantieni l'errore di provisioning originale.
+      }
+      throw new HttpsError("internal", "Impossibile creare l'account di accesso");
+    }
+  }
+  try {
+    await db.runTransaction(async (tx) => {
+    if (email) {
+      const profiles = await tx.get(db.collection("users"));
+      if (profiles.docs.some((doc) => typeof doc.data().email === "string" &&
+          doc.data().email.trim().toLowerCase() === email)) {
+        throw new HttpsError("already-exists", "Questa email è già associata a un profilo. Contatta la palestra.");
+      }
+    }
     const user: Data = {
-      uid: userRef.id, email: typeof body.email === "string" && body.email.trim() ? body.email.trim() : "-",
+      uid: userRef.id, email: email ?? "-",
       name: name.trim(), lastName: lastName.trim(), role, courses: [], isActive: true,
       isAnonymous: body.isAnonymous === true, createdAt: FieldValue.serverTimestamp(),
       numeroTelefono: typeof body.numeroTelefono === "string" && body.numeroTelefono.trim() ? body.numeroTelefono.trim() : null,
@@ -73,8 +150,67 @@ export async function createManagedUserHandler(request: ProvisionRequest, db: ad
       user.activeSubscriptions = [recordToSnapshotEntry({ ...record, id: subRef.id })];
     }
     tx.create(userRef, user);
-  });
+    });
+  } catch (error) {
+    if (authCreated) await authClient.deleteUser(userRef.id).catch(() => undefined);
+    throw error;
+  }
   return { ok: true, userId: userRef.id, subscriptionId: record ? subRef.id : null };
+}
+
+/** Aggiunge o modifica l'email e garantisce l'account Auth con lo stesso UID. */
+export async function setManagedUserEmailHandler(
+  request: ProvisionRequest, db: admin.firestore.Firestore, authClient: admin.auth.Auth = admin.auth(),
+) {
+  await requireAdmin(request.auth, db);
+  const body = request.data as Data | null;
+  if (!body || typeof body !== "object" || typeof body.userId !== "string" || !body.userId.trim()) {
+    throw new HttpsError("invalid-argument", "userId richiesto");
+  }
+  const uid = body.userId.trim();
+  const email = normalizeManagedEmail(body.email, true)!;
+  const userRef = db.collection("users").doc(uid);
+  const profile = await userRef.get();
+  if (!profile.exists) throw new HttpsError("not-found", "Profilo non trovato");
+  if (await emailTakenByProfile(db, email, uid)) throw new HttpsError("already-exists", "Questa email è già associata a un profilo. Contatta la palestra.");
+
+  let existingAuth: admin.auth.UserRecord | null = null;
+  try { existingAuth = await authClient.getUser(uid); }
+  catch (error) { if ((error as { code?: string }).code !== "auth/user-not-found") throw error; }
+  if (existingAuth && !existingAuth.email) {
+    throw new HttpsError("failed-precondition", "L'account Auth esistente non ha un'email ripristinabile");
+  }
+  try {
+    const byEmail = await authClient.getUserByEmail(email);
+    if (byEmail.uid !== uid) throw new HttpsError("already-exists", "Questa email è già associata a un account.");
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    if ((error as { code?: string }).code !== "auth/user-not-found") throw error;
+  }
+
+  let createdAuth = false;
+  try {
+    if (existingAuth) await authClient.updateUser(uid, { email });
+    else { await authClient.createUser({ uid, email }); createdAuth = true; }
+    await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(userRef);
+      if (!fresh.exists) throw new HttpsError("not-found", "Profilo non trovato");
+      const duplicate = await tx.get(db.collection("users"));
+      if (duplicate.docs.some((doc) => doc.id !== uid && typeof doc.data().email === "string" &&
+          doc.data().email.trim().toLowerCase() === email)) {
+        throw new HttpsError("already-exists", "Questa email è già associata a un profilo. Contatta la palestra.");
+      }
+      tx.update(userRef, { email });
+    });
+    return { ok: true, userId: uid, email };
+  } catch (error) {
+    if (createdAuth) await authClient.deleteUser(uid).catch(() => undefined);
+    else if (existingAuth?.email) await authClient.updateUser(uid, { email: existingAuth.email }).catch(() => undefined);
+    if ((error as { code?: string }).code === "auth/email-already-exists") {
+      throw new HttpsError("already-exists", "Questa email è già associata a un account.");
+    }
+    throw error;
+  }
 }
 
 /** Prova self-service: il marker e' scrivibile solo alla create self nelle rules. */

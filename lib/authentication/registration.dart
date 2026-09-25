@@ -6,25 +6,32 @@ import 'package:fitrope_app/api/get_user_data.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
 import 'package:fitrope_app/api/subscriptions/signup_trial.dart';
+import 'package:fitrope_app/api/authentication/check_email_availability.dart';
+import 'package:fitrope_app/utils/email_validation.dart';
 
 class SignUpResponse {
   final FitropeUser? user;
   final String? error;
 
-  SignUpResponse({
-    this.user,
-    this.error,
-  });
+  SignUpResponse({this.user, this.error});
 }
 
 Future<SignUpResponse> registerWithEmailPassword(
-    String email, String password, String name, String lastName,
-    {String? numeroTelefono}) async {
+  String email,
+  String password,
+  String name,
+  String lastName, {
+  String? numeroTelefono,
+}) async {
   SimulationSession.assertNotSimulating('registerWithEmailPassword');
   try {
+    final normalizedEmail = EmailValidation.normalize(email);
+    if (!await checkEmailAvailability(normalizedEmail)) {
+      return SignUpResponse(error: EmailValidation.duplicateProfileMessage);
+    }
     UserCredential userCredential =
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
-      email: email,
+      email: normalizedEmail,
       password: password,
     );
 
@@ -34,7 +41,7 @@ Future<SignUpResponse> registerWithEmailPassword(
     // ammesso esclusivamente alla create e rende sicuro il retry al login.
     await FirebaseFirestore.instance.collection('users').doc(uid).set({
       'uid': uid,
-      'email': email,
+      'email': normalizedEmail,
       'createdAt': FieldValue.serverTimestamp(),
       'name': name,
       'lastName': lastName,
@@ -61,14 +68,12 @@ Future<SignUpResponse> registerWithEmailPassword(
     }
 
     await userCredential.user!.sendEmailVerification();
-    print("Email di verifica inviata a $email");
+    print("Email di verifica inviata a $normalizedEmail");
 
     Map<String, dynamic>? userData = await getUserData(uid);
 
     if (userData != null) {
-      return SignUpResponse(
-        user: FitropeUser.fromJson(userData),
-      );
+      return SignUpResponse(user: FitropeUser.fromJson(userData));
     }
 
     print("User registered: ${userCredential.user!.email}");
@@ -76,8 +81,7 @@ Future<SignUpResponse> registerWithEmailPassword(
     if (e.code == 'weak-password') {
       return SignUpResponse(error: 'The password is too weak');
     } else if (e.code == 'email-already-in-use') {
-      return SignUpResponse(
-          error: 'The account already exists for that email.');
+      return SignUpResponse(error: EmailValidation.duplicateAccountMessage);
     } else {
       return SignUpResponse(error: e.message);
     }

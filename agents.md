@@ -1,5 +1,13 @@
 # FitRope Agent Guide
 
+## Provisioning email admin
+
+- `checkEmailAvailability` (`functions/src/enrollment/provisioning.ts`) verifica sia i profili Firestore sia gli account Firebase Auth. La callable è pubblica per supportare la registrazione; `createManagedUser` ripete il controllo ed è l'autorità finale.
+- `createManagedUser`, se riceve un'email, la normalizza in minuscolo e crea prima l'account Auth con UID del profilo; se la transazione Firestore fallisce, elimina l'account appena creato. Senza email crea soltanto il profilo.
+- `setManagedUserEmail` è Admin-only: aggiunge o aggiorna Auth e Firestore con compensazione Auth se il salvataggio profilo fallisce. Non invia il reset; il client lo invia dopo il successo, e un errore di invio lascia valido il profilo per un nuovo tentativo.
+- Registrazione, creazione admin e modifica admin usano `lib/utils/email_validation.dart` per normalizzazione, validazione e messaggi italiani. I nuovi indirizzi sono minuscoli; il backfill dei documenti legacy non rientra nello scope.
+- Ogni nuova callback di scrittura UI deve avere `SimulationGuard.blockIfSimulating(context)` e ogni API client una `SimulationSession.assertNotSimulating(...)` prima di effetti collaterali.
+
 ## Scopo del progetto
 
 FitRope e una app Flutter per la gestione di utenti, autenticazione e iscrizioni ai corsi fitness. Il backend applicativo e Firebase:

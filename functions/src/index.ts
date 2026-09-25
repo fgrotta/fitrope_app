@@ -17,7 +17,9 @@ import {
 import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
 import {
   createManagedUserHandler,
+  checkEmailAvailabilityHandler,
   grantSignupTrialHandler,
+  setManagedUserEmailHandler,
 } from "./enrollment/provisioning";
 import {
   subscribeToCourseHandler,
@@ -134,6 +136,20 @@ export const createManagedUser = onCall(
   { region: "europe-west8", cors: true },
   (request) => createManagedUserHandler(
     { auth: request.auth ?? null, data: request.data }, admin.firestore(),
+  ),
+);
+
+export const checkEmailAvailability = onCall(
+  { region: "europe-west8", cors: true },
+  (request) => checkEmailAvailabilityHandler(
+    { auth: request.auth ?? null, data: request.data }, admin.firestore(), admin.auth(),
+  ),
+);
+
+export const setManagedUserEmail = onCall(
+  { region: "europe-west8", cors: true },
+  (request) => setManagedUserEmailHandler(
+    { auth: request.auth ?? null, data: request.data }, admin.firestore(), admin.auth(),
   ),
 );
 
