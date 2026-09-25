@@ -102,8 +102,8 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
           if (name.isNotEmpty) _firstNameCtrl.text = name;
           // Il WhatsApp usa nome e cognome, come il payload reale.
           final fullName = '$name $lastName'.trim();
-          if (fullName.isNotEmpty) _whatsappNameCtrl.text = fullName;
-          if (phone.isNotEmpty) _phoneCtrl.text = phone;
+          _whatsappNameCtrl.text = fullName;
+          _phoneCtrl.text = phone;
         });
       }
     } catch (e) {
