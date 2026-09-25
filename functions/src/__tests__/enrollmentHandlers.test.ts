@@ -598,6 +598,96 @@ describe("subscribeToCourseHandler", () => {
     expect(store.subs.trial.remainingEntries).toBe(0);
   });
 
+  test("piano Prova V2: parte anche il WhatsApp di conferma", async () => {
+    const whatsapp: Array<[string, string]> = [];
+    const trial = trialSubDoc(1);
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          subscriptionModelVersion: 2,
+          activeSubscriptions: [snapshotEntry("trial", trial)],
+        }),
+      },
+      courses: { c1: course() },
+      subs: { trial },
+    };
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      makeDb(store),
+      { notifyTrialWhatsapp: async (u, c) => void whatsapp.push([u, c]) },
+      NOW
+    );
+    expect(whatsapp).toEqual([["u1", "c1"]]);
+  });
+
+  test("PROVA legacy: parte il WhatsApp di conferma", async () => {
+    const whatsapp: string[] = [];
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      makeDb({
+        users: { u1: packUser({ tipologiaIscrizione: "ABBONAMENTO_PROVA", entrateDisponibili: 1 }) },
+        courses: { c1: course() },
+        subs: {},
+      }),
+      { notifyTrialWhatsapp: async (u) => void whatsapp.push(u) },
+      NOW
+    );
+    expect(whatsapp).toEqual(["u1"]);
+  });
+
+  test("PROVA convertito al multi-abbonamento: nessun WhatsApp", async () => {
+    const whatsapp: string[] = [];
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      makeDb({
+        users: {
+          u1: subUser({
+            tipologiaIscrizione: "ABBONAMENTO_PROVA",
+            activeSubscriptions: [snapshotEntry("sub-open", openFreqSubDoc(2))],
+          }),
+        },
+        courses: { c1: course() },
+        subs: { "sub-open": openFreqSubDoc(2) },
+      }),
+      { notifyTrialWhatsapp: async (u) => void whatsapp.push(u) },
+      NOW
+    );
+    expect(whatsapp).toEqual([]);
+  });
+
+  test("utente non PROVA: nessun WhatsApp", async () => {
+    const whatsapp: string[] = [];
+    await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      makeDb({ users: { u1: packUser() }, courses: { c1: course() }, subs: {} }),
+      { notifyTrialWhatsapp: async (u) => void whatsapp.push(u) },
+      NOW
+    );
+    expect(whatsapp).toEqual([]);
+  });
+
+  test("WhatsApp che fallisce non fa fallire l'iscrizione né le altre notifiche", async () => {
+    const calls: string[] = [];
+    const result = await subscribeToCourseHandler(
+      { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+      makeDb({
+        users: { u1: packUser({ tipologiaIscrizione: "ABBONAMENTO_PROVA", entrateDisponibili: 1 }) },
+        courses: { c1: course() },
+        subs: {},
+      }),
+      {
+        notifyTrialConfirmation: async () => void calls.push("confirmation"),
+        notifyTrialReminder: async () => void calls.push("reminder"),
+        notifyTrialWhatsapp: async () => {
+          throw new Error("Make non raggiungibile");
+        },
+      },
+      NOW
+    );
+    expect(result).toEqual({ ok: true });
+    expect(calls.sort()).toEqual(["confirmation", "reminder"]);
+  });
+
   test("corso già iniziato → failed-precondition; force admin lo consente", async () => {
     const mk = (): FakeStore => ({
       users: { u1: packUser(), boss: { uid: "boss", role: "Admin" } },
