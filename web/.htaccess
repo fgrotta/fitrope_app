@@ -1,12 +1,22 @@
 # Flutter Web non aggiunge un hash al nome di questi file (restano identici
 # da un build all'altro): senza questa regola vengono serviti con la cache
 # di default del server (7 giorni su Hostinger/LiteSpeed), e i client restano
-# bloccati su una versione vecchia fino a scadenza cache.
+# bloccati su una versione vecchia fino a scadenza cache. Il build --wasm
+# (quello di produzione) carica main.dart.wasm + main.dart.mjs: stessi vincoli.
+# I manifest degli asset stanno in assets/ ma FilesMatch vale anche nelle
+# sottocartelle: un manifest vecchio con codice nuovo non trova gli asset
+# aggiunti. Gli asset veri (immagini, font) restano sul default del server.
 <IfModule mod_headers.c>
-  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|flutter_bootstrap\.js|flutter\.js)$">
+  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|main\.dart\.wasm|main\.dart\.mjs|flutter_bootstrap\.js|flutter\.js|AssetManifest\.bin\.json|AssetManifest\.bin|FontManifest\.json)$">
     Header set Cache-Control "public, max-age=1800"
   </FilesMatch>
   <FilesMatch "\.part\.js$">
     Header set Cache-Control "public, max-age=1800"
   </FilesMatch>
+</IfModule>
+
+# `WebAssembly.instantiateStreaming` rifiuta un .wasm servito senza
+# Content-Type application/wasm (fallback più lento su compile non in streaming).
+<IfModule mod_mime.c>
+  AddType application/wasm .wasm
 </IfModule>

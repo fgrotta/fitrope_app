@@ -57,4 +57,15 @@ void main() {
           5); // sempre 5h, qualunque sia il device
     });
   });
+
+  // `latest_10y` ha regole DST fino a gen 2029 (timezone 0.9.4). Il test usa
+  // l'anno PROSSIMO, così diventa rosso con un anno di anticipo: a quel punto
+  // va aggiornato il pacchetto `timezone` (vedi nota in italian_time.dart).
+  test("latest_10y copre l'ora legale dell'anno prossimo", () {
+    final nextYear = DateTime.now().year + 1;
+    final summer = toItalianTime(DateTime.utc(nextYear, 7, 1, 12));
+    final winter = toItalianTime(DateTime.utc(nextYear, 1, 15, 12));
+    expect(summer.timeZoneOffset, const Duration(hours: 2));
+    expect(winter.timeZoneOffset, const Duration(hours: 1));
+  });
 }

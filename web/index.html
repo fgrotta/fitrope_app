@@ -33,6 +33,18 @@
   <link rel="shortcut icon" href="favicon.ico?v=20260425"/>
 
   <title>Fit House</title>
+
+  <!-- Handshake anticipati verso gli host del percorso critico: engine
+       (gstatic), font Roboto, Firestore, Auth e — dopo il login — OneSignal. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+  <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+  <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
+  <link rel="dns-prefetch" href="https://cdn.onesignal.com">
   <link rel="manifest" href="manifest.json?v=20260714">
   
   <!-- Meta tag per impedire caching di version.json -->
@@ -60,18 +72,24 @@
     }
     
     .logo {
-      
       height: 200px;
       margin-bottom: 20px;
     }
-    
+
+    #splash {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Colore primario dell'app su sfondo bianco: prima era bianco su bianco. */
     .loader {
-      width: 50px;
-      height: 50px;
-      border: 5px solid rgba(255,255,255,0.3);
+      width: 44px;
+      height: 44px;
+      border: 5px solid rgba(37, 99, 235, 0.2);
       border-radius: 50%;
-      border-top-color: white;
-      animation: spin 1s ease-in-out infinite;
+      border-top-color: rgb(37, 99, 235);
+      animation: spin 1s linear infinite;
     }
     
     @keyframes spin {
@@ -86,11 +104,21 @@
   </style>
 </head>
 <body>
-  <div class="logo-container">
-    <img src="assets/assets/new_logo_only.png" alt="Fit House" class="logo">
+  <!-- Splash HTML: visibile mentre si scaricano engine e app, rimosso al primo
+       frame Flutter. Il logo è una copia ridimensionata (web/splash_logo.png,
+       400 px di altezza) invece del PNG 1541x2311 del bundle. -->
+  <div id="splash">
+    <div class="logo-container">
+      <img src="splash_logo.png" alt="Fit House" class="logo">
+    </div>
+    <div class="loader"></div>
   </div>
-  
-  <div class="loader"></div>
+  <script>
+    window.addEventListener('flutter-first-frame', function() {
+      const splash = document.getElementById('splash');
+      if (splash) splash.remove();
+    }, { once: true });
+  </script>
   
   <script>
     // Version checking logic
@@ -130,28 +158,12 @@
       }
     }
     
-    async function forceUpdate() {
-      try {
-        // Registra il service worker se disponibile
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          
-          // Invia messaggio al service worker per forzare l'aggiornamento
-          if (registration.active) {
-            registration.active.postMessage('skipWaiting');
-          }
-          
-          // Forza il reload della pagina
-          window.location.reload(true);
-        } else {
-          // Fallback: semplice reload
-          window.location.reload(true);
-        }
-      } catch (error) {
-        console.error('Errore nell\'aggiornamento:', error);
-        // Fallback: semplice reload
-        window.location.reload(true);
-      }
+    function forceUpdate() {
+      // Il service worker di Flutter 3.41 è uno stub che si auto-deregistra:
+      // `navigator.serviceWorker.ready` non si risolveva più e l'update restava
+      // appeso. Le regole di cache in web/.htaccess (30 min sui file senza
+      // hash) fanno sì che il reload scarichi davvero la versione nuova.
+      window.location.reload();
     }
     
     // Inizia il controllo periodico dopo 30 secondi dall'avvio
@@ -171,9 +183,27 @@
     });
   </script>
   
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+    // Il SDK OneSignal non si carica più con la pagina: lo inietta la prima
+    // `oneSignalInit`, che l'app chiama solo per un utente loggato su un
+    // ambiente con OneSignal attivo. Il visitatore non loggato non lo scarica.
+    // Le chiamate arrivate prima (login/addEmail) restano in coda su
+    // `OneSignalDeferred`, che il SDK svuota al caricamento.
+    function oneSignalLoadSdk() {
+      if (window.__fitHouseOneSignalSdkRequested) {
+        return;
+      }
+      window.__fitHouseOneSignalSdkRequested = true;
+      const script = document.createElement('script');
+      script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+      script.defer = true;
+      script.onerror = function() {
+        console.error('[OneSignal Web] caricamento SDK fallito');
+      };
+      document.head.appendChild(script);
+    }
 
     function fitHouseBasePath() {
       const baseElement = document.querySelector('base');
@@ -204,6 +234,8 @@
         return;
       }
 
+      // La promise va creata PRIMA di caricare il SDK: `withOneSignal` la usa
+      // per accodare login/addEmail dietro l'init.
       window.__fitHouseOneSignalInitPromise = new Promise((resolve) => {
         window.OneSignalDeferred.push(async function(OneSignal) {
           try {
@@ -234,6 +266,7 @@
           resolve();
         });
       });
+      oneSignalLoadSdk();
     };
 
     window.oneSignalLogin = function(userId) {

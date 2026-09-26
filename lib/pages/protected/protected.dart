@@ -24,6 +24,7 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
+import 'package:fitrope_app/services/onesignal_bootstrap.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
 
 class Protected extends StatefulWidget {
@@ -125,6 +126,9 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   /// Regola: in simulazione non si chiama mai OneSignal.
   void _syncOneSignalIdentity(FitropeUser u) {
     if (SimulationSession.isActive) return;
+    // Idempotente: dopo un login esplicito è qui che il SDK web viene
+    // scaricato e inizializzato (su reload lo ha già fatto `main.dart`).
+    ensureOneSignalInitialized();
     OneSignalService.login(u.uid);
     if (u.email.isNotEmpty) {
       OneSignalService.addEmail(u.email);

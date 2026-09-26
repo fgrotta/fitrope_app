@@ -10,14 +10,12 @@ import 'package:fitrope_app/utils/clear_auth_persistence.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'package:fitrope_app/utils/italian_time.dart';
-import 'package:fitrope_app/services/onesignal_service.dart';
+import 'package:fitrope_app/utils/intl_it.dart';
+import 'package:fitrope_app/authentication/is_logged.dart';
+import 'package:fitrope_app/services/onesignal_bootstrap.dart';
+import 'package:flutter/foundation.dart';
 import 'firebase_options.dart' as prod;
 import 'firebase_options_staging.dart';
-
-// TODO: Sostituire con il tuo OneSignal App ID dalla dashboard
-const String oneSignalAppId = '154fc17b-3ef8-4421-a1e6-466172fa48db';
 
 /// Ambiente di test locale (Firebase Emulator Suite). Avvio:
 ///   firebase emulators:start
@@ -126,15 +124,19 @@ void main() async {
     // Dopo aver agganciato l'emulatore, mai prima: sarebbe un uso di auth che
     // impedisce a `useAuthEmulator` di attaccarsi.
     await _autologin();
-  } else if (!isStaging) {
-    // In modalità emulatore OneSignal NON va inizializzato: su device fisico
-    // registrerebbe il device (e al login gli utenti seed) sull'app OneSignal
-    // di PRODUZIONE, rompendo l'isolamento del QA.
-    OneSignalService.initialize(oneSignalAppId);
   }
 
-  await initializeDateFormatting('it_IT', null);
-  initItalianTime(); // l'app mostra/salva sempre l'orario italiano (Europe/Rome)
+  // Emulatore e staging restano esclusi dentro `ensureOneSignalInitialized`.
+  // Sul web solo per chi è già loggato: inizializzare significa scaricare il
+  // SDK, che al visitatore non serve (dopo il login ci pensa `Protected`).
+  // Su mobile l'init resta all'avvio come prima.
+  if (!kIsWeb || isLogged()) {
+    ensureOneSignalInitialized();
+  }
+
+  // Solo i dati italiani: sincrono e piccolo. Il database dei fusi orari
+  // (orario italiano Europe/Rome) si carica in lazy alla prima conversione.
+  initializeItalianDateFormatting();
 
   runApp(SafeArea(
     child: StoreProvider(store: store, child: const MyApp()),
