@@ -153,5 +153,73 @@ void main() {
 
       expect(trainers.map((u) => u.uid), ['t1']);
     });
+
+    test('getTrainers legge solo i trainer, non tutta la collection', () async {
+      await db
+          .collection('users')
+          .doc('t1')
+          .set({...userDoc(name: 'Trainer'), 'role': 'Trainer'});
+      await db.collection('users').doc('u1').set(userDoc());
+
+      await getTrainers(firestore: db);
+      // Se getTrainers fosse passato da getUsers, la lista completa sarebbe in
+      // cache e il socio aggiunto dopo non comparirebbe.
+      await db.collection('users').doc('u2').set(userDoc(name: 'Nuovo'));
+      final users = await getUsers(firestore: db);
+
+      expect(users.map((u) => u.uid), containsAll(['u1', 'u2']));
+    });
+
+    test('getTrainers salta un trainer malformato senza far cadere la lista',
+        () async {
+      await db
+          .collection('users')
+          .doc('t1')
+          .set({...userDoc(name: 'Trainer'), 'role': 'Trainer'});
+      await db.collection('users').doc('rotto').set({
+        ...userDoc(),
+        'role': 'Trainer',
+        'createdAt': 'non-un-timestamp',
+      });
+
+      final trainers = await getTrainers(firestore: db);
+
+      expect(trainers.map((u) => u.uid), ['t1']);
+    });
+
+    test('due getUsers concorrenti condividono una sola lettura', () async {
+      await db.collection('users').doc('u1').set(userDoc());
+
+      final results =
+          await Future.wait([getUsers(firestore: db), getUsers(firestore: db)]);
+
+      expect(identical(results[0], results[1]), isTrue);
+    });
+
+    test('due getTrainers concorrenti condividono una sola lettura', () async {
+      await db
+          .collection('users')
+          .doc('t1')
+          .set({...userDoc(name: 'Trainer'), 'role': 'Trainer'});
+
+      final results = await Future.wait(
+          [getTrainers(firestore: db), getTrainers(firestore: db)]);
+
+      expect(identical(results[0], results[1]), isTrue);
+    });
+
+    test('invalidare durante il volo non lascia in cache utenti vecchi',
+        () async {
+      await db.collection('users').doc('u1').set(userDoc());
+
+      final stale = getUsers(firestore: db);
+      invalidateUsersCache();
+      await db.collection('users').doc('u2').set(userDoc(name: 'Nuovo'));
+      await stale;
+
+      final fresh = await getUsers(firestore: db);
+
+      expect(fresh.map((u) => u.uid), containsAll(['u1', 'u2']));
+    });
   });
 }

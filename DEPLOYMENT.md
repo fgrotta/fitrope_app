@@ -18,7 +18,7 @@ Questo progetto utilizza GitHub Actions per automatizzare il processo di build e
 
 #### Branch `release`
 - **Workflow**: `release.yml`
-- **Azioni**: **Solo validazione** — test, analisi, formattazione, build web wasm, test Functions unit e integrazione
+- **Azioni**: **Solo validazione** — test, analisi, formattazione, build web (dart2js), test Functions unit e integrazione
 - **Trigger**: Push e Pull Request
 
 ### Processo di Release
@@ -26,7 +26,7 @@ Questo progetto utilizza GitHub Actions per automatizzare il processo di build e
 1. **Sviluppo**: feature branch, PR verso `develop`
 2. **Test PR**: ogni Pull Request verso `main` o `develop` attiva `ci.yml`
 3. **Staging**: ogni merge/push su `develop` attiva `staging.yml`, che testa **e deploya** l'ambiente staging (vedi sotto)
-4. **Release in produzione**: il branch `release` esegue solo i gate di validazione. **Il deploy in produzione è manuale**: `flutter build web --wasm --release` e upload di `build/web` sull'hosting Hostinger. Le Cloud Functions di produzione si deployano con `firebase deploy --project prod --only functions`.
+4. **Release in produzione**: il branch `release` esegue solo i gate di validazione. **Il deploy in produzione è manuale**: `flutter build web --release` (dart2js, **non** `--wasm`: vedi CLAUDE.md) e upload di `build/web` sull'hosting Hostinger. Le Cloud Functions di produzione si deployano con `firebase deploy --project prod --only functions`.
 
 ### Ambiente Staging
 
@@ -63,8 +63,9 @@ flutter analyze --no-fatal-infos
 # Formattazione (gate della CI)
 dart format --set-exit-if-changed .
 
-# Build Web — --wasm è il path usato da CI e produzione
-flutter build web --wasm --release
+# Build Web — dart2js, stesso path di CI e produzione (niente --wasm: i deferred
+# non splitterebbero e il codice admin finirebbe nel bundle di tutti)
+flutter build web --release
 
 # Cloud Functions
 cd functions && npm ci && npm run build && npm test

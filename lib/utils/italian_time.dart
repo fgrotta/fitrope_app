@@ -1,5 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:timezone/data/latest.dart' as tzdata;
+// `latest_10y` (87 KB di dati contro i 384 KB di `latest`) copre le regole
+// DST da gen 2019 a gen 2029 con timezone 0.9.4. Oltre quella data `Europe/Rome`
+// resterebbe su CET tutto l'anno (orari estivi sbagliati di un'ora): va
+// aggiornato il pacchetto `timezone`, e il test "latest_10y copre l'anno
+// prossimo" in `test/italian_time_test.dart` fallisce per ricordarlo.
+import 'package:timezone/data/latest_10y.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 /// Fuso orario di riferimento dell'app: l'orario mostrato e salvato è SEMPRE
@@ -9,8 +14,8 @@ const String _italianTzName = 'Europe/Rome';
 
 tz.Location? _rome;
 
-/// Inizializza il database dei fusi orari. Idempotente: chiamare in main()
-/// (i test lo attivano in lazy alla prima conversione).
+/// Inizializza il database dei fusi orari. Idempotente. Non serve chiamarla
+/// all'avvio: parte in lazy alla prima conversione, cioè dopo il primo frame.
 void initItalianTime() {
   if (_rome != null) return;
   tzdata.initializeTimeZones();

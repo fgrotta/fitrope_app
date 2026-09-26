@@ -1,7 +1,6 @@
 import "package:flutter/foundation.dart";
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/api/authentication/get_users.dart';
-import 'package:fitrope_app/utils/refresh_manager.dart';
 import 'package:fitrope_app/utils/subscription_expiry.dart';
 
 List<FitropeUser>? _cachedUsersWithExpiringSubscriptions;
@@ -56,9 +55,9 @@ Future<int> getCountUsersWithExpiringSubscriptions() async {
   }
 }
 
-// Funzione per invalidare la cache (utile quando si vuole forzare un refresh)
+// Azzera solo la cache: la notifica del refresh la fa una volta sola
+// `invalidateAllUserCaches` (o `Protected._onResumeRefresh`).
 void invalidateUsersWithExpiringSubscriptionsCache() {
   _cachedUsersWithExpiringSubscriptions = null;
   _lastCacheTimeWithExpiringSubscriptions = null;
-  RefreshManager().notifyRefresh();
 }

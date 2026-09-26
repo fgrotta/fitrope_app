@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/api/get_user_data.dart';
@@ -10,8 +13,16 @@ import 'package:fitrope_app/layout/app_shell.dart';
 import 'package:fitrope_app/pages/protected/calendar_page.dart';
 import 'package:fitrope_app/pages/protected/home_page.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
-import 'package:fitrope_app/pages/protected/admin_dashboard_page.dart';
-import 'package:fitrope_app/pages/protected/admin_users_page.dart';
+// Codice solo admin: libreria deferred, nella build dart2js un socio non ne
+// scarica i part. I simboli di questi prefissi non si usano né come tipi né
+// in espressioni const.
+import 'package:fitrope_app/pages/protected/admin_dashboard_page.dart'
+    deferred as admin_dashboard;
+import 'package:fitrope_app/pages/protected/admin_users_page.dart'
+    deferred as admin_users;
+import 'package:fitrope_app/pages/protected/user_list_drawer.dart'
+    deferred as user_list_drawer;
+import 'package:fitrope_app/components/deferred_page.dart';
 import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -24,6 +35,7 @@ import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
+import 'package:fitrope_app/services/onesignal_bootstrap.dart';
 import 'package:fitrope_app/services/onesignal_service.dart';
 
 class Protected extends StatefulWidget {
@@ -41,7 +53,12 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   String? _drawerTitle;
   List<FitropeUser>? _drawerUsers;
 
-  void _openUserList(String title, List<FitropeUser> users) {
+  Future<void> _openUserList(String title, List<FitropeUser> users) async {
+    // Il drawer è in una libreria deferred: va caricata prima di costruirlo.
+    // La chiama solo la dashboard admin, già scaricata a quel punto; il primo
+    // `loadLibrary` del drawer è un part piccolo.
+    await user_list_drawer.loadLibrary();
+    if (!mounted) return;
     setState(() {
       _drawerTitle = title;
       _drawerUsers = users;
@@ -63,6 +80,12 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
         });
       }
     });
+    // Scalda la cache dei trainer in parallelo a profilo e corsi: la HomePage,
+    // montata dopo `resetUser()`, la trova pronta o si aggancia alla lettura
+    // in volo (de-dup in getTrainers). Gli errori li gestisce chi li legge.
+    if (isLogged()) {
+      unawaited(getTrainers().then((_) {}, onError: (_) {}));
+    }
 
     if (!isLogged()) {
       // Unica via alla schermata di login che NON passa da `signOut()` (che
@@ -101,7 +124,8 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   /// (vale su tutti i dispositivi/browser).
   Future<void> _onResumeRefresh() async {
     invalidateCoursesCache();
-    invalidateAllUserCaches();
+    // Senza notifica: il giro unico di refresh parte in fondo, a corsi riletti.
+    invalidateAllUserCaches(notify: false);
 
     final courses = await getAllCourses(force: true);
     if (!mounted) return;
@@ -124,6 +148,9 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   /// Regola: in simulazione non si chiama mai OneSignal.
   void _syncOneSignalIdentity(FitropeUser u) {
     if (SimulationSession.isActive) return;
+    // Idempotente: dopo un login esplicito è qui che il SDK web viene
+    // scaricato e inizializzato (su reload lo ha già fatto `main.dart`).
+    ensureOneSignalInitialized();
     OneSignalService.login(u.uid);
     if (u.email.isNotEmpty) {
       OneSignalService.addEmail(u.email);
@@ -202,7 +229,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
             child: Scaffold(
               key: _scaffoldKey,
               endDrawer: _drawerTitle != null && _drawerUsers != null
-                  ? UserListDrawer(
+                  ? user_list_drawer.UserListDrawer(
                       title: _drawerTitle!,
                       users: _drawerUsers!,
                       onClose: () => setState(() {
@@ -247,9 +274,12 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                       if (!context.mounted) return;
                       logoutRedirect(context);
                     },
+                    // Durante `resetUser()` (reload) uno spinner semplice, non
+                    // un secondo `Loader()`: quello su `isLoading` è sotto,
+                    // unico per tutta l'area protetta.
                     child: user != null
                         ? _getPageFor(effectiveIndex)
-                        : const SizedBox.shrink(),
+                        : const Center(child: CircularProgressIndicator()),
                   ),
                   // UNICO overlay di caricamento dell'area protetta per
                   // `state.isLoading`. Le pagine montate da `_getPageFor` sono
@@ -275,10 +305,22 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
         return const HomePage();
       case 1:
         return const CalendarPage();
+      // Chiavi distinte: senza, passando da Utenti a Dashboard Flutter
+      // riuserebbe lo State di DeferredPage, con il Future della libreria
+      // sbagliata già catturato.
       case 2:
-        return const AdminUsersPage();
+        return DeferredPage(
+          key: const ValueKey('admin-users'),
+          load: admin_users.loadLibrary,
+          builder: (_) => admin_users.AdminUsersPage(),
+        );
       case 3:
-        return AdminDashboardPage(onOpenUserList: _openUserList);
+        return DeferredPage(
+          key: const ValueKey('admin-dashboard'),
+          load: admin_dashboard.loadLibrary,
+          builder: (_) =>
+              admin_dashboard.AdminDashboardPage(onOpenUserList: _openUserList),
+        );
       default:
         return const HomePage();
     }

@@ -69,7 +69,7 @@ flutter run -d chrome
 flutter test
 flutter analyze --no-fatal-infos
 dart format --set-exit-if-changed .
-flutter build web --wasm --release   # stesso path di CI e produzione
+flutter build web --release   # dart2js, stesso path di CI e produzione (niente --wasm)
 
 # Cloud Functions
 cd functions
@@ -166,5 +166,5 @@ Per un rollback pulito, fai commit del codice precedente e riesegui `firebase de
 
 - La localizzazione principale e italiana (`it_IT`).
 - La logica piu sensibile e in `lib/api/courses/`, `lib/utils/course_unsubscribe_helper.dart` e `lib/services/notification_service.dart`.
-- La CI valida test Flutter, analisi, formattazione, build web wasm, test Functions unitari e d'integrazione su Emulator Suite (`ci.yml` sulle PR, `staging.yml` sui push a `develop`, `release.yml` sul branch `release`).
+- La CI valida test Flutter, analisi, formattazione, build web dart2js, test Functions unitari e d'integrazione su Emulator Suite (`ci.yml` sulle PR, `staging.yml` sui push a `develop`, `release.yml` sul branch `release`).
 - Le notifiche email richiedono deploy della Cloud Function con secret configurato.

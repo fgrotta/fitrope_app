@@ -5,8 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Lint statico sui conditional import/export di `lib/`.
 ///
 /// `if (dart.library.html)` è `false` sotto `dart2wasm`: una direttiva scritta
-/// così sceglie il ramo non-web proprio nella build di produzione
-/// (`flutter build web --wasm --release`), e il bug è invisibile in
+/// così sceglie il ramo non-web in una build `--wasm` (quella di produzione
+/// fino al 26/09/2026, riattivabile in futuro), e il bug è invisibile in
 /// `flutter run -d chrome`, che compila in dart2js. È già successo con
 /// `lib/services/onesignal_service.dart`, dove ha spento push e alias email su
 /// tutto il web.

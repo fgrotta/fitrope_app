@@ -48,12 +48,16 @@ Sequenza di avvio in `main.dart`:
 1. `WidgetsFlutterBinding.ensureInitialized()`
 2. `Firebase.initializeApp` seleziona `DefaultFirebaseOptions` produzione o `StagingFirebaseOptions` con `--dart-define=APP_ENV=staging`
 3. Se `--dart-define=USE_EMULATOR=true`, connessione agli emulatori Auth/Firestore/Functions (`europe-west8`) tramite `EMULATOR_HOST` (default `localhost`)
-4. Se NON si usa l'emulatore, `OneSignalService.initialize(oneSignalAppId)`
-5. `initializeDateFormatting('it_IT', null)` + `initItalianTime()` (database timezone Europe/Rome)
+4. `ensureOneSignalInitialized()` (`lib/services/onesignal_bootstrap.dart`): su mobile sempre, sul web solo se `isLogged()` — inizializzare significa scaricare il SDK, e dopo il login lo fa `Protected._syncOneSignalIdentity`. Emulatore e staging restano esclusi dentro l'helper
+5. `initializeItalianDateFormatting()` (`lib/utils/intl_it.dart`, solo dati `it`, sincrono, imposta `Intl.defaultLocale = 'it_IT'`). Il database timezone Europe/Rome (`latest_10y`) si carica in lazy alla prima conversione di `italian_time.dart`
 6. `SafeArea` + `StoreProvider(store)` wrapping `MyApp`
-7. `MaterialApp` con locale `it_IT`, route iniziale `INITIAL_ROUTE`; su build staging il builder aggiunge un `Banner` "STAGING" 
+7. `MaterialApp` con locale `it_IT` e soli delegate italiani (`italianLocalizationsDelegates`, niente `Global*Localizations`), route iniziale `INITIAL_ROUTE`; su build staging il builder aggiunge un `Banner` "STAGING" 
 
 In modalita emulatore OneSignal non viene inizializzato, per evitare registrazioni su OneSignal produzione durante il QA locale.
+
+Lo splash (`SplashScreen`) non ha attese fisse: dopo il primo evento di `authStateChanges` va su `PROTECTED_ROUTE` o `WELCOME_ROUTE`. `initialRoute: '/splash'` (e al reload `/protected`) fa costruire anche la Welcome sotto: `loggedRedirect` e lo splash navigano solo se la loro route è `isCurrent`, altrimenti `pushReplacementNamed` sostituirebbe un `Protected` già montato con un secondo (vedi `test/splash_screen_test.dart`, `test/logged_redirect_test.dart`).
+
+Letture utenti: `getUsers()` (collection intera) serve solo allo staff ed è popolata in background al login solo per Admin/Trainer; i soci usano `getTrainers()`, una query `role == Trainer`. `getAllCourses`, `getUsers` e `getTrainers` condividono la lettura in volo tra chiamanti concorrenti, e un'invalidazione durante il volo impedisce che il risultato vecchio finisca in cache. Dopo una mutazione utente `invalidateAllUserCaches()` è l'unico punto che chiama `RefreshManager().notifyRefresh()`, una volta sola; il refresh al resume di `Protected` passa `notify: false` e notifica per conto suo.
 
 ## Mappa delle cartelle
 
@@ -313,8 +317,10 @@ Due trappole del remount, entrambe verificate con un widget test:
 - **Niente `invalidateAllUserCaches()` in `SimulationController.stop()`.** Chiama
   `RefreshManager().notifyRefresh()` in modo sincrono mentre la HomePage del
   socio è ancora montata: il suo `refreshCourses` copia lo store (già = admin)
-  nel campo `user`, e al dispose rimuove i listener del ruolo sbagliato, lasciando
-  `refreshCourses` agganciato a uno State morto per tutta la sessione.
+  nel campo `user` e la Home monterebbe per un attimo `AdminHomeSections`
+  (part deferred + quattro letture) prima del remount. Prima di
+  `RefreshListenersMixin` questo lasciava anche listener agganciati a uno State
+  morto; ora resta solo il costo.
 
 OneSignal ha una guardia strutturale sui 6 metodi di `onesignal_{mobile,web}.dart`:
 in simulazione non si chiama MAI OneSignal, il device resta legato all'admin —
@@ -387,9 +393,17 @@ Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layou
 `CourseManagementPage` accetta argomenti: `courseToEdit`, `courseToDuplicate`, `mode`.
 
 **Deferred loading**: `Protected`, `CourseManagementPage`, `RecurringCoursePage` e
-`DebugEmailPage` sono importate con `deferred as` e wrappate in `DeferredPage(load: ...)`
-(`lib/components/deferred_page.dart`), con preload avviato dallo splash: riducono il primo
-caricamento web. Se aggiungi una route "pesante", segui lo stesso pattern.
+`DebugEmailPage` sono importate con `deferred as` nel router e wrappate in
+`DeferredPage(load: ...)` (`lib/components/deferred_page.dart`), con preload avviato dallo
+splash solo per utenti loggati. Dentro l'area protetta sono differiti anche il codice solo
+admin: `AdminUsersPage`, `AdminDashboardPage`, `UserListDrawer` (in `protected.dart`) e
+`AdminHomeSections` (in `home_page.dart`, via `DeferredSection`). Un socio non scarica
+quei part. **Funziona solo con la build dart2js** (`flutter build web --release`), che è
+quella di produzione: sotto `--wasm` dart2wasm produce un modulo unico, `flutter_tools` non
+copia moduli secondari e il loader dell'engine non passa `loadDeferredModule`, quindi tutto
+finirebbe in `main.dart.wasm`. I gate in `ci.yml`/`staging.yml` verificano che le stringhe
+admin non stiano in `main.dart.js`. I simboli di un prefisso deferred non si possono usare
+come tipi né in espressioni `const`: tra Home e sezioni admin passa un `Listenable`.
 
 ## Regole di business
 
@@ -632,7 +646,7 @@ Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e fireb
 
 **ci.yml** (Pull Request verso `main`/`develop` + avvio manuale):
 
-- `test`: `flutter pub get` -> `flutter test` -> `flutter analyze --no-fatal-infos` -> `dart format --set-exit-if-changed .` -> `flutter build web --wasm --release`
+- `test`: `flutter pub get` -> `flutter test` -> `flutter analyze --no-fatal-infos` -> `dart format --set-exit-if-changed .` -> `flutter build web --release`
 - `functions-test`: Node 24 per compatibilita tooling CI, `npm ci`, `npm run build`, `npm test`
 - `functions-integration`: Node 22 runtime-aligned + Java 21 + firebase-tools 15, `npm run test:integration` con project `demo-fitrope`
 
@@ -648,7 +662,7 @@ Nota operativa: `flutter analyze --no-fatal-infos` e parte della CI; gli info-le
 
 **release.yml** (push e Pull Request sul branch `release`):
 
-- **Valida soltanto**: `validation` (test, analyze, format, build web wasm), `functions` (`npm test -- --runInBand`, come staging.yml), `functions-integration`
+- **Valida soltanto**: `validation` (test, analyze, format, build web dart2js), `functions` (`npm test -- --runInBand`, come staging.yml), `functions-integration`
 - Non crea GitHub Release e non pubblica su Pages: la produzione resta un deploy manuale
 
 **version-bump.yml** (PR chiusa con merge su `main`) — l'unico workflow che SCRIVE sul repo:
@@ -676,7 +690,7 @@ flutter pub get
 flutter test
 flutter analyze --no-fatal-infos
 dart format --set-exit-if-changed .
-flutter build web --wasm --release
+flutter build web --release
 flutter run -d chrome
 ```
 

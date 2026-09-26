@@ -45,11 +45,12 @@ class _LoginPageState extends State<LoginPage> {
 
     if (signInResponse.user != null) {
       store.dispatch(SetUserAction(signInResponse.user!));
-      Navigator.pushNamed(context, PROTECTED_ROUTE);
-
       setState(() {
         loginError = null;
       });
+      // Replacement: con il login nello stack il "indietro" riportava al form
+      // con la sessione ancora aperta.
+      Navigator.pushReplacementNamed(context, PROTECTED_ROUTE);
     } else {
       setState(() {
         loginError = signInResponse.error;

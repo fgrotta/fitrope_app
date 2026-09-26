@@ -449,7 +449,7 @@ fotografie storiche. Non descrivono lo stato live al momento del cutover.
 7. Eseguire `--verify --scope=all`: attesi `failures: 0`, zero residui HYROX,
    `enrollmentBlockers: 0` ed exit code 0. Ripetere l'apply con lo stesso
    manifest: convertiti `ALREADY_APPLIED`, esclusi `SKIPPED`, zero scritture.
-8. Eseguire `flutter build web --wasm --release`, pubblicare `build/web/` su
+8. Eseguire `flutter build web --release` (dart2js, non `--wasm`), pubblicare `build/web/` su
    Hostinger e subito dopo eseguire
    `firebase deploy --project prod --only firestore:rules` nella stessa
    finestra. La web nuova con rules vecchie non può registrare
