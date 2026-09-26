@@ -9,7 +9,7 @@ import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/utils/clear_auth_persistence.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:fitrope_app/utils/italian_localizations.dart';
 import 'package:fitrope_app/utils/intl_it.dart';
 import 'package:fitrope_app/authentication/is_logged.dart';
 import 'package:fitrope_app/services/onesignal_bootstrap.dart';
@@ -224,15 +224,10 @@ class MyApp extends StatelessWidget {
       title: 'Fit House',
       theme: ThemeData.light(),
       locale: const Locale('it', 'IT'),
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('it', 'IT'),
-        Locale('en', 'US'),
-      ],
+      // Solo italiano: i delegate Global* porterebbero nel bundle le
+      // traduzioni di tutte le lingue (vedi italian_localizations.dart).
+      localizationsDelegates: italianLocalizationsDelegates,
+      supportedLocales: const [Locale('it', 'IT')],
       initialRoute: INITIAL_ROUTE,
       routes: routes,
     );

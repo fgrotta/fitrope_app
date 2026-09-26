@@ -1,5 +1,6 @@
 import 'package:intl/date_symbol_data_custom.dart';
 import 'package:intl/date_symbols.dart';
+import 'package:intl/intl.dart' show Intl;
 
 /// Formattazione date solo in italiano, senza `date_symbol_data_local` (che
 /// porta nel bundle e inizializza i dati di tutte le lingue prima del
@@ -9,15 +10,18 @@ import 'package:intl/date_symbols.dart';
 /// se si aggiorna `intl` e cambiano, vanno ricopiati. `'it_IT'` ricade su
 /// `'it'` via `Intl.verifiedLocale`.
 ///
-/// `GlobalMaterialLocalizations` registra poi i propri dati per tutte le
-/// lingue che supporta: questa inizializzazione serve ai `DateFormat` usati
-/// prima che il `MaterialApp` carichi le localizzazioni.
+/// Sono gli UNICI dati di date registrati: l'app non usa i delegate
+/// `Global*Localizations` (vedi `italian_localizations.dart`), che
+/// registrerebbero tutte le lingue. Per questo la locale di default diventa
+/// `it_IT`: un `DateFormat` senza locale cercherebbe altrimenti la locale di
+/// sistema (`en_US`) e lancerebbe "Invalid locale".
 void initializeItalianDateFormatting() {
   initializeDateFormattingCustom(
     locale: 'it',
     symbols: DateSymbols.deserializeFromMap(_itSymbols),
     patterns: _itPatterns,
   );
+  Intl.defaultLocale = 'it_IT';
 }
 
 const Map<String, Object?> _itSymbols = {

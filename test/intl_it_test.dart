@@ -17,4 +17,12 @@ void main() {
     expect(DateFormat.yMd('it_IT').format(DateTime(2026, 1, 5)), '05/01/2026');
     expect(DateFormat.MMMEd('it').format(DateTime(2026, 1, 5)), 'lun 5 gen');
   });
+
+  test('un DateFormat senza locale usa l\'italiano', () {
+    // Senza GlobalMaterialLocalizations nessuno registra più i dati delle
+    // altre lingue: la locale di default deve essere l'italiano, altrimenti
+    // DateFormat('dd/MM/yyyy') cercherebbe 'en_US' e lancerebbe.
+    expect(DateFormat('EEEE d MMMM').format(DateTime(2026, 9, 28)),
+        'lunedì 28 settembre');
+  });
 }
