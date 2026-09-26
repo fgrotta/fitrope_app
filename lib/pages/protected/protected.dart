@@ -101,7 +101,8 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   /// (vale su tutti i dispositivi/browser).
   Future<void> _onResumeRefresh() async {
     invalidateCoursesCache();
-    invalidateAllUserCaches();
+    // Senza notifica: il giro unico di refresh parte in fondo, a corsi riletti.
+    invalidateAllUserCaches(notify: false);
 
     final courses = await getAllCourses(force: true);
     if (!mounted) return;

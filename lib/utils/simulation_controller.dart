@@ -173,7 +173,8 @@ class SimulationController {
     // NIENTE invalidazione delle cache qui. Non serve — in simulazione non è
     // passata alcuna scrittura e le letture usano comunque l'auth dell'admin,
     // quindi le cache contengono esattamente ciò che l'admin rileggerebbe — e
-    // soprattutto fa danni: `invalidateAllUserCaches()` chiama
+    // soprattutto fa danni: `invalidateAllUserCaches()` (che per default è
+    // l'unico punto a notificare dopo una mutazione utente) chiama
     // `RefreshManager().notifyRefresh()` in modo SINCRONO, mentre la HomePage
     // del socio è ancora montata (il remount arriva dopo). Il suo
     // `refreshCourses` copierebbe lo store (già = admin) nel proprio campo

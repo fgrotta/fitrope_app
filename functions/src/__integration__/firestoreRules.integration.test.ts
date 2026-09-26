@@ -114,6 +114,16 @@ describe("rules: users — lettura e registrazione", () => {
     await assertFails(anon().doc(`users/${USER}`).get());
   });
 
+  // getTrainers (lib/api/authentication/get_users.dart): un socio legge i
+  // trainer con una query per ruolo invece dell'intera collection.
+  test("list trainer per ruolo: socio sì, anonimo no", async () => {
+    const snap = await assertSucceeds(
+      as(USER).collection("users").where("role", "==", "Trainer").get()
+    );
+    expect(snap.docs.map((d) => d.id)).toEqual([TRAINER]);
+    await assertFails(anon().collection("users").where("role", "==", "Trainer").get());
+  });
+
   // Shape canonica scritta da lib/authentication/registration.dart (mirror).
   function registrationDoc(uid: string, over: Record<string, unknown> = {}) {
     return {

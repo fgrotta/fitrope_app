@@ -1,13 +1,12 @@
-import 'dart:async';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/authentication/is_logged.dart';
 // Stesso chunk deferred dell'area protetta usato dal router: pre-caricarlo qui
-// (durante lo splash) evita il loader alla navigazione post-login. L'import è
-// usato solo per `loadLibrary()` (nessun simbolo referenziato) → l'analyzer lo
-// vede come "unused", ma è intenzionale.
+// (durante lo splash) evita il loader alla navigazione. Serve solo a chi è già
+// loggato. L'import è usato solo per `loadLibrary()` (nessun simbolo
+// referenziato) → l'analyzer lo vede come "unused", ma è intenzionale.
 // ignore: unused_import
 import 'package:fitrope_app/pages/protected/protected.dart'
     deferred as protected;
@@ -23,22 +22,31 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Avvia il download del chunk dell'area protetta in parallelo allo splash
-    // (fire-and-forget): se l'utente è loggato, alla navigazione sarà già pronto.
-    unawaited(protected.loadLibrary());
-    _navigateToNextScreen();
+    // Nessuna attesa fissa: si naviga appena lo stato di autenticazione è noto.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _navigateToNextScreen());
   }
 
   Future<void> _navigateToNextScreen() async {
-    // Simula un tempo di caricamento minimo
-    await Future.delayed(const Duration(seconds: 2));
+    // Rete di sicurezza sul web: `Firebase.initializeApp` attende già il
+    // ripristino della sessione salvata, ma il primo evento di
+    // `authStateChanges` è la garanzia esplicita che `currentUser` sia
+    // definitivo prima di scegliere la route.
+    await FirebaseAuth.instance.authStateChanges().first;
+    if (!mounted) return;
 
-    if (mounted) {
-      if (isLogged()) {
-        Navigator.pushReplacementNamed(context, PROTECTED_ROUTE);
-      } else {
-        Navigator.pushReplacementNamed(context, WELCOME_ROUTE);
-      }
+    if (isLogged()) {
+      // Il logo resta a schermo finché il chunk dell'area protetta non è
+      // pronto (sotto --wasm è già nel modulo unico e ritorna subito). Se il
+      // download fallisce si naviga comunque: `DeferredPage` mostra
+      // il suo stato di errore invece di uno splash bloccato.
+      try {
+        await protected.loadLibrary();
+      } catch (_) {}
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, PROTECTED_ROUTE);
+    } else {
+      Navigator.pushReplacementNamed(context, WELCOME_ROUTE);
     }
   }
 

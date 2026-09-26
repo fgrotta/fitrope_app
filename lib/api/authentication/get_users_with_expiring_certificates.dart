@@ -2,7 +2,6 @@ import "package:flutter/foundation.dart";
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
-import 'package:fitrope_app/utils/refresh_manager.dart';
 
 List<FitropeUser>? _cachedUsersWithExpiringCertificates;
 DateTime? _lastCacheTimeWithExpiringCertificates;
@@ -84,9 +83,9 @@ Future<int> getCountUsersWithExpiringCertificates() async {
   }
 }
 
-// Funzione per invalidare la cache (utile quando si vuole forzare un refresh)
+// Azzera solo la cache: la notifica del refresh la fa una volta sola
+// `invalidateAllUserCaches` (o `Protected._onResumeRefresh`).
 void invalidateUsersWithExpiringCertificatesCache() {
   _cachedUsersWithExpiringCertificates = null;
   _lastCacheTimeWithExpiringCertificates = null;
-  RefreshManager().notifyRefresh();
 }

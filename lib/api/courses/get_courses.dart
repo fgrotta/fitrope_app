@@ -6,11 +6,16 @@ List<Course>? _cachedCourses;
 DateTime? _lastCacheTime;
 const Duration _cacheDuration = Duration(minutes: 1);
 
-Future<List<Course>> getAllCourses({bool force = false}) async {
-  // Calcola la data di 45 giorni fa
-  final cutoffDate = DateTime.now().subtract(const Duration(days: 150));
-  final cutoffTimestamp = Timestamp.fromDate(cutoffDate);
+// Lettura in corso: `Protected` e `HomePage` chiedono i corsi nello stesso
+// frame, e senza de-dup partivano due query identiche.
+Future<List<Course>>? _inFlight;
+bool _inFlightForced = false;
+// Incrementata da ogni invalidazione e da ogni richiesta forzata: una lettura
+// partita prima non scrive più la cache (sarebbe più vecchia).
+int _generation = 0;
 
+Future<List<Course>> getAllCourses(
+    {bool force = false, FirebaseFirestore? firestore}) async {
   // Controlla se la cache è ancora valida
   if (_cachedCourses != null && _lastCacheTime != null && !force) {
     final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
@@ -20,9 +25,38 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
     }
   }
 
-  CollectionReference collectionRef =
-      FirebaseFirestore.instance.collection('courses');
-  // Filtra i corsi con startDate successiva a 45 giorni fa
+  // Una richiesta normale si aggancia a qualunque lettura in volo; una
+  // forzata solo a un'altra forzata, perché quella normale può essere partita
+  // prima della mutazione che ha motivato il `force`.
+  final inFlight = _inFlight;
+  if (inFlight != null && (!force || _inFlightForced)) return inFlight;
+
+  if (force) _generation++;
+  final generation = _generation;
+  final future =
+      _fetchCourses(firestore ?? FirebaseFirestore.instance).then((courses) {
+    if (generation == _generation) {
+      _cachedCourses = courses;
+      _lastCacheTime = DateTime.now();
+    }
+    return courses;
+  });
+  _inFlight = future;
+  _inFlightForced = force;
+  try {
+    return await future;
+  } finally {
+    if (identical(_inFlight, future)) _inFlight = null;
+  }
+}
+
+Future<List<Course>> _fetchCourses(FirebaseFirestore db) async {
+  // Calcola la data di 150 giorni fa
+  final cutoffDate = DateTime.now().subtract(const Duration(days: 150));
+  final cutoffTimestamp = Timestamp.fromDate(cutoffDate);
+
+  CollectionReference collectionRef = db.collection('courses');
+  // Filtra i corsi con startDate successiva alla data di cutoff
   QuerySnapshot querySnapshot = await collectionRef
       .where('startDate', isGreaterThan: cutoffTimestamp)
       .get();
@@ -45,10 +79,6 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
     }
   }
 
-  // Aggiorna la cache
-  _cachedCourses = courses;
-  _lastCacheTime = DateTime.now();
-
   return courses;
 }
 
@@ -56,4 +86,6 @@ Future<List<Course>> getAllCourses({bool force = false}) async {
 void invalidateCoursesCache() {
   _cachedCourses = null;
   _lastCacheTime = null;
+  _generation++;
+  _inFlight = null;
 }

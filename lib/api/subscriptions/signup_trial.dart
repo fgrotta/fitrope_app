@@ -9,3 +9,10 @@ Future<void> grantSignupTrial() async {
       .httpsCallable('grantSignupTrial')
       .call();
 }
+
+/// Il login chiama [grantSignupTrial] solo se il profilo appena letto ha il
+/// marker create-only della self-registration: per tutti gli altri il server
+/// risponderebbe `NOT_PENDING`, dopo un round-trip (cold start incluso) che
+/// teneva fermo il form.
+bool needsSignupTrialGrant(Map<String, dynamic> userData) =>
+    userData['signupTrialRequested'] == true;

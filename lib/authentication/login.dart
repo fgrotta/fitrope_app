@@ -7,7 +7,6 @@ import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
-import 'package:fitrope_app/services/onesignal_service.dart';
 import 'package:fitrope_app/services/notification_service.dart';
 import 'package:fitrope_app/api/subscriptions/signup_trial.dart';
 
@@ -52,8 +51,6 @@ Future<SignInResponse> signInWithEmailPassword(
       String uid = user.uid;
       Map<String, dynamic>? userData = await getUserData(uid);
 
-      store.dispatch(FinishLoadingAction());
-
       if (userData != null) {
         var fitropeUser = FitropeUser.fromJson(userData);
 
@@ -61,39 +58,45 @@ Future<SignInResponse> signInWithEmailPassword(
         if (!fitropeUser.isActive) {
           // Disconnetti l'utente da Firebase Auth
           await FirebaseAuth.instance.signOut();
+          store.dispatch(FinishLoadingAction());
           return SignInResponse(
               error:
                   "Il tuo account è stato disattivato. Contatta l'amministratore per maggiori informazioni.");
         }
 
-        // Best effort: per i nuovi signup il server completa la prova dal
-        // marker create-only. I profili legacy ricevono un no-op.
-        try {
-          await grantSignupTrial();
-          final refreshed = await getUserData(uid);
-          if (refreshed != null) fitropeUser = FitropeUser.fromJson(refreshed);
-        } catch (error) {
-          print('Retry prova signup fallito: $error');
+        // Best effort, e solo per chi ha il marker create-only della
+        // self-registration: per i profili esistenti il server farebbe un
+        // no-op dopo un round-trip alla callable.
+        if (needsSignupTrialGrant(userData)) {
+          try {
+            await grantSignupTrial();
+            final refreshed = await getUserData(uid);
+            if (refreshed != null) {
+              fitropeUser = FitropeUser.fromJson(refreshed);
+            }
+          } catch (error) {
+            print('Retry prova signup fallito: $error');
+          }
         }
 
-        // Popola la cache degli utenti in background
-        unawaited(getUsers().catchError((error) {
-          // Gestione silenziosa degli errori - non blocca il processo di login
-          print('Background cache population failed: $error');
-          return <FitropeUser>[];
-        }));
+        // Il Loader copre l'intera attesa: spento solo dopo l'ultimo await.
+        store.dispatch(FinishLoadingAction());
 
-        print(
-            '🔔 [Login] Registrazione utente su OneSignal — uid: ${fitropeUser.uid}, email: ${fitropeUser.email}');
-        // Client SDK (per push future): identifica l'utente se abbiamo un permesso push
-        OneSignalService.login(fitropeUser.uid);
-        if (fitropeUser.email.isNotEmpty) {
-          OneSignalService.addEmail(fitropeUser.email);
+        // Solo lo staff usa la lista completa degli utenti: per un socio sarebbe
+        // l'intera collection `users` scaricata per niente. Popolata in
+        // background, non blocca il login.
+        if (fitropeUser.role == 'Admin' || fitropeUser.role == 'Trainer') {
+          unawaited(getUsers().catchError((error) {
+            print('Background cache population failed: $error');
+            return <FitropeUser>[];
+          }));
         }
-        unawaited(OneSignalService.syncPushPreference(
-            fitropeUser.pushNotificationsEnabled));
-        // Server-side: garantisce che l'utente esista su OneSignal con la sua email,
-        // indipendentemente dal permesso push del browser. Fire-and-forget.
+
+        // L'identità del client SDK OneSignal (login/email/preferenza push) la
+        // lega `Protected._syncOneSignalIdentity` al mount, che copre anche il
+        // reload. Qui resta solo la garanzia server-side: l'utente esiste su
+        // OneSignal con la sua email, indipendentemente dal permesso push del
+        // browser. Fire-and-forget.
         if (fitropeUser.email.isNotEmpty) {
           unawaited(ensureOneSignalUser(fitropeUser.uid, fitropeUser.email));
         }
@@ -101,6 +104,7 @@ Future<SignInResponse> signInWithEmailPassword(
         return SignInResponse(user: fitropeUser, error: "");
       }
 
+      store.dispatch(FinishLoadingAction());
       return SignInResponse(error: "Email o password sbagliati");
     }
   } on FirebaseAuthException catch (e) {
