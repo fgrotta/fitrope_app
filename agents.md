@@ -49,9 +49,9 @@ Sequenza di avvio in `main.dart`:
 2. `Firebase.initializeApp` seleziona `DefaultFirebaseOptions` produzione o `StagingFirebaseOptions` con `--dart-define=APP_ENV=staging`
 3. Se `--dart-define=USE_EMULATOR=true`, connessione agli emulatori Auth/Firestore/Functions (`europe-west8`) tramite `EMULATOR_HOST` (default `localhost`)
 4. `ensureOneSignalInitialized()` (`lib/services/onesignal_bootstrap.dart`): su mobile sempre, sul web solo se `isLogged()` — inizializzare significa scaricare il SDK, e dopo il login lo fa `Protected._syncOneSignalIdentity`. Emulatore e staging restano esclusi dentro l'helper
-5. `initializeItalianDateFormatting()` (`lib/utils/intl_it.dart`, solo dati `it`, sincrono). Il database timezone Europe/Rome (`latest_10y`) si carica in lazy alla prima conversione di `italian_time.dart`
+5. `initializeItalianDateFormatting()` (`lib/utils/intl_it.dart`, solo dati `it`, sincrono, imposta `Intl.defaultLocale = 'it_IT'`). Il database timezone Europe/Rome (`latest_10y`) si carica in lazy alla prima conversione di `italian_time.dart`
 6. `SafeArea` + `StoreProvider(store)` wrapping `MyApp`
-7. `MaterialApp` con locale `it_IT`, route iniziale `INITIAL_ROUTE`; su build staging il builder aggiunge un `Banner` "STAGING" 
+7. `MaterialApp` con locale `it_IT` e soli delegate italiani (`italianLocalizationsDelegates`, niente `Global*Localizations`), route iniziale `INITIAL_ROUTE`; su build staging il builder aggiunge un `Banner` "STAGING" 
 
 In modalita emulatore OneSignal non viene inizializzato, per evitare registrazioni su OneSignal produzione durante il QA locale.
 

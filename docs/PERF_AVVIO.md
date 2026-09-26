@@ -138,3 +138,39 @@ Verifica: `tool/check_deferred_split.py build/web` (in `ci.yml` e `staging.yml`)
 sull'emulatore con admin (Home, Utenti, Dashboard, drawer, simulazione di un socio e uscita):
 ogni libreria carica solo i suoi part, e al resume dopo la simulazione non restano letture del
 socio.
+
+## Localizzazioni solo italiane e scelta del motore (26/09/2026)
+
+Composizione di `main.dart.js` (da source map, build dart2js): il grosso è framework Flutter e
+SDK Dart; le due voci evitabili erano `flutter_localizations` (~309 KB raw: testi
+Material/Cupertino e date di ~80 lingue) e, nel motore, le tabelle dei font di fallback
+(~250 KB raw, interne all'engine e non configurabili).
+
+`lib/utils/italian_localizations.dart` sostituisce i delegate `Global*Localizations` con
+delegate che costruiscono direttamente le classi italiane:
+
+| `main.dart.js` | Prima | Dopo |
+|---|---:|---:|
+| raw | 3.304.432 | 2.765.430 |
+| gzip -9 | 919.198 | 810.631 |
+| brotli (come lo serve Hostinger) | 707.816 | 631.574 |
+
+Motore grafico, scaricato da gstatic in brotli con cache di un anno (condivisa tra i siti Flutter
+con la stessa revisione dell'engine):
+
+| Motore | Chi lo riceve | brotli |
+|---|---|---:|
+| CanvasKit "chromium" | Chrome, Edge, Android | 1,63 MB |
+| CanvasKit completo | Safari/iOS, Firefox | 2,25 MB |
+| skwasm | Chromium, solo con build `--wasm` | 1,21 MB |
+| skwasm_heavy | Safari/Firefox, solo forzando wasm | 1,83 MB |
+
+**Decisione: restare su dart2js.** La produzione (deploy del 14/07/2026) non ha mai servito
+`main.dart.wasm`: gira già dart2js, quindi lo spegnimento di `--wasm` non cambia nulla per gli
+utenti reali. Con dart2js non esiste una variante di CanvasKit più piccola da scegliere (il
+loader prende già "chromium" dove può). Si torna a valutare `--wasm` quando
+`--enable-wasm-deferred-loading` (beta 3.48, assente nella stable 3.47.5) arriverà in stable:
+allora wasm e split deferred saranno compatibili. Wasm su Safari/iOS non è attivo di default in
+nessun canale (stable 3.47.5, beta 3.49, master); si può forzare con `wasmAllowList` ma sotto
+Safari 26.2 rischia crash, e il team Flutter non lo supporta ancora
+([#178893](https://github.com/flutter/flutter/issues/178893)).

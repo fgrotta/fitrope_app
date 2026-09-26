@@ -179,6 +179,7 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 
 - UI in italiano. Non tradurre stringhe UI in inglese salvo richiesta esplicita.
 - Localizzazione date: `it_IT` via `intl`. Usa `formatDate` da `lib/utils/format_date.dart`.
+- **Localizzazioni Flutter solo italiane**: `MaterialApp` usa `italianLocalizationsDelegates` (`lib/utils/italian_localizations.dart`), non i delegate `Global*Localizations`, che porterebbero in `main.dart.js` testi e date di ~80 lingue (~76 KB brotli); un test lo impedisce. `initializeItalianDateFormatting()` registra solo i dati `it` e imposta `Intl.defaultLocale = 'it_IT'`: un `DateFormat` senza locale funziona, uno con una locale diversa da `it` lancia.
 - Serializzazione manuale: se aggiungi/modifichi campi nei modelli, aggiorna sempre sia `toJson` sia `fromJson` in `lib/types/`.
 - Nomi file Dart: `snake_case` (es. `home_page.dart`, `get_course_state.dart`). Il repo è stato rinominato interamente da camelCase: non reintrodurre `HomePage.dart` & co.
 - Stato globale Redux minimale: non aggiungere campi a `AppState` senza necessita reale.
