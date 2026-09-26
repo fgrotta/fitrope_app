@@ -44,7 +44,8 @@ class CoursePreviewCard extends StatefulWidget {
   State<CoursePreviewCard> createState() => _CoursePreviewCardState();
 }
 
-class _CoursePreviewCardState extends State<CoursePreviewCard> {
+class _CoursePreviewCardState extends State<CoursePreviewCard>
+    with RefreshListenersMixin<CoursePreviewCard> {
   late Future<Map<String, List<Map<String, dynamic>>>> _courseUsersFuture;
 
   @override
@@ -53,13 +54,7 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
     _courseUsersFuture = _getCourseUsers();
     // Si aggancia al refresh globale (es. ripresa app) per rileggere
     // la lista iscritti dal server anche se le prop del corso non cambiano.
-    RefreshManager().addListener(_refreshUsers);
-  }
-
-  @override
-  void dispose() {
-    RefreshManager().removeListener(_refreshUsers);
-    super.dispose();
+    listenToRefresh(_refreshUsers);
   }
 
   void _refreshUsers() {

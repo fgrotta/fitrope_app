@@ -53,3 +53,59 @@ class _DeferredPageState extends State<DeferredPage> {
     );
   }
 }
+
+/// Come [DeferredPage], ma per una sezione dentro una pagina già montata: al
+/// posto dello Scaffold con il velo del [Loader] mostra un piccolo spinner in
+/// linea, e in caso di errore un messaggio che non copre il resto della
+/// pagina.
+///
+/// Serve per il codice che solo alcuni ruoli usano (es. le sezioni admin della
+/// Home): con la build dart2js finisce in un part separato che gli altri non
+/// scaricano.
+class DeferredSection extends StatefulWidget {
+  /// Tipicamente il `loadLibrary` del prefisso deferred.
+  final Future<void> Function() load;
+
+  /// Costruisce la sezione DOPO che il chunk è stato caricato.
+  final WidgetBuilder builder;
+
+  const DeferredSection({super.key, required this.load, required this.builder});
+
+  @override
+  State<DeferredSection> createState() => _DeferredSectionState();
+}
+
+class _DeferredSectionState extends State<DeferredSection> {
+  late final Future<void> _future = widget.load();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text(
+              'Impossibile caricare questa sezione. Ricarica la pagina.',
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.all(12),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        return widget.builder(context);
+      },
+    );
+  }
+}

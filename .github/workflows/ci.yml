@@ -52,6 +52,10 @@ jobs:
       # del ramo web: il ramo mobile stampa invece "[OneSignal]" senza " Web".
       - name: Verifica che il bundle contenga il ramo web di OneSignal
         run: grep -q 'OneSignal Web' build/web/main.dart.js
+      # Il codice solo admin (pagine Utenti/Dashboard, drawer, sezioni admin
+      # della Home) deve restare in part che un socio non scarica.
+      - name: Verifica lo split deferred del codice admin
+        run: python3 tool/check_deferred_split.py build/web
 
   functions-test:
     runs-on: ubuntu-latest

@@ -13,8 +13,16 @@ import 'package:fitrope_app/layout/app_shell.dart';
 import 'package:fitrope_app/pages/protected/calendar_page.dart';
 import 'package:fitrope_app/pages/protected/home_page.dart';
 import 'package:fitrope_app/layout/breakpoints.dart';
-import 'package:fitrope_app/pages/protected/admin_dashboard_page.dart';
-import 'package:fitrope_app/pages/protected/admin_users_page.dart';
+// Codice solo admin: libreria deferred, nella build dart2js un socio non ne
+// scarica i part. I simboli di questi prefissi non si usano né come tipi né
+// in espressioni const.
+import 'package:fitrope_app/pages/protected/admin_dashboard_page.dart'
+    deferred as admin_dashboard;
+import 'package:fitrope_app/pages/protected/admin_users_page.dart'
+    deferred as admin_users;
+import 'package:fitrope_app/pages/protected/user_list_drawer.dart'
+    deferred as user_list_drawer;
+import 'package:fitrope_app/components/deferred_page.dart';
 import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/state/actions.dart';
@@ -45,7 +53,12 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
   String? _drawerTitle;
   List<FitropeUser>? _drawerUsers;
 
-  void _openUserList(String title, List<FitropeUser> users) {
+  Future<void> _openUserList(String title, List<FitropeUser> users) async {
+    // Il drawer è in una libreria deferred: va caricata prima di costruirlo.
+    // La chiama solo la dashboard admin, già scaricata a quel punto; il primo
+    // `loadLibrary` del drawer è un part piccolo.
+    await user_list_drawer.loadLibrary();
+    if (!mounted) return;
     setState(() {
       _drawerTitle = title;
       _drawerUsers = users;
@@ -216,7 +229,7 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
             child: Scaffold(
               key: _scaffoldKey,
               endDrawer: _drawerTitle != null && _drawerUsers != null
-                  ? UserListDrawer(
+                  ? user_list_drawer.UserListDrawer(
                       title: _drawerTitle!,
                       users: _drawerUsers!,
                       onClose: () => setState(() {
@@ -292,10 +305,22 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
         return const HomePage();
       case 1:
         return const CalendarPage();
+      // Chiavi distinte: senza, passando da Utenti a Dashboard Flutter
+      // riuserebbe lo State di DeferredPage, con il Future della libreria
+      // sbagliata già catturato.
       case 2:
-        return const AdminUsersPage();
+        return DeferredPage(
+          key: const ValueKey('admin-users'),
+          load: admin_users.loadLibrary,
+          builder: (_) => admin_users.AdminUsersPage(),
+        );
       case 3:
-        return AdminDashboardPage(onOpenUserList: _openUserList);
+        return DeferredPage(
+          key: const ValueKey('admin-dashboard'),
+          load: admin_dashboard.loadLibrary,
+          builder: (_) =>
+              admin_dashboard.AdminDashboardPage(onOpenUserList: _openUserList),
+        );
       default:
         return const HomePage();
     }
