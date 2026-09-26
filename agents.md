@@ -48,12 +48,16 @@ Sequenza di avvio in `main.dart`:
 1. `WidgetsFlutterBinding.ensureInitialized()`
 2. `Firebase.initializeApp` seleziona `DefaultFirebaseOptions` produzione o `StagingFirebaseOptions` con `--dart-define=APP_ENV=staging`
 3. Se `--dart-define=USE_EMULATOR=true`, connessione agli emulatori Auth/Firestore/Functions (`europe-west8`) tramite `EMULATOR_HOST` (default `localhost`)
-4. Se NON si usa l'emulatore, `OneSignalService.initialize(oneSignalAppId)`
-5. `initializeDateFormatting('it_IT', null)` + `initItalianTime()` (database timezone Europe/Rome)
+4. `ensureOneSignalInitialized()` (`lib/services/onesignal_bootstrap.dart`): su mobile sempre, sul web solo se `isLogged()` — inizializzare significa scaricare il SDK, e dopo il login lo fa `Protected._syncOneSignalIdentity`. Emulatore e staging restano esclusi dentro l'helper
+5. `initializeItalianDateFormatting()` (`lib/utils/intl_it.dart`, solo dati `it`, sincrono). Il database timezone Europe/Rome (`latest_10y`) si carica in lazy alla prima conversione di `italian_time.dart`
 6. `SafeArea` + `StoreProvider(store)` wrapping `MyApp`
 7. `MaterialApp` con locale `it_IT`, route iniziale `INITIAL_ROUTE`; su build staging il builder aggiunge un `Banner` "STAGING" 
 
 In modalita emulatore OneSignal non viene inizializzato, per evitare registrazioni su OneSignal produzione durante il QA locale.
+
+Lo splash (`SplashScreen`) non ha attese fisse: dopo il primo evento di `authStateChanges` va su `PROTECTED_ROUTE` o `WELCOME_ROUTE`. `initialRoute: '/splash'` fa costruire anche la Welcome sotto, che per un utente loggato sostituisce subito lo splash con l'area protetta: per questo lo splash naviga solo se la sua route è ancora `isCurrent` (altrimenti doppio `Protected`, vedi `test/splash_screen_test.dart`).
+
+Letture utenti: `getUsers()` (collection intera) serve solo allo staff ed è popolata in background al login solo per Admin/Trainer; i soci usano `getTrainers()`, una query `role == Trainer`. `getAllCourses`, `getUsers` e `getTrainers` condividono la lettura in volo tra chiamanti concorrenti, e un'invalidazione durante il volo impedisce che il risultato vecchio finisca in cache. Dopo una mutazione utente `invalidateAllUserCaches()` è l'unico punto che chiama `RefreshManager().notifyRefresh()`, una volta sola; il refresh al resume di `Protected` passa `notify: false` e notifica per conto suo.
 
 ## Mappa delle cartelle
 
@@ -388,8 +392,11 @@ Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layou
 
 **Deferred loading**: `Protected`, `CourseManagementPage`, `RecurringCoursePage` e
 `DebugEmailPage` sono importate con `deferred as` e wrappate in `DeferredPage(load: ...)`
-(`lib/components/deferred_page.dart`), con preload avviato dallo splash: riducono il primo
-caricamento web. Se aggiungi una route "pesante", segui lo stesso pattern.
+(`lib/components/deferred_page.dart`), con preload avviato dallo splash solo per utenti
+loggati. **Sotto `--wasm` (la build di produzione) non splittano nulla**: dart2wasm produce
+un modulo unico, `flutter_tools` non copia moduli secondari e il loader dell'engine non
+passa `loadDeferredModule`, quindi `loadLibrary()` ritorna subito e il codice sta tutto in
+`main.dart.wasm`. Riducono il primo caricamento solo sul fallback dart2js.
 
 ## Regole di business
 

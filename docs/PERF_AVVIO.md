@@ -4,29 +4,53 @@ Baseline e risultati del lavoro "velocizzare il caricamento dell'app" (Fasi 0–
 Scenari:
 
 - **S1** visitatore non loggato, avvio a freddo → Welcome
-- **S2** socio già loggato, reload → Home con le card
+- **S2** socio già loggato, reload → Home
 - **S3** login esplicito → Home
 - **S4** ritorno alla tab / resume
+
+"Prima" = `develop` @ 7de46754, "dopo" = questo branch.
 
 ## Bundle (`flutter build web --wasm --release`, Flutter 3.41.6)
 
 | File | Prima raw | Prima gzip -9 | Dopo raw | Dopo gzip -9 |
 |---|---:|---:|---:|---:|
-| `main.dart.wasm` | 3.450.162 | 1.249.362 | _da misurare_ | _da misurare_ |
-| `main.dart.mjs` | 728.679 | 152.128 | _da misurare_ | _da misurare_ |
-| `main.dart.js` (fallback dart2js) | 4.296.458 | 1.075.697 | _da misurare_ | _da misurare_ |
-| logo splash HTML | 19.196 (`new_logo_only.png`) | — | _da misurare_ | — |
+| `main.dart.wasm` | 3.450.162 | 1.249.362 | 3.415.047 | 1.238.721 |
+| `main.dart.mjs` | 728.679 | 152.128 | 215.919 | 32.774 |
+| `main.dart.js` (fallback dart2js) | 4.296.458 | 1.075.697 | 3.301.420 | 917.678 |
+| logo splash HTML | 19.196 (1541×2311) | — | 12.507 (266×400) | — |
 
-`skwasm.wasm` (~1,5 MB gzip) arriva da `www.gstatic.com` ed è fuori dal nostro controllo.
+Il guadagno sul percorso wasm sta quasi tutto in `main.dart.mjs` (−119 KB gzip): i dati
+di timezone e intl finivano lì come stringhe JS. `skwasm.wasm` (~1,5 MB gzip) arriva da
+`www.gstatic.com` ed è fuori dal nostro controllo.
 
-## Lavoro per scenario (da codice, verificato su emulatore)
+## Query Firestore per scenario (emulatore, socio `abbonato@test.it`)
+
+Contate intercettando il log debug del Firestore JS SDK (`setLogLevel('debug')`, righe
+`addTarget`) su build release con `USE_EMULATOR=true`, stessa istanza e stesso seed.
 
 | Scenario | Prima | Dopo |
 |---|---|---|
-| S1 | splash Flutter fisso 2 s; parse completo tz (`latest.dart`) e symbols intl di tutte le lingue prima di `runApp`; SDK OneSignal scaricato | _da compilare_ |
-| S2 | splash 2 s; `Protected` con body vuoto; corsi ×2 (`Protected` + `HomePage`); `getTrainers` = lettura **completa** di `users` | _da compilare_ |
-| S3 | `getUserData` → loader spento → callable `grantSignupTrial` (sempre) → `getUserData` → `getUsers` completo in background → corsi ×2 + `getTrainers` completo | _da compilare_ |
-| S4 | `notifyRefresh` ×3 (due dalle `invalidateUsersWithExpiring*`, uno da `_onResumeRefresh`): ogni `CoursePreviewCard` ripete la query 3 volte | _da compilare_ |
+| S2 reload | corsi ×1, get profilo, **`users` intera** (getTrainers) | corsi ×1, get profilo, `users where role == Trainer` |
+| S3 login socio | get profilo → callable `grantSignupTrial` (~2,2 s sull'emulatore) → get profilo → **`users` intera** → corsi ×2 | get profilo → `users where role == Trainer` (corsi dalla cache) |
+| S3 login admin | come sopra | get profilo → `users` intera (serve allo staff) |
+| S4 resume | corsi ×2, get profilo ×2 (tre `notifyRefresh`) | corsi ×1, get profilo ×1 |
+
+S3 socio, da `signIn` riuscito a `Protected` montato: prima ~2,2 s di callable prima ancora
+di navigare, dopo ~0,23 s.
+
+## Avvio a freddo S1 (build wasm di produzione servite in locale, nessun login)
+
+| | Prima | Dopo |
+|---|---|---|
+| primo frame Flutter | ~0,45–0,6 s | ~0,47–0,67 s |
+| Welcome visibile | ~2,5 s (splash fisso 2 s) | al primo frame |
+| richieste OneSignal | 3 | 0 |
+| splash HTML | resta nel DOM sotto il canvas, spinner invisibile | rimosso al primo frame, spinner blu |
+
+Per un utente già loggato (S2) i 2 s non si pagavano nemmeno prima: la route iniziale
+`/splash` fa costruire anche la Welcome sotto, e la sua `loggedRedirect` sostituiva subito
+lo splash. Senza più l'attesa lo splash avrebbe spinto un secondo `Protected`: lo evita la
+guardia `isCurrent` in `SplashScreen` (test `test/splash_screen_test.dart`).
 
 ## Staging, prima (build `develop` @ 7de46754, admin `dev_admin`, cache HTTP calda)
 
@@ -43,11 +67,26 @@ Waterfall S2 da `performance.getEntriesByType('resource')`, ms dalla navigazione
 
 Osservazioni:
 
-- Il console log `… logged` compare **due volte** per reload: `Protected` viene montato due volte.
-- Su staging OneSignal non viene inizializzato ma il SDK viene comunque scaricato e
-  `login` fallisce in console (`Cannot read properties of undefined`).
+- Il console log `… logged` compare **due volte** per reload su staging (non riprodotto
+  sull'emulatore con la build di partenza): da riverificare dopo il deploy.
+- Su staging OneSignal non viene inizializzato ma il SDK veniva comunque scaricato e
+  `login` falliva in console (`Cannot read properties of undefined`). Con il caricamento
+  lazy il SDK non viene più richiesto dove OneSignal è spento.
 - Il salto di ~9,5 s tra splash e prima richiesta Firestore non è attribuibile con certezza
   all'app: sotto il debugger di Chrome MCP il long polling auto-detect di Firestore può
   rallentare. Da riverificare senza strumentazione.
-- S3 non misurato su staging (il browser di misura aveva già una sessione admin): il
-  confronto S3 è fatto su emulatore.
+- La colonna "dopo" su staging si compila dopo il merge su `develop`.
+
+## Decisioni
+
+- **`CoursePreviewCard`** resta con una query per card: nel seed nessun socio ha più di
+  una card, e un socio reale ne vede tipicamente ≤ 3 (frequenza settimanale). Con il
+  refresh unico ogni card fa una query per giro invece di tre.
+- **Roboto** non bundlato: arriva da `fonts.gstatic.com` in parallelo al Firebase SDK;
+  basta il `preconnect`.
+- **`--pwa-strategy=none`** non applicabile: il flag non esiste più in Flutter 3.41.6.
+- **Cache asset**: il default Hostinger è già 7 giorni; `.htaccess` aggiunge solo i file
+  senza hash che devono restare freschi (`main.dart.wasm`/`.mjs`, `AssetManifest*`,
+  `FontManifest.json`) e `AddType application/wasm`. Da verificare dopo il deploy:
+  `curl -I https://app.fithousemonza.it/main.dart.wasm` → `Content-Type: application/wasm`,
+  `Cache-Control: public, max-age=1800`.
