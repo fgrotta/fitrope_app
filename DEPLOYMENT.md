@@ -26,7 +26,7 @@ Questo progetto utilizza GitHub Actions per automatizzare il processo di build e
 1. **Sviluppo**: feature branch, PR verso `develop`
 2. **Test PR**: ogni Pull Request verso `main` o `develop` attiva `ci.yml`
 3. **Staging**: ogni merge/push su `develop` attiva `staging.yml`, che testa **e deploya** l'ambiente staging (vedi sotto)
-4. **Release in produzione**: il branch `release` esegue solo i gate di validazione. **Il deploy in produzione è manuale**: `flutter build web --wasm --release` e upload di `build/web` sull'hosting Hostinger. Le Cloud Functions di produzione si deployano con `firebase deploy --project prod --only functions`.
+4. **Release in produzione**: il branch `release` esegue solo i gate di validazione. **Il deploy in produzione è manuale**: `flutter build web --wasm --release`, poi `python3 tool/precompress_web.py build/web` (file `.br` per la brotli, vedi `tool/hostinger/README.md`) e upload di `build/web` sull'hosting Hostinger; dopo l'upload `tool/hostinger/verify_brotli.sh https://app.fithousemonza.it main.dart.js` deve dare `ESITO: OK`. Le Cloud Functions di produzione si deployano con `firebase deploy --project prod --only functions`.
 
 ### Ambiente Staging
 
@@ -65,6 +65,8 @@ dart format --set-exit-if-changed .
 
 # Build Web — --wasm è il path usato da CI e produzione
 flutter build web --wasm --release
+# Per Hostinger: .br precompressi (vedi tool/hostinger/README.md)
+python3 tool/precompress_web.py build/web
 
 # Cloud Functions
 cd functions && npm ci && npm run build && npm test

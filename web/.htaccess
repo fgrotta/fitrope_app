@@ -1,12 +1,68 @@
+# Versione precedente (solo cache, senza .br): tool/hostinger/htaccess.backup.
+# Per tornare indietro basta ricopiarla qui (o caricarla da sola su Hostinger).
+
+# --- Brotli precompresso -----------------------------------------------------
+# La brotli dinamica di LiteSpeed comprime bene i file piccoli ma crolla su
+# quelli grandi (main.dart.js di 4,9 MB -> 1,65 MB, peggio del suo gzip).
+# tool/precompress_web.py crea accanto ai file i .br a livello 11; qui, se il
+# browser accetta brotli e il .br esiste, si serve quello così com'è.
+# Le estensioni devono coincidere con EXTENSIONS in tool/precompress_web.py
+# (test: tool/hostinger/test_precompress_web.py). Verifica sul server:
+# tool/hostinger/verify_brotli.sh.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP:Accept-Encoding} \bbr\b
+  RewriteCond %{REQUEST_FILENAME}.br -f
+  # no-gzip / no-brotli: il file è già compresso, il server non deve
+  # ricomprimerlo (una doppia codifica renderebbe il contenuto illeggibile).
+  RewriteRule ^(.+\.(js|mjs|wasm|json|otf|ttf|bin))$ $1.br [L,E=no-gzip:1,E=no-brotli:1]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Tipo del file originale e codifica dichiarata per i .br.
+  <FilesMatch "\.(js|mjs)\.br$">
+    ForceType application/javascript
+    Header set Content-Encoding br
+  </FilesMatch>
+  <FilesMatch "\.(wasm)\.br$">
+    ForceType application/wasm
+    Header set Content-Encoding br
+  </FilesMatch>
+  <FilesMatch "\.(json)\.br$">
+    ForceType application/json
+    Header set Content-Encoding br
+  </FilesMatch>
+  <FilesMatch "\.(otf)\.br$">
+    ForceType font/otf
+    Header set Content-Encoding br
+  </FilesMatch>
+  <FilesMatch "\.(ttf)\.br$">
+    ForceType font/ttf
+    Header set Content-Encoding br
+  </FilesMatch>
+  <FilesMatch "\.(bin)\.br$">
+    ForceType application/octet-stream
+    Header set Content-Encoding br
+  </FilesMatch>
+  # La stessa URL ha due risposte possibili (brotli o originale): le cache
+  # intermedie devono distinguerle.
+  <FilesMatch "\.(js|mjs|wasm|json|otf|ttf|bin)(\.br)?$">
+    Header append Vary Accept-Encoding
+  </FilesMatch>
+</IfModule>
+
+# --- Cache -------------------------------------------------------------------
 # Flutter Web non aggiunge un hash al nome di questi file (restano identici
 # da un build all'altro): senza questa regola vengono serviti con la cache
 # di default del server (7 giorni su Hostinger/LiteSpeed), e i client restano
-# bloccati su una versione vecchia fino a scadenza cache.
+# bloccati su una versione vecchia fino a scadenza cache. Il suffisso (\.br)?
+# serve perché, quando la regola sopra riscrive main.dart.js in
+# main.dart.js.br, i FilesMatch vedono il nome del file .br.
 <IfModule mod_headers.c>
-  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|flutter_bootstrap\.js|flutter\.js)$">
+  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|flutter_bootstrap\.js|flutter\.js)(\.br)?$">
     Header set Cache-Control "public, max-age=1800"
   </FilesMatch>
-  <FilesMatch "\.part\.js$">
+  <FilesMatch "\.part\.js(\.br)?$">
     Header set Cache-Control "public, max-age=1800"
   </FilesMatch>
 </IfModule>
