@@ -40,16 +40,18 @@ jobs:
       - name: Check formatting
         run: dart format --set-exit-if-changed .
         
-      - name: Build Web (dry run, valida il path --wasm di produzione)
-        run: flutter build web --wasm --release
+      # dart2js e non --wasm: con --wasm i `deferred as` non producono moduli
+      # separati e il codice admin finirebbe nel bundle di tutti.
+      - name: Build Web (dry run, stesso path della produzione)
+        run: flutter build web --release
 
       # Gate anti-regressione del conditional export di onesignal_service.dart:
-      # sotto --wasm `dart.library.html` e' false, quindi una direttiva scritta
-      # male compila il ramo *mobile* sul web (MissingPluginException a runtime,
-      # niente push ne' alias email). Il marcatore e' il debugPrint del ramo web:
-      # il ramo mobile stampa invece "[OneSignal]" senza " Web".
-      - name: Verifica che il bundle wasm contenga il ramo web di OneSignal
-        run: grep -aq 'OneSignal Web' build/web/main.dart.wasm
+      # una direttiva scritta male compila il ramo *mobile* sul web
+      # (MissingPluginException a runtime, niente push ne' alias email); sotto
+      # --wasm succedeva con `dart.library.html`. Il marcatore e' il debugPrint
+      # del ramo web: il ramo mobile stampa invece "[OneSignal]" senza " Web".
+      - name: Verifica che il bundle contenga il ramo web di OneSignal
+        run: grep -q 'OneSignal Web' build/web/main.dart.js
 
   functions-test:
     runs-on: ubuntu-latest

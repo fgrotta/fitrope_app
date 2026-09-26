@@ -1,22 +1,29 @@
 # Flutter Web non aggiunge un hash al nome di questi file (restano identici
-# da un build all'altro): senza questa regola vengono serviti con la cache
-# di default del server (7 giorni su Hostinger/LiteSpeed), e i client restano
-# bloccati su una versione vecchia fino a scadenza cache. Il build --wasm
-# (quello di produzione) carica main.dart.wasm + main.dart.mjs: stessi vincoli.
-# I manifest degli asset stanno in assets/ ma FilesMatch vale anche nelle
-# sottocartelle: un manifest vecchio con codice nuovo non trova gli asset
-# aggiunti. Gli asset veri (immagini, font) restano sul default del server.
+# da un build all'altro): senza queste regole vengono serviti con la cache di
+# default del server (7 giorni su Hostinger/LiteSpeed), e i client restano
+# bloccati su una versione vecchia fino a scadenza cache.
+#
+# `no-cache` = il browser può tenerli, ma li rivalida a ogni caricamento
+# (304 se invariati, grazie all'ETag). Una semplice durata non basta: il build
+# dart2js carica le route differite (`deferred as`) da main.dart.js_N.part.js,
+# e main.dart.js accetta solo i part con l'hash del SUO build. Con durate
+# indipendenti un main.dart.js vecchio in cache e un part nuovo dal server
+# danno DeferredLoadException, cioè "Impossibile caricare la pagina" sull'area
+# protetta o sulle pagine admin. Stesso vincolo per i manifest degli asset (in
+# assets/: FilesMatch vale anche nelle sottocartelle). Gli asset veri
+# (immagini, font) restano sul default del server.
 <IfModule mod_headers.c>
-  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|main\.dart\.wasm|main\.dart\.mjs|flutter_bootstrap\.js|flutter\.js|AssetManifest\.bin\.json|AssetManifest\.bin|FontManifest\.json)$">
-    Header set Cache-Control "public, max-age=1800"
+  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|flutter_bootstrap\.js|flutter\.js|AssetManifest\.bin\.json|AssetManifest\.bin|FontManifest\.json)$">
+    Header set Cache-Control "no-cache"
   </FilesMatch>
   <FilesMatch "\.part\.js$">
-    Header set Cache-Control "public, max-age=1800"
+    Header set Cache-Control "no-cache"
   </FilesMatch>
 </IfModule>
 
-# `WebAssembly.instantiateStreaming` rifiuta un .wasm servito senza
-# Content-Type application/wasm (fallback più lento su compile non in streaming).
+# CanvasKit arriva da www.gstatic.com, ma build/web/canvaskit/ resta come
+# copia locale di riserva: `WebAssembly.instantiateStreaming` rifiuta un .wasm
+# servito senza Content-Type application/wasm.
 <IfModule mod_mime.c>
   AddType application/wasm .wasm
 </IfModule>

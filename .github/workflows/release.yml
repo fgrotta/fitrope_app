@@ -32,7 +32,7 @@ jobs:
       - run: flutter test
       - run: flutter analyze --no-fatal-infos
       - run: dart format --set-exit-if-changed .
-      - run: flutter build web --wasm --release
+      - run: flutter build web --release
 
   functions:
     runs-on: ubuntu-latest

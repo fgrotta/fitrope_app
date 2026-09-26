@@ -171,10 +171,9 @@
     function forceUpdate() {
       // Il service worker di Flutter 3.41 è uno stub che si auto-deregistra:
       // `navigator.serviceWorker.ready` non si risolveva e l'update restava
-      // appeso. Il reload rilegge index.html; main.dart.wasm & co. possono
-      // arrivare ancora dalla cache HTTP fino a 30 minuti (web/.htaccess), e in
-      // quel caso l'app nuova arriva al reload successivo. Niente loop: dopo il
-      // reload `currentVersion` riparte dal valore del server.
+      // appeso. Il reload rivalida index.html, main.dart.js e i part
+      // (`no-cache` in web/.htaccess), quindi scarica la versione nuova. Niente
+      // loop: dopo il reload `currentVersion` riparte dal valore del server.
       if (window.__fitHouseReloading) return;
       window.__fitHouseReloading = true;
       window.location.reload();

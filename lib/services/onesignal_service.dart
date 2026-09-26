@@ -4,7 +4,7 @@ library;
 /// `onesignal_flutter`) oppure web (bridge JS in `web/index.html`).
 ///
 /// La condizione è **`dart.library.js_interop`, non `dart.library.html`**: sotto
-/// `--wasm` (come si builda la produzione e come è buildata staging) `dart:html`
+/// `--wasm` (usato in produzione fino al 26/09/2026, e riattivabile) `dart:html`
 /// non esiste e `dart.library.html` è `false`, quindi la condizione classica
 /// sceglie il ramo *mobile* proprio sul web. Il sintomo è una raffica di
 /// `MissingPluginException(No implementation found for method OneSignal#initialize

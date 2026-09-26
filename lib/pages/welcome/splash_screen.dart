@@ -51,9 +51,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if ((widget.isLoggedIn ?? isLogged)()) {
       // Il logo resta a schermo finché il chunk dell'area protetta non è
-      // pronto (sotto --wasm è già nel modulo unico e ritorna subito). Se il
-      // download fallisce si naviga comunque: `DeferredPage` mostra
-      // il suo stato di errore invece di uno splash bloccato.
+      // pronto. Se il download fallisce si naviga comunque: `DeferredPage`
+      // mostra il suo stato di errore invece di uno splash bloccato.
       try {
         await protected.loadLibrary();
       } catch (_) {}
