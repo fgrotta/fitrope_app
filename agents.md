@@ -55,7 +55,7 @@ Sequenza di avvio in `main.dart`:
 
 In modalita emulatore OneSignal non viene inizializzato, per evitare registrazioni su OneSignal produzione durante il QA locale.
 
-Lo splash (`SplashScreen`) non ha attese fisse: dopo il primo evento di `authStateChanges` va su `PROTECTED_ROUTE` o `WELCOME_ROUTE`. `initialRoute: '/splash'` fa costruire anche la Welcome sotto, che per un utente loggato sostituisce subito lo splash con l'area protetta: per questo lo splash naviga solo se la sua route è ancora `isCurrent` (altrimenti doppio `Protected`, vedi `test/splash_screen_test.dart`).
+Lo splash (`SplashScreen`) non ha attese fisse: dopo il primo evento di `authStateChanges` va su `PROTECTED_ROUTE` o `WELCOME_ROUTE`. `initialRoute: '/splash'` (e al reload `/protected`) fa costruire anche la Welcome sotto: `loggedRedirect` e lo splash navigano solo se la loro route è `isCurrent`, altrimenti `pushReplacementNamed` sostituirebbe un `Protected` già montato con un secondo (vedi `test/splash_screen_test.dart`, `test/logged_redirect_test.dart`).
 
 Letture utenti: `getUsers()` (collection intera) serve solo allo staff ed è popolata in background al login solo per Admin/Trainer; i soci usano `getTrainers()`, una query `role == Trainer`. `getAllCourses`, `getUsers` e `getTrainers` condividono la lettura in volo tra chiamanti concorrenti, e un'invalidazione durante il volo impedisce che il risultato vecchio finisca in cache. Dopo una mutazione utente `invalidateAllUserCaches()` è l'unico punto che chiama `RefreshManager().notifyRefresh()`, una volta sola; il refresh al resume di `Protected` passa `notify: false` e notifica per conto suo.
 

@@ -49,8 +49,9 @@ di navigare, dopo ~0,23 s.
 
 Per un utente già loggato (S2) i 2 s non si pagavano nemmeno prima: la route iniziale
 `/splash` fa costruire anche la Welcome sotto, e la sua `loggedRedirect` sostituiva subito
-lo splash. Senza più l'attesa lo splash avrebbe spinto un secondo `Protected`: lo evita la
-guardia `isCurrent` in `SplashScreen` (test `test/splash_screen_test.dart`).
+lo splash. Ora sia `loggedRedirect` sia `SplashScreen` navigano solo se la loro route è in
+cima (`isCurrent`): senza, lo splash senza attesa avrebbe spinto un secondo `Protected`
+(test `test/splash_screen_test.dart` e `test/logged_redirect_test.dart`).
 
 ## Staging, prima (build `develop` @ 7de46754, admin `dev_admin`, cache HTTP calda)
 
@@ -67,8 +68,12 @@ Waterfall S2 da `performance.getEntriesByType('resource')`, ms dalla navigazione
 
 Osservazioni:
 
-- Il console log `… logged` compare **due volte** per reload su staging (non riprodotto
-  sull'emulatore con la build di partenza): da riverificare dopo il deploy.
+- Il console log `… logged` compare **due volte** per reload su staging: al reload su
+  `/#/protected` il Navigator costruisce `['/', '/protected']` e la Welcome sotto chiamava
+  `loggedRedirect`, sostituendo il `Protected` appena montato con un secondo (doppio
+  `getUserData` e doppio login OneSignal a ogni reload). Sull'emulatore non si vedeva perché
+  lì si parte dalla root. Ora `loggedRedirect` agisce solo se la pagina è in cima
+  (`test/logged_redirect_test.dart`).
 - Su staging OneSignal non viene inizializzato ma il SDK veniva comunque scaricato e
   `login` falliva in console (`Cannot read properties of undefined`). Con il caricamento
   lazy il SDK non viene più richiesto dove OneSignal è spento.

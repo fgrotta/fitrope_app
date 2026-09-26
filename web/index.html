@@ -137,7 +137,13 @@
       }
     }
     
-    async function checkForUpdates() {
+    // Una versione nuova rilevata mentre l'utente usa la pagina NON la
+    // ricarica (un form non salvato andrebbe perso): resta in sospeso e il
+    // reload avviene quando l'utente torna sulla pagina (PWA riaperta, tab
+    // rimessa in primo piano).
+    let updatePending = false;
+
+    async function checkForUpdates(allowReload) {
       try {
         const serverVersion = await getCurrentVersion();
         
@@ -150,6 +156,10 @@
         
         if (serverVersion && serverVersion !== currentVersion) {
           console.log('Nuova versione rilevata:', serverVersion, 'vs', currentVersion);
+          updatePending = true;
+        }
+
+        if (updatePending && allowReload) {
           console.log('Eseguendo aggiornamento automatico...');
           forceUpdate();
         }
@@ -160,26 +170,37 @@
     
     function forceUpdate() {
       // Il service worker di Flutter 3.41 è uno stub che si auto-deregistra:
-      // `navigator.serviceWorker.ready` non si risolveva più e l'update restava
-      // appeso. Le regole di cache in web/.htaccess (30 min sui file senza
-      // hash) fanno sì che il reload scarichi davvero la versione nuova.
+      // `navigator.serviceWorker.ready` non si risolveva e l'update restava
+      // appeso. Il reload rilegge index.html; main.dart.wasm & co. possono
+      // arrivare ancora dalla cache HTTP fino a 30 minuti (web/.htaccess), e in
+      // quel caso l'app nuova arriva al reload successivo. Niente loop: dopo il
+      // reload `currentVersion` riparte dal valore del server.
+      if (window.__fitHouseReloading) return;
+      window.__fitHouseReloading = true;
       window.location.reload();
+    }
+
+    function checkOnReturn() {
+      if (document.visibilityState === 'visible') {
+        checkForUpdates(true);
+      }
     }
     
     // Inizia il controllo periodico dopo 30 secondi dall'avvio
     setTimeout(() => {
-      checkForUpdates();
+      checkForUpdates(false);
       
-      // Controlla aggiornamenti ogni 5 minuti (300000 ms)
-      checkInterval = setInterval(checkForUpdates, 300000);
+      // Controlla aggiornamenti ogni 5 minuti (300000 ms), senza ricaricare
+      checkInterval = setInterval(() => checkForUpdates(false), 300000);
     }, 30000);
     
-    // Controlla aggiornamenti al focus della finestra
-    window.addEventListener('focus', checkForUpdates);
+    // Al ritorno sulla pagina si ricarica se c'è una versione nuova
+    window.addEventListener('focus', checkOnReturn);
+    document.addEventListener('visibilitychange', checkOnReturn);
     
     // Controlla aggiornamenti al caricamento
     window.addEventListener('load', () => {
-      setTimeout(checkForUpdates, 1000);
+      setTimeout(() => checkForUpdates(false), 1000);
     });
   </script>
   
