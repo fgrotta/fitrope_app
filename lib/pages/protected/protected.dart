@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/api/get_user_data.dart';
@@ -64,6 +67,12 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
         });
       }
     });
+    // Scalda la cache dei trainer in parallelo a profilo e corsi: la HomePage,
+    // montata dopo `resetUser()`, la trova pronta o si aggancia alla lettura
+    // in volo (de-dup in getTrainers). Gli errori li gestisce chi li legge.
+    if (isLogged()) {
+      unawaited(getTrainers().then((_) {}, onError: (_) {}));
+    }
 
     if (!isLogged()) {
       // Unica via alla schermata di login che NON passa da `signOut()` (che
@@ -252,9 +261,12 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                       if (!context.mounted) return;
                       logoutRedirect(context);
                     },
+                    // Durante `resetUser()` (reload) uno spinner semplice, non
+                    // un secondo `Loader()`: quello su `isLoading` è sotto,
+                    // unico per tutta l'area protetta.
                     child: user != null
                         ? _getPageFor(effectiveIndex)
-                        : const SizedBox.shrink(),
+                        : const Center(child: CircularProgressIndicator()),
                   ),
                   // UNICO overlay di caricamento dell'area protetta per
                   // `state.isLoading`. Le pagine montate da `_getPageFor` sono
