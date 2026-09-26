@@ -12,7 +12,13 @@ import 'package:fitrope_app/pages/protected/protected.dart'
     deferred as protected;
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.authReady, this.isLoggedIn});
+
+  /// Seam per i test: di default il primo evento di `authStateChanges`.
+  final Future<void> Function()? authReady;
+
+  /// Seam per i test: di default [isLogged].
+  final bool Function()? isLoggedIn;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -27,15 +33,23 @@ class _SplashScreenState extends State<SplashScreen> {
         .addPostFrameCallback((_) => _navigateToNextScreen());
   }
 
+  /// `initialRoute: '/splash'` costruisce anche la Welcome sotto lo splash, e
+  /// per un utente loggato la Welcome ha già sostituito questa route con
+  /// l'area protetta. Durante l'animazione di uscita lo State resta `mounted`:
+  /// senza il controllo su `isCurrent` lo splash spingerebbe un secondo
+  /// `Protected` (doppio mount, doppio `getUserData`).
+  bool get _replaced => !(ModalRoute.of(context)?.isCurrent ?? true);
+
   Future<void> _navigateToNextScreen() async {
     // Rete di sicurezza sul web: `Firebase.initializeApp` attende già il
     // ripristino della sessione salvata, ma il primo evento di
     // `authStateChanges` è la garanzia esplicita che `currentUser` sia
     // definitivo prima di scegliere la route.
-    await FirebaseAuth.instance.authStateChanges().first;
-    if (!mounted) return;
+    await (widget.authReady?.call() ??
+        FirebaseAuth.instance.authStateChanges().first);
+    if (!mounted || _replaced) return;
 
-    if (isLogged()) {
+    if ((widget.isLoggedIn ?? isLogged)()) {
       // Il logo resta a schermo finché il chunk dell'area protetta non è
       // pronto (sotto --wasm è già nel modulo unico e ritorna subito). Se il
       // download fallisce si naviga comunque: `DeferredPage` mostra
@@ -43,7 +57,7 @@ class _SplashScreenState extends State<SplashScreen> {
       try {
         await protected.loadLibrary();
       } catch (_) {}
-      if (!mounted) return;
+      if (!mounted || _replaced) return;
       Navigator.pushReplacementNamed(context, PROTECTED_ROUTE);
     } else {
       Navigator.pushReplacementNamed(context, WELCOME_ROUTE);
