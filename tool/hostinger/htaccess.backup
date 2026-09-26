@@ -1,0 +1,12 @@
+# Flutter Web non aggiunge un hash al nome di questi file (restano identici
+# da un build all'altro): senza questa regola vengono serviti con la cache
+# di default del server (7 giorni su Hostinger/LiteSpeed), e i client restano
+# bloccati su una versione vecchia fino a scadenza cache.
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|flutter_bootstrap\.js|flutter\.js)$">
+    Header set Cache-Control "public, max-age=1800"
+  </FilesMatch>
+  <FilesMatch "\.part\.js$">
+    Header set Cache-Control "public, max-age=1800"
+  </FilesMatch>
+</IfModule>
