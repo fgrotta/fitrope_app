@@ -391,12 +391,17 @@ Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layou
 `CourseManagementPage` accetta argomenti: `courseToEdit`, `courseToDuplicate`, `mode`.
 
 **Deferred loading**: `Protected`, `CourseManagementPage`, `RecurringCoursePage` e
-`DebugEmailPage` sono importate con `deferred as` e wrappate in `DeferredPage(load: ...)`
-(`lib/components/deferred_page.dart`), con preload avviato dallo splash solo per utenti
-loggati. **Sotto `--wasm` (la build di produzione) non splittano nulla**: dart2wasm produce
-un modulo unico, `flutter_tools` non copia moduli secondari e il loader dell'engine non
-passa `loadDeferredModule`, quindi `loadLibrary()` ritorna subito e il codice sta tutto in
-`main.dart.wasm`. Riducono il primo caricamento solo sul fallback dart2js.
+`DebugEmailPage` sono importate con `deferred as` nel router e wrappate in
+`DeferredPage(load: ...)` (`lib/components/deferred_page.dart`), con preload avviato dallo
+splash solo per utenti loggati. Dentro l'area protetta sono differiti anche il codice solo
+admin: `AdminUsersPage`, `AdminDashboardPage`, `UserListDrawer` (in `protected.dart`) e
+`AdminHomeSections` (in `home_page.dart`, via `DeferredSection`). Un socio non scarica
+quei part. **Funziona solo con la build dart2js** (`flutter build web --release`), che è
+quella di produzione: sotto `--wasm` dart2wasm produce un modulo unico, `flutter_tools` non
+copia moduli secondari e il loader dell'engine non passa `loadDeferredModule`, quindi tutto
+finirebbe in `main.dart.wasm`. I gate in `ci.yml`/`staging.yml` verificano che le stringhe
+admin non stiano in `main.dart.js`. I simboli di un prefisso deferred non si possono usare
+come tipi né in espressioni `const`: tra Home e sezioni admin passa un `Listenable`.
 
 ## Regole di business
 
@@ -639,7 +644,7 @@ Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e fireb
 
 **ci.yml** (Pull Request verso `main`/`develop` + avvio manuale):
 
-- `test`: `flutter pub get` -> `flutter test` -> `flutter analyze --no-fatal-infos` -> `dart format --set-exit-if-changed .` -> `flutter build web --wasm --release`
+- `test`: `flutter pub get` -> `flutter test` -> `flutter analyze --no-fatal-infos` -> `dart format --set-exit-if-changed .` -> `flutter build web --release`
 - `functions-test`: Node 24 per compatibilita tooling CI, `npm ci`, `npm run build`, `npm test`
 - `functions-integration`: Node 22 runtime-aligned + Java 21 + firebase-tools 15, `npm run test:integration` con project `demo-fitrope`
 
@@ -655,7 +660,7 @@ Nota operativa: `flutter analyze --no-fatal-infos` e parte della CI; gli info-le
 
 **release.yml** (push e Pull Request sul branch `release`):
 
-- **Valida soltanto**: `validation` (test, analyze, format, build web wasm), `functions` (`npm test -- --runInBand`, come staging.yml), `functions-integration`
+- **Valida soltanto**: `validation` (test, analyze, format, build web dart2js), `functions` (`npm test -- --runInBand`, come staging.yml), `functions-integration`
 - Non crea GitHub Release e non pubblica su Pages: la produzione resta un deploy manuale
 
 **version-bump.yml** (PR chiusa con merge su `main`) — l'unico workflow che SCRIVE sul repo:
@@ -683,7 +688,7 @@ flutter pub get
 flutter test
 flutter analyze --no-fatal-infos
 dart format --set-exit-if-changed .
-flutter build web --wasm --release
+flutter build web --release
 flutter run -d chrome
 ```
 

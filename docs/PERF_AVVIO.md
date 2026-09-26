@@ -95,3 +95,44 @@ Osservazioni:
   `FontManifest.json`) e `AddType application/wasm`. Da verificare dopo il deploy:
   `curl -I https://app.fithousemonza.it/main.dart.wasm` → `Content-Type: application/wasm`,
   `Cache-Control: public, max-age=1800`.
+
+## Fase 4 — codice admin differito, build dart2js (26/09/2026)
+
+Dal 26/09/2026 la produzione e CI buildano con `flutter build web --release` (dart2js),
+non più `--wasm`: con `--wasm` i `deferred as` finiscono tutti in `main.dart.wasm`.
+
+Codice spostato in librerie deferred: `AdminHomeSections` (sezioni admin della Home),
+`AdminUsersPage`, `AdminDashboardPage`, `UserListDrawer`. Misure gzip -9 della build dart2js,
+prima (commit 5c49c87, solo `Protected` differito) e dopo:
+
+| | Prima | Dopo |
+|---|---:|---:|
+| `main.dart.js` | 917.729 | 919.153 |
+| part caricati da un socio (`protected`) | 198.198 (3 part) | 170.516 (23 part) |
+| part in più per un admin | — | 47.919 (10 part) |
+
+Un socio scarica ~28 KB gzip in meno (−14% sul chunk dell'area protetta); un admin ~20 KB in
+più in totale (lo split costa qualche ottimizzazione trasversale) e più richieste. I part sono
+piccoli e tanti: con `no-cache` ogni reload li rivalida (304), in parallelo su HTTP/2.
+
+**Costo dello spegnimento di wasm, per browser.** Il loader di Flutter 3.41 usa wasm **solo su
+Chromium** (`wasmAllowList` di default: blink sì, webkit/gecko no): Safari/iOS e Firefox
+ricevevano `main.dart.js` + CanvasKit anche con la build `--wasm`, quindi per loro cambia solo
+il guadagno qui sopra. Su Chromium (Android, Chrome/Edge desktop), primo accesso di un socio:
+
+| | `--wasm` | dart2js |
+|---|---:|---:|
+| app | 1.272 KB (`main.dart.wasm` + `.mjs`, tutto incluso) | 1.090 KB (`main.dart.js` + part di `protected`) |
+| renderer da gstatic | 1.513 KB (`skwasm.wasm`) | 2.153 KB (`canvaskit.wasm`, variante chromium) |
+| totale | ~2,79 MB | ~3,24 MB |
+
+Il renderer arriva da `www.gstatic.com` con cache lunga, quindi lo si paga soprattutto al
+primo accesso; dart2js è anche più lento a runtime del codice wasm. Il primo frame misurato in
+locale (desktop, cache calda) è nel rumore: ~1,3–2,2 s per entrambe. Alternativa se il costo
+su Chromium pesa: tornare a `--wasm`, che produce comunque anche `main.dart.js` con questi part
+per i browser non Chromium (lo split resterebbe utile solo lì).
+
+Verifica: `tool/check_deferred_split.py build/web` (in `ci.yml` e `staging.yml`) e QA
+sull'emulatore con admin (Home, Utenti, Dashboard, drawer, simulazione di un socio e uscita):
+ogni libreria carica solo i suoi part, e al resume dopo la simulazione non restano letture del
+socio.
