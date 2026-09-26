@@ -15,14 +15,19 @@
 # HOLD_SECONDS=300 tiene Apache acceso dopo i controlli, per aprire l'app in
 # un browser su http://127.0.0.1:${PORT:-8799}/.
 set -euo pipefail
+trap 'echo "local_apache_test.sh: errore alla riga $LINENO (comando: $BASH_COMMAND)" >&2' ERR
 
 BUILD="$(cd "${1:?Uso: $0 <build-dir>}" && pwd)"
 PORT="${PORT:-8799}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HTTPD="${HTTPD:-$(command -v httpd || command -v apache2 || true)}"
 [ -n "$HTTPD" ] || { echo "Apache non trovato (macOS: brew install httpd o /usr/sbin/httpd; Ubuntu: apt-get install apache2)"; exit 2; }
-ROOT="$("$HTTPD" -V 2>/dev/null | sed -n 's/.*HTTPD_ROOT="\(.*\)"/\1/p')"
-CONFDIR="$(dirname "$("$HTTPD" -V 2>/dev/null | sed -n 's/.*SERVER_CONFIG_FILE="\(.*\)"/\1/p')")"
+# Su Debian/Ubuntu `apache2 -V` esce con errore se mancano le variabili di
+# /etc/apache2/envvars, pur stampando le informazioni: niente pipefail qui.
+INFO="$("$HTTPD" -V 2>/dev/null || true)"
+ROOT="$(printf '%s\n' "$INFO" | sed -n 's/.*HTTPD_ROOT="\(.*\)"/\1/p')"
+CONFFILE="$(printf '%s\n' "$INFO" | sed -n 's/.*SERVER_CONFIG_FILE="\(.*\)"/\1/p')"
+CONFDIR="$(dirname "${CONFFILE:-.}")"
 for d in "$ROOT/lib/httpd/modules" "$ROOT/libexec/apache2" "$ROOT/modules" /usr/lib/apache2/modules /usr/lib64/httpd/modules; do
   [ -f "$d/mod_rewrite.so" ] && MODS="$d" && break
 done
@@ -31,7 +36,8 @@ for m in "$ROOT/$CONFDIR/mime.types" "$CONFDIR/mime.types" /usr/local/etc/httpd/
   [ -f "$m" ] && MIME="$m" && break
 done
 # I moduli già compilati nel binario (httpd -l) non vanno ricaricati.
-STATIC="$("$HTTPD" -l 2>/dev/null)"
+STATIC="$("$HTTPD" -l 2>/dev/null || true)"
+echo "Apache: $HTTPD · moduli: $MODS · mime: ${MIME:-<nessuno>}"
 load() { echo "$STATIC" | grep -q "mod_$1.c\|^ *$1.c" || echo "LoadModule ${1}_module $MODS/mod_$1.so"; }
 
 TMP="$(mktemp -d)"

@@ -23,6 +23,11 @@ def run(*args):
     return subprocess.run([sys.executable, SCRIPT, *args], capture_output=True, text=True)
 
 
+def read(path, mode='rb'):
+    with open(path, mode) as f:
+        return f.read()
+
+
 def decompress(path):
     return subprocess.run(['brotli', '-d', '-c', path], capture_output=True, check=True).stdout
 
@@ -52,7 +57,7 @@ class PrecompressTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         for path in (self.js, self.bin):
             self.assertTrue(os.path.exists(path + '.br'), path)
-            self.assertEqual(decompress(path + '.br'), open(path, 'rb').read())
+            self.assertEqual(decompress(path + '.br'), read(path))
             self.assertLess(os.path.getsize(path + '.br'), os.path.getsize(path))
 
     def test_salta_file_piccoli_e_formati_gia_compressi(self):
@@ -66,7 +71,7 @@ class PrecompressTest(unittest.TestCase):
             f.write('var nuovo = 1;\n')
         res = run(self.dir)
         self.assertEqual(res.returncode, 0, res.stderr)
-        self.assertEqual(decompress(self.js + '.br'), open(self.js, 'rb').read())
+        self.assertEqual(decompress(self.js + '.br'), read(self.js))
 
     def test_check_fallisce_se_un_br_non_corrisponde(self):
         run(self.dir)
@@ -97,13 +102,13 @@ class PrecompressTest(unittest.TestCase):
 
 class HtaccessCoherenceTest(unittest.TestCase):
     def test_htaccess_riscrive_esattamente_le_estensioni_compresse(self):
-        htaccess = open(os.path.join(ROOT, 'web', '.htaccess')).read()
+        htaccess = read(os.path.join(ROOT, 'web', '.htaccess'), 'r')
         m = re.search(r'RewriteRule \^\(\.\+\\\.\(([a-z|]+)\)\)\$', htaccess)
         self.assertIsNotNone(m, 'RewriteRule dei .br non trovata in web/.htaccess')
         self.assertEqual(set(m.group(1).split('|')), set(precompress_web.EXTENSIONS))
 
     def test_ogni_estensione_compressa_ha_il_suo_content_type(self):
-        htaccess = open(os.path.join(ROOT, 'web', '.htaccess')).read()
+        htaccess = read(os.path.join(ROOT, 'web', '.htaccess'), 'r')
         for ext in precompress_web.EXTENSIONS:
             self.assertRegex(htaccess, r'FilesMatch "[^"]*\b' + ext + r'\b[^"]*\\\.br\$"',
                              f'manca il blocco Content-Type per .{ext}.br')
