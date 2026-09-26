@@ -33,6 +33,15 @@ jobs:
       - run: flutter analyze --no-fatal-infos
       - run: dart format --set-exit-if-changed .
       - run: flutter build web --wasm --release
+      # Brotli precompresso per Hostinger: test dello script, .br sulla build
+      # vera e prova di web/.htaccess su un Apache locale. Un .htaccess rotto
+      # su Hostinger dà errore 500 su tutto il sito.
+      - name: Brotli precompresso e web/.htaccess su Apache
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq brotli apache2
+          python3 -m unittest discover -s tool/hostinger -p 'test_*.py'
+          python3 tool/precompress_web.py build/web
+          tool/hostinger/local_apache_test.sh build/web
 
   functions:
     runs-on: ubuntu-latest
