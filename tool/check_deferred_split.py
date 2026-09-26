@@ -11,8 +11,10 @@ admin (una stringa di UI che esiste solo in quella libreria):
   - compaia in almeno un part (se sparisce, il marcatore va aggiornato: un
     gate che non trova niente passerebbe per sempre).
 
-Serve la build dart2js (`flutter build web --release`): con --wasm non ci sono
-part e lo script fallisce apposta.
+Serve la build dart2js (`flutter build web --release`). Una build --wasm
+produce ANCHE main.dart.js con i suoi part (fallback per i browser non
+Chromium), ma su Chromium carica main.dart.wasm, che contiene tutto il codice
+admin: per questo la sola presenza di main.dart.wasm fa fallire il gate.
 """
 import json
 import os
@@ -29,6 +31,9 @@ MARKERS = {
 
 
 def main(build_dir):
+    if os.path.exists(os.path.join(build_dir, 'main.dart.wasm')):
+        sys.exit('Build --wasm: su Chromium main.dart.wasm contiene tutto il codice '
+                 'admin. Builda con `flutter build web --release`.')
     main_js_path = os.path.join(build_dir, 'main.dart.js')
     if not os.path.exists(main_js_path):
         sys.exit(f'Manca {main_js_path}: serve la build dart2js, non --wasm.')
@@ -42,13 +47,18 @@ def main(build_dir):
         m.group(1): [int(x) for x in m.group(2).split(',') if x]
         for m in re.finditer(r'"?([\w.]+)"?:\[([\d,]*)\]', libs_match.group(1))
     }
-    if 'protected' not in libs:
+    # dart2js può dare lo stesso prefisso a più import (es. "protected" e
+    # "protected.1"): il percorso di un socio è l'unione di tutti.
+    protected_keys = [k for k in libs if k == 'protected' or k.startswith('protected.')]
+    if not protected_keys:
         sys.exit('Libreria deferred "protected" non trovata nella mappa.')
 
     def read(uri):
         return open(os.path.join(build_dir, uri), encoding='utf-8').read()
 
-    protected_parts = {uris[i] for i in libs['protected']}
+    protected_parts = {uris[i] for k in protected_keys for i in libs[k]}
+    if not protected_parts:
+        sys.exit('I part di "protected" risultano vuoti: mappa non riconosciuta.')
     errors = []
     for lib, marker in MARKERS.items():
         if lib not in libs:

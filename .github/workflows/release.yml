@@ -33,6 +33,10 @@ jobs:
       - run: flutter analyze --no-fatal-infos
       - run: dart format --set-exit-if-changed .
       - run: flutter build web --release
+      - name: Verifica che il bundle contenga il ramo web di OneSignal
+        run: grep -q 'OneSignal Web' build/web/main.dart.js
+      - name: Verifica lo split deferred del codice admin
+        run: python3 tool/check_deferred_split.py build/web
 
   functions:
     runs-on: ubuntu-latest

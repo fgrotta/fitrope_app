@@ -32,13 +32,12 @@ import 'package:flutter/material.dart';
 /// Effetto collaterale desiderato: `currentIndex` riparte da 0, si atterra
 /// sulla Home.
 ///
-/// Seconda ragione, indipendente: `HomePage` registra e rimuove i listener del
-/// `RefreshManager` in modo condizionale a `user.role`, con `user` riassegnato
-/// da `refreshCourses`. Con un dispatch in-place *senza* remount farebbe leak di
-/// 4 listener puntati a uno `State` morto, che `notifyRefresh()` chiamerebbe al
-/// resume dell'app. Col remount la vecchia `HomePage` viene disposta col campo
-/// `user` ancora = admin, quindi rimuove esattamente i listener che aveva
-/// aggiunto.
+/// Seconda ragione, indipendente: la `HomePage` decide in `initState`, dal
+/// ruolo, a cosa agganciarsi (`refreshCourses` per un socio, le sezioni admin
+/// per un Admin). Un dispatch in-place *senza* remount lascerebbe montata la
+/// Home costruita per il ruolo precedente. I listener di `RefreshManager` non
+/// sono più un rischio di leak: `RefreshListenersMixin` toglie in dispose
+/// esattamente ciò che ogni State ha registrato.
 class SimulationController {
   SimulationController._();
 
@@ -173,15 +172,16 @@ class SimulationController {
     // NIENTE invalidazione delle cache qui. Non serve — in simulazione non è
     // passata alcuna scrittura e le letture usano comunque l'auth dell'admin,
     // quindi le cache contengono esattamente ciò che l'admin rileggerebbe — e
-    // soprattutto fa danni: `invalidateAllUserCaches()` (che per default è
+    // fa lavoro inutile: `invalidateAllUserCaches()` (che per default è
     // l'unico punto a notificare dopo una mutazione utente) chiama
     // `RefreshManager().notifyRefresh()` in modo SINCRONO, mentre la HomePage
     // del socio è ancora montata (il remount arriva dopo). Il suo
     // `refreshCourses` copierebbe lo store (già = admin) nel proprio campo
-    // `user`, e al dispose rimuoverebbe i listener del ruolo sbagliato: il
-    // listener `refreshCourses` resterebbe agganciato a uno State morto per
-    // tutta la sessione. Il refresh forzato al resume (`_onResumeRefresh`)
-    // resta la via per rileggere dal server.
+    // `user` e la Home, ora da "Admin", monterebbe `AdminHomeSections`
+    // (download del part + quattro letture) per pochi istanti prima di essere
+    // smontata. Nessun leak — `RefreshListenersMixin` toglie tutto in dispose —
+    // ma solo costi. Il refresh forzato al resume (`_onResumeRefresh`) resta la
+    // via per rileggere dal server.
 
     // NOTA OneSignal: non c'è nulla da ripristinare, *proprio perché* in
     // simulazione non abbiamo mai chiamato OneSignal (vedi le guardie in

@@ -92,9 +92,10 @@ Osservazioni:
 - **`--pwa-strategy=none`** non applicabile: il flag non esiste più in Flutter 3.41.6.
 - **Cache asset**: il default Hostinger è già 7 giorni; `.htaccess` aggiunge solo i file
   senza hash che devono restare freschi (`main.dart.wasm`/`.mjs`, `AssetManifest*`,
-  `FontManifest.json`) e `AddType application/wasm`. Da verificare dopo il deploy:
-  `curl -I https://app.fithousemonza.it/main.dart.wasm` → `Content-Type: application/wasm`,
-  `Cache-Control: public, max-age=1800`.
+  `FontManifest.json`) e `AddType application/wasm`. Superato dalla Fase 4: con la build
+  dart2js questi file passano a `no-cache` (vedi sotto). Da verificare dopo il deploy:
+  `curl -I https://app.fithousemonza.it/main.dart.js` → `Cache-Control: no-cache` e un
+  `ETag`, così i reload successivi rispondono 304.
 
 ## Fase 4 — codice admin differito, build dart2js (26/09/2026)
 
@@ -130,7 +131,8 @@ Il renderer arriva da `www.gstatic.com` con cache lunga, quindi lo si paga sopra
 primo accesso; dart2js è anche più lento a runtime del codice wasm. Il primo frame misurato in
 locale (desktop, cache calda) è nel rumore: ~1,3–2,2 s per entrambe. Alternativa se il costo
 su Chromium pesa: tornare a `--wasm`, che produce comunque anche `main.dart.js` con questi part
-per i browser non Chromium (lo split resterebbe utile solo lì).
+per i browser non Chromium (lo split resterebbe utile solo lì). In quel caso
+`tool/check_deferred_split.py` va adattato: oggi fallisce apposta se trova `main.dart.wasm`.
 
 Verifica: `tool/check_deferred_split.py build/web` (in `ci.yml` e `staging.yml`) e QA
 sull'emulatore con admin (Home, Utenti, Dashboard, drawer, simulazione di un socio e uscita):

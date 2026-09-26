@@ -11,9 +11,10 @@
 # danno DeferredLoadException, cioè "Impossibile caricare la pagina" sull'area
 # protetta o sulle pagine admin. Stesso vincolo per i manifest degli asset (in
 # assets/: FilesMatch vale anche nelle sottocartelle). Gli asset veri
-# (immagini, font) restano sul default del server.
+# (immagini, font) restano sul default del server. main.dart.wasm/.mjs restano
+# in elenco per un eventuale ritorno alla build --wasm.
 <IfModule mod_headers.c>
-  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|flutter_bootstrap\.js|flutter\.js|AssetManifest\.bin\.json|AssetManifest\.bin|FontManifest\.json)$">
+  <FilesMatch "^(index\.html|version\.json|manifest\.json|flutter_service_worker\.js|main\.dart\.js|main\.dart\.wasm|main\.dart\.mjs|flutter_bootstrap\.js|flutter\.js|AssetManifest\.bin\.json|AssetManifest\.bin|FontManifest\.json)$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
   <FilesMatch "\.part\.js$">

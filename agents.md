@@ -317,8 +317,10 @@ Due trappole del remount, entrambe verificate con un widget test:
 - **Niente `invalidateAllUserCaches()` in `SimulationController.stop()`.** Chiama
   `RefreshManager().notifyRefresh()` in modo sincrono mentre la HomePage del
   socio è ancora montata: il suo `refreshCourses` copia lo store (già = admin)
-  nel campo `user`, e al dispose rimuove i listener del ruolo sbagliato, lasciando
-  `refreshCourses` agganciato a uno State morto per tutta la sessione.
+  nel campo `user` e la Home monterebbe per un attimo `AdminHomeSections`
+  (part deferred + quattro letture) prima del remount. Prima di
+  `RefreshListenersMixin` questo lasciava anche listener agganciati a uno State
+  morto; ora resta solo il costo.
 
 OneSignal ha una guardia strutturale sui 6 metodi di `onesignal_{mobile,web}.dart`:
 in simulazione non si chiama MAI OneSignal, il device resta legato all'admin —
