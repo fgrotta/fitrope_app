@@ -1657,6 +1657,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
                             onPressed: _subscriptionBusy
                                 ? null
                                 : () => _editSubscription(s),
+                            // Card scura: il primario di default non si legge.
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white,
+                            ),
                             icon: const Icon(Icons.edit, size: 16),
                             label: const Text('Modifica'),
                           ),
