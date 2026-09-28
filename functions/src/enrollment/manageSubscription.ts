@@ -76,7 +76,12 @@ async function readSubscriptionContext(
  * modificata diventa un abbonamento normale (la Prova non è un piano di
  * destinazione).
  *
- * Payload: { subscriptionId, planKey, startDateMillis, endDateMillis, remainingEntries? }
+ * [expectedRemainingEntries] è il residuo che l'Admin aveva sotto gli occhi:
+ * se nel frattempo un'iscrizione o una disdetta l'ha cambiato, la modifica è
+ * rifiutata (`aborted`) invece di sovrascriverlo con un valore stantio.
+ *
+ * Payload: { subscriptionId, planKey, startDateMillis, endDateMillis,
+ *   remainingEntries?, expectedRemainingEntries? }
  */
 export async function updateSubscriptionHandler(
   request: ManageSubscriptionRequest,
@@ -116,6 +121,13 @@ export async function updateSubscriptionHandler(
       throw new HttpsError("failed-precondition", "Abbonamento revocato: non modificabile");
     }
     const before = ctx.records.find((r) => r.id === subscriptionId)!;
+    if (body.expectedRemainingEntries !== undefined &&
+        (body.expectedRemainingEntries ?? null) !== before.remainingEntries) {
+      throw new HttpsError(
+        "aborted",
+        "Gli ingressi sono cambiati nel frattempo: ricarica e riprova",
+      );
+    }
 
     if (findOverlapping(ctx.records, plan.family, startMillis, endMillis, subscriptionId)
       .length > 0) {

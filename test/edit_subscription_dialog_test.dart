@@ -149,8 +149,10 @@ void main() {
         required startDate,
         required endDate,
         remainingEntries,
+        expectedRemainingEntries,
       }) async {
         call = {
+          'expected': expectedRemainingEntries,
           'id': subscriptionId,
           'planKey': planKey,
           'start': startDate,
@@ -166,6 +168,7 @@ void main() {
     expect(call?['id'], 's1');
     expect(call?['planKey'], 'open_10i_3m');
     expect(call?['remaining'], 6);
+    expect(call?['expected'], 4);
     expect(
       call?['start'],
       subscriptionStartTimestamp(DateTime(2026, 10, 1)).toDate(),

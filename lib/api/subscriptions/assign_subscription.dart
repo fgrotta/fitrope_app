@@ -1,11 +1,12 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 
-/// Esito di `assignSubscription`: id del nuovo abbonamento e delle eventuali
-/// Prove chiuse e sostituite.
+/// Esito di `assignSubscription`: id del nuovo abbonamento, delle eventuali
+/// Prove V2 chiuse e sostituite, e se è stata sostituita una Prova V1.
 typedef AssignSubscriptionResult = ({
   String subscriptionId,
   List<String> replacedTrialIds,
+  bool replacedLegacyTrial,
 });
 
 /// Chiama la Cloud Function `assignSubscription` (solo Admin). [startDate] e
@@ -32,5 +33,6 @@ Future<AssignSubscriptionResult> assignSubscription({
     subscriptionId: (data['subscriptionId'] as String?) ?? '',
     replacedTrialIds:
         ((data['replacedTrialIds'] as List?) ?? const []).cast<String>(),
+    replacedLegacyTrial: data['replacedLegacyTrial'] == true,
   );
 }

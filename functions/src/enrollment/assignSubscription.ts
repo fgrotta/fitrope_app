@@ -35,6 +35,22 @@ function isLegacyResidue(user: FsData): boolean {
 }
 
 /**
+ * Scadenza di una Prova V1 non migrata e ancora valida, altrimenti null. Una
+ * Prova V1 scaduta (o senza scadenza) è solo un residuo.
+ */
+function liveLegacyTrialEnd(user: FsData, nowMillis: number): number | null {
+  if (user.tipologiaIscrizione !== "ABBONAMENTO_PROVA" ||
+      user.legacySubscriptionMigration) {
+    return null;
+  }
+  const end = user.fineIscrizione;
+  const endMillis = end && typeof end.toMillis === "function"
+    ? (end.toMillis() as number)
+    : null;
+  return endMillis !== null && endMillis >= nowMillis ? endMillis : null;
+}
+
+/**
  * Registro consumi senza voci LEGACY_ENTRY: con i campi legacy azzerati, una
  * disiscrizione non deve rimettere `entrateDisponibili` e riportare l'utente
  * nel modello legacy.
@@ -54,7 +70,9 @@ function withoutLegacyEntries(user: FsData): FsData {
  * Assegna un abbonamento (admin). Crea il documento in `subscriptions` e
  * ricalcola lo snapshot `activeSubscriptions` sul doc utente, in transazione.
  * Vincolo: massimo un abbonamento per famiglia su finestre sovrapposte. Una
- * Prova sovrapposta viene chiusa (revocata) e sostituita.
+ * Prova sovrapposta viene chiusa (revocata) e sostituita. Una Prova V1 ancora
+ * valida si sostituisce solo con un Open che inizia entro la sua scadenza:
+ * qualunque altra assegnazione la cancellerebbe in silenzio, quindi è rifiutata.
  *
  * Payload: { userId, planKey, startDateMillis?, endDateMillis? }
  */
@@ -100,6 +118,7 @@ export async function assignSubscriptionHandler(
   const newRef = subColl.doc();
   const actor = request.auth.uid;
   let replacedTrialIds: string[] = [];
+  let replacedLegacyTrial = false;
 
   await db.runTransaction(async (tx) => {
     const userSnap = await tx.get(userRef);
@@ -113,6 +132,17 @@ export async function assignSubscriptionHandler(
       throw new HttpsError(
         "failed-precondition",
         "L'utente è ancora sul modello legacy: eseguire prima la migrazione",
+      );
+    }
+
+    const legacyTrialEnd = liveLegacyTrialEnd(userData, Date.now());
+    const replacesLegacyTrial = legacyTrialEnd !== null &&
+      plan.family === "OPEN" && record.startDateMillis <= legacyTrialEnd;
+    if (legacyTrialEnd !== null && !replacesLegacyTrial) {
+      throw new HttpsError(
+        "failed-precondition",
+        "La Prova è ancora attiva: può sostituirla solo un abbonamento Open " +
+          "che inizia entro la sua scadenza",
       );
     }
 
@@ -132,6 +162,7 @@ export async function assignSubscriptionHandler(
     }
     // Assegnato (non accumulato): Firestore può rieseguire la closure.
     replacedTrialIds = conflicts.map((r) => r.id!);
+    replacedLegacyTrial = replacesLegacyTrial;
 
     // ----- scritture -----
     const nowMillis = Date.now();
@@ -177,7 +208,8 @@ export async function assignSubscriptionHandler(
     planKey,
     subscriptionId: newRef.id,
     replacedTrialIds,
+    replacedLegacyTrial,
   });
 
-  return { ok: true, subscriptionId: newRef.id, replacedTrialIds };
+  return { ok: true, subscriptionId: newRef.id, replacedTrialIds, replacedLegacyTrial };
 }

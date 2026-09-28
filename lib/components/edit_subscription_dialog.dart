@@ -16,6 +16,7 @@ typedef UpdateSubscriptionFn = Future<void> Function({
   required DateTime startDate,
   required DateTime endDate,
   int? remainingEntries,
+  required int? expectedRemainingEntries,
 });
 
 /// Dialog Admin di modifica di un abbonamento: tipologia (piano), date e
@@ -115,6 +116,7 @@ class _EditSubscriptionDialogState extends State<EditSubscriptionDialog> {
         startDate: subscriptionStartTimestamp(_startDate).toDate(),
         endDate: subscriptionEndTimestamp(_endDate).toDate(),
         remainingEntries: _isEntries ? _entriesValue : null,
+        expectedRemainingEntries: widget.subscription.remainingEntries,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);

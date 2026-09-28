@@ -13,7 +13,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fitrope_app/api/subscriptions/manage_subscription.dart';
 import 'package:fitrope_app/components/assign_subscription_card.dart';
 import 'package:fitrope_app/components/edit_subscription_dialog.dart';
-import 'package:fitrope_app/components/active_subscription_card.dart';
+import 'package:fitrope_app/components/subscription_history_section.dart';
 import 'package:fitrope_app/components/legacy_user_migration_card.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -1036,9 +1036,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
               AssignSubscriptionCard(
                 userId: widget.user.uid,
                 subscriptions: _adminSubscriptions ?? _activeSubscriptions,
-                hasLegacyTrial: !_legacyTrialReplaced &&
-                    widget.user.tipologiaIscrizione ==
-                        TipologiaIscrizione.ABBONAMENTO_PROVA,
+                // Solo per i V1 non migrati (la migrazione porta a V2):
+                // coincide con la guardia server `liveLegacyTrialEnd`.
+                legacyTrialEnd: !_legacyTrialReplaced &&
+                        widget.user.subscriptionModelVersion < 2 &&
+                        widget.user.tipologiaIscrizione ==
+                            TipologiaIscrizione.ABBONAMENTO_PROVA &&
+                        widget.user.fineIscrizione != null &&
+                        !widget.user.fineIscrizione!
+                            .toDate()
+                            .isBefore(DateTime.now())
+                    ? widget.user.fineIscrizione!.toDate()
+                    : null,
                 onAssigned: () {
                   // Lo snapshot dell'utente è cambiato server-side: invalida la
                   // cache così liste e dettagli ricaricano dati freschi.
@@ -1631,53 +1640,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
   /// revocati), con i pulsanti "Modifica" e "Revoca" sui non revocati.
   Widget _buildActiveSubscriptionsSection() {
     final history = isAdmin ? _adminSubscriptions : null;
-    final subs = [...(history ?? _activeSubscriptions)]..sort((a, b) {
-        final byEnd = b.endDate.compareTo(a.endDate);
-        return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
-      });
     return _buildSection(
-      history != null ? 'Abbonamenti' : 'Abbonamenti attivi',
-      subs.isEmpty
-          ? [
-              Text(
-                history != null
-                    ? 'Nessun abbonamento'
-                    : 'Nessun abbonamento attivo',
-                style: const TextStyle(color: onSurfaceVariantColor),
-              ),
-            ]
-          : subs
-              .map(
-                (s) => ActiveSubscriptionCard(
-                  subscription: s,
-                  actions: history == null || s.isRevoked || s.id == null
-                      ? null
-                      : [
-                          TextButton.icon(
-                            onPressed: _subscriptionBusy
-                                ? null
-                                : () => _editSubscription(s),
-                            // Card scura: il primario di default non si legge.
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: const Icon(Icons.edit, size: 16),
-                            label: const Text('Modifica'),
-                          ),
-                          TextButton.icon(
-                            onPressed: _subscriptionBusy
-                                ? null
-                                : () => _revokeSubscription(s),
-                            style: TextButton.styleFrom(
-                              foregroundColor: warningColor,
-                            ),
-                            icon: const Icon(Icons.block, size: 16),
-                            label: const Text('Revoca'),
-                          ),
-                        ],
-                ),
-              )
-              .toList(),
+      SubscriptionHistorySection.titleFor(adminHistory: history != null),
+      [
+        SubscriptionHistorySection(
+          subscriptions: history ?? _activeSubscriptions,
+          adminHistory: history != null,
+          busy: _subscriptionBusy,
+          onEdit: _editSubscription,
+          onRevoke: _revokeSubscription,
+        ),
+      ],
     );
   }
 
@@ -1695,28 +1668,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   Future<void> _revokeSubscription(UserSubscription subscription) async {
     if (SimulationGuard.blockIfSimulating(context)) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Revoca abbonamento'),
-        content: const Text(
-          'Procedere con la sostituzione dell\'abbonamento? Le prenotazioni già '
-          'fatte restano valide e non verranno cancellate.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annulla'),
-          ),
-          FilledButton(
-            key: const Key('revoke-subscription-confirm'),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Revoca'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+    final confirmed = await confirmRevokeSubscription(context);
+    if (!confirmed || !mounted) return;
     setState(() => _subscriptionBusy = true);
     try {
       await revokeSubscription(subscription.id!);

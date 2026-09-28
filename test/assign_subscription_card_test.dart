@@ -41,7 +41,11 @@ void main() {
           assign: (
               {required userId, required planKey, startDate, endDate}) async {
             call = {'planKey': planKey, 'start': startDate, 'end': endDate};
-            return (subscriptionId: 'new', replacedTrialIds: <String>[]);
+            return (
+              subscriptionId: 'new',
+              replacedTrialIds: <String>[],
+              replacedLegacyTrial: false,
+            );
           },
         ),
       ),
@@ -128,20 +132,27 @@ void main() {
     expect(find.text(warning), findsNothing);
   });
 
-  testWidgets('avviso anche per la Prova legacy e snackbar di sostituzione',
+  testWidgets(
+      'Prova legacy: avviso con un Open entro la scadenza, snackbar dal server',
       (tester) async {
     await tester.pumpWidget(
       hostWidget(
         AssignSubscriptionCard(
           userId: 'u1',
           today: today,
-          hasLegacyTrial: true,
+          legacyTrialEnd: DateTime(2026, 10, 25),
+          // Risposta reale del server per una Prova V1: nessun documento
+          // revocato, solo il flag della sostituzione legacy.
           assign: (
                   {required userId,
                   required planKey,
                   startDate,
                   endDate}) async =>
-              (subscriptionId: 'new', replacedTrialIds: <String>['trial']),
+              (
+            subscriptionId: 'new',
+            replacedTrialIds: <String>[],
+            replacedLegacyTrial: true,
+          ),
         ),
       ),
     );
@@ -155,5 +166,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Abbonamento assegnato. Prova chiusa e sostituita'),
         findsOneWidget);
+  });
+
+  testWidgets(
+      'Prova legacy attiva: un PT o un Open che inizia dopo sono bloccati',
+      (tester) async {
+    const blocked =
+        'La Prova è attiva fino al 25/10/2026: può sostituirla solo '
+        'un abbonamento Open che inizia entro quella data';
+    await tester.pumpWidget(
+      hostWidget(
+        AssignSubscriptionCard(
+          userId: 'u1',
+          today: today,
+          legacyTrialEnd: DateTime(2026, 10, 25, 12),
+        ),
+      ),
+    );
+    await selectPlan(tester, 'Personal Trainer', 'Pacchetto ingressi',
+        '10 ingressi', '1 mese');
+    expect(find.text(blocked), findsOneWidget);
+    expect(assignButton(tester).onPressed, isNull);
+
+    await selectPlan(
+        tester, 'Open', 'Frequenza settimanale', '2 volte/settimana', '1 mese');
+    expect(find.text(blocked), findsNothing);
+    expect(assignButton(tester).onPressed, isNotNull);
+
+    await pickDay(tester, const Key('assign-start-date'), 28);
+    expect(find.text('28/10/2026'), findsOneWidget);
+    expect(find.text(blocked), findsOneWidget);
+    expect(assignButton(tester).onPressed, isNull);
   });
 }

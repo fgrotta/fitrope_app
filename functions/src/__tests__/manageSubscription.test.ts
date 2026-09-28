@@ -174,6 +174,20 @@ describe("updateSubscriptionHandler", () => {
     expect(snap.map((e) => e.planKey)).toEqual(["open_10i_1m"]);
   });
 
+  test("ingressi cambiati nel frattempo (expectedRemainingEntries) -> aborted, nessuna scrittura", async () => {
+    const store = makeStore({ s1: sub("open_10i_1m", NOW - DAY, NOW + DAY, { remainingEntries: 4 }) });
+    const before = JSON.stringify(store);
+    await expectCode(updateSubscriptionHandler(
+      { auth, data: { subscriptionId: "s1", planKey: "open_10i_1m", ...window, remainingEntries: 5, expectedRemainingEntries: 5 } },
+      makeDb(store), NOW), "aborted");
+    expect(JSON.stringify(store)).toBe(before);
+
+    await updateSubscriptionHandler(
+      { auth, data: { subscriptionId: "s1", planKey: "open_10i_1m", ...window, remainingEntries: 6, expectedRemainingEntries: 4 } },
+      makeDb(store), NOW);
+    expect(store.subs.s1.remainingEntries).toBe(6);
+  });
+
   test("voce editHistory con lo stato precedente, accodata", async () => {
     const store = makeStore({
       s1: sub("open_10i_1m", NOW - DAY, NOW + DAY, {

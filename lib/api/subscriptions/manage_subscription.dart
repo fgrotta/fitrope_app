@@ -8,6 +8,8 @@ HttpsCallable _callable(String name) =>
 
 /// Modifica un abbonamento (solo Admin, callable `updateSubscription`): piano,
 /// date e ingressi residui (obbligatori solo per i piani a ingressi).
+/// [expectedRemainingEntries] è il residuo mostrato all'Admin: se nel frattempo
+/// è cambiato il server rifiuta con `aborted`.
 /// Propaga [FirebaseFunctionsException].
 Future<void> updateSubscription({
   required String subscriptionId,
@@ -15,6 +17,7 @@ Future<void> updateSubscription({
   required DateTime startDate,
   required DateTime endDate,
   int? remainingEntries,
+  required int? expectedRemainingEntries,
 }) async {
   SimulationSession.assertNotSimulating('updateSubscription');
   await _callable('updateSubscription').call(<String, dynamic>{
@@ -23,6 +26,7 @@ Future<void> updateSubscription({
     'startDateMillis': startDate.millisecondsSinceEpoch,
     'endDateMillis': endDate.millisecondsSinceEpoch,
     if (remainingEntries != null) 'remainingEntries': remainingEntries,
+    'expectedRemainingEntries': expectedRemainingEntries,
   });
 }
 

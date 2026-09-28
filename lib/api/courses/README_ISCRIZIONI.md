@@ -339,6 +339,8 @@ assegnazione (`AssignSubscriptionCard` in UserDetailPage) non è più gated diet
   Prova modificata diventa un abbonamento normale). Ingressi obbligatori per
   `ENTRIES` (0…`plan.entries`), `null` per `FREQUENCY`. Ogni modifica accoda
   `{at, by, before}` a `editHistory`. Una Prova sovrapposta qui è un errore.
+  Il client invia `expectedRemainingEntries` (il residuo mostrato all'Admin):
+  se un'iscrizione o una disdetta l'ha cambiato nel frattempo, `aborted`.
 - **Rimborso su doc convertito**: il ripristino di un ingresso (disiscrizione,
   `deleteCourse`) si applica solo se il doc è ancora `ENTRIES`; se un pacchetto è
   diventato `FREQUENCY` si registra un warning e non si scrive nulla (altrimenti
@@ -350,7 +352,10 @@ assegnazione (`AssignSubscriptionCard` in UserDetailPage) non è più gated diet
   `legacySubscriptionMigration`, i campi legacy vanno a `null` e le voci
   `LEGACY_ENTRY` del registro diventano `NONE` (una disdetta non rimette
   `entrateDisponibili`); ai V1 non migrati si scrive il marker con source
-  `ADMIN_TRIAL_REPLACED`. Gli altri legacy restano `failed-precondition`.
+  `ADMIN_TRIAL_REPLACED`. Una Prova V1 **ancora valida** si sostituisce solo con
+  un Open che inizia entro `fineIscrizione` (`replacedLegacyTrial: true`); un PT
+  o un Open successivo la cancellerebbero in silenzio, quindi sono
+  `failed-precondition`. Gli altri legacy restano `failed-precondition`.
 - **Limiti noti**: revocare, accorciare o cambiare tipologia **non disiscrive**
   dai corsi già prenotati (decisione presa: li gestisce l'Admin); un pacchetto
   convertito in `FREQUENCY` non rimborsa più le prenotazioni pagate a ingresso;

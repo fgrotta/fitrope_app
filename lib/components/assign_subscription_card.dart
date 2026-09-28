@@ -1,9 +1,11 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:fitrope_app/api/subscriptions/assign_subscription.dart';
 import 'package:fitrope_app/components/subscription_date_row.dart';
 import 'package:fitrope_app/components/subscription_plan_picker.dart';
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/simulation_guard.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/subscription_dates.dart';
@@ -27,8 +29,10 @@ class AssignSubscriptionCard extends StatefulWidget {
   /// Prova (il server resta l'autorità sui conflitti).
   final List<UserSubscription> subscriptions;
 
-  /// Prova sul modello legacy (V1): anche questa viene chiusa e sostituita.
-  final bool hasLegacyTrial;
+  /// Scadenza della Prova sul modello legacy (V1), se ancora valida: la
+  /// sostituisce solo un Open che inizia entro quella data, ogni altra
+  /// assegnazione il server la rifiuta.
+  final DateTime? legacyTrialEnd;
 
   /// Iniettabili nei test; default: la callable reale e la data di oggi.
   final AssignSubscriptionFn? assign;
@@ -39,7 +43,7 @@ class AssignSubscriptionCard extends StatefulWidget {
     required this.userId,
     this.onAssigned,
     this.subscriptions = const [],
-    this.hasLegacyTrial = false,
+    this.legacyTrialEnd,
     this.assign,
     this.today,
   });
@@ -72,10 +76,23 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
     return end != null && !end.isBefore(_startDate);
   }
 
+  DateTime get _startInstant => subscriptionStartTimestamp(_startDate).toDate();
+
+  bool get _replacesLegacyTrial {
+    final end = widget.legacyTrialEnd;
+    return end != null &&
+        _plan?.family == SubscriptionFamily.OPEN &&
+        !_startInstant.isAfter(end);
+  }
+
+  /// Prova V1 ancora valida che il piano scelto non può sostituire.
+  bool get _blockedByLegacyTrial =>
+      widget.legacyTrialEnd != null && _plan != null && !_replacesLegacyTrial;
+
   bool get _replacesTrial {
     if (_plan?.family != SubscriptionFamily.OPEN) return false;
-    if (widget.hasLegacyTrial) return true;
-    final start = subscriptionStartTimestamp(_startDate).toDate();
+    if (_replacesLegacyTrial) return true;
+    final start = _startInstant;
     return widget.subscriptions.any(
       (s) =>
           s.planKey == SubscriptionPlans.trial.key &&
@@ -88,7 +105,9 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
     if (SimulationGuard.blockIfSimulating(context)) return;
     final plan = _plan;
     final end = _endDate;
-    if (plan == null || end == null || !_windowValid) return;
+    if (plan == null || end == null || !_windowValid || _blockedByLegacyTrial) {
+      return;
+    }
     setState(() => loading = true);
     try {
       final result = await (widget.assign ?? assignSubscription)(
@@ -100,7 +119,7 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
       if (!mounted) return;
       SnackBarUtils.showSuccessSnackBar(
         context,
-        result.replacedTrialIds.isEmpty
+        result.replacedTrialIds.isEmpty && !result.replacedLegacyTrial
             ? 'Abbonamento assegnato'
             : 'Abbonamento assegnato. Prova chiusa e sostituita',
       );
@@ -178,9 +197,21 @@ class _AssignSubscriptionCardState extends State<AssignSubscriptionCard> {
                 ],
               ),
             ],
+            if (_blockedByLegacyTrial) ...[
+              const SizedBox(height: 8),
+              Text(
+                'La Prova è attiva fino al '
+                '${DateFormat('dd/MM/yyyy').format(toItalianTime(widget.legacyTrialEnd!))}: '
+                'può sostituirla solo un abbonamento Open che inizia entro '
+                'quella data',
+                style: const TextStyle(color: errorColor),
+              ),
+            ],
             const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: (!_windowValid || loading) ? null : _assign,
+              onPressed: (!_windowValid || _blockedByLegacyTrial || loading)
+                  ? null
+                  : _assign,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryLightColor,
                 foregroundColor: Colors.white,

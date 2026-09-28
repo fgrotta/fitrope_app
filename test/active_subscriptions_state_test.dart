@@ -785,4 +785,52 @@ void main() {
       expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
     });
   });
+
+  group('abbonamento in corso + rinnovo futuro della stessa famiglia', () {
+    UserSubscription pack(String id, DateTime start, DateTime end, int left) =>
+        UserSubscription(
+          id: id,
+          planKey: 'open_10i_1m',
+          family: SubscriptionFamily.OPEN,
+          billingMode: BillingMode.ENTRIES,
+          courseTypeTags: {CourseTags.OPEN},
+          remainingEntries: left,
+          startDate: Timestamp.fromDate(start),
+          endDate: Timestamp.fromDate(end),
+        );
+    // In corso fino a mercoledì, rinnovo da giovedì.
+    final current = pack(
+      'current',
+      now.subtract(const Duration(days: 1)),
+      monday.add(const Duration(days: 2, hours: 23)),
+      0,
+    );
+    final future = pack(
+      'future',
+      monday.add(const Duration(days: 3)),
+      monday.add(const Duration(days: 40)),
+      10,
+    );
+
+    test('corso nella finestra attuale: il rinnovo non lo sblocca', () {
+      final target = course(uid: 'o1', tags: [CourseTags.OPEN], dayOffset: 1);
+      store.dispatch(SetAllCoursesAction([target]));
+      final u = user(tags: [CourseTags.OPEN], subs: [current, future]);
+      expect(getCourseState(target, u), CourseState.SUBSCRIBE_LIMIT);
+    });
+
+    test('corso nella finestra del rinnovo -> CAN_SUBSCRIBE', () {
+      final target = course(uid: 'o2', tags: [CourseTags.OPEN], dayOffset: 4);
+      store.dispatch(SetAllCoursesAction([target]));
+      final u = user(tags: [CourseTags.OPEN], subs: [current, future]);
+      expect(getCourseState(target, u), CourseState.CAN_SUBSCRIBE);
+    });
+
+    test('solo il rinnovo futuro: corso prima dell\'inizio -> EXPIRED', () {
+      final target = course(uid: 'o3', tags: [CourseTags.OPEN], dayOffset: 1);
+      store.dispatch(SetAllCoursesAction([target]));
+      final u = user(tags: [CourseTags.OPEN], subs: [future]);
+      expect(getCourseState(target, u), CourseState.EXPIRED);
+    });
+  });
 }

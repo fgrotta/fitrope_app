@@ -416,6 +416,50 @@ describe("assignSubscriptionHandler", () => {
       actor: ADMIN_UID,
     });
     expect(u.subscriptionModelVersion).toBe(2);
+    expect(res.replacedTrialIds).toEqual([]);
+    expect(res.replacedLegacyTrial).toBe(true);
+  });
+
+  const liveV1Trial = () => ({
+    tipologiaIscrizione: "ABBONAMENTO_PROVA",
+    entrateDisponibili: 1,
+    fineIscrizione: Timestamp.fromMillis(Date.now() + 10 * DAY),
+  });
+
+  test("Prova V1 ancora valida + PT -> failed-precondition, legacy intatto", async () => {
+    const { db, writes } = makeFakeDb({ callerRole: "Admin", targetUser: liveV1Trial() });
+    await expectCode(
+      assignSubscriptionHandler({ auth, data: { userId: "u1", planKey: "pt_10i_1m" } }, db),
+      "failed-precondition",
+    );
+    expect(writes.users).toEqual({});
+    expect(writes.subs).toEqual({});
+  });
+
+  test("Prova V1 ancora valida + Open che inizia dopo la scadenza -> failed-precondition", async () => {
+    const { db, writes } = makeFakeDb({ callerRole: "Admin", targetUser: liveV1Trial() });
+    await expectCode(
+      assignSubscriptionHandler(
+        { auth, data: { userId: "u1", planKey: "open_2x_1m", startDateMillis: Date.now() + 20 * DAY } },
+        db,
+      ),
+      "failed-precondition",
+    );
+    expect(writes.users).toEqual({});
+  });
+
+  test("Prova V1 già scaduta + PT -> consentito, residui azzerati", async () => {
+    const { db, writes } = makeFakeDb({
+      callerRole: "Admin",
+      targetUser: { ...liveV1Trial(), fineIscrizione: Timestamp.fromMillis(Date.now() - DAY) },
+    });
+    const res = await assignSubscriptionHandler(
+      { auth, data: { userId: "u1", planKey: "pt_10i_1m" } }, db
+    );
+    const u = writes.users["u1"] as Record<string, any>;
+    expect(u.tipologiaIscrizione).toBeNull();
+    expect(u.legacySubscriptionMigration.source).toBe("ADMIN_TRIAL_REPLACED");
+    expect(res.replacedLegacyTrial).toBe(false);
   });
 
   test("utente già migrato con residui legacy -> residui azzerati, marker invariato", async () => {
