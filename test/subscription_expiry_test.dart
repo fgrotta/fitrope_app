@@ -69,7 +69,7 @@ void main() {
       legacyEndDate: Timestamp.fromDate(now.add(const Duration(days: 5))),
     );
     expect(hasSubscriptionExpiringInNext30Days(user, now: now), isTrue);
-    expect(hasNoActiveSubscription(user), isFalse);
+    expect(hasNoActiveSubscription(user, now: now), isFalse);
   });
 
   group('hasLiveSubscription', () {

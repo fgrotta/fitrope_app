@@ -7,7 +7,8 @@ class CertificatoHelper {
   /// Soglia di giorni per considerare un certificato in scadenza
   static const int GIORNI_SOGLIA_SCADENZA = 15;
 
-  /// Verifica se un certificato è in scadenza (≤ 10 giorni)
+  /// Verifica se un certificato è in scadenza (≤ [GIORNI_SOGLIA_SCADENZA]
+  /// giorni, cioè 15)
   static bool isCertificatoInScadenza(Timestamp? scadenza) {
     if (scadenza == null) return false;
 

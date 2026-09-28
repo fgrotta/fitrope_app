@@ -20,6 +20,7 @@ import 'package:fitrope_app/utils/subscription_labels.dart';
 import 'package:fitrope_app/utils/course_recovery.dart';
 import 'package:fitrope_app/utils/course_unsubscribe_helper.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
+import 'package:fitrope_app/utils/certificate_alerts.dart';
 import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/utils/abbonamento_helper.dart';
 import 'package:fitrope_app/utils/refresh_manager.dart';
@@ -583,7 +584,7 @@ class _HomePageState extends State<HomePage> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             SizedBox(width: 12),
-            Text('Caricamento certificati in scadenza...'),
+            Text('Caricamento certificati medici...'),
           ],
         ),
       );
@@ -592,6 +593,19 @@ class _HomePageState extends State<HomePage> {
     if (utentiConCertificatoInScadenza.isEmpty) {
       return const SizedBox.shrink();
     }
+
+    final now = DateTime.now();
+    final alerts = {
+      for (final u in utentiConCertificatoInScadenza)
+        u.uid: certificatoAlertOf(u, now: now),
+    };
+    int contaAlert(CertificatoAlert a) =>
+        alerts.values.where((v) => v == a).length;
+    final riepilogo = [
+      '${contaAlert(CertificatoAlert.mancante)} mancanti',
+      '${contaAlert(CertificatoAlert.scaduto)} scaduti',
+      '${contaAlert(CertificatoAlert.inScadenza)} in scadenza',
+    ].join(' · ');
 
     return Container(
       margin: const EdgeInsets.all(8),
@@ -615,113 +629,165 @@ class _HomePageState extends State<HomePage> {
             children: [
               Icon(Icons.warning, color: Colors.red.shade700, size: 24),
               const SizedBox(width: 8),
-              Text(
-                'Certificati in Scadenza (${utentiConCertificatoInScadenza.length})',
-                style: TextStyle(
-                  color: Colors.red.shade700,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Certificati medici da verificare (${utentiConCertificatoInScadenza.length})',
+                  style: TextStyle(
+                    color: Colors.red.shade700,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
+          Padding(
+            padding: const EdgeInsets.only(left: 32, top: 2),
+            child: Text(
+              riepilogo,
+              style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+            ),
+          ),
           const SizedBox(height: 12),
           ...utentiConCertificatoInScadenza.map((utente) {
-            final giorniRimanenti = CertificatoHelper.getGiorniRimanenti(
-              utente.certificatoScadenza,
-            );
-            final dataScadenza = CertificatoHelper.formatDataScadenza(
-              utente.certificatoScadenza,
-            );
-
-            return InkWell(
-              onTap: () async {
-                final updatedUser = await Navigator.push<FitropeUser>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => UserDetailPage(user: utente),
-                  ),
-                );
-
-                // Se l'utente è stato aggiornato, ricarica i certificati
-                if (updatedUser != null) {
-                  _loadUtentiConCertificatoInScadenza();
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                margin: const EdgeInsets.only(bottom: 2),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.red.shade100,
-                      radius: 20,
-                      child: Text(
-                        '${utente.name.isNotEmpty ? utente.name[0] : ''}${utente.lastName.isNotEmpty ? utente.lastName[0] : ''}',
-                        style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${utente.name} ${utente.lastName}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          if (giorniRimanenti >= 0)
-                            Text(
-                              'Scadenza: $dataScadenza',
-                              style: TextStyle(
-                                color: Colors.red.shade600,
-                                fontSize: 14,
-                              ),
-                            )
-                          else
-                            Text(
-                              'Scaduto il $dataScadenza',
-                              style: TextStyle(
-                                color: Colors.red.shade600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          if (giorniRimanenti >= 0)
-                            Text(
-                              'Giorni rimanenti: $giorniRimanenti',
-                              style: TextStyle(
-                                color: giorniRimanenti <= 3
-                                    ? Colors.red
-                                    : Colors.orange,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.red.shade400,
-                      size: 16,
-                    ),
-                  ],
-                ),
-              ),
+            return _buildCertificatoRow(
+              utente,
+              alerts[utente.uid] ?? CertificatoAlert.inScadenza,
+              now,
             );
           }),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCertificatoRow(
+    FitropeUser utente,
+    CertificatoAlert alert,
+    DateTime now,
+  ) {
+    final critico = alert != CertificatoAlert.inScadenza;
+    final dataScadenza =
+        CertificatoHelper.formatDataScadenza(utente.certificatoScadenza);
+    final giorni = giorniAllaScadenzaCertificato(utente, now: now) ?? 0;
+
+    final (String badge, String dettaglio) = switch (alert) {
+      CertificatoAlert.mancante => ('MANCANTE', 'Nessun certificato caricato'),
+      CertificatoAlert.scaduto => ('SCADUTO', 'Scaduto il $dataScadenza'),
+      CertificatoAlert.inScadenza => (
+          'IN SCADENZA',
+          'Scade il $dataScadenza · ${switch (giorni) {
+            <= 0 => 'oggi',
+            1 => 'tra 1 giorno',
+            _ => 'tra $giorni giorni',
+          }}',
+        ),
+    };
+    final accento = critico ? Colors.red.shade700 : Colors.orange.shade800;
+
+    return InkWell(
+      onTap: () async {
+        final updatedUser = await Navigator.push<FitropeUser>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UserDetailPage(user: utente),
+          ),
+        );
+
+        // Se l'utente è stato aggiornato, ricarica i certificati
+        if (updatedUser != null) {
+          _loadUtentiConCertificatoInScadenza();
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          color: critico ? Colors.red.shade100 : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: critico ? Colors.red.shade300 : Colors.orange.shade200,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (critico) Container(width: 5, color: Colors.red.shade700),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        critico ? Icons.error : Icons.schedule,
+                        color: accento,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${utente.name} ${utente.lastName}',
+                              style: TextStyle(
+                                fontWeight:
+                                    critico ? FontWeight.w800 : FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: accento,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    badge,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  dettaglio,
+                                  style: TextStyle(
+                                    color: critico
+                                        ? Colors.red.shade900
+                                        : Colors.grey.shade800,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        color: accento,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

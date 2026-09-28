@@ -466,7 +466,7 @@ class _SectionUtenti extends StatelessWidget {
         _MetricRow('Nuovi (ultimi 30 giorni)', '$new30',
             onTap: () => onOpenUserList('Nuovi (ultimi 30 giorni)', new30List)),
         const Divider(height: 24),
-        Text('Per durata abbonamento', style: _sectionLabelStyle(context)),
+        Text('Per tipo di abbonamento', style: _sectionLabelStyle(context)),
         const SizedBox(height: 12),
         _TipologieCorsiChart(
           entries: durationEntries
@@ -477,7 +477,8 @@ class _SectionUtenti extends StatelessWidget {
               durationEntries[i].key.label, durationEntries[i].value),
         ),
         const Text(
-          'Un socio con abbonamenti di durate diverse compare in ciascuna voce.',
+          'I pacchetti ingresso sono raggruppati a prescindere dalla durata. Un '
+          'socio con abbonamenti di voci diverse compare in ciascuna.',
           style: TextStyle(color: onSurfaceVariantColor, fontSize: 13),
         ),
         const Divider(height: 24),
@@ -682,7 +683,7 @@ class _SectionAbbonamenti extends StatelessWidget {
             onTap: () => onOpenUserList(
                 'Abbonamenti in scadenza (prossimi 30 gg)', expiringSoonList)),
         const SizedBox(height: 12),
-        Text('In scadenza per durata', style: _sectionLabelStyle(context)),
+        Text('In scadenza per tipo', style: _sectionLabelStyle(context)),
         const SizedBox(height: 12),
         _TipologieCorsiChart(
           entries: expiringByDuration
@@ -694,9 +695,10 @@ class _SectionAbbonamenti extends StatelessWidget {
               expiringByDuration[i].value),
         ),
         const Text(
-          'Conta i clienti per durata dell\'abbonamento che scade: chi ne ha più '
-          'd\'uno in scadenza compare in ciascuna voce. I piani legacy non '
-          'hanno una durata e restano solo nel totale.',
+          'Conta i clienti per tipo dell\'abbonamento che scade: chi ne ha più '
+          'd\'uno in scadenza compare in ciascuna voce. I pacchetti ingresso '
+          'sono raggruppati a prescindere dalla durata. I piani legacy non '
+          'hanno un tipo di catalogo e restano solo nel totale.',
           style: TextStyle(color: onSurfaceVariantColor, fontSize: 13),
         ),
         const Divider(height: 24),

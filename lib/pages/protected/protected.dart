@@ -224,6 +224,9 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                   AppShell(
                     currentIndex: effectiveIndex,
                     isAdmin: user?.role == 'Admin',
+                    // Solo la pagina Utenti: la tabella ha bisogno di tutta la
+                    // larghezza, le altre restano centrate.
+                    fullWidth: effectiveIndex == 2,
                     onChangePage: (index) {
                       setState(() {
                         currentIndex = index;
