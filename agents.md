@@ -120,7 +120,8 @@ lib/
 │   │   ├── unsubscribe_to_course.dart     # Callable unsubscribeFromCourse
 │   │   └── README_ISCRIZIONI.md           # Documentazione logica iscrizioni server-side
 │   └── subscriptions/
-│       └── assign_subscription.dart       # Callable admin assignSubscription
+│       ├── assign_subscription.dart       # Callable admin assignSubscription
+│       └── manage_subscription.dart       # Callable admin update/revokeSubscription + storico Admin
 │
 ├── authentication/                        # Flussi auth lato client
 │   ├── login.dart                         # Login + OneSignal.login + addEmail
@@ -231,7 +232,8 @@ Un utente puo avere piu abbonamenti attivi insieme. La fonte di verita e la coll
 - **UserSubscription** (`lib/types/user_subscription.dart`): `id?`, `planKey`, `family` (`SubscriptionFamily`: OPEN/HYROX/PT), `billingMode` (`BillingMode`: FREQUENCY/ENTRIES), `courseTypeTags` (accesso), `weeklyFrequency` (2/3/`null`=illimitato), `remainingEntries`, `startDate`, `endDate`.
 - **Catalogo** (`lib/utils/subscription_plans.dart`): Open {2x, 3x, illimitato} x {1,3,6,12} = 12; Hyrox e PT 10 ingressi x {1,3,6,12}.
 - **getCourseState (scope per famiglia):** gli abbonamenti che coprono la tipologia (tag) del corso ne determinano l'idoneita — FREQUENCY conta i corsi della stessa tipologia nella settimana (`null`=illimitato), ENTRIES verifica `remainingEntries > 0`; scadenza per-abbonamento. Accesso = tag legacy OPPURE copertura abbonamento; i corsi accessibili solo via tag (es. Hey Mamma) non hanno limiti di abbonamento.
-- **Caveat modello misto:** se esiste almeno una voce viva nello snapshot, il modello multi-abbonamento vince sul fallback legacy in modo globale. I crediti legacy residui non vengono usati come fallback per famiglie non coperte. `assignSubscription` promuove a V2 solo profili senza stato economico/consumi legacy; gli altri passano prima da `migrateLegacyUser`. Le callable enrollment continuano a gestire i campi V1 per gli utenti non ancora migrati.
+- **Caveat modello misto:** se esiste almeno una voce viva nello snapshot, il modello multi-abbonamento vince sul fallback legacy in modo globale. I crediti legacy residui non vengono usati come fallback per famiglie non coperte. `assignSubscription` promuove a V2 i profili senza stato economico/consumi legacy e quelli il cui legacy è solo un residuo (Prova V1 con `tipologiaIscrizione == ABBONAMENTO_PROVA`, oppure marker `legacySubscriptionMigration`): azzera i campi legacy, porta le voci `LEGACY_ENTRY` a `NONE` e per i V1 scrive il marker `ADMIN_TRIAL_REPLACED`. Gli altri passano prima da `migrateLegacyUser`.
+- **Snapshot e revoca:** lo snapshot contiene gli abbonamenti non revocati e non scaduti, **compresi quelli con inizio futuro** (l'inizio lo controllano `validAtDate` e `getCourseState`). La revoca Admin (`revokeSubscription`) conserva il documento con `revokedAt`; i revocati non entrano nello snapshot né nei conflitti. Il vincolo "max 1 per famiglia" vale su finestre di date sovrapposte; una Prova sovrapposta viene chiusa e sostituita dall'assegnazione, non dalla modifica (`updateSubscription`, che registra `editHistory`). Revocare o modificare non disiscrive dai corsi già prenotati. Le callable enrollment continuano a gestire i campi V1 per gli utenti non ancora migrati.
 - **Scadenza legacy:** nel fallback, `fineIscrizione == null` e considerata `EXPIRED`. Anche una data antecedente alla data del corso e `EXPIRED`; questo stato ha precedenza su `SUBSCRIBED`.
 
 ### Course (`lib/types/course.dart`)
@@ -339,7 +341,7 @@ Due invarianti in più, entrambe nate da bug reali:
 **Limite noto e voluto: la fedeltà si ferma alle rules.** `FirebaseAuth.currentUser`
 resta l'admin, quindi le **letture** in simulazione sono valutate con
 `request.auth.uid` = admin. Una segnalazione la cui causa è un `permission-denied`
-lato rules (es. lo storico `subscriptions/*`, self-read-only) è **invisibile**:
+lato rules (es. lo storico `subscriptions/*`, leggibile solo dal proprietario e dall'Admin) è **invisibile**:
 l'admin vede tutto funzionare. La simulazione risponde a "cosa vede e cosa può
 premere questo utente", non a "cosa gli nega il server". Il limite cresce man mano
 che il lockdown delle rules avanza.
@@ -610,7 +612,7 @@ Test Jest su handler OneSignal e dominio enrollment:
 
 - `handler.test.ts` - auth, validazione payload, inoltro a OneSignal, errori
 - `eligibility.test.ts`, `refund.test.ts`, `courseTypes.test.ts`, `enrollment.test.ts`
-- `enrollmentHandlers.test.ts`, `adminHandlers.test.ts`, `assignSubscription.test.ts`
+- `enrollmentHandlers.test.ts`, `adminHandlers.test.ts`, `assignSubscription.test.ts`, `manageSubscription.test.ts`, `subscription.test.ts`
 - `notify.test.ts`, `notifyOrchestration.test.ts`, `conventions.test.ts`
 - `certificateEmails.test.ts` (finestre giorno Europe/Rome, selezione destinatari, run)
 - `indexExports.test.ts` (gate ambiente delle funzioni certificati)
