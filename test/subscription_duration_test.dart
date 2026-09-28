@@ -52,17 +52,44 @@ List<String> _uids(List<FitropeUser> users) => users.map((u) => u.uid).toList();
 
 void main() {
   group('subscriptionDurationOf', () {
-    test('mappa i piani alla durata', () {
+    test('mappa gli abbonamenti a frequenza alla durata', () {
       expect(subscriptionDurationOf(_sub('open_trial_1i_30d')),
           SubscriptionDuration.prova);
       expect(subscriptionDurationOf(_sub('open_2x_1m')),
           SubscriptionDuration.mensile);
       expect(subscriptionDurationOf(_sub('open_unlim_3m')),
           SubscriptionDuration.trimestrale);
-      expect(subscriptionDurationOf(_sub('open_10i_6m')),
+      expect(subscriptionDurationOf(_sub('open_2x_6m')),
           SubscriptionDuration.semestrale);
-      expect(subscriptionDurationOf(_sub('pt_10i_12m')),
+      expect(subscriptionDurationOf(_sub('open_2x_12m')),
           SubscriptionDuration.annuale);
+    });
+
+    test('i pacchetti a ingressi hanno una voce unica, qualunque durata', () {
+      for (final key in [
+        'open_10i_1m',
+        'open_10i_3m',
+        'pt_10i_6m',
+        'pt_10i_12m'
+      ]) {
+        expect(subscriptionDurationOf(_sub(key)),
+            SubscriptionDuration.pacchettoIngressi,
+            reason: key);
+      }
+    });
+
+    test('nel catalogo le durate a mesi restano solo per la frequenza', () {
+      for (final plan in SubscriptionPlans.all) {
+        final voce = subscriptionDurationOf(_sub(plan.key));
+        if (plan.billingMode == BillingMode.ENTRIES &&
+            plan.durationDays == null) {
+          expect(voce, SubscriptionDuration.pacchettoIngressi,
+              reason: plan.key);
+        } else {
+          expect(voce, isNot(SubscriptionDuration.pacchettoIngressi),
+              reason: plan.key);
+        }
+      }
     });
 
     test('ogni piano del catalogo ha una durata', () {
@@ -81,22 +108,26 @@ void main() {
         'Abbonamento trimestrale',
         'Abbonamento semestrale',
         'Abbonamento annuale',
+        'Pacchetti ingresso',
       ]);
     });
   });
 
   group('usersBySubscriptionDuration', () {
-    test('input vuoto → cinque voci a zero, in ordine', () {
+    test('input vuoto → sei voci a zero, in ordine', () {
       final result = usersBySubscriptionDuration(const [], now: _now);
 
+      expect(result, hasLength(6));
       expect(result.map((e) => e.key).toList(), SubscriptionDuration.values);
       expect(result.every((e) => e.value.isEmpty), isTrue);
     });
 
-    test('stessa durata su due famiglie → socio contato una volta', () {
+    test(
+        'stessa durata su due abbonamenti a frequenza → socio contato una volta',
+        () {
       final u = _user('a', subscriptions: [
         _sub('open_2x_1m'),
-        _sub('pt_10i_1m'),
+        _sub('open_unlim_1m'),
       ]);
 
       final result = usersBySubscriptionDuration([u], now: _now);
@@ -107,7 +138,7 @@ void main() {
     test('durate diverse → il socio compare in entrambe le voci', () {
       final u = _user('a', subscriptions: [
         _sub('open_2x_1m'),
-        _sub('pt_10i_12m'),
+        _sub('open_2x_12m'),
       ]);
 
       final result = usersBySubscriptionDuration([u], now: _now);
@@ -115,6 +146,34 @@ void main() {
       expect(_uids(result[SubscriptionDuration.mensile.index].value), ['a']);
       expect(_uids(result[SubscriptionDuration.annuale.index].value), ['a']);
       expect(result[SubscriptionDuration.trimestrale.index].value, isEmpty);
+    });
+
+    test('pacchetto e frequenza della stessa durata → voci separate', () {
+      final u = _user('a', subscriptions: [
+        _sub('open_2x_1m'),
+        _sub('open_10i_1m'),
+      ]);
+
+      final result = usersBySubscriptionDuration([u], now: _now);
+
+      expect(_uids(result[SubscriptionDuration.mensile.index].value), ['a']);
+      expect(_uids(result[SubscriptionDuration.pacchettoIngressi.index].value),
+          ['a']);
+    });
+
+    test('due pacchetti di durate diverse → socio contato una volta', () {
+      final u = _user('a', subscriptions: [
+        _sub('open_10i_1m'),
+        _sub('pt_10i_6m'),
+      ]);
+      final solo = _user('b', subscriptions: [_sub('open_10i_1m')]);
+
+      final result = usersBySubscriptionDuration([u, solo], now: _now);
+
+      expect(_uids(result[SubscriptionDuration.pacchettoIngressi.index].value),
+          ['a', 'b']);
+      expect(result[SubscriptionDuration.mensile.index].value, isEmpty);
+      expect(result[SubscriptionDuration.semestrale.index].value, isEmpty);
     });
 
     test('abbonamenti scaduti esclusi', () {
@@ -241,9 +300,10 @@ void main() {
     ) =>
         _uids(r[d.index].value);
 
-    test('input vuoto → cinque voci a zero, in ordine', () {
+    test('input vuoto → sei voci a zero, in ordine', () {
       final result = usersByExpiringSubscriptionDuration(const [], now: _now);
 
+      expect(result, hasLength(6));
       expect(result.map((e) => e.key).toList(), SubscriptionDuration.values);
       expect(result.every((e) => e.value.isEmpty), isTrue);
     });
@@ -292,7 +352,7 @@ void main() {
         'a',
         subscriptions: [
           _sub('open_2x_1m', end: _now.add(const Duration(days: 5))),
-          _sub('pt_10i_12m', end: _now.add(const Duration(days: 200))),
+          _sub('open_2x_12m', end: _now.add(const Duration(days: 200))),
         ],
       );
 
@@ -307,13 +367,36 @@ void main() {
         'a',
         subscriptions: [
           _sub('open_2x_1m', end: _now.add(const Duration(days: 5))),
-          _sub('pt_10i_1m', end: _now.add(const Duration(days: 8))),
+          _sub('open_unlim_1m', end: _now.add(const Duration(days: 8))),
         ],
       );
 
       final result = usersByExpiringSubscriptionDuration([u], now: _now);
 
       expect(row(result, SubscriptionDuration.mensile), ['a']);
+    });
+
+    test('pacchetti in scadenza raggruppati a prescindere dalla durata', () {
+      final u = _user(
+        'a',
+        subscriptions: [
+          _sub('open_10i_1m', end: _now.add(const Duration(days: 5))),
+          _sub('pt_10i_6m', end: _now.add(const Duration(days: 12))),
+        ],
+      );
+      final frequenza = _user(
+        'b',
+        subscriptions: [
+          _sub('open_2x_1m', end: _now.add(const Duration(days: 5))),
+        ],
+      );
+
+      final result =
+          usersByExpiringSubscriptionDuration([u, frequenza], now: _now);
+
+      expect(row(result, SubscriptionDuration.pacchettoIngressi), ['a']);
+      expect(row(result, SubscriptionDuration.mensile), ['b']);
+      expect(row(result, SubscriptionDuration.semestrale), isEmpty);
     });
 
     test('la Prova in scadenza finisce nella sua voce', () {
