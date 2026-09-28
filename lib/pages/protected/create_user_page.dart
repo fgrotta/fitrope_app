@@ -1,4 +1,6 @@
 import 'package:fitrope_app/api/authentication/create_user.dart';
+import 'package:fitrope_app/components/subscription_date_row.dart';
+import 'package:fitrope_app/utils/subscription_dates.dart';
 import 'package:fitrope_app/utils/subscription_plans.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/style.dart';
@@ -26,6 +28,10 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
   String _selectedRole = 'User';
   String? _selectedPlanKey = SubscriptionPlans.trial.key;
+  DateTime _planStartDate = _today();
+
+  /// Fine scelta a mano: finché è null segue piano + inizio.
+  DateTime? _planManualEndDate;
   bool _isAnonymous = false;
   bool _isLoading = false;
   String? _emailServerError;
@@ -33,6 +39,24 @@ class _CreateUserPageState extends State<CreateUserPage> {
   @override
   void initState() {
     super.initState();
+  }
+
+  static DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  DateTime? get _planEndDate {
+    if (_planManualEndDate != null) return _planManualEndDate;
+    final plan = _selectedPlanKey == null
+        ? null
+        : SubscriptionPlans.byKey(_selectedPlanKey!);
+    return plan == null ? null : defaultEndDate(plan, _planStartDate);
+  }
+
+  bool get _planWindowValid {
+    final end = _planEndDate;
+    return end == null || !end.isBefore(_planStartDate);
   }
 
   @override
@@ -54,6 +78,9 @@ class _CreateUserPageState extends State<CreateUserPage> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+    final withPlan = _selectedRole == 'User';
+    final planEnd = _planEndDate;
+    if (withPlan && !_planWindowValid) return;
 
     setState(() {
       _isLoading = true;
@@ -71,6 +98,12 @@ class _CreateUserPageState extends State<CreateUserPage> {
         isAnonymous: _isAnonymous,
         numeroTelefono: _numeroTelefonoController.text.trim().isNotEmpty
             ? _numeroTelefonoController.text.trim()
+            : null,
+        startDate: withPlan
+            ? subscriptionStartTimestamp(_planStartDate).toDate()
+            : null,
+        endDate: withPlan && planEnd != null
+            ? subscriptionEndTimestamp(planEnd).toDate()
             : null,
       );
       if (!mounted) return;
@@ -311,6 +344,27 @@ class _CreateUserPageState extends State<CreateUserPage> {
                   validator: (value) =>
                       value == null ? 'Seleziona un piano' : null,
                 ),
+                const SizedBox(height: 12),
+                SubscriptionDateRow(
+                  label: 'Data inizio',
+                  value: _planStartDate,
+                  enabled: !_isLoading,
+                  onPicked: (day) => setState(() => _planStartDate = day),
+                ),
+                const SizedBox(height: 6),
+                SubscriptionDateRow(
+                  label: 'Data fine',
+                  value: _planEndDate,
+                  enabled: !_isLoading && _selectedPlanKey != null,
+                  onPicked: (day) => setState(() => _planManualEndDate = day),
+                ),
+                if (!_planWindowValid) ...[
+                  const SizedBox(height: 6),
+                  const Text(
+                    'La data di fine non può precedere la data di inizio',
+                    style: TextStyle(color: errorColor),
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
 

@@ -13,6 +13,7 @@ UserSubscription _sub({
   int? remainingEntries,
   DateTime? start,
   DateTime? end,
+  DateTime? revokedAt,
 }) {
   return UserSubscription(
     planKey: planKey,
@@ -23,6 +24,7 @@ UserSubscription _sub({
     remainingEntries: remainingEntries,
     startDate: Timestamp.fromDate(start ?? DateTime(2026, 1, 1)),
     endDate: Timestamp.fromDate(end ?? DateTime(2026, 12, 31)),
+    revokedAt: revokedAt == null ? null : Timestamp.fromDate(revokedAt),
   );
 }
 
@@ -183,6 +185,36 @@ void main() {
           'Valido');
     });
 
+    test('inizio futuro -> "Inizia il dd/MM/yyyy"', () {
+      expect(
+        getSubscriptionStatusLabel(
+          _sub(start: DateTime(2026, 7, 1), end: DateTime(2026, 8, 1)),
+          now: now,
+        ),
+        'Inizia il 01/07/2026',
+      );
+    });
+
+    test('revocato -> "Revocato il dd/MM/yyyy" (prima di scaduto e futuro)',
+        () {
+      expect(
+        getSubscriptionStatusLabel(
+          _sub(end: DateTime(2026, 6, 1), revokedAt: DateTime(2026, 5, 20, 10)),
+          now: now,
+        ),
+        'Revocato il 20/05/2026',
+      );
+      expect(
+        getSubscriptionStatusLabel(
+          _sub(
+              start: DateTime(2026, 7, 1),
+              revokedAt: DateTime(2026, 6, 10, 10)),
+          now: now,
+        ),
+        'Revocato il 10/06/2026',
+      );
+    });
+
     test('confine soglia "in scadenza" (15 gg): 15 dentro, 16 -> Valido', () {
       expect(
           getSubscriptionStatusLabel(
@@ -280,6 +312,15 @@ void main() {
 
     test('lista vuota -> vuota', () {
       expect(liveSubscriptions(const [], now: now), isEmpty);
+    });
+
+    test('scarta i revocati, tiene i futuri', () {
+      final revocata = _sub(planKey: 'r', revokedAt: DateTime(2026, 6, 1));
+      final futura = _sub(planKey: 'f', start: DateTime(2026, 7, 1));
+      expect(
+        liveSubscriptions([revocata, futura], now: now).map((s) => s.planKey),
+        ['f'],
+      );
     });
   });
 }

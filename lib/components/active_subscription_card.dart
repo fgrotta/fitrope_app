@@ -11,10 +11,18 @@ import 'package:fitrope_app/utils/subscription_labels.dart';
 /// Usata sia nella HomePage utente ("Il mio abbonamento") sia nel dettaglio
 /// utente lato Admin/Trainer ("Abbonamenti attivi"). Lo stile (sfondo scuro,
 /// testo bianco) è allineato alla `CustomCard` già usata per l'abbonamento.
+///
+/// [actions] (facoltativo) sono i pulsanti Admin "Modifica"/"Revoca"; un
+/// abbonamento revocato appare attenuato.
 class ActiveSubscriptionCard extends StatelessWidget {
   final UserSubscription subscription;
+  final List<Widget>? actions;
 
-  const ActiveSubscriptionCard({super.key, required this.subscription});
+  const ActiveSubscriptionCard({
+    super.key,
+    required this.subscription,
+    this.actions,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +39,7 @@ class ActiveSubscriptionCard extends StatelessWidget {
         : AbbonamentoHelper.getColoreScadenza(subscription.endDate);
     final String stato = getSubscriptionStatusLabel(subscription);
 
-    return Container(
+    final card = Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -72,8 +80,17 @@ class ActiveSubscriptionCard extends StatelessWidget {
               ),
             ],
           ),
+          if (actions != null && actions!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              children: actions!,
+            ),
+          ],
         ],
       ),
     );
+    return subscription.isRevoked ? Opacity(opacity: 0.5, child: card) : card;
   }
 }

@@ -58,6 +58,28 @@ void main() {
       expect(r.remainingEntries, 1);
     });
 
+    test('revokedAt: roundtrip quando presente, omesso quando assente', () {
+      final revokedAt = Timestamp.fromDate(DateTime(2026, 1, 15));
+      final s = UserSubscription(
+        planKey: 'open_2x_3m',
+        family: SubscriptionFamily.OPEN,
+        billingMode: BillingMode.FREQUENCY,
+        courseTypeTags: {CourseTags.OPEN},
+        weeklyFrequency: 2,
+        startDate: start,
+        endDate: end,
+        revokedAt: revokedAt,
+      );
+      final r = UserSubscription.fromJson(s.toJson());
+      expect(r.revokedAt, revokedAt);
+      expect(r.isRevoked, isTrue);
+
+      final live =
+          UserSubscription.fromJson({...s.toJson()}..remove('revokedAt'));
+      expect(live.revokedAt, isNull);
+      expect(live.toJson().containsKey('revokedAt'), isFalse);
+    });
+
     test('roundtrip preserva id e startDate', () {
       final s = UserSubscription(
         id: 'sub-123',

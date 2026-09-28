@@ -1,12 +1,22 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 
-/// Chiama la Cloud Function `assignSubscription` (solo Admin).
-/// Ritorna l'id del nuovo abbonamento. Propaga [FirebaseFunctionsException].
-Future<String> assignSubscription({
+/// Esito di `assignSubscription`: id del nuovo abbonamento e delle eventuali
+/// Prove chiuse e sostituite.
+typedef AssignSubscriptionResult = ({
+  String subscriptionId,
+  List<String> replacedTrialIds,
+});
+
+/// Chiama la Cloud Function `assignSubscription` (solo Admin). [startDate] e
+/// [endDate] sono istanti già convertiti (vedi `subscription_dates.dart`);
+/// senza, il server usa ora e la durata del piano.
+/// Propaga [FirebaseFunctionsException].
+Future<AssignSubscriptionResult> assignSubscription({
   required String userId,
   required String planKey,
   DateTime? startDate,
+  DateTime? endDate,
 }) async {
   SimulationSession.assertNotSimulating('assignSubscription');
   final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
@@ -15,7 +25,12 @@ Future<String> assignSubscription({
     'userId': userId,
     'planKey': planKey,
     if (startDate != null) 'startDateMillis': startDate.millisecondsSinceEpoch,
+    if (endDate != null) 'endDateMillis': endDate.millisecondsSinceEpoch,
   });
   final data = Map<String, dynamic>.from(result.data as Map);
-  return (data['subscriptionId'] as String?) ?? '';
+  return (
+    subscriptionId: (data['subscriptionId'] as String?) ?? '',
+    replacedTrialIds:
+        ((data['replacedTrialIds'] as List?) ?? const []).cast<String>(),
+  );
 }
