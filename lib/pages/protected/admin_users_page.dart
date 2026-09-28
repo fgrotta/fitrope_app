@@ -45,6 +45,13 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   late FitropeUser user;
   static const int _itemsPerPage = 20; // Numero di utenti da caricare per volta
   static const double _userTableNarrowColumnWidth = 100;
+
+  // Tetto delle colonne che si allargano sul contenuto: senza, un'email o una
+  // lista di scadenze lunga allarga la tabella oltre lo schermo e l'ellipsis
+  // non scatta mai.
+  static const double _userTableNameMaxWidth = 220;
+  static const double _userTableEmailMaxWidth = 260;
+  static const double _userTableScadenzaMaxWidth = 320;
   static const EdgeInsets _userTableNarrowCellPadding =
       EdgeInsets.symmetric(horizontal: 6, vertical: 8);
   static final DateFormat _userTableDateFormat = DateFormat('dd/MM/yyyy');
@@ -56,6 +63,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       overflow: TextOverflow.ellipsis,
       style: style,
     );
+  }
+
+  Widget _userTableCappedText(String text, double maxWidth,
+      {bool tooltip = false}) {
+    final child = ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: _userTableEllipsisText(text),
+    );
+    return tooltip ? Tooltip(message: text, child: child) : child;
   }
 
   String _desktopTableTelefonoCell(FitropeUser u) {
@@ -601,9 +617,14 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     return DataRow(
                       onSelectChanged: (_) => showUserDetails(fitropeUser),
                       cells: [
-                        DataCell(Text(
-                            '${fitropeUser.name} ${fitropeUser.lastName}')),
-                        DataCell(Text(fitropeUser.email)),
+                        DataCell(_userTableCappedText(
+                          '${fitropeUser.name} ${fitropeUser.lastName}',
+                          _userTableNameMaxWidth,
+                        )),
+                        DataCell(_userTableCappedText(
+                          fitropeUser.email,
+                          _userTableEmailMaxWidth,
+                        )),
                         if (showDesktopExtraColumns) ...[
                           DataCell(
                             _userTableEllipsisText(
@@ -611,8 +632,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                             ),
                           ),
                           DataCell(
-                            _userTableEllipsisText(
+                            // Più abbonamenti sono concatenati: il testo
+                            // completo resta nel tooltip.
+                            _userTableCappedText(
                               _desktopTableScadenzaAbbonamentoCell(fitropeUser),
+                              _userTableScadenzaMaxWidth,
+                              tooltip: true,
                             ),
                           ),
                         ],

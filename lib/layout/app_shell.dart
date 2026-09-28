@@ -12,6 +12,11 @@ class AppShell extends StatelessWidget {
   /// Desktop [NavigationRail]: iniziali utente sopra il logout (es. "MR").
   final String? profileInitials;
   final VoidCallback? onProfileTap;
+
+  /// Desktop: la pagina occupa tutto lo spazio a destra del rail invece del
+  /// contenuto centrato a [maxContentWidthFor]. Pensato per le tabelle larghe
+  /// (pagina Utenti).
+  final bool fullWidth;
   final Widget child;
 
   const AppShell({
@@ -22,6 +27,7 @@ class AppShell extends StatelessWidget {
     this.onLogout,
     this.profileInitials,
     this.onProfileTap,
+    this.fullWidth = false,
     required this.child,
   });
 
@@ -55,7 +61,8 @@ class AppShell extends StatelessWidget {
       );
     }
 
-    final double? maxContentWidth = maxContentWidthFor(screenType);
+    final double? maxContentWidth =
+        fullWidth ? null : maxContentWidthFor(screenType);
 
     return Scaffold(
       backgroundColor: backgroundColor,
