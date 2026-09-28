@@ -16,6 +16,10 @@ import {
 } from "./certificateEmails";
 import { assignSubscriptionHandler } from "./enrollment/assignSubscription";
 import {
+  revokeSubscriptionHandler,
+  updateSubscriptionHandler,
+} from "./enrollment/manageSubscription";
+import {
   createManagedUserHandler,
   checkEmailAvailabilityHandler,
   grantSignupTrialHandler,
@@ -164,7 +168,8 @@ export const removeOneSignalEmail = onCall(
  * Assegna un abbonamento a un utente (solo Admin). Crea il documento in
  * `subscriptions` e ricalcola lo snapshot `activeSubscriptions` sul doc utente.
  *
- * Payload atteso: { userId: string, planKey: string, startDateMillis?: number }
+ * Payload atteso: { userId: string, planKey: string, startDateMillis?: number,
+ * endDateMillis?: number }. Una Prova sovrapposta viene revocata e sostituita.
  */
 export const assignSubscription = onCall(
   {
@@ -173,6 +178,30 @@ export const assignSubscription = onCall(
   },
   stagingCloneGuarded((request) =>
     assignSubscriptionHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+    )),
+);
+
+/**
+ * Modifica un abbonamento (solo Admin): piano, date e ingressi residui.
+ *
+ * Payload: { subscriptionId, planKey, startDateMillis, endDateMillis, remainingEntries? }
+ */
+export const updateSubscription = onCall(
+  { region: "europe-west8", cors: true },
+  stagingCloneGuarded((request) =>
+    updateSubscriptionHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+    )),
+);
+
+/** Revoca un abbonamento (solo Admin) conservandone lo storico. Payload: { subscriptionId } */
+export const revokeSubscription = onCall(
+  { region: "europe-west8", cors: true },
+  stagingCloneGuarded((request) =>
+    revokeSubscriptionHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
     )),

@@ -487,6 +487,17 @@ describe("rules: subscriptions", () => {
     await assertFails(anon().doc("subscriptions/s1").get());
   });
 
+  test("read: l'Admin legge gli abbonamenti altrui (storico in UserDetailPage)", async () => {
+    await assertSucceeds(as(ADMIN).doc("subscriptions/s2").get());
+    await assertSucceeds(
+      as(ADMIN).collection("subscriptions").where("userId", "==", OTHER).get()
+    );
+    await assertFails(
+      as(USER).collection("subscriptions").where("userId", "==", OTHER).get()
+    );
+    await assertFails(as(TRAINER).doc("subscriptions/s2").get());
+  });
+
   test("write dal client → NEGATA per chiunque (anche Admin)", async () => {
     await assertFails(
       as(USER).doc("subscriptions/s1").update({ remainingEntries: 999 })

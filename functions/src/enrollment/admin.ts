@@ -205,6 +205,17 @@ export async function deleteCourseHandler(
         });
         return;
       }
+      if (target.billingMode !== "ENTRIES") {
+        // Pacchetto convertito dall'Admin in un piano FREQUENCY: niente da
+        // ripristinare, e remainingEntries renderebbe il doc illeggibile.
+        logger.warn("deleteCourse: rimborso abbonamento non applicabile, piano non più a ingressi", {
+          userId,
+          courseId,
+          subscriptionId: plan.restoreSubId,
+          planKey: target.planKey,
+        });
+        return;
+      }
       const planMax = planByKey(target.planKey)?.entries ?? null;
       const restored = (target.remainingEntries ?? 0) + 1;
       target.remainingEntries = planMax !== null ? Math.min(restored, planMax) : restored;

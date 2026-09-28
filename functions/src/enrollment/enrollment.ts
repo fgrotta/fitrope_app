@@ -741,8 +741,17 @@ export async function unsubscribeFromCourseHandler(
           courseId,
           subscriptionId: restoreSubId,
         });
+      } else if (target.billingMode !== "ENTRIES") {
+        // Pacchetto convertito dall'Admin in un piano FREQUENCY: non ha più
+        // ingressi da ripristinare, e scriverli lo renderebbe illeggibile.
+        logger.warn("Rimborso abbonamento non applicabile: piano non più a ingressi", {
+          userId: targetUserId,
+          courseId,
+          subscriptionId: restoreSubId,
+          planKey: target.planKey,
+        });
       }
-      if (ref && target) {
+      if (ref && target && target.billingMode === "ENTRIES") {
         // Clamp difensivo al massimo del piano: un ripristino legittimo non può
         // mai superare gli ingressi del piano.
         const planMax = planByKey(target.planKey)?.entries ?? null;

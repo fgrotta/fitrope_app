@@ -9,6 +9,7 @@ import {
   ConsumptionRecord,
 } from "../enrollment/enrollment";
 import { makeDb, FakeStore, Data } from "./helpers/fakeDb";
+import { logger } from "firebase-functions";
 
 
 // Mar 9 giu 2026, 12:00 UTC — "adesso" per tutti i test.
@@ -1240,6 +1241,63 @@ describe("unsubscribeFromCourseHandler", () => {
       NOW
     );
     expect(store.subs["sub-hyrox"].remainingEntries).toBe(10); // clampato
+  });
+
+  test("rimborso su un abbonamento revocato: il doc torna a 10 ma non rientra nello snapshot", async () => {
+    const revoked = { ...hyroxSubDoc(9), revokedAt: Timestamp.fromMillis(NOW - 1000) };
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["ch"],
+          enrollmentConsumption: {
+            ch: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: "sub-hyrox" },
+          },
+          activeSubscriptions: [],
+        }),
+      },
+      courses: { ch: course({ uid: "ch", tags: ["Hyrox"] }) },
+      subs: { "sub-hyrox": revoked },
+    };
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "ch", userId: "u1" } },
+      makeDb(store),
+      {},
+      NOW
+    );
+    expect(store.subs["sub-hyrox"].remainingEntries).toBe(10);
+    expect(store.users.u1.activeSubscriptions).toEqual([]);
+    expect(store.users.u1.courses).toEqual([]);
+  });
+
+  test("rimborso su un pacchetto convertito in FREQUENCY: nessun remainingEntries, warning", async () => {
+    const warn = jest.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const converted = openFreqSubDoc(2);
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["ch"],
+          enrollmentConsumption: {
+            ch: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: "sub-hyrox" },
+          },
+          activeSubscriptions: [snapshotEntry("sub-hyrox", converted)],
+        }),
+      },
+      courses: { ch: course({ uid: "ch", tags: ["Hyrox"] }) },
+      subs: { "sub-hyrox": converted },
+    };
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "ch", userId: "u1" } },
+      makeDb(store),
+      {},
+      NOW
+    );
+    expect(store.subs["sub-hyrox"].remainingEntries).toBeNull();
+    expect(store.users.u1.courses).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("piano non più a ingressi"),
+      expect.objectContaining({ subscriptionId: "sub-hyrox" }),
+    );
+    warn.mockRestore();
   });
 
   test("entro finestra con conferma: il registro è ripulito ma la fonte NON è ripristinata", async () => {

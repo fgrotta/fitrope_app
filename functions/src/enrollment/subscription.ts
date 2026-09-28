@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
+import { HttpsError } from "firebase-functions/v2/https";
 import {
   SubscriptionPlan,
   SubscriptionFamily,
@@ -19,6 +20,32 @@ export interface UserSubscriptionRecord {
   remainingEntries: number | null;
   startDateMillis: number;
   endDateMillis: number;
+  /** Revoca Admin (storico): il documento resta, ma non entra mai nello snapshot. */
+  revokedAtMillis?: number | null;
+}
+
+// Limiti della finestra accettata dalle callable: fuori da questo intervallo
+// la data è quasi certamente un errore di input (anno a due cifre, millis/secondi).
+const MIN_WINDOW_MILLIS = Date.UTC(2020, 0, 1);
+const MAX_WINDOW_MILLIS = Date.UTC(2100, 0, 1);
+
+/**
+ * Valida la finestra di un abbonamento ricevuta da una callable: millis interi
+ * e finiti (niente NaN), fine successiva all'inizio, entrambe tra il 2020 e il 2100.
+ */
+export function validateWindow(startMillis: unknown, endMillis: unknown): void {
+  const valid = (v: unknown): v is number =>
+    typeof v === "number" && Number.isFinite(v) && Number.isInteger(v) &&
+    v >= MIN_WINDOW_MILLIS && v <= MAX_WINDOW_MILLIS;
+  if (!valid(startMillis) || !valid(endMillis)) {
+    throw new HttpsError("invalid-argument", "Date dell'abbonamento non valide");
+  }
+  if (endMillis <= startMillis) {
+    throw new HttpsError(
+      "invalid-argument",
+      "La data di fine deve essere successiva alla data di inizio",
+    );
+  }
 }
 
 /**
@@ -35,10 +62,21 @@ export function addMonths(startMillis: number, months: number): number {
   return d.getTime();
 }
 
-/** Costruisce un abbonamento dal piano: la durata determina la finestra di validità. */
+/** Fine predefinita di un abbonamento del piano [plan] che inizia a [startMillis]. */
+export function defaultEndMillis(plan: SubscriptionPlan, startMillis: number): number {
+  return plan.durationDays !== null
+    ? startMillis + plan.durationDays * 86400000
+    : addMonths(startMillis, plan.durationMonths!);
+}
+
+/**
+ * Costruisce un abbonamento dal piano. Senza [endMillis] la durata del piano
+ * determina la finestra di validità.
+ */
 export function buildSubscriptionFromPlan(
   plan: SubscriptionPlan,
-  startMillis: number
+  startMillis: number,
+  endMillis?: number
 ): UserSubscriptionRecord {
   return {
     planKey: plan.key,
@@ -48,28 +86,42 @@ export function buildSubscriptionFromPlan(
     weeklyFrequency: plan.weeklyFrequency,
     remainingEntries: plan.billingMode === "ENTRIES" ? plan.entries : null,
     startDateMillis: startMillis,
-    endDateMillis: plan.durationDays !== null
-      ? startMillis + plan.durationDays * 86400000
-      : addMonths(startMillis, plan.durationMonths!),
+    endDateMillis: endMillis ?? defaultEndMillis(plan, startMillis),
   };
 }
 
-/** Snapshot degli abbonamenti ancora attivi (non scaduti) alla data [nowMillis]. */
+/**
+ * Snapshot degli abbonamenti non revocati e non ancora scaduti alla data
+ * [nowMillis], compresi quelli con inizio futuro: nessun job li aggiungerebbe
+ * allo snapshot quando la data arriva. L'inizio rispetto alla data del corso
+ * lo controllano già validAtDate (server) e getCourseState (client).
+ */
 export function computeActiveSnapshot(
   records: UserSubscriptionRecord[],
   nowMillis: number
 ): UserSubscriptionRecord[] {
   return records.filter(
-    (r) => r.startDateMillis <= nowMillis && r.endDateMillis >= nowMillis
+    (r) => !r.revokedAtMillis && r.endDateMillis >= nowMillis
   );
 }
 
-/** True se per la famiglia esiste già un abbonamento attivo (vincolo: max 1 per famiglia). */
-export function hasActiveForFamily(
-  active: UserSubscriptionRecord[],
-  family: SubscriptionFamily
-): boolean {
-  return active.some((r) => r.family === family);
+/**
+ * Abbonamenti non revocati della famiglia [family] la cui finestra si
+ * sovrappone a [startMillis, endMillis] (vincolo: max 1 per famiglia alla
+ * volta). [excludeId] esclude l'abbonamento che si sta modificando.
+ */
+export function findOverlapping(
+  records: UserSubscriptionRecord[],
+  family: SubscriptionFamily,
+  startMillis: number,
+  endMillis: number,
+  excludeId?: string
+): UserSubscriptionRecord[] {
+  return records.filter(
+    (r) => !r.revokedAtMillis && r.family === family &&
+      (excludeId === undefined || r.id !== excludeId) &&
+      r.startDateMillis <= endMillis && r.endDateMillis >= startMillis
+  );
 }
 
 type FsData = admin.firestore.DocumentData;
@@ -122,6 +174,9 @@ export function recordFromDoc(id: string, data: FsData): UserSubscriptionRecord 
     remainingEntries: data.remainingEntries ?? null,
     startDateMillis: start.toMillis(),
     endDateMillis: end.toMillis(),
+    ...(data.revokedAt && typeof data.revokedAt.toMillis === "function"
+      ? { revokedAtMillis: data.revokedAt.toMillis() as number }
+      : {}),
   };
 }
 

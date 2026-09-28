@@ -1,6 +1,6 @@
 // Fake Firestore in-memory per i test degli handler enrollment/admin.
 // Supporta: query corsi per uid e range startDate, doc utenti, query utenti
-// array-contains (courses/waitlistCourses), query subscriptions per userId,
+// array-contains (courses/waitlistCourses), doc e query subscriptions per userId,
 // transazioni con update/delete che APPLICANO le scritture allo store (così i
 // test asseriscono lo stato finale). NB: esegue la closure di transazione una
 // sola volta (niente retry/contention: quella semantica è coperta dai test di
@@ -99,6 +99,7 @@ export function makeDb(store: FakeStore) {
       if (name === "courses") return coursesQuery([]);
       if (name === "subscriptions") {
         return {
+          doc: (id: string) => ({ _kind: "subDoc", _id: id }),
           where: (_f: string, _op: string, v: unknown) => ({
             _kind: "subsQuery",
             _userId: v,
@@ -128,6 +129,13 @@ export function makeDb(store: FakeStore) {
             return runUsersQuery(q as { _f: string; _v: unknown });
           }
           if (q._kind === "subsQuery") return runSubsQuery(q as { _userId: unknown });
+          if (q._kind === "subDoc") {
+            return {
+              id: q._id,
+              exists: store.subs[q._id!] !== undefined,
+              data: () => store.subs[q._id!],
+            };
+          }
           throw new Error(`tx.get non gestito: ${q._kind}`);
         },
         update: (ref: { _kind: string; _id: string }, data: Data) => {

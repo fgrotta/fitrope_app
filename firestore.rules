@@ -168,10 +168,12 @@ service cloud.firestore {
 
     match /subscriptions/{subscriptionId} {
       // Fonte di verità degli abbonamenti: scritture SOLO server
-      // (assignSubscription/subscribe/unsubscribe/deleteCourse). Il client
-      // legge dallo snapshot sul doc utente; la lettura dei propri documenti
-      // resta consentita per usi futuri (storico in UserDetailPage, PR7).
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // (assign/update/revokeSubscription, subscribe/unsubscribe/deleteCourse).
+      // Il client legge dallo snapshot sul doc utente; l'Admin legge anche i
+      // documenti altrui per lo storico in UserDetailPage (scaduti e revocati
+      // non sono nello snapshot).
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
       allow create, update, delete: if false;
     }
 
