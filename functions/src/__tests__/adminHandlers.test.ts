@@ -307,6 +307,20 @@ describe("deleteCourseHandler", () => {
     };
   }
 
+  test("rimborso su un pacchetto portato oltre il piano: tetto maxEntries", async () => {
+    const boosted = { ...hyroxSubDoc(14), maxEntries: 15 };
+    const store: FakeStore = {
+      users: {
+        boss: { uid: "boss", role: "Admin" },
+        "u-sub": subUserWith("sub-1", [snapshotEntry("sub-1", hyroxSubDoc(14))]),
+      },
+      courses: { c1: course({ tags: ["Hyrox"] }) },
+      subs: { "sub-1": boosted },
+    };
+    await deleteCourseHandler({ ...auth("boss"), data: { courseId: "c1" } }, makeDb(store), NOW);
+    expect(store.subs["sub-1"].remainingEntries).toBe(15);
+  });
+
   test("rimborso su un abbonamento revocato: doc incrementato, fuori dallo snapshot", async () => {
     const revoked = { ...hyroxSubDoc(9), revokedAt: Timestamp.fromMillis(NOW - 1000) };
     const store: FakeStore = {

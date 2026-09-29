@@ -93,11 +93,9 @@ class _EditSubscriptionDialogState extends State<EditSubscriptionDialog> {
     if (_endDate.isBefore(_startDate)) {
       return 'La data di fine non può precedere la data di inizio';
     }
-    if (_isEntries) {
-      final value = _entriesValue;
-      if (value == null || value < 0 || value > plan.entries!) {
-        return 'Ingressi residui: da 0 a ${plan.entries}';
-      }
+    // Nessun tetto: l'Admin può dare più ingressi di quelli del pacchetto.
+    if (_isEntries && _entriesValue == null) {
+      return 'Indica gli ingressi residui';
     }
     return null;
   }
@@ -179,9 +177,9 @@ class _EditSubscriptionDialogState extends State<EditSubscriptionDialog> {
                   enabled: !_saving,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    labelText: 'Ingressi residui (0-${_plan!.entries})',
-                    border: const OutlineInputBorder(),
+                  decoration: const InputDecoration(
+                    labelText: 'Ingressi residui',
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() => _entriesTouched = true),
                 ),

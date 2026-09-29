@@ -1243,6 +1243,32 @@ describe("unsubscribeFromCourseHandler", () => {
     expect(store.subs["sub-hyrox"].remainingEntries).toBe(10); // clampato
   });
 
+  test("rimborso su un pacchetto portato oltre il piano: il tetto è maxEntries, non 10", async () => {
+    const boosted = { ...hyroxSubDoc(14), maxEntries: 15 };
+    const store: FakeStore = {
+      users: {
+        u1: subUser({
+          courses: ["ch"],
+          enrollmentConsumption: {
+            ch: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: "sub-hyrox" },
+          },
+          activeSubscriptions: [snapshotEntry("sub-hyrox", hyroxSubDoc(14))],
+        }),
+      },
+      courses: { ch: course({ uid: "ch", tags: ["Hyrox"] }) },
+      subs: { "sub-hyrox": boosted },
+    };
+    await unsubscribeFromCourseHandler(
+      { ...auth("u1"), data: { courseId: "ch", userId: "u1" } },
+      makeDb(store),
+      {},
+      NOW
+    );
+    expect(store.subs["sub-hyrox"].remainingEntries).toBe(15);
+    const snap = store.users.u1.activeSubscriptions as Data[];
+    expect(snap[0].remainingEntries).toBe(15);
+  });
+
   test("rimborso su un abbonamento revocato: il doc torna a 10 ma non rientra nello snapshot", async () => {
     const revoked = { ...hyroxSubDoc(9), revokedAt: Timestamp.fromMillis(NOW - 1000) };
     const store: FakeStore = {

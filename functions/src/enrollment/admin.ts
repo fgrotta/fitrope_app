@@ -15,12 +15,12 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import * as admin from "firebase-admin";
-import { planByKey } from "./plansCatalog";
 import {
   UserSubscriptionRecord,
   recordFromDoc,
   recordToSnapshotEntry,
   computeActiveSnapshot,
+  entriesCeiling,
 } from "./subscription";
 import { typeTagOf } from "./courseTypes";
 import { decideAdminRefund } from "./refund";
@@ -216,7 +216,7 @@ export async function deleteCourseHandler(
         });
         return;
       }
-      const planMax = planByKey(target.planKey)?.entries ?? null;
+      const planMax = entriesCeiling(target);
       const restored = (target.remainingEntries ?? 0) + 1;
       target.remainingEntries = planMax !== null ? Math.min(restored, planMax) : restored;
       subWrites.push({ ref: targetRef, remainingEntries: target.remainingEntries });

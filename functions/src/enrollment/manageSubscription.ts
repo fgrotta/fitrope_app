@@ -103,11 +103,11 @@ export async function updateSubscriptionHandler(
   let remainingEntries: number | null = null;
   if (plan.billingMode === "ENTRIES") {
     const value = body.remainingEntries;
-    if (typeof value !== "number" || !Number.isInteger(value) ||
-        value < 0 || value > (plan.entries ?? 0)) {
+    // Nessun tetto: l'Admin può dare più ingressi di quelli del pacchetto.
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
       throw new HttpsError(
         "invalid-argument",
-        `Ingressi residui non validi: da 0 a ${plan.entries}`,
+        "Ingressi residui non validi: numero intero da 0 in su",
       );
     }
     remainingEntries = value;
@@ -153,6 +153,11 @@ export async function updateSubscriptionHandler(
       courseTypeTags: updated.courseTypeTags,
       weeklyFrequency: updated.weeklyFrequency,
       remainingEntries: updated.remainingEntries,
+      // Tetto dei rimborsi: senza, una disdetta riporterebbe un pacchetto
+      // portato oltre il piano agli ingressi del piano.
+      maxEntries: remainingEntries === null
+        ? null
+        : Math.max(plan.entries ?? 0, remainingEntries),
       startDate: Timestamp.fromMillis(updated.startDateMillis),
       endDate: Timestamp.fromMillis(updated.endDateMillis),
       updatedAt: at,
