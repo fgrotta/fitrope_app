@@ -12,6 +12,12 @@ import {
   assertFails,
   RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
+import firebase from "firebase/compat/app";
+import "firebase/compat/firestore";
+
+// `authenticatedContext().firestore()` è un'istanza compat: il sentinel va
+// preso dallo stesso SDK.
+const serverTimestamp = () => firebase.firestore.FieldValue.serverTimestamp();
 
 let env: RulesTestEnvironment;
 let consoleWarnSpy: jest.SpyInstance;
@@ -211,9 +217,43 @@ describe("rules: users — lettura e registrazione", () => {
 });
 
 describe("rules: regolamentoAccettatoIl è self-only (acceptRegolamento)", () => {
-  test("self scrive la propria accettazione → OK", async () => {
+  test("self scrive la propria accettazione con serverTimestamp → OK", async () => {
     await assertSucceeds(
+      as(USER).doc(`users/${USER}`).update({ regolamentoAccettatoIl: serverTimestamp() })
+    );
+  });
+
+  test("marca write-once: una seconda accettazione è NEGATA (anche con serverTimestamp)", async () => {
+    await assertSucceeds(
+      as(USER).doc(`users/${USER}`).update({ regolamentoAccettatoIl: serverTimestamp() })
+    );
+    await assertFails(
+      as(USER).doc(`users/${USER}`).update({ regolamentoAccettatoIl: serverTimestamp() })
+    );
+    await assertFails(
+      as(USER).doc(`users/${USER}`).update({ regolamentoAccettatoIl: null })
+    );
+    // Gli altri campi profilo restano modificabili, col campo presente e invariato.
+    await assertSucceeds(as(USER).doc(`users/${USER}`).update({ name: "Dopo" }));
+  });
+
+  test("documento legacy con la marca a null esplicito: prima accettazione → OK", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc(`users/${USER}`).update({ regolamentoAccettatoIl: null });
+    });
+    await assertSucceeds(
+      as(USER).doc(`users/${USER}`).update({ regolamentoAccettatoIl: serverTimestamp() })
+    );
+  });
+
+  test("data scelta dal client (anche retrodatata) → NEGATA", async () => {
+    await assertFails(
       as(USER).doc(`users/${USER}`).update({ regolamentoAccettatoIl: new Date() })
+    );
+    await assertFails(
+      as(USER)
+        .doc(`users/${USER}`)
+        .update({ regolamentoAccettatoIl: new Date(2020, 0, 1) })
     );
   });
 
@@ -298,7 +338,7 @@ describe("rules: users — update self (whitelist profilo)", () => {
       })
     );
     await assertSucceeds(
-      as(USER).doc(`users/${USER}`).update({ regolamentoAccettatoIl: new Date() })
+      as(USER).doc(`users/${USER}`).update({ regolamentoAccettatoIl: serverTimestamp() })
     );
     // Campi gestionali inclusi ma INVARIATI: diff vuota su di essi → passa.
     await assertSucceeds(

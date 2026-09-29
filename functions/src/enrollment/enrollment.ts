@@ -352,6 +352,16 @@ export function resolveCreditMode(
   return { creditMode: "NONE", subscriptionId: null };
 }
 
+/**
+ * Il socio ha accettato il regolamento della palestra (marca probatoria scritta
+ * dal client con serverTimestamp, write-once nelle rules). Prerequisito delle
+ * iscrizioni e della waitlist self-service; lo staff che iscrive un socio
+ * (walk-in, "Aggiungi iscritto") lo bypassa per scelta.
+ */
+export function hasAcceptedRegolamento(user: FsData): boolean {
+  return user.regolamentoAccettatoIl !== undefined && user.regolamentoAccettatoIl !== null;
+}
+
 // ──────────────────────────────────────────────
 //  subscribeToCourse
 // ──────────────────────────────────────────────
@@ -412,6 +422,15 @@ export async function subscribeToCourseHandler(
       targetUserId === actor ? actorTxSnap : await tx.get(userRef);
     if (!userTxSnap.exists) throw new HttpsError("not-found", "Utente inesistente");
     const user = userTxSnap.data() as FsData;
+
+    // Gate server-side del regolamento: il dialog client da solo non basta,
+    // la callable è raggiungibile con il proprio ID token da qualunque client.
+    if (!isPrivileged && !hasAcceptedRegolamento(user)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Devi accettare il regolamento della palestra prima di iscriverti"
+      );
+    }
 
     const courseStartMillis = toMillis(course.data.startDate);
     const courseTags = Array.isArray(course.data.tags) ? (course.data.tags as string[]) : [];
@@ -849,6 +868,12 @@ export async function joinWaitlistHandler(
     }
     if (targetUserId !== actor && !isPrivileged) {
       throw new HttpsError("permission-denied", "Non puoi gestire la waitlist di un altro utente");
+    }
+    if (!isPrivileged && !hasAcceptedRegolamento(user)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Devi accettare il regolamento della palestra prima di entrare in lista d'attesa"
+      );
     }
 
     if (course.data.waitlistEnabled === false) {

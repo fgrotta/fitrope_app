@@ -44,6 +44,7 @@ async function createUser(
     tipologiaCorsoTags: ["Open"],
     emailNotificationsEnabled: false,
     pushNotificationsEnabled: false,
+    regolamentoAccettatoIl: Timestamp.now(),
     ...doc,
   });
   const res = await fetch(
@@ -452,6 +453,46 @@ describe("integrazione emulatore — write-path enrollment", () => {
     });
     expect(suDisabilitato.ok).toBe(false);
     expect((await courseDoc(disabilitato))?.waitlist).toEqual([]);
+  });
+});
+
+describe("integrazione emulatore — regolamento obbligatorio", () => {
+  test("self senza regolamento rifiutato da subscribe e joinWaitlist; lo staff iscrive comunque", async () => {
+    const u = uniq("u-no-reg");
+    const token = await createUser(u, {
+      tipologiaIscrizione: "PACCHETTO_ENTRATE",
+      entrateDisponibili: 3,
+      regolamentoAccettatoIl: null,
+    });
+    const c = uniq("c-reg");
+    await createCourse(c);
+
+    const sub = await call("subscribeToCourse", token, { courseId: c, userId: u });
+    expect(sub.ok).toBe(false);
+    expect(sub.errorStatus).toBe("FAILED_PRECONDITION");
+    expect(sub.errorMessage).toContain("regolamento");
+    expect((await courseDoc(c))?.subscribed).toBe(0);
+    expect((await userDoc(u)).entrateDisponibili).toBe(3);
+
+    const pieno = uniq("c-reg-pieno");
+    await createCourse(pieno, { capacity: 0 });
+    const wl = await call("joinWaitlist", token, { courseId: pieno, userId: u });
+    expect(wl.ok).toBe(false);
+    expect(wl.errorStatus).toBe("FAILED_PRECONDITION");
+    expect(wl.errorMessage).toContain("regolamento");
+    expect((await courseDoc(pieno))?.waitlist).toEqual([]);
+
+    // "Aggiungi iscritto": lo staff bypassa il regolamento per scelta.
+    const bossToken = await createUser(uniq("u-reg-admin"), { role: "Admin" });
+    const forced = await call("subscribeToCourse", bossToken, {
+      courseId: c,
+      userId: u,
+      force: true,
+    });
+    expect(forced.ok).toBe(true);
+    const user = await userDoc(u);
+    expect(user.courses).toEqual([c]);
+    expect(user.regolamentoAccettatoIl).toBeNull();
   });
 });
 

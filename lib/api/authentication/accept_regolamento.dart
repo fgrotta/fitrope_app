@@ -12,10 +12,20 @@ import 'package:fitrope_app/state/simulation_session.dart';
 /// usano `store.state.user`, UserDetailPage mostra il bottone solo nel ramo
 /// `store.state.user?.uid == widget.user.uid`. Chiamarla per conto di un altro
 /// utente verrebbe rifiutata dal server (permission-denied).
-Future<void> acceptRegolamento(String uid) async {
+///
+/// WRITE-ONCE: le rules accettano la marca una sola volta e solo come
+/// serverTimestamp. Una seconda chiamata (stato locale stantio) è rifiutata:
+/// `RegolamentoHelper` la tratta rileggendo il documento.
+Future<void> acceptRegolamento(
+  String uid, {
+  FirebaseFirestore? firestore,
+}) async {
   SimulationSession.assertNotSimulating('acceptRegolamento');
   try {
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
+    await (firestore ?? FirebaseFirestore.instance)
+        .collection('users')
+        .doc(uid)
+        .update({
       'regolamentoAccettatoIl': FieldValue.serverTimestamp(),
     });
     invalidateAllUserCaches();

@@ -15,9 +15,9 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 
 | Callable | Handler | Cosa fa |
 |---|---|---|
-| `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, notifiche prova (email di conferma, promemoria, WhatsApp di conferma via Make) |
+| `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Regolamento accettato (self), eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, notifiche prova (email di conferma, promemoria, WhatsApp di conferma via Make) |
 | `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, voce `cancelledEnrollments` con `entryLost` + `lostKind`. **La penalità segue la fonte realmente consumata** (registro `enrollmentConsumption`): se fu scalato un ingresso `lostKind` è `ENTRY` (non pesa sul limite settimanale), altrimenti `WEEKLY_SLOT`. La perdita **non è definitiva**: è recuperabile nella giornata (vedi "Recupero nella giornata"). **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
-| `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze). **`joinWaitlist` richiede l'idoneità**: esegue `evaluateSubscribe` con `courseFull: false` e rifiuta chi non potrebbe iscriversi (crediti esauriti, limite settimanale, scadenza, tag) |
+| `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze). `joinWaitlist` self richiede il regolamento accettato. **`joinWaitlist` richiede l'idoneità**: esegue `evaluateSubscribe` con `courseFull: false` e rifiuta chi non potrebbe iscriversi (crediti esauriti, limite settimanale, scadenza, tag) |
 | `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot con date facoltative (`startDateMillis`/`endDateMillis`, `validateWindow`). Max 1 per famiglia su **finestre sovrapposte** (`findOverlapping`): una **Prova** sovrapposta viene revocata e sostituita (`revokedReason: REPLACED_BY_ASSIGNMENT`, `replacedBy`); i residui legacy di una Prova V1 o di un utente già migrato vengono azzerati (vedi "Gestione Admin degli abbonamenti") |
 | `updateSubscription` / `revokeSubscription` *(SOLO Admin)* | `manageSubscription.ts` | Modifica piano, date e ingressi residui (con `editHistory`), revoca con storico (`revokedAt`), ricalcolo snapshot |
 | `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Niente email waitlist |
@@ -30,6 +30,25 @@ senza poter essere promosso. Enforcement server in `joinWaitlist` (`evaluateSubs
 `courseFull: false`), mirror client in `get_course_state.dart` (il `limitState` prevale su
 `CAN_WAITLIST` nel ramo corso-pieno). Test: `waitlist_state_test.dart`,
 `waitlist_operations_test.dart`.
+
+**Il regolamento è un prerequisito server-side delle iscrizioni self.** `subscribeToCourse` e
+`joinWaitlist` rifiutano con `failed-precondition` il socio che si iscrive da solo senza
+`regolamentoAccettatoIl` (`hasAcceptedRegolamento` in `enrollment.ts`), dopo i controlli di
+ruolo e prima di stato del corso, idoneità e capienza. Admin e Trainer che iscrivono un socio ("Aggiungi
+iscritto", con o senza `force`) **bypassano per scelta**: è il percorso dei walk-in e degli
+utenti gestiti, che spiega i tanti iscritti senza marca. Il client raccoglie l'accettazione
+prima della callable (`RegolamentoHelper.checkAndAcceptRegolamento` in `onSubscribe` e
+`onJoinWaitlist` di `CalendarPage`/`HomePage`, dopo la guardia simulazione) e aggiorna lo
+store. Nelle rules la marca è **write-once**: si scrive una volta sola e solo con
+`serverTimestamp`, quindi un doppio dialog con stato locale stantio non la sovrascrive (l'helper
+rilegge il documento e prosegue).
+
+Rollout di questo gate, **diverso dall'ordine standard**: web **prima** delle Functions (la
+web nuova funziona anche con le Functions vecchie, il dialog scrive solo la marca), poi
+Functions, e le rules solo quando i client vecchi sono spariti. Con le Functions prima, la web
+vecchia non mostra il dialog sulla waitlist e il socio senza marca riceve solo l'errore; con
+le rules prima, il vecchio helper che riscrive la marca (copia utente stantia dopo
+un'iscrizione fallita) viene rifiutato e blocca l'iscrizione fino al ricaricamento.
 
 **Perché `unsubscribeFromCourse` admin rimborsa e `deleteCourse` su corso iniziato no.**
 Non è un'incoerenza: sono due situazioni opposte. Un admin che rimuove UN utente da un
