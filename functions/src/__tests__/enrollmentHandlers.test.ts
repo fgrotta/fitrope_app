@@ -19,6 +19,8 @@ const FAR = Date.UTC(2026, 5, 10, 10);
 // Corso a 6h (entro 8h, fuori 4h) e corso a 2h (entro entrambe).
 const MID = Date.UTC(2026, 5, 9, 18);
 const SOON = Date.UTC(2026, 5, 9, 14);
+// Marca di accettazione del regolamento: prerequisito delle iscrizioni self.
+const REGOLAMENTO_OK = Timestamp.fromMillis(Date.UTC(2026, 0, 1));
 
 
 
@@ -41,6 +43,7 @@ function packUser(over: Data = {}): Data {
     uid: "u1",
     role: "User",
     courses: [],
+    regolamentoAccettatoIl: REGOLAMENTO_OK,
     tipologiaIscrizione: "PACCHETTO_ENTRATE",
     entrateDisponibili: 5,
     fineIscrizione: Timestamp.fromMillis(Date.UTC(2026, 11, 31)),
@@ -54,6 +57,7 @@ function tempUser(over: Data = {}): Data {
     uid: "u1",
     role: "User",
     courses: [],
+    regolamentoAccettatoIl: REGOLAMENTO_OK,
     tipologiaIscrizione: "ABBONAMENTO_MENSILE",
     entrateSettimanali: 3,
     entrateDisponibili: 2, // NON deve essere toccato dal modello temporale
@@ -115,6 +119,7 @@ function subUser(over: Data = {}): Data {
     uid: "u1",
     role: "User",
     courses: [],
+    regolamentoAccettatoIl: REGOLAMENTO_OK,
     tipologiaCorsoTags: [],
     activeSubscriptions: [snapshotEntry("sub-hyrox", hyroxSubDoc(10))],
     ...over,
@@ -310,6 +315,55 @@ describe("subscribeToCourseHandler", () => {
     expect(res.ok).toBe(true);
     expect(s2.courses.c1.subscribed).toBe(11);
     expect(s2.users.u1.courses).toEqual(["c1"]);
+  });
+
+  test("self senza regolamento (campo assente o null) → failed-precondition, nessuna scrittura", async () => {
+    for (const regolamentoAccettatoIl of [undefined, null]) {
+      const store: FakeStore = {
+        users: { u1: packUser({ regolamentoAccettatoIl }) },
+        courses: { c1: course() },
+        subs: {},
+      };
+      await expect(
+        subscribeToCourseHandler(
+          { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+          makeDb(store),
+          {},
+          NOW
+        )
+      ).rejects.toMatchObject({
+        code: "failed-precondition",
+        message: expect.stringContaining("regolamento"),
+      });
+      expect(store.courses.c1.subscribed).toBe(5);
+      expect(store.users.u1.courses).toEqual([]);
+      expect(store.users.u1.entrateDisponibili).toBe(5);
+    }
+  });
+
+  test("Admin/Trainer iscrivono un socio senza regolamento, con e senza force", async () => {
+    for (const role of ["Admin", "Trainer"]) {
+      for (const force of [false, true]) {
+        const store: FakeStore = {
+          users: {
+            u1: packUser({ regolamentoAccettatoIl: null }),
+            boss: { uid: "boss", role },
+          },
+          courses: { c1: course() },
+          subs: {},
+        };
+        const res = await subscribeToCourseHandler(
+          { ...auth("boss"), data: { courseId: "c1", userId: "u1", force } },
+          makeDb(store),
+          {},
+          NOW
+        );
+        expect(res.ok).toBe(true);
+        expect(store.users.u1.courses).toEqual(["c1"]);
+        // Il bypass non scrive la marca: resta del socio.
+        expect(store.users.u1.regolamentoAccettatoIl).toBeNull();
+      }
+    }
   });
 
   test("force richiesto da utente NON privilegiato viene ignorato", async () => {
@@ -1596,6 +1650,48 @@ describe("joinWaitlistHandler", () => {
     );
     expect(res.ok).toBe(true);
     expect(store.courses.c1.waitlist).toEqual(["u2"]);
+  });
+});
+
+describe("joinWaitlistHandler — regolamento", () => {
+  test("self senza regolamento → failed-precondition, nessuna scrittura", async () => {
+    const store: FakeStore = {
+      users: { u1: packUser({ regolamentoAccettatoIl: null }) },
+      courses: { c1: course({ subscribed: 10 }) },
+      subs: {},
+    };
+    await expect(
+      joinWaitlistHandler(
+        { ...auth("u1"), data: { courseId: "c1", userId: "u1" } },
+        makeDb(store),
+        NOW
+      )
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      message: expect.stringContaining("regolamento"),
+    });
+    expect(store.courses.c1.waitlist).toEqual([]);
+    expect(store.users.u1.waitlistCourses).toBeUndefined();
+  });
+
+  test("Admin/Trainer aggiungono in waitlist un socio senza regolamento", async () => {
+    for (const role of ["Admin", "Trainer"]) {
+      const store: FakeStore = {
+        users: {
+          u1: packUser({ regolamentoAccettatoIl: null }),
+          boss: { uid: "boss", role },
+        },
+        courses: { c1: course({ subscribed: 10 }) },
+        subs: {},
+      };
+      const res = await joinWaitlistHandler(
+        { ...auth("boss"), data: { courseId: "c1", userId: "u1" } },
+        makeDb(store),
+        NOW
+      );
+      expect(res.ok).toBe(true);
+      expect(store.courses.c1.waitlist).toEqual(["u1"]);
+    }
   });
 });
 

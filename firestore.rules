@@ -100,6 +100,9 @@ service cloud.firestore {
 
       // SELF: solo campi profilo. `isActive` solo per auto-disattivarsi
       // ("Cancella account"); la riattivazione è solo admin.
+      // `regolamentoAccettatoIl` è una marca probatoria write-once: si scrive
+      // una sola volta e solo con serverTimestamp (niente date scelte dal
+      // client, niente sovrascritture che ne spostino la data).
       allow update: if isSignedIn()
         && request.auth.uid == userId
         && affected().hasOnly(
@@ -107,7 +110,10 @@ service cloud.firestore {
               'emailNotificationsEnabled', 'pushNotificationsEnabled',
               'regolamentoAccettatoIl', 'isAnonymous', 'isActive'])
         && (!affected().hasAny(['isActive'])
-            || request.resource.data.isActive == false);
+            || request.resource.data.isActive == false)
+        && (!affected().hasAny(['regolamentoAccettatoIl'])
+            || (resource.data.get('regolamentoAccettatoIl', null) == null
+                && request.resource.data.regolamentoAccettatoIl == request.time));
 
       // ADMIN: anagrafica gestionale (incl. role/tipologia/entrate/
       // fineIscrizione/certificato/tag/isActive) MA MAI i campi server-owned

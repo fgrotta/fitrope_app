@@ -243,8 +243,13 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  Future<void> onJoinWaitlist(Course course) {
-    if (SimulationGuard.blockIfSimulating(context)) return Future.value();
+  Future<void> onJoinWaitlist(Course course) async {
+    // Stesso ordine di onSubscribe: guardia PRIMA del dialog che scrive
+    // `regolamentoAccettatoIl`. Il server rifiuta la waitlist senza marca.
+    if (SimulationGuard.blockIfSimulating(context)) return;
+    final accepted =
+        await RegolamentoHelper.checkAndAcceptRegolamento(context, user);
+    if (!accepted || !mounted) return;
     return WaitlistUiHelper.showJoinWaitlistDialog(
       context: context,
       course: course,
