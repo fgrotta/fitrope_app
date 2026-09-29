@@ -98,6 +98,56 @@ void main() {
     });
   });
 
+  group('matchesCertificatoFilter', () {
+    const tutti = CertificatoListFilter.tutti;
+    const combinato = CertificatoListFilter.scadutoOInScadenza;
+    const scaduto = CertificatoListFilter.scaduto;
+    const inScadenza = CertificatoListFilter.inScadenza;
+    const mancante = CertificatoListFilter.mancante;
+
+    List<CertificatoListFilter> passati(FitropeUser u) => [
+          for (final f in CertificatoListFilter.values)
+            if (matchesCertificatoFilter(u, f, now: _now)) f,
+        ];
+
+    test('scaduto da poche ore → Scaduto e combinato, non In scadenza', () {
+      final u =
+          _user('a', certificato: _now.subtract(const Duration(hours: 3)));
+      expect(passati(u), [tutti, combinato, scaduto]);
+    });
+
+    test('scade esattamente a +30 giorni → in scadenza, bordo compreso', () {
+      final u = _user('a',
+          certificato:
+              _now.add(const Duration(days: giorniSogliaFiltroCertificato)));
+      expect(passati(u), [tutti, combinato, inScadenza]);
+    });
+
+    test('scade a +30 giorni e 1 minuto → solo Tutti', () {
+      final u = _user('a',
+          certificato: _now.add(
+              const Duration(days: giorniSogliaFiltroCertificato, minutes: 1)));
+      expect(passati(u), [tutti]);
+    });
+
+    test('a +20 giorni: in scadenza per il filtro, non per il default', () {
+      final u = _user('a', certificato: _now.add(const Duration(days: 20)));
+      expect(passati(u), [tutti, combinato, inScadenza]);
+      expect(certificatoAlertOf(u, now: _now), isNull);
+    });
+
+    test('senza certificato → solo Senza certificato e Tutti', () {
+      expect(passati(_user('a')), [tutti, mancante]);
+    });
+
+    test('non richiede un abbonamento vivo', () {
+      final u = _user('a',
+          subscriptions: const [],
+          certificato: _now.subtract(const Duration(days: 1)));
+      expect(matchesCertificatoFilter(u, scaduto, now: _now), isTrue);
+    });
+  });
+
   group('giorniAllaScadenzaCertificato', () {
     test('giorni di calendario, non intervalli di 24 ore', () {
       final stasera = _user('a', certificato: DateTime(2026, 9, 22, 23));
