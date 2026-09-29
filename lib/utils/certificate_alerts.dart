@@ -7,18 +7,58 @@ import 'package:fitrope_app/utils/subscription_plans.dart';
 enum CertificatoAlert { mancante, scaduto, inScadenza }
 
 /// Stato del certificato di [u] rispetto a [now] (default: ora), oppure `null`
-/// se il certificato è valido oltre [CertificatoHelper.GIORNI_SOGLIA_SCADENZA].
-/// Lo scaduto si decide sull'istante, non sui giorni interi: un certificato
-/// scaduto da poche ore è già scaduto.
-CertificatoAlert? certificatoAlertOf(FitropeUser u, {DateTime? now}) {
+/// se il certificato è valido oltre [sogliaGiorni] (default
+/// [CertificatoHelper.GIORNI_SOGLIA_SCADENZA]). Lo scaduto si decide
+/// sull'istante, non sui giorni interi: un certificato scaduto da poche ore è
+/// già scaduto.
+CertificatoAlert? certificatoAlertOf(
+  FitropeUser u, {
+  DateTime? now,
+  int sogliaGiorni = CertificatoHelper.GIORNI_SOGLIA_SCADENZA,
+}) {
   final ref = now ?? DateTime.now();
   final scadenza = u.certificatoScadenza?.toDate();
   if (scadenza == null) return CertificatoAlert.mancante;
   if (scadenza.isBefore(ref)) return CertificatoAlert.scaduto;
-  final soglia =
-      ref.add(const Duration(days: CertificatoHelper.GIORNI_SOGLIA_SCADENZA));
+  final soglia = ref.add(Duration(days: sogliaGiorni));
   if (!scadenza.isAfter(soglia)) return CertificatoAlert.inScadenza;
   return null;
+}
+
+/// Finestra dell'"in scadenza" nel filtro della lista utenti: più larga della
+/// soglia di dashboard e badge, per trovare chi rinnovare con anticipo.
+const int giorniSogliaFiltroCertificato = 30;
+
+/// Filtro sul certificato medico nella lista utenti dell'admin.
+enum CertificatoListFilter {
+  tutti,
+  scadutoOInScadenza,
+  scaduto,
+  inScadenza,
+  mancante,
+}
+
+/// Vero se [u] passa il filtro [f]. A differenza di
+/// [usersNeedingCertificateAttention] non richiede un abbonamento vivo: è una
+/// ricerca, e si combina con gli altri filtri della lista.
+bool matchesCertificatoFilter(
+  FitropeUser u,
+  CertificatoListFilter f, {
+  DateTime? now,
+}) {
+  final alert = certificatoAlertOf(
+    u,
+    now: now,
+    sogliaGiorni: giorniSogliaFiltroCertificato,
+  );
+  return switch (f) {
+    CertificatoListFilter.tutti => true,
+    CertificatoListFilter.scadutoOInScadenza =>
+      alert == CertificatoAlert.scaduto || alert == CertificatoAlert.inScadenza,
+    CertificatoListFilter.scaduto => alert == CertificatoAlert.scaduto,
+    CertificatoListFilter.inScadenza => alert == CertificatoAlert.inScadenza,
+    CertificatoListFilter.mancante => alert == CertificatoAlert.mancante,
+  };
 }
 
 /// Giorni di calendario da [now] alla scadenza del certificato: 0 se scade

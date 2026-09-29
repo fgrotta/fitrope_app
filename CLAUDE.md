@@ -170,6 +170,7 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
 
 - Liste di card (es. `CalendarPage`): su desktop usa griglie multi-colonna con `LayoutBuilder` (n. colonne = larghezza disponibile / larghezza-min-card) e disposizione "masonry" per gestire le altezze variabili; evita la singola colonna stretta che spreca lo spazio orizzontale.
 - Per un default che dipende dal layout (es. vista mese su desktop, settimana su mobile) usa uno stato **nullable** (`bool?`) risolto a runtime con `valore ?? isDesktop(context)`: così il default segue il breakpoint ma il toggle manuale dell'utente mantiene la precedenza.
+- `DataTable` con `columnWidth: FixedColumnWidth(w)`: la larghezza **include** il padding di `columnSpacing` (metà per lato, il margine sui bordi), quindi il testo ha `w - columnSpacing`. In `AdminUsersPage` una data `dd/MM/yyyy` in grassetto chiede 108 px con spacing 20; con 96 veniva troncata. Misura nel browser, non a occhio.
 - Evita stringhe **transitorie di caricamento** dentro una `description` condivisa renderizzata riga-per-riga (`CourseCard._buildMetadata`): appaiono e poi spariscono al termine della fetch → **salto di altezza** della card a ogni rebuild. I dati finali vanno in widget stabili (pill di conteggio, dialog, box dedicato), non nei metadati testuali.
 
 ## Convenzioni

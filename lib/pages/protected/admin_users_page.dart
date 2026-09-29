@@ -1,6 +1,7 @@
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/authentication/toggle_user_status.dart';
 import 'package:fitrope_app/authentication/reset_password.dart';
+import 'package:fitrope_app/utils/certificate_alerts.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
@@ -44,16 +45,16 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   bool hasMore = true;
   late FitropeUser user;
   static const int _itemsPerPage = 20; // Numero di utenti da caricare per volta
-  static const double _userTableNarrowColumnWidth = 100;
+  // La larghezza fissa include i 20 px di columnSpacing che DataTable mette
+  // dentro la colonna.
+  static const double _userTableDateColumnWidth = 108;
 
   // Tetto delle colonne che si allargano sul contenuto: senza, un'email o una
   // lista di scadenze lunga allarga la tabella oltre lo schermo e l'ellipsis
   // non scatta mai.
   static const double _userTableNameMaxWidth = 220;
   static const double _userTableEmailMaxWidth = 260;
-  static const double _userTableScadenzaMaxWidth = 320;
-  static const EdgeInsets _userTableNarrowCellPadding =
-      EdgeInsets.symmetric(horizontal: 6, vertical: 8);
+  static const double _userTableScadenzaMaxWidth = 440;
   static final DateFormat _userTableDateFormat = DateFormat('dd/MM/yyyy');
 
   Widget _userTableEllipsisText(String text, {TextStyle? style}) {
@@ -74,6 +75,46 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     return tooltip ? Tooltip(message: text, child: child) : child;
   }
 
+  /// Nome con ruolo e stato come icone: le colonne Ruolo e Stato occupavano
+  /// spazio per dire quasi sempre "User" e "Attivo", quindi il caso comune
+  /// resta senza icona.
+  Widget _userTableNameCell(FitropeUser u) {
+    final roleIcon = switch (u.role) {
+      'Admin' => Icons.workspace_premium_outlined,
+      'Trainer' => Icons.fitness_center_outlined,
+      _ => null,
+    };
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _userTableNameMaxWidth),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: _userTableEllipsisText('${u.name} ${u.lastName}'),
+          ),
+          if (roleIcon != null) ...[
+            const SizedBox(width: 6),
+            Tooltip(
+              message: u.role,
+              child: Icon(roleIcon, size: 18, color: primaryColor),
+            ),
+          ],
+          if (!u.isActive) ...[
+            const SizedBox(width: 6),
+            const Tooltip(
+              message: 'Disattivo',
+              child: Icon(
+                Icons.person_off_outlined,
+                size: 18,
+                color: warningColor,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   String _desktopTableTelefonoCell(FitropeUser u) {
     final t = u.numeroTelefono?.trim();
     return (t == null || t.isEmpty) ? '—' : t;
@@ -91,6 +132,28 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         .join(' · ');
   }
 
+  Widget _desktopTableCertificatoCell(FitropeUser u, DateTime now) {
+    final scadenza = u.certificatoScadenza?.toDate();
+    final alert = certificatoAlertOf(
+      u,
+      now: now,
+      sogliaGiorni: giorniSogliaFiltroCertificato,
+    );
+    final TextStyle? style = switch (alert) {
+      CertificatoAlert.scaduto =>
+        const TextStyle(color: errorColor, fontWeight: FontWeight.w600),
+      CertificatoAlert.inScadenza =>
+        const TextStyle(color: warningColor, fontWeight: FontWeight.w600),
+      CertificatoAlert.mancante =>
+        const TextStyle(color: onSurfaceVariantColor),
+      null => null,
+    };
+    return _userTableEllipsisText(
+      scadenza == null ? 'Nessuno' : _userTableDateFormat.format(scadenza),
+      style: style,
+    );
+  }
+
   /// Filtro tag: null = tutti i tag
   String? selectedTagFilter;
 
@@ -105,6 +168,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   /// Solo Admin: filtro su fine iscrizione (allineato al KPI dashboard per i 30 gg)
   AbbonamentoScadenzaListFilter _abbonamentoScadenzaFilter =
       AbbonamentoScadenzaListFilter.tutti;
+
+  /// Solo Admin: filtro sullo stato del certificato medico
+  CertificatoListFilter _certificatoFilter = CertificatoListFilter.tutti;
 
   /// Su mobile: filtri nascosti o mostrati (dropdown espanso/collassato)
   bool _filtersExpanded = false;
@@ -233,6 +299,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 .toList();
             break;
         }
+
+        final now = DateTime.now();
+        result = result
+            .where((u) =>
+                matchesCertificatoFilter(u, _certificatoFilter, now: now))
+            .toList();
       }
 
       filteredUsers = result;
@@ -495,6 +567,45 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           )
         : null;
 
+    final Widget? certificatoFilterDropdown = isAdmin
+        ? DropdownButtonFormField<CertificatoListFilter>(
+            initialValue: _certificatoFilter,
+            decoration: const InputDecoration(
+              labelText: 'Certificato medico',
+              border: OutlineInputBorder(),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: CertificatoListFilter.tutti,
+                child: Text('Tutti'),
+              ),
+              DropdownMenuItem(
+                value: CertificatoListFilter.scadutoOInScadenza,
+                child: Text('Scaduto o in scadenza (30 gg)'),
+              ),
+              DropdownMenuItem(
+                value: CertificatoListFilter.scaduto,
+                child: Text('Scaduto'),
+              ),
+              DropdownMenuItem(
+                value: CertificatoListFilter.inScadenza,
+                child: Text('In scadenza (30 gg)'),
+              ),
+              DropdownMenuItem(
+                value: CertificatoListFilter.mancante,
+                child: Text('Senza certificato'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              _certificatoFilter = value;
+              _applyFilters();
+            },
+          )
+        : null;
+
     if (desktopLayout) {
       return Row(
         children: [
@@ -506,6 +617,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           if (scadenzaAbbonamentoFilterDropdown != null) ...[
             const SizedBox(width: 12),
             Expanded(child: scadenzaAbbonamentoFilterDropdown),
+          ],
+          if (certificatoFilterDropdown != null) ...[
+            const SizedBox(width: 12),
+            Expanded(child: certificatoFilterDropdown),
           ],
         ],
       );
@@ -544,6 +659,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 if (scadenzaAbbonamentoFilterDropdown != null) ...[
                   const SizedBox(height: 12),
                   scadenzaAbbonamentoFilterDropdown,
+                ],
+                if (certificatoFilterDropdown != null) ...[
+                  const SizedBox(height: 12),
+                  certificatoFilterDropdown,
                 ],
               ],
             ),
@@ -586,6 +705,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         LayoutBuilder(
           builder: (context, constraints) {
             final tableMinWidth = constraints.maxWidth;
+            final now = DateTime.now();
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
@@ -599,28 +719,21 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     const DataColumn(label: Text('Email')),
                     if (showDesktopExtraColumns) ...[
                       const DataColumn(label: Text('Telefono')),
-                      const DataColumn(label: Text('Scadenza abbonamento')),
+                      const DataColumn(label: Text('Abbonamento')),
+                      DataColumn(
+                        columnWidth:
+                            const FixedColumnWidth(_userTableDateColumnWidth),
+                        tooltip: 'Scadenza certificato medico',
+                        label: _userTableEllipsisText('Certificato'),
+                      ),
                     ],
-                    DataColumn(
-                      columnWidth:
-                          const FixedColumnWidth(_userTableNarrowColumnWidth),
-                      label: _userTableEllipsisText('Ruolo'),
-                    ),
-                    DataColumn(
-                      columnWidth:
-                          const FixedColumnWidth(_userTableNarrowColumnWidth),
-                      label: _userTableEllipsisText('Stato'),
-                    ),
                     const DataColumn(label: Text('Azioni')),
                   ],
                   rows: displayedUsers.map((fitropeUser) {
                     return DataRow(
                       onSelectChanged: (_) => showUserDetails(fitropeUser),
                       cells: [
-                        DataCell(_userTableCappedText(
-                          '${fitropeUser.name} ${fitropeUser.lastName}',
-                          _userTableNameMaxWidth,
-                        )),
+                        DataCell(_userTableNameCell(fitropeUser)),
                         DataCell(_userTableCappedText(
                           fitropeUser.email,
                           _userTableEmailMaxWidth,
@@ -640,27 +753,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                               tooltip: true,
                             ),
                           ),
+                          DataCell(
+                            _desktopTableCertificatoCell(fitropeUser, now),
+                          ),
                         ],
-                        DataCell(
-                          Padding(
-                            padding: _userTableNarrowCellPadding,
-                            child: _userTableEllipsisText(fitropeUser.role),
-                          ),
-                        ),
-                        DataCell(
-                          Padding(
-                            padding: _userTableNarrowCellPadding,
-                            child: _userTableEllipsisText(
-                              fitropeUser.isActive ? 'Attivo' : 'Disattivo',
-                              style: TextStyle(
-                                color: fitropeUser.isActive
-                                    ? successColor
-                                    : warningColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
                         DataCell(
                           Row(
                             mainAxisSize: MainAxisSize.min,
