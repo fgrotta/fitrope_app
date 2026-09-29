@@ -9,8 +9,11 @@ import 'package:fitrope_app/utils/certificato_helper.dart';
 import 'package:fitrope_app/utils/regolamento_helper.dart';
 import 'package:fitrope_app/api/authentication/get_users.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:fitrope_app/api/subscriptions/manage_subscription.dart';
 import 'package:fitrope_app/components/assign_subscription_card.dart';
-import 'package:fitrope_app/components/active_subscription_card.dart';
+import 'package:fitrope_app/components/edit_subscription_dialog.dart';
+import 'package:fitrope_app/components/subscription_history_section.dart';
 import 'package:fitrope_app/components/legacy_user_migration_card.dart';
 import 'package:fitrope_app/utils/get_tipologia_iscrizione_label.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -78,6 +81,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
   List<UserSubscription> get _activeSubscriptions =>
       _reloadedSubscriptions ?? widget.user.activeSubscriptions;
 
+  /// Storico completo dalla collezione `subscriptions` (solo Admin): in corso,
+  /// futuri, scaduti e revocati. null finché non è caricato o se la lettura
+  /// fallisce (es. rules non ancora deployate): allora vale lo snapshot.
+  List<UserSubscription>? _adminSubscriptions;
+  bool _subscriptionBusy = false;
+
+  /// La Prova V1 viene azzerata dalla prima assegnazione: `widget.user` resta
+  /// quello di apertura, quindi l'avviso va spento a mano.
+  bool _legacyTrialReplaced = false;
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +122,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
     }
     // debugPrint(widget.user.isAnonymous);
     loadCourses();
+    if (isAdmin) _loadAdminSubscriptions();
+  }
+
+  Future<void> _loadAdminSubscriptions() async {
+    try {
+      final subs = await getUserSubscriptions(widget.user.uid);
+      if (!mounted) return;
+      setState(() => _adminSubscriptions = subs);
+    } catch (e) {
+      // Fallback silenzioso sullo snapshot: la sezione resta utilizzabile.
+      debugPrint('Storico abbonamenti non disponibile: $e');
+    }
   }
 
   Future<void> loadCourses() async {
@@ -1010,10 +1035,24 @@ class _UserDetailPageState extends State<UserDetailPage> {
               ],
               AssignSubscriptionCard(
                 userId: widget.user.uid,
+                subscriptions: _adminSubscriptions ?? _activeSubscriptions,
+                // Solo per i V1 non migrati (la migrazione porta a V2):
+                // coincide con la guardia server `liveLegacyTrialEnd`.
+                legacyTrialEnd: !_legacyTrialReplaced &&
+                        widget.user.subscriptionModelVersion < 2 &&
+                        widget.user.tipologiaIscrizione ==
+                            TipologiaIscrizione.ABBONAMENTO_PROVA &&
+                        widget.user.fineIscrizione != null &&
+                        !widget.user.fineIscrizione!
+                            .toDate()
+                            .isBefore(DateTime.now())
+                    ? widget.user.fineIscrizione!.toDate()
+                    : null,
                 onAssigned: () {
                   // Lo snapshot dell'utente è cambiato server-side: invalida la
                   // cache così liste e dettagli ricaricano dati freschi.
                   invalidateUsersCache();
+                  setState(() => _legacyTrialReplaced = true);
                   _reloadSubscriptions();
                 },
               ),
@@ -1574,6 +1613,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   /// assegnato: `widget.user` e immutabile e arriva dalla lista chiamante, che
   /// non si ricarica finche non si torna indietro.
   Future<void> _reloadSubscriptions() async {
+    if (isAdmin) await _loadAdminSubscriptions();
     try {
       final fresh = await getUser(widget.user.uid);
       if (!mounted || fresh == null) return;
@@ -1595,22 +1635,60 @@ class _UserDetailPageState extends State<UserDetailPage> {
   /// NB: qui si mostrano DELIBERATAMENTE TUTTE le voci dello snapshot (anche le
   /// scadute), perché è la vista gestionale/storica admin; la HomePage utente
   /// filtra invece con `liveSubscriptions` e mostra solo quelle vive.
+  ///
+  /// L'Admin vede lo storico completo della collezione (anche scaduti e
+  /// revocati), con i pulsanti "Modifica" e "Revoca" sui non revocati.
   Widget _buildActiveSubscriptionsSection() {
-    final subs = [..._activeSubscriptions]..sort((a, b) {
-        final byEnd = b.endDate.compareTo(a.endDate);
-        return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
-      });
+    final history = isAdmin ? _adminSubscriptions : null;
     return _buildSection(
-      'Abbonamenti attivi',
-      subs.isEmpty
-          ? [
-              const Text(
-                'Nessun abbonamento attivo',
-                style: TextStyle(color: onSurfaceVariantColor),
-              ),
-            ]
-          : subs.map((s) => ActiveSubscriptionCard(subscription: s)).toList(),
+      SubscriptionHistorySection.titleFor(adminHistory: history != null),
+      [
+        SubscriptionHistorySection(
+          subscriptions: history ?? _activeSubscriptions,
+          adminHistory: history != null,
+          busy: _subscriptionBusy,
+          onEdit: _editSubscription,
+          onRevoke: _revokeSubscription,
+        ),
+      ],
     );
+  }
+
+  Future<void> _editSubscription(UserSubscription subscription) async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => EditSubscriptionDialog(subscription: subscription),
+    );
+    if (saved != true || !mounted) return;
+    invalidateUsersCache();
+    SnackBarUtils.showSuccessSnackBar(context, 'Abbonamento modificato');
+    await _reloadSubscriptions();
+  }
+
+  Future<void> _revokeSubscription(UserSubscription subscription) async {
+    if (SimulationGuard.blockIfSimulating(context)) return;
+    final confirmed = await confirmRevokeSubscription(context);
+    if (!confirmed || !mounted) return;
+    setState(() => _subscriptionBusy = true);
+    try {
+      await revokeSubscription(subscription.id!);
+      invalidateUsersCache();
+      if (!mounted) return;
+      SnackBarUtils.showSuccessSnackBar(context, 'Abbonamento revocato');
+      await _reloadSubscriptions();
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      SnackBarUtils.showErrorSnackBar(
+        context,
+        e.message ?? 'Revoca non riuscita',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      SnackBarUtils.showErrorSnackBar(context, 'Revoca non riuscita');
+    } finally {
+      if (mounted) setState(() => _subscriptionBusy = false);
+    }
   }
 
   Widget _buildNotificationToggle(

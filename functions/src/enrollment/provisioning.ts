@@ -4,8 +4,10 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { planByKey } from "./plansCatalog";
 import {
   buildSubscriptionFromPlan,
+  defaultEndMillis,
   recordToDoc,
   recordToSnapshotEntry,
+  validateWindow,
 } from "./subscription";
 
 type Data = Record<string, unknown>;
@@ -59,7 +61,7 @@ export function hasLegacyEntryConsumption(user: Data): boolean {
       value && typeof value === "object" && (value as Data).kind === "LEGACY_ENTRY");
 }
 
-async function requireAdmin(auth: { uid: string } | null | undefined, db: admin.firestore.Firestore) {
+export async function requireAdmin(auth: { uid: string } | null | undefined, db: admin.firestore.Firestore) {
   if (!auth) throw new HttpsError("unauthenticated", "Login richiesto");
   const caller = await db.collection("users").doc(auth.uid).get();
   if (!caller.exists || caller.data()?.role !== "Admin") {
@@ -67,7 +69,7 @@ async function requireAdmin(auth: { uid: string } | null | undefined, db: admin.
   }
 }
 
-function requirePlan(key: unknown) {
+export function requirePlan(key: unknown) {
   if (typeof key !== "string") throw new HttpsError("invalid-argument", "planKey richiesto");
   const plan = planByKey(key);
   if (!plan) throw new HttpsError("invalid-argument", "Piano sconosciuto");
@@ -97,7 +99,16 @@ export async function createManagedUserHandler(
   }
   const userRef = db.collection("users").doc();
   const subRef = db.collection("subscriptions").doc();
-  const record = plan ? buildSubscriptionFromPlan(plan, Date.now()) : null;
+  let record = null;
+  if (plan) {
+    // Date facoltative del piano iniziale: nessun controllo sovrapposizioni,
+    // l'utente è nuovo.
+    const start = body.startDateMillis ?? Date.now();
+    const end = body.endDateMillis ??
+      (typeof start === "number" ? defaultEndMillis(plan, start) : null);
+    validateWindow(start, end);
+    record = buildSubscriptionFromPlan(plan, start as number, end as number);
+  }
   let authCreated = false;
   if (email) {
     if (await emailTakenByProfile(db, email)) throw new HttpsError("already-exists", "Questa email è già associata a un profilo. Contatta la palestra.");

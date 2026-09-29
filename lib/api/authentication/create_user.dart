@@ -20,6 +20,8 @@ Future<CreateUserResponse> createUser({
   required String? planKey,
   bool isAnonymous = false,
   String? numeroTelefono,
+  DateTime? startDate,
+  DateTime? endDate,
 }) async {
   SimulationSession.assertNotSimulating('createManagedUser');
   try {
@@ -33,6 +35,10 @@ Future<CreateUserResponse> createUser({
       'planKey': planKey,
       'isAnonymous': isAnonymous,
       'numeroTelefono': numeroTelefono,
+      // Date facoltative del piano iniziale; senza, ora + durata del piano.
+      if (startDate != null)
+        'startDateMillis': startDate.millisecondsSinceEpoch,
+      if (endDate != null) 'endDateMillis': endDate.millisecondsSinceEpoch,
     });
     final data = Map<String, dynamic>.from(result.data as Map);
     final uid = data['userId'] as String?;

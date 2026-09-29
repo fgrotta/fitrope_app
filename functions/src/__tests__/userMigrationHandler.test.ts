@@ -146,6 +146,34 @@ describe("migrazione puntuale utente legacy", () => {
     });
   });
 
+  test("un abbonamento revocato della stessa famiglia non è un conflitto", async () => {
+    const revoked = {
+      userId: USER,
+      planKey: "open_2x_1m",
+      family: "OPEN",
+      billingMode: "FREQUENCY",
+      courseTypeTags: ["Open"],
+      weeklyFrequency: 2,
+      remainingEntries: null,
+      startDate: Timestamp.fromMillis(Date.now() - 40 * 86400000),
+      endDate: Timestamp.fromMillis(Date.now() + 10 * 86400000),
+      revokedAt: Timestamp.fromMillis(Date.now() - 86400000),
+    };
+    const state = makeDb({ subscriptions: { revoked } });
+    const before = await preview(state.db);
+    expect(before).toMatchObject({ status: "AUTO_CONVERTIBLE" });
+    const result = await migrateLegacyUserHandler(
+      {
+        auth: { uid: ADMIN },
+        data: { userId: USER, mode: "AUTO", expectedFingerprint: before.expectedFingerprint },
+      },
+      state.db,
+    );
+    expect(result).toMatchObject({ status: "MIGRATED" });
+    const snap = state.users[USER].activeSubscriptions as Array<Record<string, unknown>>;
+    expect(snap.map((s) => s.id)).not.toContain("revoked");
+  });
+
   test("AUTO crea subscription, snapshot e marker condiviso", async () => {
     const state = makeDb({});
     const before = await preview(state.db);

@@ -96,7 +96,8 @@ function statusFor(
   if (decision.target) {
     if (
       existingSubscriptions.some(
-        (subscription) => subscription.family === decision.target!.family,
+        (subscription) => subscription.family === decision.target!.family &&
+          !subscription.revokedAt,
       )
     ) {
       return {
@@ -290,7 +291,9 @@ export async function migrateLegacyUserHandler(
     ]);
     if (
       target.exists ||
-      existing.docs.some((doc) => doc.data().family === record.family)
+      // Un abbonamento revocato è solo storico: non blocca la conversione.
+      existing.docs.some((doc) =>
+        doc.data().family === record.family && !doc.data().revokedAt)
     ) {
       throw new HttpsError("already-exists", "TARGET_CONFLICT");
     }

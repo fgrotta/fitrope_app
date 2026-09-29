@@ -6,7 +6,7 @@ import {
   addMonths,
   buildSubscriptionFromPlan,
   computeActiveSnapshot,
-  hasActiveForFamily,
+  findOverlapping,
   recordFromDoc,
   UserSubscriptionRecord,
 } from "../enrollment/subscription";
@@ -112,10 +112,10 @@ describe("snapshot", () => {
     expect(active[0].endDateMillis).toBe(2000);
   });
 
-  test("hasActiveForFamily", () => {
+  test("findOverlapping filtra per famiglia", () => {
     const active = [{ ...base, family: "OPEN" as const, endDateMillis: 2000 }];
-    expect(hasActiveForFamily(active, "OPEN")).toBe(true);
-    expect(hasActiveForFamily(active, "PT")).toBe(false);
+    expect(findOverlapping(active, "OPEN", 1000, 1500)).toHaveLength(1);
+    expect(findOverlapping(active, "PT", 1000, 1500)).toHaveLength(0);
   });
 });
 

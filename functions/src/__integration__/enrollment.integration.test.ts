@@ -615,3 +615,86 @@ describe("integrazione emulatore — migrazione utente legacy", () => {
     expect(migrated.enrollmentConsumption).toEqual({ [courseId]: { kind: "NONE" } });
   });
 });
+
+describe("integrazione emulatore — gestione abbonamenti Admin", () => {
+  const DAY = 86400 * 1000;
+  // Utente V2 puro, senza residui legacy.
+  const v2User = { fineIscrizione: null, tipologiaCorsoTags: [], subscriptionModelVersion: 2, activeSubscriptions: [] };
+
+  test("assegnazione con date → modifica → revoca → iscrizione rifiutata", async () => {
+    const adminToken = await createUser(uniq("u-subs-admin"), { role: "Admin" });
+    const userId = uniq("u-subs-target");
+    const userToken = await createUser(userId, v2User);
+    const start = Date.now() - DAY;
+    const end = Date.now() + 20 * DAY;
+
+    const assigned = await call("assignSubscription", adminToken, {
+      userId, planKey: "open_10i_1m", startDateMillis: start, endDateMillis: end,
+    });
+    expect(assigned.ok).toBe(true);
+    const subscriptionId = assigned.result?.subscriptionId as string;
+    const created = (await db.collection("subscriptions").doc(subscriptionId).get()).data()!;
+    expect(created.startDate.toMillis()).toBe(start);
+    expect(created.endDate.toMillis()).toBe(end);
+
+    const newEnd = Date.now() + 25 * DAY;
+    const updated = await call("updateSubscription", adminToken, {
+      subscriptionId, planKey: "open_10i_1m", startDateMillis: start, endDateMillis: newEnd,
+      remainingEntries: 5,
+    });
+    expect(updated.ok).toBe(true);
+    const afterUpdate = (await db.collection("subscriptions").doc(subscriptionId).get()).data()!;
+    expect(afterUpdate.remainingEntries).toBe(5);
+    expect(afterUpdate.endDate.toMillis()).toBe(newEnd);
+    expect(afterUpdate.editHistory).toHaveLength(1);
+    const snap = (await userDoc(userId)).activeSubscriptions as Array<Record<string, unknown>>;
+    expect(snap).toHaveLength(1);
+    expect(snap[0].remainingEntries).toBe(5);
+
+    const courseA = uniq("c-subs-a");
+    await createCourse(courseA);
+    expect((await call("subscribeToCourse", userToken, { courseId: courseA, userId })).ok).toBe(true);
+
+    const revoked = await call("revokeSubscription", adminToken, { subscriptionId });
+    expect(revoked.ok).toBe(true);
+    expect(revoked.result?.alreadyRevoked).toBe(false);
+    const again = await call("revokeSubscription", adminToken, { subscriptionId });
+    expect(again.result?.alreadyRevoked).toBe(true);
+    const afterRevoke = await userDoc(userId);
+    expect(afterRevoke.activeSubscriptions).toEqual([]);
+    // La prenotazione già fatta resta.
+    expect(afterRevoke.courses).toEqual([courseA]);
+
+    const courseB = uniq("c-subs-b");
+    await createCourse(courseB);
+    const rejected = await call("subscribeToCourse", userToken, { courseId: courseB, userId });
+    expect(rejected.ok).toBe(false);
+
+    // Un utente normale non può modificare né revocare.
+    const denied = await call("revokeSubscription", userToken, { subscriptionId });
+    expect(denied.errorStatus).toBe("PERMISSION_DENIED");
+  });
+
+  test("assegnare un Open chiude la Prova V2 in corso", async () => {
+    const adminToken = await createUser(uniq("u-trial-admin"), { role: "Admin" });
+    const userId = uniq("u-trial-target");
+    const trialRef = db.collection("subscriptions").doc(uniq("trial"));
+    const trial = {
+      planKey: "open_trial_1i_30d", family: "OPEN", billingMode: "ENTRIES",
+      courseTypeTags: ["Open"], weeklyFrequency: null, remainingEntries: 0,
+      startDate: Timestamp.fromMillis(Date.now() - DAY),
+      endDate: Timestamp.fromMillis(Date.now() + 29 * DAY),
+    };
+    await createUser(userId, { ...v2User, activeSubscriptions: [{ id: trialRef.id, ...trial }] });
+    await trialRef.set({ userId, createdBy: "signup-trial", ...trial });
+
+    const assigned = await call("assignSubscription", adminToken, { userId, planKey: "open_2x_1m" });
+    expect(assigned.ok).toBe(true);
+    expect(assigned.result?.replacedTrialIds).toEqual([trialRef.id]);
+    const closed = (await trialRef.get()).data()!;
+    expect(closed.revokedReason).toBe("REPLACED_BY_ASSIGNMENT");
+    expect(closed.replacedBy).toBe(assigned.result?.subscriptionId);
+    const snap = (await userDoc(userId)).activeSubscriptions as Array<Record<string, unknown>>;
+    expect(snap.map((e) => e.planKey)).toEqual(["open_2x_1m"]);
+  });
+});

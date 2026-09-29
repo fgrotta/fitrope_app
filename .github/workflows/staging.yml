@@ -263,6 +263,7 @@ jobs:
           # dei bottoni "aggiungi al calendario": functions:list la elenca uguale.
           for fn in subscribeToCourse unsubscribeFromCourse joinWaitlist \
                     leaveWaitlist assignSubscription deleteCourse \
+                    updateSubscription revokeSubscription \
                     createManagedUser grantSignupTrial \
                     checkEmailAvailability setManagedUserEmail \
                     recountCourseSubscribed sendOneSignalNotification \

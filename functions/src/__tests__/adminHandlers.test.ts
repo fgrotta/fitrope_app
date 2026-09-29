@@ -6,6 +6,7 @@ import {
 import { unsubscribeFromCourseHandler } from "../enrollment/enrollment";
 import { decideAdminRefund } from "../enrollment/refund";
 import { makeDb, FakeStore, Data } from "./helpers/fakeDb";
+import { logger } from "firebase-functions";
 
 // Mar 9 giu 2026, 12:00 UTC.
 const NOW = Date.UTC(2026, 5, 9, 12);
@@ -291,6 +292,58 @@ describe("deleteCourseHandler", () => {
     const db = makeDb(store);
     await deleteCourseHandler({ ...auth("boss"), data: { courseId: "c1" } }, db, NOW);
     expect(store.subs["sub-1"].remainingEntries).toBe(10);
+  });
+
+  function subUserWith(subId: string, snapshot: Data[]): Data {
+    return {
+      uid: "u-sub",
+      role: "User",
+      courses: ["c1"],
+      tipologiaCorsoTags: [],
+      activeSubscriptions: snapshot,
+      enrollmentConsumption: {
+        c1: { kind: "SUBSCRIPTION_ENTRY", subscriptionId: subId, atMillis: NOW - 1000 },
+      },
+    };
+  }
+
+  test("rimborso su un abbonamento revocato: doc incrementato, fuori dallo snapshot", async () => {
+    const revoked = { ...hyroxSubDoc(9), revokedAt: Timestamp.fromMillis(NOW - 1000) };
+    const store: FakeStore = {
+      users: { boss: { uid: "boss", role: "Admin" }, "u-sub": subUserWith("sub-1", []) },
+      courses: { c1: course({ tags: ["Hyrox"] }) },
+      subs: { "sub-1": revoked },
+    };
+    await deleteCourseHandler({ ...auth("boss"), data: { courseId: "c1" } }, makeDb(store), NOW);
+    expect(store.subs["sub-1"].remainingEntries).toBe(10);
+    expect(store.users["u-sub"].activeSubscriptions).toEqual([]);
+  });
+
+  test("rimborso su un pacchetto convertito in FREQUENCY: nessuna scrittura, warning", async () => {
+    const warn = jest.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const converted: Data = {
+      ...hyroxSubDoc(0),
+      planKey: "open_2x_3m",
+      billingMode: "FREQUENCY",
+      weeklyFrequency: 2,
+      remainingEntries: null,
+    };
+    const store: FakeStore = {
+      users: {
+        boss: { uid: "boss", role: "Admin" },
+        "u-sub": subUserWith("sub-1", [snapshotEntry("sub-1", converted)]),
+      },
+      courses: { c1: course({ tags: ["Hyrox"] }) },
+      subs: { "sub-1": converted },
+    };
+    await deleteCourseHandler({ ...auth("boss"), data: { courseId: "c1" } }, makeDb(store), NOW);
+    expect(store.subs["sub-1"].remainingEntries).toBeNull();
+    expect(store.courses.c1).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("piano non più a ingressi"),
+      expect.objectContaining({ subscriptionId: "sub-1" }),
+    );
+    warn.mockRestore();
   });
 
   test("registro che punta a un doc subscription INESISTENTE: cancella comunque il corso", async () => {

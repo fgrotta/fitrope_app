@@ -31,6 +31,11 @@ class UserSubscription {
   final Timestamp startDate;
   final Timestamp endDate;
 
+  /// Revoca Admin: il documento `subscriptions` resta come storico. Presente
+  /// solo sui documenti letti dalla collezione, mai nello snapshot (il server
+  /// esclude i revocati da `activeSubscriptions`).
+  final Timestamp? revokedAt;
+
   const UserSubscription({
     this.id,
     required this.planKey,
@@ -41,7 +46,10 @@ class UserSubscription {
     this.remainingEntries,
     required this.startDate,
     required this.endDate,
+    this.revokedAt,
   });
+
+  bool get isRevoked => revokedAt != null;
 
   Map<String, dynamic> toJson() {
     return {
@@ -54,6 +62,8 @@ class UserSubscription {
       'remainingEntries': remainingEntries,
       'startDate': startDate,
       'endDate': endDate,
+      // Omesso se assente: la forma dello snapshot resta quella del server.
+      if (revokedAt != null) 'revokedAt': revokedAt,
     };
   }
 
@@ -127,6 +137,7 @@ class UserSubscription {
       remainingEntries: remainingEntries as int?,
       startDate: json['startDate'] as Timestamp,
       endDate: json['endDate'] as Timestamp,
+      revokedAt: json['revokedAt'] as Timestamp?,
     );
   }
 }

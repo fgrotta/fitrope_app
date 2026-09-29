@@ -18,7 +18,8 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 | `subscribeToCourse` | `functions/src/enrollment/enrollment.ts` | Eligibility (accesso tag/abbonamenti, crediti, limite settimanale per tipologia, scadenza), capienza, decremento `remainingEntries`/`entrateDisponibili` + snapshot, rimozione da waitlist, notifiche prova (email di conferma, promemoria, WhatsApp di conferma via Make) |
 | `unsubscribeFromCourse` | idem | Self: finestre rimborso **8h** (ingressi) / **4h** (frequenza), ripristino credito, voce `cancelledEnrollments` con `entryLost` + `lostKind`. **La penalità segue la fonte realmente consumata** (registro `enrollmentConsumption`): se fu scalato un ingresso `lostKind` è `ENTRY` (non pesa sul limite settimanale), altrimenti `WEEKLY_SLOT`. La perdita **non è definitiva**: è recuperabile nella giornata (vedi "Recupero nella giornata"). **Admin/Trainer su altri (da PR5): rimborsa SEMPRE** (`confirmedNoRefund` ignorato, nessuna finestra, nessun tracking). Notifica waitlist |
 | `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze). **`joinWaitlist` richiede l'idoneità**: esegue `evaluateSubscribe` con `courseFull: false` e rifiuta chi non potrebbe iscriversi (crediti esauriti, limite settimanale, scadenza, tag) |
-| `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot, max 1 attivo per famiglia |
+| `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot con date facoltative (`startDateMillis`/`endDateMillis`, `validateWindow`). Max 1 per famiglia su **finestre sovrapposte** (`findOverlapping`): una **Prova** sovrapposta viene revocata e sostituita (`revokedReason: REPLACED_BY_ASSIGNMENT`, `replacedBy`); i residui legacy di una Prova V1 o di un utente già migrato vengono azzerati (vedi "Gestione Admin degli abbonamenti") |
+| `updateSubscription` / `revokeSubscription` *(SOLO Admin)* | `manageSubscription.ts` | Modifica piano, date e ingressi residui (con `editHistory`), revoca con storico (`revokedAt`), ricalcolo snapshot |
 | `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Niente email waitlist |
 | `recountCourseSubscribed` *(SOLO Admin, da PR5)* | `admin.ts` | Ricalcola `subscribed` dalla fonte di verità (utenti con il corso in `courses[]`), in transazione |
 
@@ -323,6 +324,51 @@ applica eligibility e decremento per il modello multi-abbonamento, e la UI di
 assegnazione (`AssignSubscriptionCard` in UserDetailPage) non è più gated dietro
 `kDebugMode`. PR3+PR4 vanno deployate **insieme** (stesso deploy functions).
 
+### Gestione Admin degli abbonamenti (modifica, revoca, sostituzione Prova)
+
+- **Snapshot**: `computeActiveSnapshot` tiene tutti gli abbonamenti **non revocati
+  e non scaduti**, compresi quelli con **inizio futuro** (nessun job li
+  aggiungerebbe quando la data arriva). È sicuro: `validAtDate` (server) e
+  `getCourseState` (client) controllano già `startDate ≤ dataCorso`.
+- **Revoca con storico**: `revokeSubscription` scrive `revokedAt`/`revokedBy`/
+  `revokedReason: ADMIN` e il documento resta. I revocati non entrano mai nello
+  snapshot, non contano per i conflitti né per la migrazione (`TARGET_CONFLICT`).
+  Idempotente (`alreadyRevoked`).
+- **Modifica**: `updateSubscription` ricostruisce i campi fissi dal nuovo piano
+  (anche cambio famiglia Open ↔ PT; la Prova non è un piano di destinazione e una
+  Prova modificata diventa un abbonamento normale). Ingressi obbligatori per
+  `ENTRIES` (0…`plan.entries`), `null` per `FREQUENCY`. Ogni modifica accoda
+  `{at, by, before}` a `editHistory`. Una Prova sovrapposta qui è un errore.
+  Il client invia `expectedRemainingEntries` (il residuo mostrato all'Admin):
+  se un'iscrizione o una disdetta l'ha cambiato nel frattempo, `aborted`.
+- **Rimborso su doc convertito**: il ripristino di un ingresso (disiscrizione,
+  `deleteCourse`) si applica solo se il doc è ancora `ENTRIES`; se un pacchetto è
+  diventato `FREQUENCY` si registra un warning e non si scrive nulla (altrimenti
+  `recordFromDoc` rifiuterebbe il doc). Il rimborso su un doc **revocato** lo
+  incrementa, innocuo perché escluso dallo snapshot.
+- **Sostituzione Prova**: `assignSubscription` revoca le Prove sovrapposte della
+  stessa famiglia nella stessa transazione. Per una Prova V1
+  (`tipologiaIscrizione == ABBONAMENTO_PROVA`) o un utente con marker
+  `legacySubscriptionMigration`, i campi legacy vanno a `null` e le voci
+  `LEGACY_ENTRY` del registro diventano `NONE` (una disdetta non rimette
+  `entrateDisponibili`); ai V1 non migrati si scrive il marker con source
+  `ADMIN_TRIAL_REPLACED`. Una Prova V1 **ancora valida** si sostituisce solo con
+  un Open che inizia entro `fineIscrizione` (`replacedLegacyTrial: true`); un PT
+  o un Open successivo la cancellerebbero in silenzio, quindi sono
+  `failed-precondition`. Gli altri legacy restano `failed-precondition`.
+- **Limiti noti**: revocare, accorciare o cambiare tipologia **non disiscrive**
+  dai corsi già prenotati (decisione presa: li gestisce l'Admin); un pacchetto
+  convertito in `FREQUENCY` non rimborsa più le prenotazioni pagate a ingresso;
+  il promemoria prova OneSignal già schedulato parte anche dopo la sostituzione
+  (TODO "Promemoria prova non annullabile").
+- **Client**: in `UserDetailPage` l'Admin legge lo storico completo dalla
+  collezione (`getUserSubscriptions`, rules: lettura Admin), con fallback sullo
+  snapshot; "Modifica" apre `EditSubscriptionDialog`, "Revoca" chiede conferma.
+  I revocati restano nascosti finché l'Admin non tocca "Mostra tutti"
+  (`SubscriptionHistorySection`).
+  Le date sono giorni interi di Roma: inizio 00:00, fine 23:59:59.999
+  (`lib/utils/subscription_dates.dart`).
+
 ### Display multi-abbonamento (PR7, solo lettura)
 
 La UI rispecchia il nuovo modello senza scrivere nulla (le scritture restano
@@ -343,8 +389,10 @@ server-side):
   `ActiveSubscriptionCard` per abbonamento; altrimenti fallback alla card legacy
   (zero regressione). NB: un abbonamento vivo SOSTITUISCE la card legacy (lo
   snapshot vince, come in `getCourseState`).
-- **UserDetailPage**: sezione read-only "Abbonamenti attivi" che mostra TUTTE le
-  voci snapshot (anche scadute: vista gestionale/storica), ordinate per scadenza.
+- **UserDetailPage**: sezione "Abbonamenti attivi" che mostra TUTTE le voci
+  snapshot (anche scadute), ordinate per scadenza. Per l'Admin diventa
+  "Abbonamenti", con lo storico completo della collezione e le azioni di
+  modifica/revoca (vedi sopra).
 - **AdminDashboardPage**: distribuzione "Per famiglia abbonamento" (dagli
   `activeSubscriptions` vivi) accanto a quella legacy per tipologia.
 

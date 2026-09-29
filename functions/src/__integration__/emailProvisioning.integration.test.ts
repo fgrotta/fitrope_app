@@ -60,6 +60,27 @@ describe("provisioning email con Auth e Firestore emulator", () => {
     await db.collection("users").doc(adminUid).delete();
   });
 
+  test("creazione utente con date facoltative del piano iniziale", async () => {
+    const adminUid = uniq("admin");
+    await db.collection("users").doc(adminUid).set({ role: "Admin" });
+    const start = Date.UTC(2026, 9, 1, 22);
+    const end = Date.UTC(2026, 10, 15, 22, 59, 59, 999);
+    const result = await createManagedUserHandler({ auth: { uid: adminUid }, data: {
+      name: "Con", lastName: "Date", role: "User", planKey: "open_2x_1m",
+      startDateMillis: start, endDateMillis: end,
+    } }, db);
+    const sub = (await db.collection("subscriptions").doc(result.subscriptionId!).get()).data()!;
+    expect(sub.startDate.toMillis()).toBe(start);
+    expect(sub.endDate.toMillis()).toBe(end);
+    await expect(createManagedUserHandler({ auth: { uid: adminUid }, data: {
+      name: "Date", lastName: "Invertite", role: "User", planKey: "open_2x_1m",
+      startDateMillis: end, endDateMillis: start,
+    } }, db)).rejects.toMatchObject({ code: "invalid-argument" });
+    await db.collection("subscriptions").doc(result.subscriptionId!).delete();
+    await db.collection("users").doc(result.userId).delete();
+    await db.collection("users").doc(adminUid).delete();
+  });
+
   test("un errore Firestore compensa la creazione e il cambio dell'account Auth", async () => {
     const adminUid = uniq("admin");
     const newUid = uniq("rollback-new");

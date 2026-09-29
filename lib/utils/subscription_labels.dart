@@ -1,5 +1,7 @@
 import 'package:fitrope_app/types/user_subscription.dart';
 import 'package:fitrope_app/utils/format_date.dart';
+import 'package:fitrope_app/utils/italian_time.dart';
+import 'package:intl/intl.dart';
 import 'package:fitrope_app/utils/subscription_plans.dart';
 
 /// Etichette di sola lettura per il modello multi-abbonamento
@@ -69,10 +71,17 @@ String getSubscriptionExpiryLabel(UserSubscription s) =>
 /// Per i piani a ingressi (ENTRIES) con residui esauriti ma ancora nel periodo
 /// di validità ritorna "Esaurito": così il display non mostra un benigno
 /// "Valido" mentre `getCourseState` rifiuta l'iscrizione (SUBSCRIBE_LIMIT).
+///
+/// Un abbonamento revocato (storico Admin) mostra la data di revoca; uno con
+/// inizio futuro mostra quando inizia.
 String getSubscriptionStatusLabel(UserSubscription s, {DateTime? now}) {
   final ref = now ?? DateTime.now();
+  final revokedAt = s.revokedAt;
+  if (revokedAt != null) return 'Revocato il ${_shortDate(revokedAt.toDate())}';
   final end = s.endDate.toDate();
   if (ref.isAfter(end)) return 'Scaduto';
+  final start = s.startDate.toDate();
+  if (start.isAfter(ref)) return 'Inizia il ${_shortDate(start)}';
   if (s.billingMode == BillingMode.ENTRIES && (s.remainingEntries ?? 0) <= 0) {
     return 'Esaurito';
   }
@@ -82,7 +91,11 @@ String getSubscriptionStatusLabel(UserSubscription s, {DateTime? now}) {
   return days == 1 ? 'Scade tra 1 giorno' : 'Scade tra $days giorni';
 }
 
-/// Abbonamenti non scaduti rispetto a [now] (default: ora). Mirror del filtro di
+String _shortDate(DateTime instant) =>
+    DateFormat('dd/MM/yyyy').format(toItalianTime(instant));
+
+/// Abbonamenti non revocati e non scaduti rispetto a [now] (default: ora),
+/// compresi quelli con inizio futuro. Mirror del filtro di
 /// selezione del modello in `getCourseState`: una voce è viva se [now] NON è
 /// successivo a `endDate` (lo snapshot è ricalcolato solo alle scritture, quindi
 /// le voci stantie vanno scartate anche lato display).
@@ -91,5 +104,7 @@ List<UserSubscription> liveSubscriptions(
   DateTime? now,
 }) {
   final ref = now ?? DateTime.now();
-  return subs.where((s) => !ref.isAfter(s.endDate.toDate())).toList();
+  return subs
+      .where((s) => !s.isRevoked && !ref.isAfter(s.endDate.toDate()))
+      .toList();
 }

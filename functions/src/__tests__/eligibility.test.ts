@@ -782,3 +782,46 @@ describe("evaluateSubscribe: recupero nella giornata", () => {
     ).toBe("NO_ACCESS");
   });
 });
+
+describe("abbonamento in corso + rinnovo futuro della stessa famiglia", () => {
+  const current = sub({
+    id: "current",
+    planKey: "open_10i_1m",
+    billingMode: "ENTRIES",
+    weeklyFrequency: null,
+    remainingEntries: 0,
+    startDateMillis: Date.UTC(2026, 4, 15),
+    endDateMillis: Date.UTC(2026, 5, 14, 21, 59),
+  });
+  const future = sub({
+    id: "future",
+    planKey: "open_10i_1m",
+    billingMode: "ENTRIES",
+    weeklyFrequency: null,
+    remainingEntries: 10,
+    startDateMillis: Date.UTC(2026, 5, 14, 22),
+    endDateMillis: Date.UTC(2026, 6, 14, 21, 59),
+  });
+
+  test("un corso nella finestra attuale non consuma il rinnovo futuro", () => {
+    const d = evaluateSubscribe(input({ activeSubscriptions: [current, future] }));
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toBe("NO_ENTRIES");
+    expect(d.consume.kind).toBe("NONE");
+  });
+
+  test("un corso nella finestra futura consuma il rinnovo", () => {
+    const d = evaluateSubscribe(input({
+      activeSubscriptions: [current, future],
+      courseStartMillis: Date.UTC(2026, 5, 20, 10),
+    }));
+    expect(d.allowed).toBe(true);
+    expect(d.consume).toMatchObject({ kind: "SUBSCRIPTION_ENTRY", subscriptionId: "future" });
+  });
+
+  test("solo un abbonamento futuro: un corso di oggi è EXPIRED", () => {
+    const d = evaluateSubscribe(input({ activeSubscriptions: [future], subscriptionModelVersion: 2 }));
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toBe("EXPIRED");
+  });
+});
