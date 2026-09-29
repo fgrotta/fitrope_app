@@ -364,6 +364,8 @@ assegnazione (`AssignSubscriptionCard` in UserDetailPage) non è più gated diet
 - **Client**: in `UserDetailPage` l'Admin legge lo storico completo dalla
   collezione (`getUserSubscriptions`, rules: lettura Admin), con fallback sullo
   snapshot; "Modifica" apre `EditSubscriptionDialog`, "Revoca" chiede conferma.
+  I revocati restano nascosti finché l'Admin non tocca "Mostra tutti"
+  (`SubscriptionHistorySection`).
   Le date sono giorni interi di Roma: inizio 00:00, fine 23:59:59.999
   (`lib/utils/subscription_dates.dart`).
 

@@ -6,11 +6,12 @@ import 'package:fitrope_app/types/user_subscription.dart';
 /// Elenco abbonamenti del dettaglio utente. Con [adminHistory] mostra lo
 /// storico completo della collezione (anche scaduti e revocati) con i pulsanti
 /// "Modifica" e "Revoca" sui non revocati; altrimenti è la vista di sola
-/// lettura dello snapshot (Trainer, o storico non disponibile).
+/// lettura dello snapshot (Trainer, o storico non disponibile). I revocati
+/// restano nascosti finché l'Admin non tocca "Mostra tutti".
 ///
 /// Ordine: scadenza decrescente, tie-break su planKey (deterministico tra
 /// rebuild). Le guardie di simulazione stanno nei callback della pagina.
-class SubscriptionHistorySection extends StatelessWidget {
+class SubscriptionHistorySection extends StatefulWidget {
   final List<UserSubscription> subscriptions;
   final bool adminHistory;
   final bool busy;
@@ -29,53 +30,85 @@ class SubscriptionHistorySection extends StatelessWidget {
   static String titleFor({required bool adminHistory}) =>
       adminHistory ? 'Abbonamenti' : 'Abbonamenti attivi';
 
+  @override
+  State<SubscriptionHistorySection> createState() =>
+      _SubscriptionHistorySectionState();
+}
+
+class _SubscriptionHistorySectionState
+    extends State<SubscriptionHistorySection> {
+  bool _showRevoked = false;
+
   bool _hasActions(UserSubscription s) =>
-      adminHistory && !s.isRevoked && s.id != null;
+      widget.adminHistory && !s.isRevoked && s.id != null;
 
   @override
   Widget build(BuildContext context) {
-    final subs = [...subscriptions]..sort((a, b) {
+    final adminHistory = widget.adminHistory;
+    final busy = widget.busy;
+    final all = [...widget.subscriptions]..sort((a, b) {
         final byEnd = b.endDate.compareTo(a.endDate);
         return byEnd != 0 ? byEnd : a.planKey.compareTo(b.planKey);
       });
-    if (subs.isEmpty) {
+    if (all.isEmpty) {
       return Text(
         adminHistory ? 'Nessun abbonamento' : 'Nessun abbonamento attivo',
         style: const TextStyle(color: onSurfaceVariantColor),
       );
     }
+    final hasRevoked = all.any((s) => s.isRevoked);
+    final subs = _showRevoked ? all : all.where((s) => !s.isRevoked).toList();
     return Column(
-      children: subs
-          .map(
-            (s) => ActiveSubscriptionCard(
-              subscription: s,
-              actions: !_hasActions(s)
-                  ? null
-                  : [
-                      TextButton.icon(
-                        onPressed: busy ? null : () => onEdit?.call(s),
-                        // Card scura: il primario di default non si legge.
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          disabledForegroundColor: Colors.white38,
-                        ),
-                        icon: const Icon(Icons.edit, size: 16),
-                        label: const Text('Modifica'),
-                      ),
-                      TextButton.icon(
-                        onPressed: busy ? null : () => onRevoke?.call(s),
-                        style: TextButton.styleFrom(
-                          foregroundColor: warningColor,
-                          disabledForegroundColor:
-                              warningColor.withValues(alpha: 0.38),
-                        ),
-                        icon: const Icon(Icons.block, size: 16),
-                        label: const Text('Revoca'),
-                      ),
-                    ],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (subs.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: Text(
+              'Nessun abbonamento da mostrare',
+              style: TextStyle(color: onSurfaceVariantColor),
             ),
-          )
-          .toList(),
+          ),
+        ...subs.map(
+          (s) => ActiveSubscriptionCard(
+            subscription: s,
+            actions: !_hasActions(s)
+                ? null
+                : [
+                    TextButton.icon(
+                      onPressed: busy ? null : () => widget.onEdit?.call(s),
+                      // Stesso colore di "Revoca": il primario di default
+                      // non si legge sulla card scura.
+                      style: TextButton.styleFrom(
+                        foregroundColor: warningColor,
+                        disabledForegroundColor:
+                            warningColor.withValues(alpha: 0.38),
+                      ),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Modifica'),
+                    ),
+                    TextButton.icon(
+                      onPressed: busy ? null : () => widget.onRevoke?.call(s),
+                      style: TextButton.styleFrom(
+                        foregroundColor: warningColor,
+                        disabledForegroundColor:
+                            warningColor.withValues(alpha: 0.38),
+                      ),
+                      icon: const Icon(Icons.block, size: 16),
+                      label: const Text('Revoca'),
+                    ),
+                  ],
+          ),
+        ),
+        if (hasRevoked)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => setState(() => _showRevoked = !_showRevoked),
+              child: Text(_showRevoked ? 'Nascondi revocati' : 'Mostra tutti'),
+            ),
+          ),
+      ],
     );
   }
 }

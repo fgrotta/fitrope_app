@@ -37,6 +37,67 @@ void main() {
     expect(find.text('Revoca'), findsOneWidget);
   });
 
+  testWidgets('revocati nascosti finché non si tocca "Mostra tutti"',
+      (tester) async {
+    await tester.pumpWidget(host(SubscriptionHistorySection(
+      adminHistory: true,
+      subscriptions: [
+        sub('live'),
+        sub('revoked', revokedAt: DateTime(2026, 1, 10)),
+      ],
+    )));
+    expect(find.textContaining('Revocato il'), findsNothing);
+    expect(find.text('Mostra tutti'), findsOneWidget);
+
+    await tester.tap(find.text('Mostra tutti'));
+    await tester.pump();
+    expect(find.textContaining('Revocato il 10/01/2026'), findsOneWidget);
+    expect(find.text('Nascondi revocati'), findsOneWidget);
+
+    await tester.tap(find.text('Nascondi revocati'));
+    await tester.pump();
+    expect(find.textContaining('Revocato il'), findsNothing);
+  });
+
+  testWidgets('nessun revocato: niente CTA "Mostra tutti"', (tester) async {
+    await tester.pumpWidget(host(SubscriptionHistorySection(
+      adminHistory: true,
+      subscriptions: [sub('live')],
+    )));
+    expect(find.text('Mostra tutti'), findsNothing);
+  });
+
+  testWidgets('solo revocati: messaggio e CTA per vederli', (tester) async {
+    await tester.pumpWidget(host(SubscriptionHistorySection(
+      adminHistory: true,
+      subscriptions: [sub('revoked', revokedAt: DateTime(2026, 1, 10))],
+    )));
+    expect(find.text('Nessun abbonamento da mostrare'), findsOneWidget);
+    await tester.tap(find.text('Mostra tutti'));
+    await tester.pump();
+    expect(find.textContaining('Revocato il'), findsOneWidget);
+  });
+
+  testWidgets('"Modifica" ha lo stesso colore di "Revoca"', (tester) async {
+    await tester.pumpWidget(host(SubscriptionHistorySection(
+      adminHistory: true,
+      subscriptions: [sub('live')],
+      onEdit: (_) {},
+      onRevoke: (_) {},
+    )));
+    Color? colorOf(String label) => tester
+        .widget<RichText>(find
+            .descendant(
+              of: find.widgetWithText(TextButton, label),
+              matching: find.byType(RichText),
+            )
+            .first)
+        .text
+        .style
+        ?.color;
+    expect(colorOf('Modifica'), colorOf('Revoca'));
+  });
+
   testWidgets('snapshot (Trainer o storico non disponibile): nessuna azione',
       (tester) async {
     await tester.pumpWidget(host(SubscriptionHistorySection(
