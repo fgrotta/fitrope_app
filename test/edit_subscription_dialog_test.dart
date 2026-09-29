@@ -66,16 +66,16 @@ void main() {
     expect(tester.widget<TextField>(entriesField()).controller!.text, '4');
   });
 
-  testWidgets('validazione ingressi: oltre il massimo disattiva Salva',
+  testWidgets('ingressi senza tetto: oltre il pacchetto va bene, vuoto no',
       (tester) async {
     await openDialog(tester, sub());
-    await tester.enterText(entriesField(), '11');
-    await tester.pump();
-    expect(find.text('Ingressi residui: da 0 a 10'), findsOneWidget);
-    expect(saveButton(tester).onPressed, isNull);
-    await tester.enterText(entriesField(), '0');
+    await tester.enterText(entriesField(), '25');
     await tester.pump();
     expect(saveButton(tester).onPressed, isNotNull);
+    await tester.enterText(entriesField(), '');
+    await tester.pump();
+    expect(find.text('Indica gli ingressi residui'), findsOneWidget);
+    expect(saveButton(tester).onPressed, isNull);
   });
 
   testWidgets('fine prima dell\'inizio: errore in linea', (tester) async {

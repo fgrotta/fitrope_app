@@ -22,6 +22,16 @@ export interface UserSubscriptionRecord {
   endDateMillis: number;
   /** Revoca Admin (storico): il documento resta, ma non entra mai nello snapshot. */
   revokedAtMillis?: number | null;
+  /**
+   * Tetto dei rimborsi per un pacchetto a cui l'Admin ha dato più ingressi del
+   * piano (`updateSubscription`). Assente = gli ingressi del piano.
+   */
+  maxEntries?: number | null;
+}
+
+/** Tetto di un ripristino di ingresso: `maxEntries` se presente, altrimenti il piano. */
+export function entriesCeiling(r: UserSubscriptionRecord): number | null {
+  return r.maxEntries ?? planByKey(r.planKey)?.entries ?? null;
 }
 
 // Limiti della finestra accettata dalle callable: fuori da questo intervallo
@@ -176,6 +186,9 @@ export function recordFromDoc(id: string, data: FsData): UserSubscriptionRecord 
     endDateMillis: end.toMillis(),
     ...(data.revokedAt && typeof data.revokedAt.toMillis === "function"
       ? { revokedAtMillis: data.revokedAt.toMillis() as number }
+      : {}),
+    ...(typeof data.maxEntries === "number" && Number.isInteger(data.maxEntries)
+      ? { maxEntries: data.maxEntries as number }
       : {}),
   };
 }

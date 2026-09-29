@@ -337,7 +337,7 @@ assegnazione (`AssignSubscriptionCard` in UserDetailPage) non è più gated diet
 - **Modifica**: `updateSubscription` ricostruisce i campi fissi dal nuovo piano
   (anche cambio famiglia Open ↔ PT; la Prova non è un piano di destinazione e una
   Prova modificata diventa un abbonamento normale). Ingressi obbligatori per
-  `ENTRIES` (0…`plan.entries`), `null` per `FREQUENCY`. Ogni modifica accoda
+  `ENTRIES` (intero da 0, **senza tetto**: l'Admin può dare più ingressi del pacchetto; `maxEntries` = max(piano, valore impostato) fa da tetto ai rimborsi), `null` per `FREQUENCY`. Ogni modifica accoda
   `{at, by, before}` a `editHistory`. Una Prova sovrapposta qui è un errore.
   Il client invia `expectedRemainingEntries` (il residuo mostrato all'Admin):
   se un'iscrizione o una disdetta l'ha cambiato nel frattempo, `aborted`.
