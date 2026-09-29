@@ -14,12 +14,12 @@ import * as admin from "firebase-admin";
 // FieldValue) → vanno importate da "firebase-admin/firestore" (bug trovato
 // dallo smoke test sull'emulatore, vedi docs/AMBIENTI_DI_TEST.md).
 import { Timestamp } from "firebase-admin/firestore";
-import { planByKey } from "./plansCatalog";
 import {
   UserSubscriptionRecord,
   recordFromDoc,
   recordToSnapshotEntry,
   computeActiveSnapshot,
+  entriesCeiling,
 } from "./subscription";
 import { typeTagOf } from "./courseTypes";
 import { isTrialUser as computeIsTrialUser } from "./trial";
@@ -754,7 +754,7 @@ export async function unsubscribeFromCourseHandler(
       if (ref && target && target.billingMode === "ENTRIES") {
         // Clamp difensivo al massimo del piano: un ripristino legittimo non può
         // mai superare gli ingressi del piano.
-        const planMax = planByKey(target.planKey)?.entries ?? null;
+        const planMax = entriesCeiling(target);
         const restored = (target.remainingEntries ?? 0) + 1;
         target.remainingEntries = planMax !== null ? Math.min(restored, planMax) : restored;
         tx.update(ref, { remainingEntries: target.remainingEntries });

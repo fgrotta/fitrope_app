@@ -109,7 +109,6 @@ describe("updateSubscriptionHandler", () => {
 
   test.each([
     ["negativi", -1],
-    ["oltre il massimo", 11],
     ["non interi", 2.5],
     ["mancanti", undefined],
   ])("ingressi %s -> invalid-argument", async (_l, remaining) => {
@@ -117,6 +116,25 @@ describe("updateSubscriptionHandler", () => {
     await expectCode(updateSubscriptionHandler(
       { auth, data: { subscriptionId: "s1", planKey: "open_10i_1m", ...window, remainingEntries: remaining } },
       makeDb(store), NOW), "invalid-argument");
+  });
+
+  test("ingressi oltre il pacchetto del piano: consentiti, con il tetto per i rimborsi", async () => {
+    const store = makeStore({ s1: sub("open_10i_1m", NOW - DAY, NOW + DAY, { remainingEntries: 4 }) });
+    await updateSubscriptionHandler(
+      { auth, data: { subscriptionId: "s1", planKey: "open_10i_1m", ...window, remainingEntries: 25 } },
+      makeDb(store), NOW);
+    expect(store.subs.s1.remainingEntries).toBe(25);
+    expect(store.subs.s1.maxEntries).toBe(25);
+
+    // Sotto il pacchetto il tetto resta quello del piano; FREQUENCY lo azzera.
+    await updateSubscriptionHandler(
+      { auth, data: { subscriptionId: "s1", planKey: "open_10i_1m", ...window, remainingEntries: 3 } },
+      makeDb(store), NOW);
+    expect(store.subs.s1.maxEntries).toBe(10);
+    await updateSubscriptionHandler(
+      { auth, data: { subscriptionId: "s1", planKey: "open_2x_1m", ...window } },
+      makeDb(store), NOW);
+    expect(store.subs.s1.maxEntries).toBeNull();
   });
 
   test("Prova come piano di destinazione -> invalid-argument", async () => {
