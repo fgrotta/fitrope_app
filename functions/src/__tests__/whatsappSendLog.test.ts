@@ -98,6 +98,29 @@ describe("markSendOutcome", () => {
     expect(logDoc(fake)).not.toHaveProperty("status");
   });
 
+  test("registra trasporto, wamid ed errorCode quando ci sono", async () => {
+    const fake = makeWhatsappDb();
+    await claimSend(fake.db, "reminder", "u1", "c1", NOW);
+    await markSendOutcome(fake.db, "reminder", "u1", "c1", "sent", 200, {
+      transport: "meta",
+      messageId: "wamid.ABC",
+    });
+    expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({
+      outcome: "sent",
+      transport: "meta",
+      messageId: "wamid.ABC",
+    });
+    expect(logDoc(fake, "reminder_u1_c1")).not.toHaveProperty("errorCode");
+
+    await claimSend(fake.db, "booked", "u1", "c1", NOW);
+    await markSendOutcome(fake.db, "booked", "u1", "c1", "rejected", 400, {
+      transport: "meta",
+      errorCode: 131030,
+    });
+    expect(logDoc(fake)).toMatchObject({ transport: "meta", errorCode: 131030 });
+    expect(logDoc(fake)).not.toHaveProperty("messageId");
+  });
+
   test("non cancella mai il claim, nemmeno su un invio incerto", async () => {
     const fake = makeWhatsappDb();
     await claimSend(fake.db, "booked", "u1", "c1", NOW);

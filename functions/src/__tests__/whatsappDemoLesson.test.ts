@@ -10,16 +10,15 @@ import {
   notifyDemoLessonBooked,
 } from "../whatsapp/demoLesson";
 import { DEMO_LOG_COLLECTION } from "../whatsapp/sendLog";
-import { PostResult } from "../whatsapp/makeClient";
-import { DemoLessonPayload } from "../whatsapp/payload";
+import { DemoWebhookKind } from "../whatsapp/payload";
+import { SendResult, TemplateParams, WhatsappTransport } from "../whatsapp/transport";
 import { Data, Store, WhatsappFakeDbOptions, makeWhatsappDb } from "./helpers/whatsappFakeDb";
 
 jest.mock("firebase-functions", () => ({
   logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
 
-const WEBHOOK_URL = "https://hook.eu1.make.com/abc123secrettoken";
-const API_KEY = "chiave-super-segreta";
+const SECRET_IN_ERROR = "chiave-super-segreta";
 // 14 ottobre 2026, 19:00 ora di Roma; la lezione è domani alle 18:00.
 const NOW = Date.UTC(2026, 9, 14, 17);
 const DOMANI_18 = Date.UTC(2026, 9, 15, 16);
@@ -46,15 +45,22 @@ const user = (over: Data = {}): DemoUser => mapDemoUserDoc({ id: "u1", data: () 
 const course = (over: Data = {}): DemoCourse =>
   mapDemoCourseDoc({ id: "c1", data: () => courseDoc(over) });
 
-const ok = (status = 200): PostResult => ({ ok: true, status });
-const ko = (status: number): PostResult => ({ ok: false, status });
+const ok = (status = 200, extra: Partial<SendResult> = {}): SendResult => ({ ok: true, status, ...extra });
+const ko = (status: number, extra: Partial<SendResult> = {}): SendResult => ({
+  ok: false,
+  status,
+  transient: status === 429,
+  ...extra,
+});
 
 function setup(
   opts: {
     store?: Store;
-    responses?: Array<PostResult | Error>;
+    responses?: Array<SendResult | Error>;
     env?: NodeJS.ProcessEnv;
     db?: WhatsappFakeDbOptions;
+    transportName?: "make" | "meta";
+    supports?: (kind: DemoWebhookKind) => boolean;
   } = {}
 ) {
   const fake = makeWhatsappDb(
@@ -62,17 +68,20 @@ function setup(
     opts.db
   );
   const queue = [...(opts.responses ?? [ok()])];
-  const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => {
+  const post = jest.fn<Promise<SendResult>, [DemoWebhookKind, string, TemplateParams]>(async () => {
     const next = queue.length > 1 ? queue.shift()! : queue[0];
     if (next instanceof Error) throw next;
     return next;
   });
+  const transport: WhatsappTransport = {
+    name: opts.transportName ?? "make",
+    supports: opts.supports ?? (() => true),
+    send: post,
+  };
   const wait = jest.fn<Promise<void>, [number]>(async () => undefined);
   const deps: WhatsappDeps = {
     db: fake.db,
-    webhookUrl: WEBHOOK_URL,
-    apiKey: API_KEY,
-    post,
+    transport,
     nowMillis: NOW,
     env: opts.env ?? {},
     wait,
@@ -181,24 +190,83 @@ describe("checkRecipient", () => {
 });
 
 describe("dispatchDemoLesson", () => {
-  test("un invio riuscito: una POST col body di conferma e claim sent", async () => {
+  test("un invio riuscito: un invio coi parametri della lezione e claim sent", async () => {
     const { deps, post, log, creates } = setup();
     await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toEqual({ sent: true });
     expect(post).toHaveBeenCalledTimes(1);
     expect(post.mock.calls[0]).toEqual([
-      WEBHOOK_URL,
-      API_KEY,
+      "booked",
+      "+393331234567",
       {
-        tipo: "conferma",
         nome: "Mario Rossi",
-        numero_di_telefono: "+393331234567",
         corso: "Corso Excel Avanzato",
         giorno: "15 ottobre 2026",
         orario: "18:00",
       },
     ]);
     expect(creates()).toEqual([`create ${DEMO_LOG_COLLECTION}/booked_u1_c1`]);
-    expect(log("booked_u1_c1")).toMatchObject({ ok: true, outcome: "sent", status: 200 });
+    expect(log("booked_u1_c1")).toMatchObject({
+      ok: true,
+      outcome: "sent",
+      status: 200,
+      transport: "make",
+    });
+  });
+
+  test("via Meta registra trasporto e wamid sul claim", async () => {
+    const { deps, log } = setup({
+      transportName: "meta",
+      responses: [ok(200, { messageId: "wamid.ABC" })],
+    });
+    await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toEqual({ sent: true });
+    expect(log("reminder_u1_c1")).toMatchObject({
+      ok: true,
+      outcome: "sent",
+      transport: "meta",
+      messageId: "wamid.ABC",
+    });
+  });
+
+  test("un rifiuto Meta registra l'errorCode, senza ritentare i codici non transitori", async () => {
+    const { deps, post, log } = setup({
+      transportName: "meta",
+      responses: [ko(400, { errorCode: 131056, transient: false })],
+    });
+    await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toMatchObject({
+      sent: false,
+      failed: true,
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(log("reminder_u1_c1")).toMatchObject({
+      ok: false,
+      outcome: "rejected",
+      status: 400,
+      errorCode: 131056,
+      transport: "meta",
+    });
+  });
+
+  test("Meta 130429 (transient con HTTP 400): ritentato sotto lo stesso claim", async () => {
+    const { deps, post, log } = setup({
+      transportName: "meta",
+      responses: [ko(400, { errorCode: 130429, transient: true }), ok(200, { messageId: "wamid.X" })],
+    });
+    await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toEqual({ sent: true });
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(log("reminder_u1_c1")).toMatchObject({ ok: true, messageId: "wamid.X" });
+  });
+
+  test("kind non supportato dal trasporto: skip prima del claim, nessun invio", async () => {
+    const { deps, post, creates } = setup({
+      transportName: "meta",
+      supports: (kind) => kind === "reminder",
+    });
+    await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toEqual({
+      sent: false,
+      reason: "transport_unsupported_kind",
+    });
+    expect(post).not.toHaveBeenCalled();
+    expect(creates()).toEqual([]);
   });
 
   test("uno scarto a monte non crea claim e non chiama Make", async () => {
@@ -243,8 +311,8 @@ describe("dispatchDemoLesson", () => {
   test.each([
     ["timeout / status 0", ko(0)],
     ["HTTP 503", ko(503)],
-    ["eccezione della post", new Error("socket hang up")],
-  ])("%s: una sola POST e unknown, senza lanciare", async (_label, response) => {
+    ["eccezione del trasporto", new Error("socket hang up")],
+  ])("%s: un solo invio e unknown, senza lanciare", async (_label, response) => {
     const { deps, post, log } = setup({ responses: [response] });
     await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toMatchObject({
       sent: false,
@@ -342,10 +410,10 @@ describe("dispatchDemoLesson", () => {
   test("i log non contengono numero, URL, chiave né payload", async () => {
     const { deps } = setup({ responses: [ko(503)] });
     await dispatchDemoLesson(deps, "booked", user(), course());
-    const { deps: deps2 } = setup({ responses: [new Error(`boom ${WEBHOOK_URL} ${API_KEY}`)] });
+    const { deps: deps2 } = setup({ responses: [new Error(`boom ${SECRET_IN_ERROR}`)] });
     await dispatchDemoLesson(deps2, "booked", user(), course());
     const logged = allLoggedText();
-    for (const secret of [WEBHOOK_URL, API_KEY, "3331234567", "Mario Rossi", "Corso Excel"]) {
+    for (const secret of [SECRET_IN_ERROR, "3331234567", "Mario Rossi", "Corso Excel"]) {
       expect(logged).not.toContain(secret);
     }
   });
@@ -355,7 +423,8 @@ describe("notifyDemoLessonBooked", () => {
   test("legge utente e corso da Firestore e manda la conferma", async () => {
     const { deps, post } = setup();
     await expect(notifyDemoLessonBooked(deps, "u1", "c1")).resolves.toEqual({ sent: true });
-    expect(post.mock.calls[0][2]).toMatchObject({ tipo: "conferma", corso: "Corso Excel Avanzato" });
+    expect(post.mock.calls[0][0]).toBe("booked");
+    expect(post.mock.calls[0][2]).toMatchObject({ corso: "Corso Excel Avanzato" });
   });
 
   test("trova il corso per uid quando l'id del documento è diverso", async () => {

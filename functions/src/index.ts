@@ -54,8 +54,14 @@ import {
   previewLegacyUserMigrationHandler,
 } from "./migration/userHandler";
 import { isStagingCloneMode, stagingCloneGuarded } from "./stagingCloneGuard";
-import { whatsappDemoMode } from "./whatsapp/environment";
-import { postToMake } from "./whatsapp/makeClient";
+import {
+  readMetaSettings,
+  whatsappDemoMode,
+  whatsappTransportName,
+} from "./whatsapp/environment";
+import { makeTransport } from "./whatsapp/makeClient";
+import { metaTransport } from "./whatsapp/metaClient";
+import { WhatsappTransport } from "./whatsapp/transport";
 import { WhatsappDeps, notifyDemoLessonBooked } from "./whatsapp/demoLesson";
 import { runDemoLessonReminders } from "./whatsapp/reminders";
 import { sendTestDemoLessonWebhookHandler } from "./whatsapp/testWebhook";
@@ -69,40 +75,66 @@ if (admin.apps.length === 0) {
 const oneSignalApiKey = defineSecret("ONESIGNAL_REST_API_KEY");
 
 // ──────────────────────────────────────────────
-//  WhatsApp lezioni demo (webhook Make)
+//  WhatsApp lezioni demo (Make o Meta Cloud API)
 // ──────────────────────────────────────────────
 //
 // WHATSAPP_DEMO_MODE, in `.env.<projectId>`, viene letta in DISCOVERY come i
 // gate dei certificati:
 //   off (default) → nessuna function e nessun secret dichiarato;
-//   test          → solo la callable di prova (Admin), per verificare lo scenario Make;
+//   test          → solo la callable di prova (Admin), per verificare il canale;
 //   live          → + WhatsApp di conferma in subscribeToCourse + cron delle 19:00.
 // Mergiare significa deployare: è questo gate, e non la scelta di cosa
-// deployare, a tenere spento il cron finché scenario Make e template Meta non
-// sono pronti. I secret vengono dichiarati solo se servono: su staging, di norma
-// in modalità off, il deploy non deve chiedere secret che lì non esistono.
+// deployare, a tenere spento il cron finché canale e template non sono pronti.
+//
+// WHATSAPP_TRANSPORT (make, default | meta) sceglie il canale e quindi i secret:
+//   make → MAKE_WEBHOOK_URL + MAKE_WEBHOOK_KEY;
+//   meta → META_WA_ACCESS_TOKEN sugli invii, META_APP_SECRET +
+//          META_WA_VERIFY_TOKEN solo sul webhook di stato.
+// I secret vengono dichiarati solo se servono: dichiararne uno che nel progetto
+// non esiste fa fallire `firebase deploy`. Con `meta` la discovery legge e
+// valida anche numero e template (readMetaSettings), e fallisce subito se mancano.
 const whatsappMode = whatsappDemoMode(process.env);
+const whatsappTransportKind =
+  whatsappMode === "off" ? null : whatsappTransportName(process.env);
+const metaSettings =
+  whatsappTransportKind === "meta" ? readMetaSettings(process.env) : null;
 const makeSecret =
-  whatsappMode === "off"
-    ? null
-    : {
+  whatsappTransportKind === "make"
+    ? {
         url: defineSecret("MAKE_WEBHOOK_URL"),
         key: defineSecret("MAKE_WEBHOOK_KEY"),
-      };
-const makeSecrets = makeSecret ? [makeSecret.url, makeSecret.key] : [];
+      }
+    : null;
+const metaAccessToken =
+  whatsappTransportKind === "meta" ? defineSecret("META_WA_ACCESS_TOKEN") : null;
+const whatsappSendSecrets = makeSecret
+  ? [makeSecret.url, makeSecret.key]
+  : metaAccessToken
+    ? [metaAccessToken]
+    : [];
+// La conferma all'iscrizione: Make la manda sempre (il Router sceglie il
+// template da `tipo`), Meta solo se è configurato un template apposito.
+const whatsappBookedEnabled =
+  whatsappMode === "live" &&
+  (makeSecret !== null || metaSettings?.templates.booked !== undefined);
+
+function makeWhatsappTransport(): WhatsappTransport {
+  if (makeSecret) {
+    return makeTransport(makeSecret.url.value(), makeSecret.key.value());
+  }
+  if (metaSettings && metaAccessToken) {
+    return metaTransport({ ...metaSettings, accessToken: metaAccessToken.value() });
+  }
+  throw new HttpsError(
+    "failed-precondition",
+    "WhatsApp demo disattivato (WHATSAPP_DEMO_MODE=off)",
+  );
+}
 
 function makeWhatsappDeps(): WhatsappDeps {
-  if (!makeSecret) {
-    throw new HttpsError(
-      "failed-precondition",
-      "WhatsApp demo disattivato (WHATSAPP_DEMO_MODE=off)",
-    );
-  }
   return {
     db: admin.firestore(),
-    webhookUrl: makeSecret.url.value(),
-    apiKey: makeSecret.key.value(),
-    post: postToMake,
+    transport: makeWhatsappTransport(),
     nowMillis: Date.now(),
     env: process.env,
   };
@@ -266,8 +298,9 @@ export const subscribeToCourse = onCall(
   {
     region: "europe-west8",
     cors: true,
-    secrets:
-      whatsappMode === "live" ? [oneSignalApiKey, ...makeSecrets] : [oneSignalApiKey],
+    secrets: whatsappBookedEnabled
+      ? [oneSignalApiKey, ...whatsappSendSecrets]
+      : [oneSignalApiKey],
   },
   stagingCloneGuarded((request) =>
     subscribeToCourseHandler(
@@ -293,7 +326,7 @@ export const subscribeToCourse = onCall(
         // async: anche un errore sincrono (es. secret non leggibile) diventa un
         // rifiuto, che subscribeToCourseHandler ignora come le altre notifiche.
         // Senza async farebbe fallire un'iscrizione già committata.
-        ...(whatsappMode === "live"
+        ...(whatsappBookedEnabled
           ? {
               notifyTrialWhatsapp: async (userId: string, courseId: string) => {
                 await notifyDemoLessonBooked(makeWhatsappDeps(), userId, courseId);
@@ -620,7 +653,7 @@ export const sendTestDemoLessonWebhook =
   whatsappMode === "off"
     ? undefined
     : onCall(
-        { secrets: makeSecrets, region: "europe-west8", cors: true },
+        { secrets: whatsappSendSecrets, region: "europe-west8", cors: true },
         stagingCloneGuarded((request) =>
           sendTestDemoLessonWebhookHandler(
             { auth: request.auth ?? null, data: request.data },
@@ -640,7 +673,7 @@ export const sendDemoLessonWhatsappReminders =
           schedule: "0 19 * * *",
           timeZone: "Europe/Rome",
           region: "europe-west8",
-          secrets: makeSecrets,
+          secrets: whatsappSendSecrets,
           timeoutSeconds: 540,
           maxInstances: 1,
           retryCount: 3,

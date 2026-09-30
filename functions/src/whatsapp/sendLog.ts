@@ -2,13 +2,14 @@
 //
 // Ogni messaggio è a pagamento, quindi l'invio si prenota con `create()` (atomico:
 // protegge anche da due run concorrenti) PRIMA della POST, e il claim non si
-// cancella mai. Make può aver accettato un messaggio anche se la risposta non è
+// cancella mai. Make (o Meta) può aver accettato un messaggio anche se la risposta non è
 // arrivata alla function: rendere ritentabile un esito incerto rischierebbe un
 // secondo WhatsApp. Esiti:
 //   pending  → claim creato, esito non ancora scritto (o interruzione dopo il claim);
-//   sent     → Make ha risposto 2xx (`ok: true`);
-//   rejected → Make ha rifiutato (4xx, compreso 429 dopo i tentativi);
-//   unknown  → timeout, errore di rete, 5xx: da verificare in Make.
+//   sent     → il trasporto ha risposto 2xx (`ok: true`);
+//   rejected → rifiuto (4xx, compreso il rate limit dopo i tentativi);
+//   unknown  → timeout, errore di rete, 5xx: da verificare in Make o nel
+//              WhatsApp Manager (senza wamid il webhook di stato non riconcilia).
 // Solo `ok: true` prova l'invio. Il documento contiene solo identificativi,
 // istante ed esito: niente telefono, email, URL o chiave.
 
@@ -17,6 +18,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import type { Firestore } from "firebase-admin/firestore";
 import { isSameRomeDay } from "./format";
 import { DemoWebhookKind } from "./payload";
+import type { WhatsappTransportName } from "./transport";
 
 export const DEMO_LOG_COLLECTION = "demoLessonWebhookLog";
 
@@ -89,6 +91,14 @@ export async function claimSend(
   return "needs_review";
 }
 
+export interface SendOutcomeDetails {
+  transport?: WhatsappTransportName;
+  /** wamid di Meta: la chiave con cui il webhook di stato ritrova il documento. */
+  messageId?: string;
+  /** `error.code` della Graph API. */
+  errorCode?: number;
+}
+
 /**
  * Scrive l'esito sul claim. Rilancia gli errori: se fallisce dopo un 2xx il
  * claim resta `pending` e il chiamante lo segnala per verifica, senza ripetere la POST.
@@ -99,13 +109,17 @@ export async function markSendOutcome(
   userId: string,
   courseId: string,
   outcome: SendLogOutcome,
-  status?: number
+  status?: number,
+  details: SendOutcomeDetails = {}
 ): Promise<void> {
   await logRef(db, kind, userId, courseId).update({
     outcome,
     ok: outcome === "sent",
     // Status 0 = nessuna risposta HTTP: non c'è niente da registrare.
     ...(status !== undefined && status > 0 ? { status } : {}),
+    ...(details.transport ? { transport: details.transport } : {}),
+    ...(details.messageId ? { messageId: details.messageId } : {}),
+    ...(details.errorCode !== undefined ? { errorCode: details.errorCode } : {}),
   });
 }
 

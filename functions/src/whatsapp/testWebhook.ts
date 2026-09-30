@@ -1,16 +1,25 @@
-// Callable di prova (DebugEmailPage): manda un payload sintetico al numero
-// indicato, senza toccare iscrizioni né registro invii. Serve a far apprendere
-// lo schema a Make e a provare i template sul proprio telefono.
+// Callable di prova (DebugEmailPage): manda un messaggio sintetico al numero
+// indicato col trasporto configurato (Make o Meta), senza toccare iscrizioni.
+// Serve a far apprendere lo schema a Make e a provare i template sul proprio
+// telefono.
+//
+// Con Meta, se torna un wamid, scrive nel registro un documento `test_…` con
+// soli identificativi: è l'unico modo di vedere sul webhook di stato
+// (statusWebhook.ts) la consegna di un messaggio di prova. Non interferisce
+// con claim e soppressioni, che usano solo id `{kind}_{userId}_{courseId}`.
 //
 // Solo Admin: la callable è raggiungibile via HTTP da qualunque utente
 // autenticato, e ogni WhatsApp è reale e a pagamento.
 
+import { logger } from "firebase-functions";
+import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { HandlerRequest } from "../handler";
 import { WhatsappDeps } from "./demoLesson";
 import { isWhatsappRecipientAllowed } from "./environment";
-import { DemoWebhookKind, buildDemoLessonPayload, sanitizeTemplateParam } from "./payload";
+import { DemoWebhookKind, buildTemplateParams, sanitizeTemplateParam, toMakeBody } from "./payload";
 import { normalizePhoneE164 } from "./phone";
+import { DEMO_LOG_COLLECTION } from "./sendLog";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -49,17 +58,65 @@ export async function sendTestDemoLessonWebhookHandler(
   }
 
   const kind: DemoWebhookKind = payload.kind === "reminder" ? "reminder" : "booked";
-  const body = buildDemoLessonPayload({
-    kind,
+  const transport = deps.transport;
+  if (!transport.supports(kind)) {
+    throw new HttpsError(
+      "failed-precondition",
+      `Il trasporto ${transport.name} non ha un template per "${kind}" (con Meta serve META_WA_TEMPLATE_BOOKED)`
+    );
+  }
+
+  const params = buildTemplateParams({
     nome: sanitizeTemplateParam(payload.nome) || "Test Test",
     corso: sanitizeTemplateParam(payload.corso) || "Lezione di prova",
-    phoneE164: phone.e164,
     // Domani a quest'ora: una data plausibile per il messaggio di prova.
     startAtMillis: deps.nowMillis + ONE_DAY_MS,
     giorno: payload.giorno,
     orario: payload.orario,
   });
 
-  const result = await deps.post(deps.webhookUrl, deps.apiKey, body);
-  return { ok: result.ok, status: result.status, payload: { ...body } };
+  const result = await transport.send(kind, phone.e164, params);
+  if (result.ok && result.messageId) {
+    await recordTestSend(deps, request.auth.uid, kind, result.status, result.messageId);
+  }
+  return {
+    ok: result.ok,
+    status: result.status,
+    transport: transport.name,
+    ...(result.messageId ? { messageId: result.messageId } : {}),
+    ...(result.errorCode !== undefined ? { errorCode: result.errorCode } : {}),
+    // Stessi campi del body Make, per mostrare nella pagina di debug cosa è partito.
+    payload: { ...toMakeBody(kind, phone.e164, params) },
+  };
+}
+
+/** Best-effort: il messaggio è già partito, un errore qui non va propagato al client. */
+async function recordTestSend(
+  deps: WhatsappDeps,
+  uid: string,
+  kind: DemoWebhookKind,
+  status: number,
+  messageId: string
+): Promise<void> {
+  try {
+    await deps.db
+      .collection(DEMO_LOG_COLLECTION)
+      .doc(`test_${uid}_${deps.nowMillis}`)
+      .create({
+        kind: "test",
+        testKind: kind,
+        userId: uid,
+        transport: deps.transport.name,
+        messageId,
+        outcome: "sent",
+        ok: true,
+        status,
+        sentAt: Timestamp.fromMillis(deps.nowMillis),
+      });
+  } catch (err) {
+    logger.warn("WhatsApp di prova: documento nel registro non scritto", {
+      messageId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

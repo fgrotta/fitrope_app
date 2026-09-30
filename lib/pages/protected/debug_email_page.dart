@@ -36,7 +36,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   bool _sendingCert10 = false;
   bool _sendingCertExpiry = false;
   bool _sendingWhatsapp = false;
-  Map<String, String>? _lastWhatsappPayload;
+  DemoWhatsappTestResult? _lastWhatsappResult;
 
   @override
   void initState() {
@@ -255,7 +255,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     }
   }
 
-  /// WhatsApp di prova via webhook Make. Non usa `_resolvedUid`: il
+  /// WhatsApp di prova (Make o Meta, lo decide il server). Non usa `_resolvedUid`: il
   /// destinatario è il numero digitato, così i template si provano sul
   /// proprio telefono.
   Future<void> _sendWhatsappTest({required String kind}) async {
@@ -264,7 +264,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     if (numero.isEmpty) return;
     setState(() {
       _sendingWhatsapp = true;
-      _lastWhatsappPayload = null;
+      _lastWhatsappResult = null;
     });
     try {
       final result = await sendTestDemoLessonWebhook(
@@ -276,12 +276,14 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
         orario: _courseTimeCtrl.text,
       );
       if (mounted) {
-        setState(() => _lastWhatsappPayload = result.payload);
+        setState(() => _lastWhatsappResult = result);
+        final canale = result.transport == 'meta' ? 'Meta' : 'Make';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.ok
-                ? 'Webhook Make chiamato (tipo: ${result.payload['tipo']})'
-                : 'Make ha risposto con status ${result.status}'),
+                ? '$canale ha accettato il messaggio (tipo: ${result.payload['tipo']})'
+                : '$canale ha risposto con status ${result.status}'
+                    '${result.errorCode != null ? ' (code ${result.errorCode})' : ''}'),
             backgroundColor: result.ok ? Colors.green : Colors.red,
           ),
         );
@@ -529,14 +531,15 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             ),
             const SizedBox(height: 32),
 
-            // --- WhatsApp (webhook Make) ---
+            // --- WhatsApp (Make / Meta) ---
             const Text(
-              'WhatsApp (webhook Make)',
+              'WhatsApp (Make / Meta)',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
-              'Solo Admin, con WHATSAPP_DEMO_MODE=test o live. Usa anche '
+              'Solo Admin, con WHATSAPP_DEMO_MODE=test o live. Il canale lo '
+              'sceglie WHATSAPP_TRANSPORT lato server. Usa anche '
               '"Nome corso" e "Orario" qui sopra; i campi vuoti ricadono su '
               'un default lato Cloud Function.',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
@@ -605,7 +608,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                 label: const Text('WhatsApp — promemoria lezione'),
               ),
             ),
-            if (_lastWhatsappPayload != null) ...[
+            if (_lastWhatsappResult != null) ...[
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,
@@ -618,13 +621,15 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Body inviato a Make',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    Text(
+                      _lastWhatsappResult!.transport == 'meta'
+                          ? 'Parametri inviati a Meta'
+                          : 'Body inviato a Make',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     const SizedBox(height: 8),
-                    ..._lastWhatsappPayload!.entries.map(
+                    ..._lastWhatsappResult!.payload.entries.map(
                       (e) => Padding(
                         padding: const EdgeInsets.only(bottom: 2),
                         child: Text(
@@ -632,6 +637,24 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                           style: const TextStyle(
                               fontFamily: 'monospace', fontSize: 12),
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      [
+                        'trasporto: ${_lastWhatsappResult!.transport}',
+                        'status: ${_lastWhatsappResult!.status}',
+                        if (_lastWhatsappResult!.messageId != null)
+                          'messageId: ${_lastWhatsappResult!.messageId}',
+                        if (_lastWhatsappResult!.errorCode != null)
+                          'errorCode: ${_lastWhatsappResult!.errorCode}',
+                      ].join('\n'),
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: _lastWhatsappResult!.ok
+                            ? Colors.grey.shade800
+                            : Colors.red.shade700,
                       ),
                     ),
                   ],

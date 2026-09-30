@@ -1,4 +1,5 @@
-// Regole del destinatario e invio di un WhatsApp "lezione demo" via Make.
+// Regole del destinatario e invio di un WhatsApp "lezione demo" (Make o Meta,
+// vedi transport.ts).
 //
 // Qui NON si decide chi è un utente di prova: lo decide il chiamante con
 // `isTrialUser` (enrollment/trial.ts) — l'iscrizione per la conferma, il cron
@@ -9,16 +10,10 @@
 import { logger } from "firebase-functions";
 import type { Firestore } from "firebase-admin/firestore";
 import { isWhatsappRecipientAllowed } from "./environment";
-import { PostResult } from "./makeClient";
-import {
-  DemoLessonPayload,
-  DemoWebhookKind,
-  buildDemoLessonPayload,
-  buildNome,
-  sanitizeTemplateParam,
-} from "./payload";
+import { DemoWebhookKind, buildNome, buildTemplateParams, sanitizeTemplateParam } from "./payload";
 import { normalizePhoneE164 } from "./phone";
 import { SendLogOutcome, claimSend, markSendOutcome, wasNotifiedToday } from "./sendLog";
+import { SendResult, WhatsappTransport } from "./transport";
 
 // ──────────────────────────────────────────────
 //  Mapping dei documenti Firestore
@@ -135,12 +130,10 @@ export function checkRecipient(
 
 export interface WhatsappDeps {
   db: Firestore;
-  webhookUrl: string;
-  apiKey: string;
-  post: (url: string, apiKey: string, payload: DemoLessonPayload) => Promise<PostResult>;
+  transport: WhatsappTransport;
   nowMillis: number;
   env: NodeJS.ProcessEnv;
-  /** Attesa tra i tentativi su HTTP 429; iniettabile per i test. */
+  /** Attesa tra i tentativi su un rate limit; iniettabile per i test. */
   wait?: (ms: number) => Promise<void>;
 }
 
@@ -151,24 +144,27 @@ export interface SendOutcome {
   failed?: boolean;
 }
 
-/** Attese prima del 2° e del 3° tentativo su HTTP 429. */
+/** Attese prima del 2° e del 3° tentativo su un rate limit (Make 429, Meta 130429). */
 const RATE_LIMIT_RETRY_DELAYS_MS = [250, 1000];
 
 const defaultWait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** 2xx → sent; 0 (nessuna risposta) o 5xx → unknown; altri 4xx → rejected. */
-function classify(result: PostResult): SendLogOutcome {
+/**
+ * 2xx → sent; 0 (nessuna risposta) o 5xx → unknown; altri 4xx → rejected,
+ * compreso un rate limit che resta tale dopo i tentativi (rifiuto certo).
+ */
+function classify(result: SendResult): SendLogOutcome {
   if (result.ok) return "sent";
   if (result.status === 0 || result.status >= 500) return "unknown";
   return "rejected";
 }
 
 /**
- * Applica le guardie, prenota l'invio e chiama il webhook.
+ * Applica le guardie, prenota l'invio e lo passa al trasporto.
  *
  * Nessun reinvio automatico degli esiti incerti (timeout, rete, 5xx, crash dopo
- * il claim): Make potrebbe aver già accettato il messaggio. Solo HTTP 429 viene
- * ritentato, al massimo due volte sotto lo stesso claim.
+ * il claim): Make o Meta potrebbero aver già accettato il messaggio. Solo un
+ * rate limit (`transient`) viene ritentato, al massimo due volte sotto lo stesso claim.
  *
  * `noticeDayMillis` è il giorno di riferimento per sopprimere il promemoria
  * dopo una conferma: per il cron l'istante schedulato (stabile anche nei retry),
@@ -181,6 +177,10 @@ export async function dispatchDemoLesson(
   course: DemoCourse,
   noticeDayMillis: number = deps.nowMillis
 ): Promise<SendOutcome> {
+  // Prima di tutto: con Meta e il solo template del promemoria la conferma è
+  // uno skip atteso, non un invio fallito.
+  if (!deps.transport.supports(kind)) return { sent: false, reason: "transport_unsupported_kind" };
+
   const check = checkRecipient(kind, user, course, deps.nowMillis, deps.env);
   if (!check.ok) return { sent: false, reason: check.reason };
 
@@ -194,38 +194,40 @@ export async function dispatchDemoLesson(
   if (claim === "sent") return { sent: false, reason: "already_sent" };
   if (claim === "needs_review") return { sent: false, failed: true, reason: "needs_review" };
 
-  const payload = buildDemoLessonPayload({
-    kind,
+  const params = buildTemplateParams({
     nome: check.nome,
     corso: check.corso,
-    phoneE164: check.phoneE164,
     startAtMillis: check.startAtMillis,
   });
   const wait = deps.wait ?? defaultWait;
+  const transport = deps.transport.name;
 
-  let result: PostResult = { ok: false, status: 0 };
+  let result: SendResult = { ok: false, status: 0 };
   for (let attempt = 0; ; attempt++) {
     try {
-      result = await deps.post(deps.webhookUrl, deps.apiKey, payload);
+      result = await deps.transport.send(kind, check.phoneE164, params);
     } catch (err) {
-      // postToMake non lancia: qui arriva solo un post iniettato difettoso. Il
-      // messaggio del chiamante può contenere URL o chiave: non lo logghiamo.
-      logger.error("Invio WhatsApp: eccezione durante la POST", {
+      // I trasporti non lanciano: qui arriva solo un trasporto iniettato
+      // difettoso. Il messaggio può contenere URL, chiave o token: non lo logghiamo.
+      logger.error("Invio WhatsApp: eccezione del trasporto", {
         ...ids,
+        transport,
         errorType: err instanceof Error ? err.name : typeof err,
       });
       result = { ok: false, status: 0 };
     }
-    if (result.status !== 429 || attempt >= RATE_LIMIT_RETRY_DELAYS_MS.length) break;
+    if (result.transient !== true || attempt >= RATE_LIMIT_RETRY_DELAYS_MS.length) break;
     await wait(RATE_LIMIT_RETRY_DELAYS_MS[attempt]);
   }
 
   const outcome = classify(result);
+  const details = { transport, messageId: result.messageId, errorCode: result.errorCode };
   try {
-    await markSendOutcome(deps.db, kind, user.uid, course.uid, outcome, result.status);
+    await markSendOutcome(deps.db, kind, user.uid, course.uid, outcome, result.status, details);
   } catch (err) {
-    logger.error("Esito WhatsApp non registrato: claim pending, verificare in Make", {
+    logger.error("Esito WhatsApp non registrato: claim pending, verificare in Make o nel WhatsApp Manager", {
       ...ids,
+      ...details,
       outcome,
       status: result.status,
       error: err instanceof Error ? err.message : String(err),
@@ -234,7 +236,7 @@ export async function dispatchDemoLesson(
   }
 
   if (outcome === "sent") return { sent: true };
-  logger.error("Invio WhatsApp non riuscito", { ...ids, outcome, status: result.status });
+  logger.error("Invio WhatsApp non riuscito", { ...ids, ...details, outcome, status: result.status });
   return { sent: false, failed: true, reason: `${outcome}_${result.status}` };
 }
 
