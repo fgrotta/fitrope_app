@@ -35,6 +35,12 @@ FitropeUser _user(int i) => FitropeUser(
       createdAt: DateTime(2026, 1, 1),
     );
 
+/// Pill compatta "✓ N" dei presenti (etichetta accessibile "Presenti N").
+Finder _presentPill(int n) => find.descendant(
+      of: find.byKey(const Key('present-count-pill')),
+      matching: find.text('$n'),
+    );
+
 Future<void> _pump(WidgetTester tester, Widget child) async {
   await tester.pumpWidget(MaterialApp(
     home: Scaffold(body: SingleChildScrollView(child: child)),
@@ -406,13 +412,13 @@ void main() {
         tester,
         staffCard(subscribers: [_user(1), _user(2)], markerCount: 3),
       );
-      expect(find.text('Presenti 3'), findsOneWidget);
+      expect(_presentPill(3), findsOneWidget);
     });
 
     testWidgets('nessun marcatore e record non caricati: niente pill',
         (tester) async {
       await _pump(tester, staffCard(subscribers: [_user(1)]));
-      expect(find.textContaining('Presenti'), findsNothing);
+      expect(find.byKey(const Key('present-count-pill')), findsNothing);
     });
 
     testWidgets('il conteggio locale vince sul marcatore', (tester) async {
@@ -424,7 +430,7 @@ void main() {
           records: {'u1': rec('u1', true), 'u2': rec('u2', false)},
         ),
       );
-      expect(find.text('Presenti 1'), findsOneWidget);
+      expect(_presentPill(1), findsOneWidget);
     });
 
     testWidgets('staff non titolare: conteggio sì, spunte no', (tester) async {
@@ -438,7 +444,7 @@ void main() {
       );
       await tester.tap(find.byIcon(Icons.expand_more));
       await tester.pump();
-      expect(find.text('Presenti 2'), findsOneWidget);
+      expect(_presentPill(2), findsOneWidget);
       expect(find.byType(AttendanceToggle), findsNothing);
       expect(find.textContaining('Appello'), findsNothing);
     });
@@ -506,7 +512,7 @@ void main() {
           records: {'u1': rec('u1', true), 'u9': rec('u9', true)},
         ),
       );
-      expect(find.text('Presenti 1'), findsOneWidget);
+      expect(_presentPill(1), findsOneWidget);
       await tester.tap(find.byIcon(Icons.expand_more));
       await tester.pump();
       expect(find.text('Appello'), findsOneWidget);
@@ -542,6 +548,92 @@ void main() {
       expect(find.text('check-in del socio'), findsOneWidget);
       final after = tester.getSize(find.byKey(const Key('appello-row-u1')));
       expect(after.height, before.height);
+    });
+
+    for (final scale in [1.0, 1.3]) {
+      testWidgets('header iscritti a 360 px (testo x$scale): nessun overflow',
+          (tester) async {
+        tester.view.physicalSize = const Size(360, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(360, 800),
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: Scaffold(
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: CourseCard(
+                  courseId: 'c1',
+                  course: _course(capacity: 20, subscribed: 4).copyWith(
+                    attendance: const CourseAttendanceSummary(presentCount: 12),
+                  ),
+                  title: 'Corso',
+                  capacity: 20,
+                  subscribed: 4,
+                  subscribersUsers: [_user(1), _user(2), _user(3), _user(4)],
+                  waitlistUsers: const [],
+                  showClickableSubscribers: true,
+                  isAdmin: true,
+                  userRole: 'Admin',
+                  showPresentCount: true,
+                  onRefresh: () {},
+                ),
+              ),
+            ),
+          ),
+        ));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(_presentPill(12), findsOneWidget);
+      });
+    }
+
+    testWidgets('riga appello con testo grande: nessun overflow',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(800, 800),
+            textScaler: TextScaler.linear(2.0),
+          ),
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: staffCard(
+                subscribers: [_user(1)],
+                records: {
+                  'u1': const AttendanceRecord(
+                    courseId: 'c1',
+                    userId: 'u1',
+                    courseStartMillis: 0,
+                    present: true,
+                    source: AttendanceSource.self,
+                  ),
+                },
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('spunta accessibile: etichetta con il nome e lo stato',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(
+        tester,
+        staffCard(subscribers: [_user(1)], records: {'u1': rec('u1', false)}),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Iscritto 1: assente'), findsOneWidget);
+      handle.dispose();
     });
 
     // 400 px con il font di test (Ahem, glifi ~2x più larghi di Roboto) è

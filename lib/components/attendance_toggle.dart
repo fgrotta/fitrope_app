@@ -16,11 +16,16 @@ class AttendanceToggle extends StatelessWidget {
   /// Riceve il nuovo valore di `present` richiesto.
   final ValueChanged<bool>? onChanged;
 
+  /// Etichetta per gli screen reader (es. "Mario Rossi: assente"): senza il
+  /// nome un appello da 15 righe sarebbe 15 bottoni "Presente" identici.
+  final String? semanticsLabel;
+
   const AttendanceToggle({
     super.key,
     required this.record,
     this.pending = false,
     this.onChanged,
+    this.semanticsLabel,
   });
 
   static const double width = 112;
@@ -30,7 +35,8 @@ class AttendanceToggle extends StatelessWidget {
   static const Color _absentFg = Color(0xFFB71C1C);
   static const Color _absentBorder = Color(0xFFE57373);
   static const Color _neutralFg = Color(0xFF37474F);
-  static const Color _neutralBorder = Color(0xFF90A4AE);
+  // blueGrey 500: 3:1 sul bianco (il 300 di prima era 2.6:1).
+  static const Color _neutralBorder = Color(0xFF607D8B);
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +74,9 @@ class AttendanceToggle extends StatelessWidget {
       button: true,
       toggled: present,
       enabled: enabled,
-      label: label,
+      label: semanticsLabel ?? (record == null ? 'Non segnato' : label),
+      hint:
+          present ? 'Tocca per segnare assente' : 'Tocca per segnare presente',
       excludeSemantics: true,
       onTap: enabled ? () => onChanged!(!present) : null,
       child: SizedBox(

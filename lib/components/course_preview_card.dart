@@ -109,7 +109,10 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
       _courseUsersFuture = _getCourseUsers();
     });
     if (_attendance != null) _loadCourseAttendance(force: true);
-    if (_myAttendanceRequested) _maybeLoadMyAttendance(force: true);
+    _maybeLoadMyAttendance(force: _myAttendanceRequested);
+    // Il Timer si arma solo entro 24h: una PWA rimasta aperta da ieri lo
+    // riarma qui, alla ripresa dell'app.
+    _scheduleAttendanceBoundary();
   }
 
   @override
@@ -127,6 +130,9 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
       _attendance = null;
       _attendanceWanted = false;
       _attendanceLoadFailed = false;
+      // Il caricamento in volo era per l'altro corso: il suo risultato viene
+      // scartato, e non deve bloccare quello nuovo.
+      _attendanceLoading = false;
       _myAttendance = null;
       _myAttendanceRequested = false;
       _pendingAttendanceUids.clear();
@@ -158,8 +164,12 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
   bool get _isSubscribed =>
       widget.currentUser.courses.contains(widget.course.uid);
 
+  /// Senza callback (es. home) niente spunte: sarebbero solo disabilitate.
   bool _canMarkAttendance(DateTime now) =>
-      _isStaff && _isOwnerStaff && staffCanMark(widget.course, now);
+      widget.onToggleAttendance != null &&
+      _isStaff &&
+      _isOwnerStaff &&
+      staffCanMark(widget.course, now);
 
   void _scheduleAttendanceBoundary() {
     _boundaryTimer?.cancel();
@@ -235,8 +245,16 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
   Future<bool> _selfCheckIn() async {
     final handler = widget.onSelfCheckIn;
     if (handler == null) return false;
+    final courseId = widget.course.uid;
+    final uid = widget.currentUser.uid;
     final ok = await handler();
-    if (!mounted) return ok;
+    // La card può essere stata riusata per un altro corso o utente nel
+    // frattempo (home senza key): l'esito non va applicato a quello nuovo.
+    if (!mounted ||
+        widget.course.uid != courseId ||
+        widget.currentUser.uid != uid) {
+      return ok;
+    }
     if (ok) {
       setState(() {
         _myAttendance = AttendanceRecord(
@@ -261,9 +279,10 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
     final handler = widget.onToggleAttendance;
     if (handler == null || _pendingAttendanceUids.contains(user.uid)) return;
     setState(() => _pendingAttendanceUids.add(user.uid));
+    final courseId = widget.course.uid;
     try {
       final ok = await handler(user.uid, present);
-      if (!mounted || !ok) return;
+      if (!mounted || !ok || widget.course.uid != courseId) return;
       setState(() {
         _attendance = {
           ...?_attendance,

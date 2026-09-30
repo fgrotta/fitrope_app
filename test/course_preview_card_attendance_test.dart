@@ -33,8 +33,9 @@ Course _course(DateTime start) => Course(
 Future<void> _pumpCard(
   WidgetTester tester,
   Course course,
-  FirebaseFirestore db,
-) async {
+  FirebaseFirestore db, {
+  bool withToggleHandler = true,
+}) async {
   await tester.pumpWidget(MaterialApp(
     home: Scaffold(
       body: SingleChildScrollView(
@@ -43,7 +44,7 @@ Future<void> _pumpCard(
           currentUser: _user('t1', 'Trainer'),
           trainers: const [],
           onRefresh: () {},
-          onToggleAttendance: (_, __) async => true,
+          onToggleAttendance: withToggleHandler ? (_, __) async => true : null,
           firestore: db,
         ),
       ),
@@ -93,5 +94,21 @@ void main() {
 
     final chip = tester.widget<AttendanceToggle>(find.byType(AttendanceToggle));
     expect(chip.pending, isFalse, reason: 'chip ancora in attesa');
+  });
+
+  testWidgets(
+      'staff su una pagina senza appello (home): niente spunte disabilitate',
+      (tester) async {
+    await _pumpCard(
+      tester,
+      _course(DateTime.now().subtract(const Duration(minutes: 5))),
+      db,
+      withToggleHandler: false,
+    );
+    await _settleFirestore(tester);
+    await tester.tap(find.byIcon(Icons.expand_more));
+    await tester.pump();
+    await _settleFirestore(tester);
+    expect(find.byType(AttendanceToggle), findsNothing);
   });
 }

@@ -390,12 +390,14 @@ class _CourseCardState extends State<CourseCard> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Su mobile titolo e pill non stanno sempre in una riga: il
+                // titolo si accorcia e le pill vanno a capo (Wrap a destra),
+                // invece di far traboccare la riga e tagliare il "+".
                 Flexible(
+                  flex: 2,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Flexible: su mobile, con la pill "Presenti N" accanto
-                      // a quella dei posti, il titolo deve potersi accorciare.
                       Flexible(
                         child: Text(
                           'Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):',
@@ -418,39 +420,43 @@ class _CourseCardState extends State<CourseCard> {
                   ),
                 ),
                 // Icona + per aggiungere iscritti (solo per Admin)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (_presentCount() != null) ...[
-                      _presentCountPill(_presentCount()!),
-                      const SizedBox(width: 4),
+                Flexible(
+                  flex: 3,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    children: [
+                      if (_presentCount() != null)
+                        _presentCountPill(_presentCount()!),
+                      if (widget.capacity != null && widget.capacity! > 0)
+                        _capacityPill(
+                          widget.subscribersUsers!.length,
+                          widget.capacity!,
+                        ),
+                      if (widget.isAdmin)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.add,
+                            color: onPrimaryColor,
+                            size: 20,
+                          ),
+                          onPressed: () => _showAddSubscriberDialog(context),
+                          tooltip: 'Aggiungi iscritto',
+                        ),
+                      if (widget.userRole == 'Admin' &&
+                          _hasEnrollmentMismatch())
+                        IconButton(
+                          icon: const Icon(
+                            Icons.sync_problem,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          onPressed: () => _showCorrectCountDialog(context),
+                          tooltip: 'Correggi conteggio iscritti',
+                        ),
                     ],
-                    if (widget.capacity != null && widget.capacity! > 0)
-                      _capacityPill(
-                        widget.subscribersUsers!.length,
-                        widget.capacity!,
-                      ),
-                    if (widget.isAdmin)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.add,
-                          color: onPrimaryColor,
-                          size: 20,
-                        ),
-                        onPressed: () => _showAddSubscriberDialog(context),
-                        tooltip: 'Aggiungi iscritto',
-                      ),
-                    if (widget.userRole == 'Admin' && _hasEnrollmentMismatch())
-                      IconButton(
-                        icon: const Icon(
-                          Icons.sync_problem,
-                          color: Colors.red,
-                          size: 20,
-                        ),
-                        onPressed: () => _showCorrectCountDialog(context),
-                        tooltip: 'Correggi conteggio iscritti',
-                      ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -597,7 +603,11 @@ class _CourseCardState extends State<CourseCard> {
         .join();
     return Container(
       key: Key('appello-row-${user.uid}'),
-      height: 52,
+      // Minimo e non fisso: a testo normale nome + didascalia stanno nei 52
+      // px (la didascalia che arriva col caricamento non sposta la riga), con
+      // il testo ingrandito dall'accessibilità la riga cresce invece di
+      // tagliare.
+      constraints: const BoxConstraints(minHeight: 52),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: Colors.black12)),
       ),
@@ -643,7 +653,9 @@ class _CourseCardState extends State<CourseCard> {
                         'check-in del socio',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                        // black87: il pannello è bianco al 70% sopra una foto
+                        // scura, black54 scendeva sotto il 4.5:1.
+                        style: TextStyle(fontSize: 12, color: Colors.black87),
                       ),
                   ],
                 ),
@@ -653,6 +665,8 @@ class _CourseCardState extends State<CourseCard> {
           const SizedBox(width: 6),
           AttendanceToggle(
             record: record,
+            semanticsLabel: '${getDisplayName(user)}: '
+                '${present ? 'presente' : record != null ? 'assente' : 'non segnato'}',
             // Record non ancora caricati: spunta già al suo posto ma in
             // attesa, così la riga non cambia altezza.
             pending: widget.attendanceRecords == null ||
@@ -966,20 +980,35 @@ class _CourseCardState extends State<CourseCard> {
     return widget.course.attendance?.presentCount;
   }
 
+  /// Pill compatta "✓ N": nell'header convive con quella dei posti e col
+  /// "+", e su un telefono da 360 px "Presenti N" per esteso non ci stava.
+  /// Il testo completo resta nell'etichetta accessibile e nel riepilogo
+  /// "Appello" della lista aperta.
   Widget _presentCountPill(int count) {
-    return Container(
-      key: const Key('present-count-pill'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: SelfCheckInButton.presentColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        'Presenti $count',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+    return Semantics(
+      label: 'Presenti $count',
+      excludeSemantics: true,
+      child: Container(
+        key: const Key('present-count-pill'),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: SelfCheckInButton.presentColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.how_to_reg, size: 13, color: Colors.white),
+            const SizedBox(width: 3),
+            Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
