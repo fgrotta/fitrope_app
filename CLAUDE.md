@@ -232,6 +232,8 @@ Wiki in-app per lo staff (icona "Guida", solo Admin, route `/guida`): testi in
   (serve click + `keyboard.type`); il testo fuso in un gruppo sta nell'`aria-label`; la
   barra della simulazione non ha semantica (anche per i lettori di schermo). Le trappole
   sono documentate e già gestite in `tool/guida/lib/helpers.mjs`.
+  Un `Semantics(button: true, toggled: …)` (la spunta dell'appello) ha ruolo **`switch`**,
+  non `button`: si cerca con `getByRole('switch', { name })`.
 
 ## Aree sensibili
 
