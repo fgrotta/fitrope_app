@@ -54,61 +54,67 @@ class SubscriptionPlans {
     grantedCourseTypeTags: {CourseTags.OPEN},
   );
 
-  static List<SubscriptionPlan> get all => [trial, ...open, ...pt];
+  // Liste costruite UNA volta: `SubscriptionPlan` non ridefinisce `==`, e le
+  // tendine (`DropdownButtonFormField<SubscriptionPlan>`) ritrovano il valore
+  // scelto per identità. Con un getter che ricrea i piani a ogni build il
+  // valore non corrisponde più a nessuna voce: in debug è un'assert, in
+  // release il campo resta vuoto.
+  static final List<SubscriptionPlan> all =
+      List.unmodifiable([trial, ...open, ...pt]);
 
-  static List<SubscriptionPlan> get open => [
-        for (final d in durations) ...[
-          SubscriptionPlan(
-            key: 'open_2x_${d}m',
-            displayName: 'Open 2 volte/sett · ${_durLabel(d)}',
-            family: SubscriptionFamily.OPEN,
-            billingMode: BillingMode.FREQUENCY,
-            weeklyFrequency: 2,
-            durationMonths: d,
-            grantedCourseTypeTags: const {CourseTags.OPEN},
-          ),
-          SubscriptionPlan(
-            key: 'open_3x_${d}m',
-            displayName: 'Open 3 volte/sett · ${_durLabel(d)}',
-            family: SubscriptionFamily.OPEN,
-            billingMode: BillingMode.FREQUENCY,
-            weeklyFrequency: 3,
-            durationMonths: d,
-            grantedCourseTypeTags: const {CourseTags.OPEN},
-          ),
-          SubscriptionPlan(
-            key: 'open_unlim_${d}m',
-            displayName: 'Open illimitato · ${_durLabel(d)}',
-            family: SubscriptionFamily.OPEN,
-            billingMode: BillingMode.FREQUENCY,
-            weeklyFrequency: null,
-            durationMonths: d,
-            grantedCourseTypeTags: const {CourseTags.OPEN},
-          ),
-          SubscriptionPlan(
-            key: 'open_${entriesPerPackage}i_${d}m',
-            displayName: 'Open $entriesPerPackage ingressi · ${_durLabel(d)}',
-            family: SubscriptionFamily.OPEN,
-            billingMode: BillingMode.ENTRIES,
-            entries: entriesPerPackage,
-            durationMonths: d,
-            grantedCourseTypeTags: const {CourseTags.OPEN},
-          ),
-        ],
-      ];
+  static final List<SubscriptionPlan> open = List.unmodifiable([
+    for (final d in durations) ...[
+      SubscriptionPlan(
+        key: 'open_2x_${d}m',
+        displayName: 'Open 2 volte/sett · ${_durLabel(d)}',
+        family: SubscriptionFamily.OPEN,
+        billingMode: BillingMode.FREQUENCY,
+        weeklyFrequency: 2,
+        durationMonths: d,
+        grantedCourseTypeTags: const {CourseTags.OPEN},
+      ),
+      SubscriptionPlan(
+        key: 'open_3x_${d}m',
+        displayName: 'Open 3 volte/sett · ${_durLabel(d)}',
+        family: SubscriptionFamily.OPEN,
+        billingMode: BillingMode.FREQUENCY,
+        weeklyFrequency: 3,
+        durationMonths: d,
+        grantedCourseTypeTags: const {CourseTags.OPEN},
+      ),
+      SubscriptionPlan(
+        key: 'open_unlim_${d}m',
+        displayName: 'Open illimitato · ${_durLabel(d)}',
+        family: SubscriptionFamily.OPEN,
+        billingMode: BillingMode.FREQUENCY,
+        weeklyFrequency: null,
+        durationMonths: d,
+        grantedCourseTypeTags: const {CourseTags.OPEN},
+      ),
+      SubscriptionPlan(
+        key: 'open_${entriesPerPackage}i_${d}m',
+        displayName: 'Open $entriesPerPackage ingressi · ${_durLabel(d)}',
+        family: SubscriptionFamily.OPEN,
+        billingMode: BillingMode.ENTRIES,
+        entries: entriesPerPackage,
+        durationMonths: d,
+        grantedCourseTypeTags: const {CourseTags.OPEN},
+      ),
+    ],
+  ]);
 
-  static List<SubscriptionPlan> get pt => [
-        for (final d in durations)
-          SubscriptionPlan(
-            key: 'pt_${entriesPerPackage}i_${d}m',
-            displayName: 'PT $entriesPerPackage ingressi · ${_durLabel(d)}',
-            family: SubscriptionFamily.PT,
-            billingMode: BillingMode.ENTRIES,
-            entries: entriesPerPackage,
-            durationMonths: d,
-            grantedCourseTypeTags: const {CourseTags.PERSONAL_TRAINER},
-          ),
-      ];
+  static final List<SubscriptionPlan> pt = List.unmodifiable([
+    for (final d in durations)
+      SubscriptionPlan(
+        key: 'pt_${entriesPerPackage}i_${d}m',
+        displayName: 'PT $entriesPerPackage ingressi · ${_durLabel(d)}',
+        family: SubscriptionFamily.PT,
+        billingMode: BillingMode.ENTRIES,
+        entries: entriesPerPackage,
+        durationMonths: d,
+        grantedCourseTypeTags: const {CourseTags.PERSONAL_TRAINER},
+      ),
+  ]);
 
   static SubscriptionPlan? byKey(String key) {
     for (final p in all) {

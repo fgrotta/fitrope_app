@@ -53,6 +53,10 @@ class CourseCard extends StatefulWidget {
   final bool
       showClickableSubscribers; // Se true, mostra la lista cliccabile invece del dialog
 
+  /// Ricalcolo server-side del contatore iscritti ("Correggi conteggio").
+  /// Iniettabile per i test: la callable vera passa da Firebase.
+  final Future<void> Function(String courseId) recountSubscribed;
+
   const CourseCard({
     required this.courseId,
     required this.course,
@@ -76,6 +80,7 @@ class CourseCard extends StatefulWidget {
     this.isAdmin = false,
     this.userRole,
     this.showClickableSubscribers = false,
+    this.recountSubscribed = recountCourseSubscribed,
   });
 
   @override
@@ -243,7 +248,7 @@ class _CourseCardState extends State<CourseCard> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: backgroundColor,
           title: const Text('Correggi Conteggio Iscritti'),
@@ -286,14 +291,20 @@ class _CourseCardState extends State<CourseCard> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text(
                 'Annulla',
                 style: TextStyle(color: onPrimaryColor),
               ),
             ),
             ElevatedButton(
-              onPressed: () => _correctSubscribedCount(context),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                // Il context della CARD, non quello del dialog: dopo il pop
+                // il dialog viene smontato prima che la callable risponda, e
+                // con il suo context refresh e conferma non partirebbero.
+                _correctSubscribedCount(context);
+              },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child: const Text(
                 'Correggi',
@@ -309,9 +320,7 @@ class _CourseCardState extends State<CourseCard> {
   // Corregge il conteggio degli iscritti nel database
   Future<void> _correctSubscribedCount(BuildContext context) async {
     try {
-      Navigator.pop(context); // Chiudi il dialog
-
-      await recountCourseSubscribed(widget.courseId);
+      await widget.recountSubscribed(widget.courseId);
       if (!mounted || !context.mounted) return;
       widget.onRefresh();
 
