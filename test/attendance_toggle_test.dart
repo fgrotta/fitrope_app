@@ -16,20 +16,21 @@ Future<void> _pump(WidgetTester tester, Widget child) =>
     tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child: child))));
 
 void main() {
-  testWidgets('senza record: non selezionato; il tocco chiede presente',
+  testWidgets(
+      'non segnato: "Presente" con cerchio vuoto; il tocco segna presente',
       (tester) async {
     bool? asked;
     await _pump(
       tester,
       AttendanceToggle(record: null, onChanged: (v) => asked = v),
     );
-    final chip = tester.widget<FilterChip>(find.byType(FilterChip));
-    expect(chip.selected, isFalse);
-    await tester.tap(find.text('Presente'));
+    expect(find.text('Presente'), findsOneWidget);
+    expect(find.byIcon(Icons.radio_button_unchecked), findsOneWidget);
+    await tester.tap(find.byType(AttendanceToggle));
     expect(asked, isTrue);
   });
 
-  testWidgets('presente: selezionato; il tocco chiede assente', (tester) async {
+  testWidgets('presente: check verde; il tocco segna assente', (tester) async {
     bool? asked;
     await _pump(
       tester,
@@ -38,10 +39,26 @@ void main() {
         onChanged: (v) => asked = v,
       ),
     );
-    expect(tester.widget<FilterChip>(find.byType(FilterChip)).selected, isTrue);
-    await tester.tap(find.text('Presente'));
+    expect(find.text('Presente'), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    await tester.tap(find.byType(AttendanceToggle));
     expect(asked, isFalse);
-    expect(find.text('dichiarata dal socio'), findsNothing);
+  });
+
+  testWidgets('assente registrato: "Assente", distinto dal non segnato',
+      (tester) async {
+    bool? asked;
+    await _pump(
+      tester,
+      AttendanceToggle(
+        record: _rec(false, AttendanceSource.trainer),
+        onChanged: (v) => asked = v,
+      ),
+    );
+    expect(find.text('Assente'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    await tester.tap(find.byType(AttendanceToggle));
+    expect(asked, isTrue);
   });
 
   testWidgets('pending: spinner e tocco disabilitato', (tester) async {
@@ -51,14 +68,12 @@ void main() {
       AttendanceToggle(record: null, pending: true, onChanged: (_) => calls++),
     );
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(
-        tester.widget<FilterChip>(find.byType(FilterChip)).onSelected, isNull);
-    await tester.tap(find.text('Presente'));
+    await tester.tap(find.byType(AttendanceToggle));
     expect(calls, 0);
   });
 
-  testWidgets('check-in del socio: sotto-etichetta "dichiarata dal socio"',
-      (tester) async {
+  testWidgets('semantica: bottone con stato toggled', (tester) async {
+    final handle = tester.ensureSemantics();
     await _pump(
       tester,
       AttendanceToggle(
@@ -66,12 +81,34 @@ void main() {
         onChanged: (_) {},
       ),
     );
-    expect(find.text('dichiarata dal socio'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byType(AttendanceToggle)),
+      matchesSemantics(
+        isButton: true,
+        hasToggledState: true,
+        isToggled: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
+        label: 'Presente',
+      ),
+    );
+    handle.dispose();
   });
 
-  testWidgets('area di tocco almeno 48 px', (tester) async {
+  testWidgets('larghezza fissa tra gli stati e area di tocco ≥ 48 px',
+      (tester) async {
     await _pump(tester, AttendanceToggle(record: null, onChanged: (_) {}));
-    final size = tester.getSize(find.byType(FilterChip));
-    expect(size.height, greaterThanOrEqualTo(48));
+    final unmarked = tester.getSize(find.byType(AttendanceToggle));
+    await _pump(
+      tester,
+      AttendanceToggle(
+        record: _rec(false, AttendanceSource.admin),
+        onChanged: (_) {},
+      ),
+    );
+    final absent = tester.getSize(find.byType(AttendanceToggle));
+    expect(absent.width, unmarked.width);
+    expect(unmarked.height, greaterThanOrEqualTo(48));
   });
 }

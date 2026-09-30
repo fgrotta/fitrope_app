@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:fitrope_app/api/courses/get_attendance.dart';
+import 'package:fitrope_app/components/attendance_toggle.dart';
 import 'package:fitrope_app/components/course_preview_card.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
@@ -81,7 +82,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.expand_more));
     await tester.pump();
-    expect(find.byType(FilterChip), findsNothing); // fuori finestra
+    expect(find.byType(AttendanceToggle), findsNothing); // fuori finestra
 
     // Tempo reale oltre il confine, poi il Timer (orologio finto) scatta.
     await tester.runAsync(
@@ -90,7 +91,7 @@ void main() {
     await tester.pump(const Duration(seconds: 10));
     await _settleFirestore(tester);
 
-    final chip = tester.widget<FilterChip>(find.byType(FilterChip));
-    expect(chip.onSelected, isNotNull, reason: 'chip ancora in attesa');
+    final chip = tester.widget<AttendanceToggle>(find.byType(AttendanceToggle));
+    expect(chip.pending, isFalse, reason: 'chip ancora in attesa');
   });
 }

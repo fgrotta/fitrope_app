@@ -8,6 +8,7 @@ import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/attendance_record.dart';
+import 'package:fitrope_app/components/attendance_toggle.dart';
 import 'package:fitrope_app/utils/attendance_window.dart';
 
 /// Primi widget test del progetto: rendering della CourseCard,
@@ -438,7 +439,8 @@ void main() {
       await tester.tap(find.byIcon(Icons.expand_more));
       await tester.pump();
       expect(find.text('Presenti 2'), findsOneWidget);
-      expect(find.byType(FilterChip), findsNothing);
+      expect(find.byType(AttendanceToggle), findsNothing);
+      expect(find.textContaining('Appello'), findsNothing);
     });
 
     testWidgets('onSubscribersExpanded solo all\'apertura', (tester) async {
@@ -470,12 +472,14 @@ void main() {
       );
       await tester.tap(find.byIcon(Icons.expand_more));
       await tester.pump();
-      final chips =
-          tester.widgetList<FilterChip>(find.byType(FilterChip)).toList();
+      final chips = tester
+          .widgetList<AttendanceToggle>(find.byType(AttendanceToggle))
+          .toList();
       expect(chips, hasLength(2));
-      expect(chips[0].selected, isTrue);
-      expect(chips[1].onSelected, isNull);
-      await tester.tap(find.byType(FilterChip).first);
+      expect(chips[0].record?.present, isTrue);
+      expect(chips[0].pending, isFalse);
+      expect(chips[1].pending, isTrue);
+      await tester.tap(find.byType(AttendanceToggle).first);
       expect(toggles, ['u1:false']);
     });
 
@@ -485,9 +489,84 @@ void main() {
       await tester.tap(find.byIcon(Icons.expand_more));
       await tester.pump();
       expect(
-        tester.widget<FilterChip>(find.byType(FilterChip)).onSelected,
-        isNull,
+        tester.widget<AttendanceToggle>(find.byType(AttendanceToggle)).pending,
+        isTrue,
       );
+      expect(find.text('Caricamento presenze…'), findsOneWidget);
+    });
+
+    testWidgets(
+        'riepilogo appello: presenti su iscritti, solo iscritti attuali',
+        (tester) async {
+      await _pump(
+        tester,
+        staffCard(
+          subscribers: [_user(1), _user(2)],
+          // u9 era presente ma non è più iscritto: non conta.
+          records: {'u1': rec('u1', true), 'u9': rec('u9', true)},
+        ),
+      );
+      expect(find.text('Presenti 1'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(find.text('Appello'), findsOneWidget);
+      expect(find.text('1 su 2 presenti'), findsOneWidget);
+    });
+
+    testWidgets(
+        'check-in del socio: didascalia sotto il nome, riga ad altezza fissa',
+        (tester) async {
+      AttendanceRecord self(String uid) => AttendanceRecord(
+            courseId: 'c1',
+            userId: uid,
+            courseStartMillis: 0,
+            present: true,
+            source: AttendanceSource.self,
+          );
+      await _pump(
+        tester,
+        staffCard(subscribers: [_user(1), _user(2)], records: null),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      final before = tester.getSize(find.byKey(const Key('appello-row-u1')));
+
+      await _pump(
+        tester,
+        staffCard(
+          subscribers: [_user(1), _user(2)],
+          records: {'u1': self('u1')},
+        ),
+      );
+      await tester.pump();
+      expect(find.text('check-in del socio'), findsOneWidget);
+      final after = tester.getSize(find.byKey(const Key('appello-row-u1')));
+      expect(after.height, before.height);
+    });
+
+    // 400 px con il font di test (Ahem, glifi ~2x più larghi di Roboto) è
+    // più severo di un telefono reale da 360 px; il 360 reale è verificato
+    // nel browser.
+    testWidgets('mobile: nessun overflow con nomi lunghi', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final longName = FitropeUser(
+        uid: 'u1',
+        name: 'Massimiliano Alessandro',
+        lastName: 'Della Rosa Bonaventura',
+        email: 'u1@example.com',
+        courses: const [],
+        role: 'User',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      await _pump(
+        tester,
+        staffCard(subscribers: [longName], records: {'u1': rec('u1', true)}),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
     });
   });
 }
