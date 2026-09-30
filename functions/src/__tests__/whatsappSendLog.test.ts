@@ -1,8 +1,11 @@
 import { Timestamp } from "firebase-admin/firestore";
 import {
   DEMO_LOG_COLLECTION,
+  applyDeliveryStatus,
   claimSend,
   demoLogDocId,
+  findByMessageId,
+  shouldApplyDeliveryStatus,
   markSendOutcome,
   wasNotifiedToday,
 } from "../whatsapp/sendLog";
@@ -183,5 +186,85 @@ describe("wasNotifiedToday", () => {
     });
     await expect(wasNotifiedToday(fake.db, "u1", "c1", NOW)).resolves.toBe(false);
     expect(fake.ops).toEqual([`get ${DEMO_LOG_COLLECTION}/${KEY}`]);
+  });
+});
+
+describe("shouldApplyDeliveryStatus", () => {
+  test.each([
+    [undefined, "sent", true],
+    [undefined, "delivered", true],
+    [undefined, "failed", true],
+    ["sent", "delivered", true],
+    ["sent", "read", true],
+    ["delivered", "read", true],
+    ["sent", "failed", true],
+    ["sent", "sent", false],
+    ["delivered", "sent", false],
+    ["read", "delivered", false],
+    ["delivered", "failed", false],
+    ["read", "failed", false],
+    ["failed", "delivered", false],
+    ["failed", "failed", false],
+  ] as const)("%s → %s: %s", (current, next, expected) => {
+    expect(shouldApplyDeliveryStatus(current, next)).toBe(expected);
+  });
+});
+
+describe("findByMessageId / applyDeliveryStatus", () => {
+  const T1 = NOW + 5_000;
+  const withSent = () =>
+    makeWhatsappDb({
+      [DEMO_LOG_COLLECTION]: {
+        reminder_u1_c1: { kind: "reminder", ok: true, outcome: "sent", messageId: "wamid.A" },
+        reminder_u2_c1: { kind: "reminder", ok: true, outcome: "sent", messageId: "wamid.B" },
+      },
+    });
+
+  test("trova il documento dal wamid con un filtro a campo singolo", async () => {
+    const fake = withSent();
+    await expect(findByMessageId(fake.db, "wamid.B")).resolves.toBe("reminder_u2_c1");
+    await expect(findByMessageId(fake.db, "wamid.Z")).resolves.toBeNull();
+    expect(fake.whereCalls.every((call) => call.field === "messageId" && call.op === "==")).toBe(true);
+  });
+
+  test("scrive stato e istante di consegna", async () => {
+    const fake = withSent();
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1)).resolves.toBe("applied");
+    const doc = logDoc(fake, "reminder_u1_c1");
+    expect(doc).toMatchObject({ deliveryStatus: "delivered", outcome: "sent", ok: true });
+    expect((doc?.deliveryUpdatedAt as Timestamp).toMillis()).toBe(T1);
+  });
+
+  test("fuori ordine: read poi delivered lascia read", async () => {
+    const fake = withSent();
+    await applyDeliveryStatus(fake.db, "wamid.A", "read", T1 + 1000);
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1)).resolves.toBe("stale");
+    expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({ deliveryStatus: "read" });
+  });
+
+  test("duplicato: no-op", async () => {
+    const fake = withSent();
+    await applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1);
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1 + 1)).resolves.toBe("stale");
+    expect((logDoc(fake, "reminder_u1_c1")?.deliveryUpdatedAt as Timestamp).toMillis()).toBe(T1);
+  });
+
+  test("failed registra codice e titolo ed è terminale", async () => {
+    const fake = withSent();
+    await applyDeliveryStatus(fake.db, "wamid.A", "failed", T1, {
+      code: 131026,
+      title: "Message undeliverable",
+    });
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "read", T1 + 1)).resolves.toBe("stale");
+    expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({
+      deliveryStatus: "failed",
+      deliveryError: { code: 131026, title: "Message undeliverable" },
+    });
+  });
+
+  test("wamid sconosciuto: not_found, nessuna scrittura", async () => {
+    const fake = withSent();
+    await expect(applyDeliveryStatus(fake.db, "wamid.Z", "delivered", T1)).resolves.toBe("not_found");
+    expect(fake.ops.some((op) => op.startsWith("update"))).toBe(false);
   });
 });

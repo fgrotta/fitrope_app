@@ -209,6 +209,15 @@ describe("gate WHATSAPP_DEMO_MODE (export condizionale in index.ts)", () => {
     expect(secretKeys(mod.subscribeToCourse)).toEqual(["ONESIGNAL_REST_API_KEY"]);
   });
 
+  test("test + meta: webhook di stato con app secret e verify token, in europe-west8", () => {
+    process.env.WHATSAPP_DEMO_MODE = "test";
+    useMeta();
+    const mod = loadIndex();
+    expect(secretKeys(mod.whatsappStatusWebhook)).toEqual(["META_APP_SECRET", "META_WA_VERIFY_TOKEN"]);
+    const endpoint = (mod.whatsappStatusWebhook as { __endpoint?: Record<string, unknown> }).__endpoint;
+    expect(endpoint).toMatchObject({ region: ["europe-west8"], httpsTrigger: {} });
+  });
+
   test("live + meta senza template di conferma: cron col token, subscribeToCourse senza", () => {
     process.env.WHATSAPP_DEMO_MODE = "live";
     useMeta();

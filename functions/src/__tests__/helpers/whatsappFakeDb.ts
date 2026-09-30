@@ -1,8 +1,9 @@
 // Fake Firestore in memoria per i test WhatsApp (functions/src/whatsapp/).
 //
-// Supporta quello che usano registro invii, conferma, cron e callable di prova:
-// `collection().doc()` con create/get/update, e query con `where` (==, >=, <=,
-// array-contains-any), `limit` e `get`. Le scritture si applicano allo `store`
+// Supporta quello che usano registro invii, conferma, cron, callable di prova e
+// webhook di stato: `collection().doc()` con create/get/update, query con
+// `where` (==, >=, <=, array-contains-any), `limit` e `get`, e `runTransaction`
+// con get/update (seriale: le update si applicano a fine callback). Le scritture si applicano allo `store`
 // passato, senza copiarlo: un test di ripresa passa lo stesso store a un secondo
 // fake e vede lo stato lasciato dal primo run.
 //
@@ -126,7 +127,27 @@ export function makeWhatsappDb(store: Store = {}, opts: WhatsappFakeDbOptions = 
     },
   });
 
-  const db = { collection: (name: string) => query(name, [], null) };
+  interface RefLike {
+    get: () => Promise<unknown>;
+    update: (patch: Data) => Promise<void>;
+  }
+
+  const db = {
+    collection: (name: string) => query(name, [], null),
+    runTransaction: async <T>(
+      fn: (tx: { get: (ref: RefLike) => Promise<unknown>; update: (ref: RefLike, patch: Data) => void }) => Promise<T>
+    ): Promise<T> => {
+      const pending: Array<() => Promise<void>> = [];
+      const result = await fn({
+        get: (ref) => ref.get(),
+        update: (ref, patch) => {
+          pending.push(() => ref.update(patch));
+        },
+      });
+      for (const write of pending) await write();
+      return result;
+    },
+  };
 
   // `as never`: il fake copre solo la parte di Firestore che usano i moduli WhatsApp.
   return { db: db as never, store, whereCalls, ops };

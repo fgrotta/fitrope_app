@@ -12,6 +12,11 @@
 //              WhatsApp Manager (senza wamid il webhook di stato non riconcilia).
 // Solo `ok: true` prova l'invio. Il documento contiene solo identificativi,
 // istante ed esito: niente telefono, email, URL o chiave.
+//
+// Con Meta, il webhook di stato (statusWebhook.ts) aggiunge poi l'esito di
+// CONSEGNA, ritrovando il documento dal wamid (`messageId`): `deliveryStatus`
+// sent < delivered < read, oppure failed con `deliveryError`. È solo
+// informativo: claim e soppressioni continuano a guardare `ok`.
 
 import { logger } from "firebase-functions";
 import { Timestamp } from "firebase-admin/firestore";
@@ -142,4 +147,75 @@ export async function wasNotifiedToday(
   if (data?.ok !== true) return false;
   const sentAt = toMillisOrNull(data.sentAt);
   return sentAt !== null && isSameRomeDay(sentAt, noticeDayMillis);
+}
+
+// ──────────────────────────────────────────────
+//  Esiti di consegna (webhook di stato Meta)
+// ──────────────────────────────────────────────
+
+export type DeliveryStatus = "sent" | "delivered" | "read" | "failed";
+
+const DELIVERY_RANK: Record<Exclude<DeliveryStatus, "failed">, number> = {
+  sent: 1,
+  delivered: 2,
+  read: 3,
+};
+
+export function isDeliveryStatus(value: unknown): value is DeliveryStatus {
+  return value === "sent" || value === "delivered" || value === "read" || value === "failed";
+}
+
+/**
+ * I callback arrivano duplicati e fuori ordine: lo stato avanza solo di rango.
+ * `failed` è terminale, ma non smentisce una consegna già confermata
+ * (delivered/read provano che il messaggio è arrivato).
+ */
+export function shouldApplyDeliveryStatus(
+  current: DeliveryStatus | undefined,
+  next: DeliveryStatus
+): boolean {
+  if (current === "failed") return false;
+  if (next === "failed") return current === undefined || current === "sent";
+  return DELIVERY_RANK[next] > (current === undefined ? 0 : DELIVERY_RANK[current]);
+}
+
+/** Id del documento con questo wamid. Filtro a campo singolo: indice automatico. */
+export async function findByMessageId(db: Firestore, messageId: string): Promise<string | null> {
+  const snap = await db.collection(DEMO_LOG_COLLECTION).where("messageId", "==", messageId).limit(1).get();
+  return snap.docs[0]?.id ?? null;
+}
+
+export type DeliveryApplyResult = "applied" | "stale" | "not_found";
+
+/** Rilancia gli errori Firestore: il webhook li logga e risponde 200 comunque. */
+export async function applyDeliveryStatus(
+  db: Firestore,
+  messageId: string,
+  status: DeliveryStatus,
+  timestampMillis: number,
+  error?: { code?: number; title?: string }
+): Promise<DeliveryApplyResult> {
+  const docId = await findByMessageId(db, messageId);
+  if (docId === null) return "not_found";
+
+  const ref = db.collection(DEMO_LOG_COLLECTION).doc(docId);
+  return db.runTransaction(async (tx) => {
+    const current = (await tx.get(ref)).data()?.deliveryStatus;
+    if (!shouldApplyDeliveryStatus(isDeliveryStatus(current) ? current : undefined, status)) {
+      return "stale";
+    }
+    tx.update(ref, {
+      deliveryStatus: status,
+      deliveryUpdatedAt: Timestamp.fromMillis(timestampMillis),
+      ...(status === "failed" && error
+        ? {
+            deliveryError: {
+              ...(typeof error.code === "number" ? { code: error.code } : {}),
+              ...(typeof error.title === "string" ? { title: error.title } : {}),
+            },
+          }
+        : {}),
+    });
+    return "applied";
+  });
 }

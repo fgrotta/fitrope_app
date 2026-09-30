@@ -65,6 +65,7 @@ import { WhatsappTransport } from "./whatsapp/transport";
 import { WhatsappDeps, notifyDemoLessonBooked } from "./whatsapp/demoLesson";
 import { runDemoLessonReminders } from "./whatsapp/reminders";
 import { sendTestDemoLessonWebhookHandler } from "./whatsapp/testWebhook";
+import { handleStatusWebhook } from "./whatsapp/statusWebhook";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -107,6 +108,13 @@ const makeSecret =
     : null;
 const metaAccessToken =
   whatsappTransportKind === "meta" ? defineSecret("META_WA_ACCESS_TOKEN") : null;
+const metaWebhookSecret =
+  whatsappTransportKind === "meta"
+    ? {
+        appSecret: defineSecret("META_APP_SECRET"),
+        verifyToken: defineSecret("META_WA_VERIFY_TOKEN"),
+      }
+    : null;
 const whatsappSendSecrets = makeSecret
   ? [makeSecret.url, makeSecret.key]
   : metaAccessToken
@@ -693,3 +701,36 @@ export const sendDemoLessonWhatsappReminders =
         },
       )
     : undefined;
+
+/**
+ * Webhook di stato della Cloud API Meta: verifica GET dell'URL e stati di
+ * consegna (sent/delivered/read/failed) riconciliati sul registro invii.
+ * Esiste solo con WHATSAPP_TRANSPORT=meta e WHATSAPP_DEMO_MODE=test|live.
+ * Pubblico per necessità (lo chiama Meta): la protezione è la firma HMAC.
+ * L'URL va configurato in Meta DOPO il deploy: Meta fa il GET di verifica al
+ * salvataggio.
+ */
+export const whatsappStatusWebhook = metaWebhookSecret
+  ? onRequest(
+      {
+        region: "europe-west8",
+        secrets: [metaWebhookSecret.appSecret, metaWebhookSecret.verifyToken],
+      },
+      async (req, res) => {
+        const result = await handleStatusWebhook(
+          {
+            method: req.method,
+            query: req.query as Record<string, unknown>,
+            headers: req.headers,
+            rawBody: req.rawBody,
+          },
+          {
+            db: admin.firestore(),
+            appSecret: metaWebhookSecret.appSecret.value(),
+            verifyToken: metaWebhookSecret.verifyToken.value(),
+          },
+        );
+        res.status(result.status).type("text/plain").send(result.body);
+      },
+    )
+  : undefined;
