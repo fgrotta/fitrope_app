@@ -32,6 +32,7 @@ dependencies:
   web: ^1.1.1
   flutter_localizations:
     sdk: flutter
+  flutter_markdown_plus: ^1.0.12
 
 dev_dependencies:
   flutter_test:
@@ -53,6 +54,21 @@ flutter:
     - assets/new_logo_only.png
     - assets/new_logo.png
     - assets/course_images/
+    # Guida Admin: Markdown + immagini generate da scripts/guida_screenshots.sh.
+    # Flutter non include le sottocartelle da sole: una riga per guida (lo
+    # verifica test/guide_catalog_test.dart). Su web si scaricano on-demand.
+    - assets/guida/
+    - assets/guida/img/registrazione-utente/
+    - assets/guida/img/gestione-utente/
+    - assets/guida/img/simula-utente/
+    - assets/guida/img/abbonamenti/
+    - assets/guida/img/pacchetti-ingressi/
+    - assets/guida/img/migrazione-utente-legacy/
+    - assets/guida/img/corsi/
+    - assets/guida/img/iscrivere-socio-a-corso/
+    - assets/guida/img/correggi-conteggio/
+    - assets/guida/img/home-e-dashboard/
+    - assets/guida/img/problemi-app/
 
 flutter_launcher_icons:
   android: "launcher_icon"

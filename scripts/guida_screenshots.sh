@@ -86,6 +86,7 @@ EOF
   PATH="$JAVA_BIN:$PATH" nohup firebase emulators:start --config "$CONFIG" \
     --only auth,firestore,functions --project "$PROJECT" \
     > "$LOG_DIR/emulatore.log" 2>&1 < /dev/null &
+  disown
   until grep -qE "All emulators ready|Error:" "$LOG_DIR/emulatore.log"; do sleep 2; done
   grep -q "All emulators ready" "$LOG_DIR/emulatore.log" \
     || { tail -20 "$LOG_DIR/emulatore.log"; exit 1; }
@@ -113,6 +114,7 @@ sleep 1
 STARTED_HTTP=1
 nohup python3 scripts/dev_server.py "$HTTP_PORT" "$BUILD_DIR" \
   > "$LOG_DIR/http.log" 2>&1 < /dev/null &
+disown
 sleep 2
 curl -sf -o /dev/null "http://localhost:$HTTP_PORT/index.html" \
   || { echo "Il server non risponde su :$HTTP_PORT"; exit 1; }

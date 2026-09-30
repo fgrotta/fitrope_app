@@ -9,6 +9,7 @@ import 'package:fitrope_app/pages/protected/user_detail_page.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
+import 'package:fitrope_app/router.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
 import 'package:fitrope_app/types/user_subscription.dart';
@@ -1621,7 +1622,18 @@ class _HomePageState extends State<HomePage> {
               ),
               if (isDesktop(context))
                 const SizedBox(width: 30)
-              else
+              else ...[
+                // Su mobile non c'è il rail: l'accesso alla Guida Admin sta
+                // qui, accanto all'avatar. `user` è quello dello store,
+                // quindi in simulazione l'icona segue il socio simulato.
+                if (user.role == 'Admin')
+                  IconButton(
+                    icon: const Icon(Icons.help_outline,
+                        color: onSurfaceVariantColor),
+                    tooltip: 'Guida',
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(GUIDE_ROUTE),
+                  ),
                 GestureDetector(
                   child: CircleAvatar(
                     backgroundColor: const Color.fromARGB(255, 96, 119, 246),
@@ -1636,6 +1648,7 @@ class _HomePageState extends State<HomePage> {
                     );
                   },
                 ),
+              ],
             ],
           ),
 

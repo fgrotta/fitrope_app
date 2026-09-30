@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
+import { EmulatorFirestore } from './lib/firestore.mjs';
 import { Guide, HIDE_EMULATOR_BANNER, VIEWPORT } from './lib/helpers.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -108,7 +109,10 @@ async function capture(browser, id) {
   const guide = new Guide(page, { id, outDir, framesDir });
   try {
     await guide.open(APP_URL);
-    await scenario(guide, { url: APP_URL });
+    // `db` prepara i dati che il seed non copre; lo stato viene letto
+    // dall'app solo dopo il login, quindi le patch possono stare in testa
+    // allo scenario.
+    await scenario(guide, { url: APP_URL, db: new EmulatorFirestore(FIRESTORE_PORT) });
     if (leak) throw new Error(`L'app ha contattato la produzione: ${leak}`);
   } catch (error) {
     const failure = path.join(WORK, `${id}-errore.png`);

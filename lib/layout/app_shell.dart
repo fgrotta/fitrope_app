@@ -13,6 +13,10 @@ class AppShell extends StatelessWidget {
   final String? profileInitials;
   final VoidCallback? onProfileTap;
 
+  /// Apre la Guida Admin. L'icona compare solo con [isAdmin]: in simulazione
+  /// `isAdmin` segue l'utente simulato, quindi sparisce da sola.
+  final VoidCallback? onGuideTap;
+
   /// Desktop: la pagina occupa tutto lo spazio a destra del rail invece del
   /// contenuto centrato a [maxContentWidthFor]. Pensato per le tabelle larghe
   /// (pagina Utenti).
@@ -27,6 +31,7 @@ class AppShell extends StatelessWidget {
     this.onLogout,
     this.profileInitials,
     this.onProfileTap,
+    this.onGuideTap,
     this.fullWidth = false,
     required this.child,
   });
@@ -87,6 +92,15 @@ class AppShell extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (isAdmin && onGuideTap != null) ...[
+                        IconButton(
+                          icon: const Icon(Icons.help_outline,
+                              color: onSurfaceVariantColor),
+                          tooltip: 'Guida',
+                          onPressed: onGuideTap,
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                       if (onProfileTap != null &&
                           profileInitials != null &&
                           profileInitials!.isNotEmpty) ...[
