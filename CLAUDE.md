@@ -203,6 +203,33 @@ Lezioni dal lavoro di sviluppo UI (verifica delle modifiche nel browser):
   `appNavigatorKey`, non con `Navigator.of(context)`. Dettagli in `agents.md`.
 - **Pull request**: apri sempre le PR nel fork `fgrotta/fitrope_app` con base **`develop`**, mai verso l'upstream `dellarosamarco/fitrope_app` e mai con base `main`. Questo repo è un fork, quindi `gh pr create` di default punterebbe al parent: usa `gh pr create --repo fgrotta/fitrope_app --base develop`. `develop` è il branch di integrazione (deploy staging automatico a ogni merge, vedi sopra) ed è **molto avanti** rispetto a `main`: una PR con base `main` non mostra il tuo lavoro ma decine di commit già integrati, quindi è irreviewabile. Anche i branch di feature vanno allineati a `origin/develop`, non a `main`.
 
+## Guida Admin
+
+Wiki in-app per lo staff (icona "Guida", solo Admin, route `/guida`): testi in
+`assets/guida/<id>.md`, immagini generate in `assets/guida/img/<id>/`, catalogo in
+`lib/pages/protected/guide/guide_catalog.dart`, scenario di cattura in
+`tool/guida/scenarios/<id>.mjs`. **L'id tiene insieme i quattro pezzi**, e
+`test/guide_catalog_test.dart` lo verifica. Dettagli in `tool/guida/README.md`.
+
+- **Ogni PR che cambia una schermata, un'etichetta, un messaggio o una regola descritta in una
+  guida aggiorna il `.md` corrispondente e rilancia `./scripts/guida_screenshots.sh <id>`.**
+  Per trovare le guide coinvolte: `grep -rl "<etichetta>" assets/guida tool/guida/scenarios`.
+  Gli scenari usano le etichette come selettori: un'etichetta rinominata rompe lo scenario,
+  ed è il segnale che la guida va riletta.
+- Una funzione Admin nuova ha la sua guida (o una sezione di una esistente) più lo scenario.
+  Nuova guida = voce nel catalogo + `.md` + scenario + riga `- assets/guida/img/<id>/` in
+  `pubspec.yaml`.
+- Le immagini si generano **sempre dall'emulatore**, mai dalla produzione: negli screenshot
+  finiscono solo dati sintetici. Lo scenario fallisce se l'app contatta un host di produzione.
+- Lo script usa un emulatore **suo** su porte alte (29099/28080/25001, web su 5621) e
+  risemina a ogni scenario: non tocca l'emulatore condiviso sulle porte standard.
+- Testi in italiano, per staff non tecnico: passi numerati, etichette **copiate esatte dal
+  codice**, e nessun dettaglio implementativo (niente nomi di campi o collezioni).
+- Lezioni dalla cattura (Playwright + Flutter web): `fill()` non scrive nei campi Flutter
+  (serve click + `keyboard.type`); il testo fuso in un gruppo sta nell'`aria-label`; la
+  barra della simulazione non ha semantica (anche per i lettori di schermo). Le trappole
+  sono documentate e già gestite in `tool/guida/lib/helpers.mjs`.
+
 ## Aree sensibili
 
 La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la modifichi:
@@ -255,7 +282,7 @@ firebase functions:log --only sendDemoLessonWhatsappReminders --project prod
 ## Struttura rapida
 
 - Entry point: `lib/main.dart`
-- Route: `lib/router.dart` (7 route statiche + 1 debug-only)
+- Route: `lib/router.dart` (8 route statiche + 1 debug-only)
 - Stato: `lib/state/` (Redux con thunk)
 - Pagine: `lib/pages/welcome/` (auth) e `lib/pages/protected/` (area protetta)
 - API Firestore: `lib/api/` (authentication + courses)

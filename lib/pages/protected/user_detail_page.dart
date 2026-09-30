@@ -989,16 +989,19 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   IconButton(
                     icon: const Icon(Icons.edit),
                     onPressed: toggleEdit,
+                    tooltip: 'Modifica profilo',
                   ),
                 ],
                 if (isEditing) ...[
                   IconButton(
                     icon: const Icon(Icons.save),
                     onPressed: saveChanges,
+                    tooltip: 'Salva modifiche',
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: toggleEdit,
+                    tooltip: 'Annulla modifiche',
                   ),
                 ],
               ],

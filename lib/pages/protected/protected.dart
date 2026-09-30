@@ -244,6 +244,8 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                             );
                           }
                         : null,
+                    onGuideTap: () =>
+                        Navigator.of(context).pushNamed(GUIDE_ROUTE),
                     onLogout: () async {
                       if (SimulationGuard.blockIfSimulating(context)) return;
                       await signOut();

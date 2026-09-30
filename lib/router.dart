@@ -13,6 +13,8 @@ import 'package:fitrope_app/pages/protected/debug_email_page.dart'
     deferred as debug_email;
 import 'package:fitrope_app/pages/protected/recurring_course_page.dart'
     deferred as recurring_course;
+import 'package:fitrope_app/pages/protected/guide/guide_route.dart'
+    deferred as guide;
 import 'package:fitrope_app/pages/welcome/login_page.dart';
 import 'package:fitrope_app/pages/welcome/registration_page.dart';
 import 'package:fitrope_app/pages/welcome/welcome_page.dart';
@@ -30,6 +32,7 @@ const COURSE_MANAGEMENT_ROUTE = '/course-management';
 const RECURRING_COURSE_ROUTE = '/recurring-course';
 const SPLASH_ROUTE = '/splash';
 const DEBUG_EMAIL_ROUTE = '/debug-email';
+const GUIDE_ROUTE = '/guida';
 
 const INITIAL_ROUTE = SPLASH_ROUTE;
 
@@ -78,6 +81,21 @@ Map<String, Widget Function(BuildContext)> routes = {
         load: recurring_course.loadLibrary,
         builder: (_) => recurring_course.RecurringCoursePage(),
       )),
+  // Guida Admin. Argomento opzionale {'id': '<guida>'} per aprire una guida
+  // precisa invece dell'indice. Deferred: il Markdown e il renderer non
+  // entrano nel bundle iniziale.
+  GUIDE_ROUTE: (context) {
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    return Title(
+      color: Colors.black,
+      title: 'Fit House - Guida',
+      child: DeferredPage(
+        load: guide.loadLibrary,
+        builder: (_) => guide.buildGuideRoute(id: args?['id'] as String?),
+      ),
+    );
+  },
   if (kDebugMode)
     DEBUG_EMAIL_ROUTE: (context) => DeferredPage(
           load: debug_email.loadLibrary,

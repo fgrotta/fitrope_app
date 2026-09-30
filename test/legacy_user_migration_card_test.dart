@@ -1,4 +1,5 @@
 import 'package:fitrope_app/components/legacy_user_migration_card.dart';
+import 'package:fitrope_app/utils/subscription_plans.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -118,6 +119,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('legacy-migration-plan')), findsOneWidget);
     expect(find.text('Migra con piano scelto'), findsOneWidget);
+  });
+
+  testWidgets('il piano target scelto resta visibile nel campo',
+      (tester) async {
+    await tester.pumpWidget(
+      host(
+        LegacyUserMigrationCard(
+          userId: 'u1',
+          preview: (_) async => result('MANUAL_REQUIRED'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('legacy-migration-plan')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open 10 ingressi · 3 mesi').last);
+    await tester.pumpAndSettle();
+
+    // Il menu è chiuso: il testo che resta è quello del campo. Prima del fix
+    // il catalogo ricreava i piani a ogni build, il valore scelto non
+    // corrispondeva più a nessuna voce e il campo restava vuoto.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('legacy-migration-plan')),
+        matching: find.text('Open 10 ingressi · 3 mesi'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  test('il catalogo piani restituisce sempre le stesse istanze', () {
+    expect(SubscriptionPlans.all, orderedEquals(SubscriptionPlans.all));
+    expect(
+        identical(SubscriptionPlans.open.first, SubscriptionPlans.open.first),
+        isTrue);
   });
 
   testWidgets('MIGRATED e NOT_APPLICABLE non renderizzano la card',

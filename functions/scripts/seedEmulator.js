@@ -13,9 +13,22 @@
 // INCONDIZIONATO, prima di inizializzare l'Admin SDK → è strutturalmente
 // impossibile colpire produzione (un eventuale valore pre-esistente
 // nell'ambiente viene sovrascritto; per host non standard modificare qui).
+// Si possono cambiare solo le PORTE, come numeri e sempre su localhost:
+// `scripts/guida_screenshots.sh` usa un emulatore dedicato su porte alte.
 
-process.env.FIRESTORE_EMULATOR_HOST = "localhost:8080";
-process.env.FIREBASE_AUTH_EMULATOR_HOST = "localhost:9099";
+function emulatorPort(name, fallback) {
+  const value = process.env[name];
+  if (value === undefined || value === "") return fallback;
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`${name} deve essere un numero di porta, trovato "${value}"`);
+  }
+  return value;
+}
+
+process.env.FIRESTORE_EMULATOR_HOST =
+  `localhost:${emulatorPort("SEED_FIRESTORE_PORT", "8080")}`;
+process.env.FIREBASE_AUTH_EMULATOR_HOST =
+  `localhost:${emulatorPort("SEED_AUTH_PORT", "9099")}`;
 
 const admin = require("firebase-admin");
 const { Timestamp } = require("firebase-admin/firestore");

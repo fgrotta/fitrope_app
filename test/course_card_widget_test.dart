@@ -248,4 +248,45 @@ void main() {
       expect(esterno, 0);
     });
   });
+
+  testWidgets('Correggi conteggio: aggiorna la card e conferma',
+      (tester) async {
+    final recounted = <String>[];
+    var refreshed = 0;
+    await _pump(
+      tester,
+      CourseCard(
+        courseId: 'c1',
+        course: _course(capacity: 4, subscribed: 3),
+        title: 'Corso',
+        capacity: 4,
+        subscribed: 3, // il contatore dice 3...
+        subscribersUsers: [_user(1)], // ...ma l'iscritto vero è uno
+        waitlistUsers: const [],
+        showClickableSubscribers: true,
+        isAdmin: true,
+        userRole: 'Admin',
+        onRefresh: () => refreshed++,
+        // Lenta come la callable vera (~1 s dopo il cold start): il dialog
+        // ha già finito l'animazione di chiusura quando arriva la risposta.
+        recountSubscribed: (id) async {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          recounted.add(id);
+        },
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Correggi conteggio iscritti'));
+    await tester.pump();
+    await tester.tap(find.text('Correggi'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 1));
+
+    // Prima del fix il callback usava il context del dialog, già smontato
+    // dopo il pop: il server correggeva, ma la card restava com'era.
+    expect(recounted, ['c1']);
+    expect(refreshed, 1);
+    expect(find.text('Conteggio iscritti aggiornato con successo!'),
+        findsOneWidget);
+  });
 }

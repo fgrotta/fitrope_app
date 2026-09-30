@@ -384,12 +384,13 @@ Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layou
 | `PROTECTED_ROUTE` | `/protected` | Protected |
 | `COURSE_MANAGEMENT_ROUTE` | `/course-management` | CourseManagementPage |
 | `RECURRING_COURSE_ROUTE` | `/recurring-course` | RecurringCoursePage |
+| `GUIDE_ROUTE` | `/guida` | Guida Admin: indice, o la guida `{'id': …}` passata come argomento |
 | `DEBUG_EMAIL_ROUTE` | `/debug-email` | DebugEmailPage _(solo `kDebugMode`)_ |
 
 `CourseManagementPage` accetta argomenti: `courseToEdit`, `courseToDuplicate`, `mode`.
 
-**Deferred loading**: `Protected`, `CourseManagementPage`, `RecurringCoursePage` e
-`DebugEmailPage` sono importate con `deferred as` e wrappate in `DeferredPage(load: ...)`
+**Deferred loading**: `Protected`, `CourseManagementPage`, `RecurringCoursePage`, la Guida
+(`guide_route.dart`) e `DebugEmailPage` sono importate con `deferred as` e wrappate in `DeferredPage(load: ...)`
 (`lib/components/deferred_page.dart`), con preload avviato dallo splash: riducono il primo
 caricamento web. Se aggiungi una route "pesante", segui lo stesso pattern.
 
@@ -586,6 +587,23 @@ Ogni utente ha in Firestore `emailNotificationsEnabled` e `pushNotificationsEnab
 - `UserListDrawer`: drawer laterale con lista utenti ricercabile (nome, email, telefono), aperto dalla dashboard o dall'area admin. Per ogni utente una riga per abbonamento (piano + "Scade il"/"Scaduto il" gg/mm/aaaa, in `Wrap` così la data va a capo invece di troncare); "Nessun abbonamento attivo" se non ce ne sono
 
 La dashboard e visibile solo su desktop (`isDesktop(context)`). Il `Scaffold` in `protected.dart` gestisce l'`endDrawer` con la chiave globale `_scaffoldKey`.
+
+## Guida Admin
+
+Wiki in-app per lo staff, visibile **solo agli Admin**: icona `help_outline` "Guida" nel
+rail di `AppShell` (desktop, `onGuideTap` + `isAdmin`) e nell'header della Home (mobile).
+In simulazione entrambe seguono l'utente simulato, quindi spariscono da sole.
+
+- Catalogo: `lib/pages/protected/guide/guide_catalog.dart` (`GuideEntry` id/titolo/categoria/icona).
+- Testi: `assets/guida/<id>.md`, renderizzati da `GuidePage` con `flutter_markdown_plus`.
+  `![didascalia](img/<id>/NN-passo.png)` → `Image.asset` con zoom (`InteractiveViewer`),
+  anche WebP animati; `[testo](guida:<id>)` → link a un'altra guida.
+- Immagini: `assets/guida/img/<id>/`, **generate** da `scripts/guida_screenshots.sh`
+  (Playwright contro la build emulatore, scenario `tool/guida/scenarios/<id>.mjs`;
+  dettagli in `tool/guida/README.md`). Ogni cartella va dichiarata in `pubspec.yaml`.
+- `test/guide_catalog_test.dart` tiene allineati catalogo, `.md`, scenari, immagini e
+  `pubspec.yaml` (nessun riferimento rotto, nessuna immagine orfana).
+- Regola di aggiornamento: sezione "Guida Admin" di `CLAUDE.md`.
 
 ## Testing
 
