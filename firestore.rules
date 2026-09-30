@@ -191,9 +191,14 @@ service cloud.firestore {
       // Presenze effettive: scritte SOLO dalla callable setAttendance (e
       // cancellate da deleteCourse). Il socio legge le proprie (get per id
       // deterministico o list `where userId == me`); lo staff legge tutto,
-      // compreso `where courseId ==` per l'appello.
+      // compreso `where courseId ==` per l'appello. Prima del check-in il doc
+      // del socio non esiste (`resource == null`): il get è ammesso solo se
+      // l'id deterministico `{courseId}_{uid}` è il suo, così non può sondare
+      // l'esistenza dei doc altrui.
       allow read: if isSignedIn() &&
-        (resource.data.userId == request.auth.uid || isAdmin() || isTrainer());
+        ((resource == null && attendanceId.matches('.+_' + request.auth.uid))
+          || (resource != null && resource.data.userId == request.auth.uid)
+          || isAdmin() || isTrainer());
       allow create, update, delete: if false;
     }
 

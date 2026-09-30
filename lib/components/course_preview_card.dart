@@ -35,6 +35,9 @@ class CoursePreviewCard extends StatefulWidget {
   /// Appello dello staff; true se il server ha registrato il valore.
   final Future<bool> Function(String userId, bool present)? onToggleAttendance;
 
+  /// Solo per i test: istanza Firestore (default `FirebaseFirestore.instance`).
+  final FirebaseFirestore? firestore;
+
   const CoursePreviewCard({
     super.key,
     required this.course,
@@ -51,6 +54,7 @@ class CoursePreviewCard extends StatefulWidget {
     this.showDate = true,
     this.onSelfCheckIn,
     this.onToggleAttendance,
+    this.firestore,
   });
 
   @override
@@ -63,6 +67,15 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
   // ----- Presenze -----
   /// Appello (staff titolare): null finché la lista iscritti non viene aperta.
   Map<String, AttendanceRecord>? _attendance;
+
+  /// La lista iscritti è stata aperta: le presenze servono, anche se la
+  /// finestra staff si apre solo più tardi (al confine si caricano).
+  bool _attendanceWanted = false;
+  bool _attendanceLoading = false;
+
+  /// Caricamento fallito: le spunte spariscono (non si può fare l'appello
+  /// senza sapere chi è già segnato) finché la lista non viene riaperta.
+  bool _attendanceLoadFailed = false;
 
   /// Presenza del socio; letta solo da iscritto e a finestra self aperta.
   AttendanceRecord? _myAttendance;
@@ -112,6 +125,8 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
         oldWidget.currentUser.uid != widget.currentUser.uid) {
       // Altro corso o altra identità (simulazione): niente stato ereditato.
       _attendance = null;
+      _attendanceWanted = false;
+      _attendanceLoadFailed = false;
       _myAttendance = null;
       _myAttendanceRequested = false;
       _pendingAttendanceUids.clear();
@@ -121,6 +136,7 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
       _scheduleAttendanceBoundary();
     }
     _maybeLoadMyAttendance();
+    _loadPendingCourseAttendance();
   }
 
   bool get _isStaff =>
@@ -158,6 +174,7 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
       if (!mounted) return;
       setState(() {});
       _maybeLoadMyAttendance();
+      _loadPendingCourseAttendance();
       _scheduleAttendanceBoundary();
     });
   }
@@ -173,7 +190,8 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
     _myAttendanceRequested = true;
     final courseId = widget.course.uid;
     final uid = widget.currentUser.uid;
-    getMyAttendance(courseId, uid, force: force).then((record) {
+    getMyAttendance(courseId, uid, force: force, firestore: widget.firestore)
+        .then((record) {
       if (!mounted ||
           widget.course.uid != courseId ||
           widget.currentUser.uid != uid) {
@@ -185,15 +203,33 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
     });
   }
 
+  void _onSubscribersExpanded() {
+    _attendanceWanted = true;
+    if (_attendanceLoadFailed) setState(() => _attendanceLoadFailed = false);
+    _loadCourseAttendance();
+  }
+
+  /// Lista aperta ma presenze mai arrivate (es. aperta prima di -30'): le
+  /// carica appena la finestra staff lo consente.
+  void _loadPendingCourseAttendance() {
+    if (_attendanceWanted && _attendance == null && !_attendanceLoadFailed) {
+      _loadCourseAttendance();
+    }
+  }
+
   void _loadCourseAttendance({bool force = false}) {
-    if (!_canMarkAttendance(DateTime.now())) return;
+    if (_attendanceLoading || !_canMarkAttendance(DateTime.now())) return;
+    _attendanceLoading = true;
     final courseId = widget.course.uid;
-    getCourseAttendance(courseId, force: force).then((records) {
+    getCourseAttendance(courseId, force: force, firestore: widget.firestore)
+        .then((records) {
       if (!mounted || widget.course.uid != courseId) return;
       setState(() => _attendance = records);
     }).catchError((Object e) {
       debugPrint('getCourseAttendance failed: $e');
-    });
+      if (!mounted || widget.course.uid != courseId) return;
+      setState(() => _attendanceLoadFailed = true);
+    }).whenComplete(() => _attendanceLoading = false);
   }
 
   Future<bool> _selfCheckIn() async {
@@ -254,7 +290,8 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
   }
 
   Future<Map<String, List<Map<String, dynamic>>>> _getCourseUsers() async {
-    var usersCollection = FirebaseFirestore.instance.collection('users');
+    var usersCollection =
+        (widget.firestore ?? FirebaseFirestore.instance).collection('users');
 
     var subscriberSnapshots = await usersCollection
         .where('courses', arrayContains: widget.course.uid)
@@ -334,7 +371,8 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
         final description = _buildDescription();
         final courseState = getCourseState(widget.course, widget.currentUser);
         final now = DateTime.now();
-        final canMarkAttendance = _canMarkAttendance(now);
+        final canMarkAttendance =
+            _canMarkAttendance(now) && !_attendanceLoadFailed;
         // Il Trainer non titolare vede il conteggio, non i controlli.
         final showPresentCount = _isStaff && staffCanMark(widget.course, now);
         final checkInState = _isStaff
@@ -389,7 +427,7 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
             pendingAttendanceUids: _pendingAttendanceUids,
             onToggleAttendance:
                 widget.onToggleAttendance == null ? null : _toggleAttendance,
-            onSubscribersExpanded: _loadCourseAttendance,
+            onSubscribersExpanded: _onSubscribersExpanded,
           ),
         );
       },

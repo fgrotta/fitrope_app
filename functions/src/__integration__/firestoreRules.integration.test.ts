@@ -576,6 +576,13 @@ describe("rules: attendance (presenze, write solo server)", () => {
     await assertFails(anon().doc(`attendance/c1_${USER}`).get());
   });
 
+  test("read: il socio legge il PROPRIO doc anche se non esiste ancora (get pre check-in)", async () => {
+    await assertSucceeds(as(USER).doc(`attendance/c9_${USER}`).get());
+    // ...ma non può sondare l'esistenza dei doc altrui.
+    await assertFails(as(USER).doc(`attendance/c9_${OTHER}`).get());
+    await assertFails(as(USER).doc("attendance/c9").get());
+  });
+
   test("list: socio solo where userId == me; staff anche where courseId", async () => {
     await assertSucceeds(
       as(USER).collection("attendance").where("userId", "==", USER).get()
