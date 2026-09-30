@@ -5,7 +5,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Larghezza massima del testo: oltre, le righe diventano troppo lunghe da
-/// leggere e gli screenshot (1280 px) verrebbero ingranditi oltre l'originale.
+/// leggere e gli screenshot (1024 px) verrebbero ingranditi oltre l'originale.
 const double guideMaxContentWidth = 820;
 
 /// Una guida della Guida Admin, renderizzata dal suo Markdown.

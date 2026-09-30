@@ -14,7 +14,7 @@ KEEP=1 NO_BUILD=1 ./scripts/guida_screenshots.sh corsi   # riusa build/guida_web
 Lo script:
 
 1. installa le dipendenze mancanti, cioè `npm ci` in `functions/` e qui, più il Chromium di Playwright;
-2. avvia un emulatore **dedicato** su porte alte (auth 29099, firestore 28080, functions 25001) con una config temporanea `firebase.guida.json`. Il `.secret.local` è fittizio, così nessuna email o WhatsApp parte davvero;
+2. avvia un emulatore **dedicato** su porte alte (auth 29099, firestore 28080, functions 25001) con una config temporanea `firebase.guida.json`. Riusa solo un emulatore avviato dallo stesso worktree: se le porte sono di un altro, si ferma. Il `.secret.local` è **sempre** fittizio, così nessuna email o WhatsApp parte davvero. Un eventuale file dello sviluppatore viene messo da parte in `.secret.guida-backup.local` e rimesso a posto alla fine;
 3. compila la web in `build/guida_web`, contro quelle porte e **senza autologin**;
 4. la serve su `:5621`;
 5. lancia `capture.mjs`.
@@ -23,7 +23,7 @@ Richiede Java 21 (`/usr/local/opt/openjdk@21/bin`, oppure `JAVA_BIN=…`), Node 
 
 Ogni scenario riparte da un emulatore **azzerato e riseminato** (`seedEmulator.js` + `seed_today.js`), quindi gli scenari sono indipendenti e rilanciabili. Le immagini vengono scritte in `build/guida_capture/<id>/` e sostituiscono `assets/guida/img/<id>/` solo se lo scenario finisce senza errori. Le date cambiano a ogni run, perché il seed è relativo a oggi: il diff degli asset serve a vedere cosa è cambiato, non a confrontare pixel.
 
-Se l'app contatta un host di produzione (`identitytoolkit`, `firestore.googleapis.com`, …) lo scenario fallisce: negli screenshot finiscono solo dati sintetici.
+Le richieste verso gli host di produzione (`identitytoolkit`, `firestore.googleapis.com`, …) vengono **bloccate**, e lo scenario fallisce: negli screenshot finiscono solo dati sintetici.
 
 ## Scrivere uno scenario
 

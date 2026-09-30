@@ -5,9 +5,9 @@ Un **pacchetto ingressi**, per esempio "Open 10 ingressi · 3 mesi", dà al soci
 ## Come si consumano gli ingressi
 
 - Ogni prenotazione usa **un ingresso**, e il socio vede quanti gliene restano.
-- Se il socio si disiscrive **almeno 8 ore prima** dell'inizio, l'ingresso gli torna indietro.
-- Se si disiscrive **a meno di 8 ore** dall'inizio, perde l'ingresso. L'app lo avvisa prima di confermare. Può però recuperarlo prenotando **nella stessa giornata** un altro corso dello stesso tipo: in quel caso la Home gli mostra "Hai una lezione da recuperare oggi".
-- Per gli abbonamenti a **frequenza settimanale** (2 o 3 volte a settimana, illimitato) la finestra è di **4 ore** invece di 8.
+- Se il socio si disiscrive **più di 8 ore prima** dell'inizio, l'ingresso gli torna indietro.
+- Se si disiscrive **a 8 ore o meno** dall'inizio, perde l'ingresso. L'app lo avvisa prima di confermare. Può però recuperarlo prenotando **nella stessa giornata** un altro corso dello stesso tipo: in quel caso la Home gli mostra "Hai una lezione da recuperare oggi".
+- Per gli abbonamenti a **frequenza settimanale** (2 o 3 volte a settimana, illimitato) la finestra è di **4 ore** invece di 8: la lezione torna solo se disdice più di 4 ore prima.
 
 Quando sei **tu** a togliere un socio da un corso, l'ingresso gli viene **sempre restituito**, a qualunque ora (vedi [Iscrivere o rimuovere un socio da un corso](guida:iscrivere-socio-a-corso)).
 

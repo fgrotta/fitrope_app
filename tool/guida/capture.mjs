@@ -100,11 +100,16 @@ async function capture(browser, id) {
   await context.addInitScript(HIDE_EMULATOR_BANNER);
   const page = await context.newPage();
 
+  // Le richieste verso la produzione vengono BLOCCATE, non solo notate: con
+  // una build non agganciata all'emulatore il login partirebbe davvero.
   let leak = null;
-  page.on('request', (req) => {
-    const host = new URL(req.url()).host;
-    if (PRODUCTION_HOSTS.some((h) => host.endsWith(h))) leak ??= req.url();
-  });
+  await context.route(
+    (url) => PRODUCTION_HOSTS.some((h) => url.host.endsWith(h)),
+    (route) => {
+      leak ??= route.request().url();
+      return route.abort('blockedbyclient');
+    },
+  );
 
   const guide = new Guide(page, { id, outDir, framesDir });
   try {
