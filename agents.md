@@ -467,7 +467,7 @@ Se tocchi queste aree, aggiorna o aggiungi test in `test/` e `functions/src/__te
 - `courses` - documenti corso con orario, capacita e waitlist
 - `subscriptions` - fonte di verita dei nuovi abbonamenti multi-famiglia; scrittura solo server
 - `attendance` - presenze effettive, un documento per `{courseId}_{userId}` (`present`, `source` self/trainer/admin, `markedBy`, `markedAt`, `updatedAt`, `courseStartMillis`); scrittura solo server (`setAttendance`, `deleteCourse`), lettura del proprietario e dello staff
-- `demoLessonWebhookLog` - registro degli invii WhatsApp (webhook Make): un documento per `{kind}_{userId}_{courseId}`, con identificativi, istante ed esito, senza dati personali; scrittura solo server
+- `demoLessonWebhookLog` - registro degli invii WhatsApp (Make o Meta): un documento per `{kind}_{userId}_{courseId}` (più `test_{uid}_{ms}` per le prove via Meta), con identificativi, istante, esito, trasporto, wamid (`messageId`), `errorCode` ed esito di consegna (`deliveryStatus`) dal webhook di stato Meta, senza dati personali; scrittura solo server
 
 ### Pattern
 
@@ -509,8 +509,8 @@ La REST API key **non e mai esposta al client**. Il client chiama la Cloud Funct
 | Disiscrizione da corso pieno | Cloud Function `unsubscribeFromCourse` → `functions/src/enrollment/notify.ts:notifyWaitlistUsers` | Immediato — email a tutti gli utenti in waitlist (utenti nuovo modello mai rimossi per `fineIscrizione` stantio) |
 | Iscrizione utente `ABBONAMENTO_PROVA` (solo modello legacy) | Cloud Function `subscribeToCourse` → `functions/src/enrollment/notify.ts:sendTrialEnrollmentConfirmation` | Immediato — email di conferma con i bottoni "aggiungi al calendario" |
 | Iscrizione utente `ABBONAMENTO_PROVA` (solo modello legacy) | Cloud Function `subscribeToCourse` → `functions/src/enrollment/notify.ts:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 Europe/Rome |
-| Iscrizione di un utente di prova (`isTrialUser`), con `WHATSAPP_DEMO_MODE=live` | Cloud Function `subscribeToCourse` → `functions/src/whatsapp/demoLesson.ts:notifyDemoLessonBooked` | Immediato — WhatsApp `conferma` via webhook Make |
-| Sera prima della lezione, con `WHATSAPP_DEMO_MODE=live` | Cron `sendDemoLessonWhatsappReminders` → `functions/src/whatsapp/reminders.ts` | 19:00 Europe/Rome — WhatsApp `promemoria` via webhook Make, saltato se la conferma è partita lo stesso giorno |
+| Iscrizione di un utente di prova (`isTrialUser`), con `WHATSAPP_DEMO_MODE=live` | Cloud Function `subscribeToCourse` → `functions/src/whatsapp/demoLesson.ts:notifyDemoLessonBooked` | Immediato — WhatsApp `conferma` via Make (via Meta solo con `META_WA_TEMPLATE_BOOKED`) |
+| Sera prima della lezione, con `WHATSAPP_DEMO_MODE=live` | Cron `sendDemoLessonWhatsappReminders` → `functions/src/whatsapp/reminders.ts` | 19:00 Europe/Rome — WhatsApp `promemoria` via Make o Meta (`WHATSAPP_TRANSPORT`), saltato se la conferma è partita lo stesso giorno |
 | Debug manuale (solo `kDebugMode`) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` / `sendTestTrialConfirmationEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
 
 Le versioni client di `notifyWaitlistUsers`/`scheduleTrialReminder` sono state RIMOSSE (PR4/PR5): il server è l'unica autorità.
@@ -558,12 +558,14 @@ DST-aware in Europe/Rome). Wiring in `index.ts` con **export condizionali**
 produzione NON vengono deployate finché la feature non viene promossa; in staging gli
 invii restano filtrati dalla allowlist dentro `postToOneSignal`/ensure.
 
-### WhatsApp lezioni demo (webhook Make)
+### WhatsApp lezioni demo (Make o Meta Cloud API)
 
 - Moduli in `functions/src/whatsapp/`; il predicato "utente di prova" è `functions/src/enrollment/trial.ts`, condiviso con l'iscrizione.
-- Gate `WHATSAPP_DEMO_MODE` (`off`/`test`/`live`) in `.env.<projectId>`, letto in discovery. Produzione: `functions/.env.fit-rope-app-1f575`. Staging: `off` salvo configurazione esplicita con `STAGING_WHATSAPP_ALLOWLIST`.
-- La configurazione produzione è tracciata grazie a un'eccezione specifica in `.gitignore`. Il cron usa `event.scheduleTime` nei retry e un massimo di 10 invii concorrenti; i claim incerti restano nel registro per verifica in Make, senza reinvio automatico.
-- Secret `MAKE_WEBHOOK_URL`, `MAKE_WEBHOOK_KEY`; chiave nell'header `Demo-Reminder`.
+- Gate `WHATSAPP_DEMO_MODE` (`off`/`test`/`live`) in `.env.<projectId>`, letto in discovery. Produzione: `functions/.env.fit-rope-app-1f575`. Staging: `off` salvo `vars.META_WA_PHONE_NUMBER_ID` (accende `test` + Meta) con `STAGING_WHATSAPP_ALLOWLIST`.
+- Canale `WHATSAPP_TRANSPORT` (`make` default / `meta`) dietro l'interfaccia `transport.ts`: `makeClient.ts` (webhook Make) e `metaClient.ts` (Graph API, template a parametri nominati). Con `meta` la discovery valida `META_GRAPH_VERSION`, `META_WA_PHONE_NUMBER_ID`, `META_WA_TEMPLATE_REMINDER` (+ opzionali `META_WA_TEMPLATE_BOOKED`, `META_WA_TEMPLATE_LANG`).
+- La configurazione produzione è tracciata grazie a un'eccezione specifica in `.gitignore`. Il cron usa `event.scheduleTime` nei retry e un massimo di 10 invii concorrenti; i claim incerti restano nel registro per verifica in Make o nel WhatsApp Manager, senza reinvio automatico.
+- Secret Make: `MAKE_WEBHOOK_URL`, `MAKE_WEBHOOK_KEY` (chiave nell'header `Demo-Reminder`). Secret Meta: `META_WA_ACCESS_TOKEN` (invii), `META_APP_SECRET` + `META_WA_VERIFY_TOKEN` (solo `whatsappStatusWebhook`).
+- Esiti di consegna: `whatsappStatusWebhook` (`statusWebhook.ts`) aggiorna `deliveryStatus` sul registro dal wamid, con rango monotono.
 - Dettagli operativi e trappole in `CLAUDE.md`, sezione "WhatsApp lezioni demo".
 
 ### Cloud Function
