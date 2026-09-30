@@ -95,6 +95,14 @@ const List<GuideEntry> guideCatalog = [
     icon: Icons.how_to_reg,
   ),
   GuideEntry(
+    id: 'presenze',
+    title: 'Registrare le presenze (appello)',
+    summary: 'Chi era in sala: appello del trainer, check-in del socio e '
+        'correzioni',
+    category: GuideCategory.corsi,
+    icon: Icons.fact_check_outlined,
+  ),
+  GuideEntry(
     id: 'correggi-conteggio',
     title: 'Correggere il conteggio degli iscritti',
     summary: 'Quando il numero di iscritti di un corso non torna',
