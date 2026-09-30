@@ -68,10 +68,28 @@ void main() {
       }
     });
 
-    test('all contiene tutte le immagini di tutti i tipi senza perderne', () {
-      final expected =
-          CourseType.values.expand((t) => CourseImages.forType(t)).length;
-      expect(CourseImages.all.length, expected);
+    test('all contiene tutte le immagini di tipi e tag, senza duplicati', () {
+      final expected = {
+        ...CourseType.values.expand((t) => CourseImages.forType(t)),
+        ...CourseImages.imagesByTag.values.expand((list) => list),
+      };
+      expect(CourseImages.all.toSet(), expected);
+      expect(CourseImages.all.length, expected.length);
+    });
+
+    test('Hyrox usa le proprie foto, con sled push come default', () {
+      final hyrox = buildCourse(tag: CourseTags.HYROX);
+      expect(CourseImages.getCourseImage(hyrox),
+          'assets/course_images/hyrox_sled_push.webp');
+    });
+
+    test('getCourseImage rispetta un imageKey presente solo nei tag', () {
+      final hyrox = buildCourse(
+        tag: CourseTags.HYROX,
+        imageKey: 'assets/course_images/hyrox_wall_ball.webp',
+      );
+      expect(CourseImages.getCourseImage(hyrox),
+          'assets/course_images/hyrox_wall_ball.webp');
     });
 
     test('getDefaultImage usa il default esplicito per ogni tipologia', () {

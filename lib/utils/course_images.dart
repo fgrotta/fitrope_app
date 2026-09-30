@@ -51,8 +51,11 @@ class CourseImages {
       'assets/course_images/pt_3.webp',
     ],
     CourseTags.HYROX: [
-      'assets/course_images/open_1.webp',
-      'assets/course_images/open_2.webp',
+      'assets/course_images/hyrox_sled_push.webp',
+      'assets/course_images/hyrox_sandbag.webp',
+      'assets/course_images/hyrox_wall_ball.webp',
+      'assets/course_images/hyrox_atleta.webp',
+      'assets/course_images/hyrox_atleta_palla.webp',
       'assets/course_images/open_3.webp',
     ],
     CourseTags.YOGA: ['assets/course_images/open_yoga.webp'],
@@ -72,9 +75,13 @@ class CourseImages {
     ],
   };
 
-  /// Tutte le immagini disponibili (indipendentemente dal tipo)
-  static List<String> get all =>
-      imagesByType.values.expand((list) => list).toList();
+  /// Tutte le immagini disponibili, per tipo e per tag, senza duplicati.
+  /// Include anche quelle presenti solo in [imagesByTag] (es. Hyrox): senza,
+  /// un imageKey scelto dal form verrebbe scartato come stale.
+  static List<String> get all => {
+        ...imagesByType.values.expand((list) => list),
+        ...imagesByTag.values.expand((list) => list),
+      }.toList();
 
   /// Immagini disponibili per un dato tipo di corso
   static List<String> forType(CourseType type) => imagesByType[type] ?? [];
