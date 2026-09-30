@@ -31,6 +31,7 @@ import 'package:fitrope_app/components/calendar.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:intl/intl.dart';
 import 'package:fitrope_app/utils/simulation_guard.dart';
+import 'package:fitrope_app/utils/attendance_ui_helper.dart';
 import 'package:fitrope_app/utils/refresh_current_user.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -266,6 +267,30 @@ class _CalendarPageState extends State<CalendarPage> {
       course: course,
       userId: user.uid,
       onRefresh: updateCourses,
+      isMounted: () => mounted,
+    );
+  }
+
+  Future<bool> onSelfCheckIn(Course course) async {
+    if (SimulationGuard.blockIfSimulating(context)) return false;
+    return AttendanceUiHelper.selfCheckIn(
+      context: context,
+      course: course,
+      isMounted: () => mounted,
+    );
+  }
+
+  Future<bool> onToggleAttendance(
+    Course course,
+    String userId,
+    bool present,
+  ) async {
+    if (SimulationGuard.blockIfSimulating(context)) return false;
+    return AttendanceUiHelper.markAttendance(
+      context: context,
+      course: course,
+      userId: userId,
+      present: present,
       isMounted: () => mounted,
     );
   }
@@ -639,6 +664,9 @@ class _CalendarPageState extends State<CalendarPage> {
           ? (_isCourseInFuture(course) ? () => showEditCoursPage(course) : null)
           : null,
       onRefresh: () => updateCourses(),
+      onSelfCheckIn: () => onSelfCheckIn(course),
+      onToggleAttendance: (userId, present) =>
+          onToggleAttendance(course, userId, present),
     );
   }
 

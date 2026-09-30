@@ -12,6 +12,10 @@ import 'package:fitrope_app/api/courses/delete_course.dart';
 import 'package:fitrope_app/api/courses/recount_course_subscribed.dart';
 import 'package:fitrope_app/api/courses/leave_waitlist.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/components/attendance_toggle.dart';
+import 'package:fitrope_app/components/self_checkin_button.dart';
+import 'package:fitrope_app/types/attendance_record.dart';
+import 'package:fitrope_app/utils/attendance_window.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/types/course.dart';
 
@@ -57,6 +61,25 @@ class CourseCard extends StatefulWidget {
   /// Iniettabile per i test: la callable vera passa da Firebase.
   final Future<void> Function(String courseId) recountSubscribed;
 
+  // ----- Presenze (la card resta presentazionale: la rete sta nel chiamante) -----
+  /// Check-in del socio; null = niente da mostrare (non iscritto, staff...).
+  final SelfCheckInState? selfCheckInState;
+  final Future<bool> Function()? onSelfCheckIn;
+
+  /// Staff titolare dentro la finestra: spunta "Presente" per riga.
+  final bool canMarkAttendance;
+
+  /// Staff dentro la finestra: pill "Presenti N" (anche se non titolare).
+  final bool showPresentCount;
+
+  /// Presenze per uid; null = non ancora caricate.
+  final Map<String, AttendanceRecord>? attendanceRecords;
+  final Set<String> pendingAttendanceUids;
+  final void Function(FitropeUser user, bool present)? onToggleAttendance;
+
+  /// Chiamata quando la lista iscritti viene APERTA (carica le presenze).
+  final VoidCallback? onSubscribersExpanded;
+
   const CourseCard({
     required this.courseId,
     required this.course,
@@ -81,6 +104,14 @@ class CourseCard extends StatefulWidget {
     this.userRole,
     this.showClickableSubscribers = false,
     this.recountSubscribed = recountCourseSubscribed,
+    this.selfCheckInState,
+    this.onSelfCheckIn,
+    this.canMarkAttendance = false,
+    this.showPresentCount = false,
+    this.attendanceRecords,
+    this.pendingAttendanceUids = const {},
+    this.onToggleAttendance,
+    this.onSubscribersExpanded,
   });
 
   @override
@@ -352,8 +383,10 @@ class _CourseCardState extends State<CourseCard> {
               ? 'Tocca per nascondere la lista iscritti'
               : 'Tocca per mostrare la lista iscritti',
           child: InkWell(
-            onTap: () =>
-                setState(() => _subscribersExpanded = !_subscribersExpanded),
+            onTap: () {
+              setState(() => _subscribersExpanded = !_subscribersExpanded);
+              if (_subscribersExpanded) widget.onSubscribersExpanded?.call();
+            },
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -382,6 +415,10 @@ class _CourseCardState extends State<CourseCard> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (_presentCount() != null) ...[
+                      _presentCountPill(_presentCount()!),
+                      const SizedBox(width: 4),
+                    ],
                     if (widget.capacity != null && widget.capacity! > 0)
                       _capacityPill(
                         widget.subscribersUsers!.length,
@@ -462,6 +499,8 @@ class _CourseCardState extends State<CourseCard> {
                         cursor: SystemMouseCursors.click,
                         child: Text(
                           '• $displayName',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: onPrimaryColor,
                             decoration: TextDecoration.none,
@@ -470,6 +509,18 @@ class _CourseCardState extends State<CourseCard> {
                       ),
                     ),
                   ),
+                  if (widget.canMarkAttendance)
+                    AttendanceToggle(
+                      record: widget.attendanceRecords?[user.uid],
+                      // Record non ancora caricati: chip già al suo posto ma
+                      // in attesa, così la riga non cambia altezza.
+                      pending: widget.attendanceRecords == null ||
+                          widget.pendingAttendanceUids.contains(user.uid),
+                      onChanged: widget.onToggleAttendance == null
+                          ? null
+                          : (present) =>
+                              widget.onToggleAttendance!(user, present),
+                    ),
                   // Pulsante di rimozione per admin/trainer
                   if (widget.isAdmin || widget.userRole == 'Trainer')
                     IconButton(
@@ -771,6 +822,66 @@ class _CourseCardState extends State<CourseCard> {
     );
   }
 
+  /// Presenti da mostrare: conteggio locale se le presenze sono caricate,
+  /// altrimenti il marcatore del corso; null = pill nascosta (appello mai
+  /// fatto o staff fuori finestra).
+  int? _presentCount() {
+    if (!widget.showPresentCount) return null;
+    final records = widget.attendanceRecords;
+    if (records != null) return records.values.where((r) => r.present).length;
+    return widget.course.attendance?.presentCount;
+  }
+
+  Widget _presentCountPill(int count) {
+    return Container(
+      key: const Key('present-count-pill'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: SelfCheckInButton.presentColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        'Presenti $count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// Riga azioni del socio: check-in e iscrizione in un Wrap (tra -15' e
+  /// l'inizio convivono con "Rimuovi iscrizione"), avvisi a tutta larghezza.
+  List<Widget> _buildUserActions() {
+    final checkIn = widget.selfCheckInState;
+    final notice = checkIn != null && SelfCheckInButton.isNotice(checkIn);
+    return [
+      SizedBox(
+        width: double.infinity,
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (checkIn != null && !notice)
+              SelfCheckInButton(
+                state: checkIn,
+                onCheckIn: widget.onSelfCheckIn,
+              ),
+            renderButtonSubscribe(),
+          ],
+        ),
+      ),
+      if (notice)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: SelfCheckInButton(state: checkIn),
+        ),
+    ];
+  }
+
   Widget renderButtonSubscribe() {
     // Etichetta, colori e cliccabilità vengono da `courseActionStyleFor`: la
     // stessa tabella la usa la riga compatta dell'agenda, così i due punti non
@@ -898,12 +1009,8 @@ class _CourseCardState extends State<CourseCard> {
                   _buildTypeBadge(),
                   // Riga 3: Metadati con icone (orario, trainer, sala)
                   if (widget.description.trim() != "") _buildMetadata(),
-                  // Riga 3: Bottoni iscrizione
-                  if (!widget.isAdmin)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [renderButtonSubscribe()],
-                    ),
+                  // Riga 3: Bottoni iscrizione e check-in
+                  if (!widget.isAdmin) ..._buildUserActions(),
                   // Mostra la lista cliccabile degli iscritti se richiesto
                   if (widget.showClickableSubscribers)
                     Container(

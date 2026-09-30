@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fitrope_app/types/attendance_record.dart';
 import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 
@@ -24,6 +25,9 @@ class Course {
       reminderEnabled; // Se true, il promemoria email/push viene programmato
   final bool
       waitlistEnabled; // Se true, gli utenti possono mettersi in lista d'attesa
+  // Marcatore presenze server-owned (callable setAttendance): letto, MAI
+  // emesso da toJson, che alimenta create/update client.
+  final CourseAttendanceSummary? attendance;
 
   const Course({
     @Deprecated('Use uid instead') required this.id,
@@ -43,6 +47,7 @@ class Course {
     this.sala,
     this.reminderEnabled = true,
     this.waitlistEnabled = true,
+    this.attendance,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -83,6 +88,11 @@ class Course {
       sala: json['sala'] as String?,
       reminderEnabled: json['reminderEnabled'] as bool? ?? true,
       waitlistEnabled: json['waitlistEnabled'] as bool? ?? true,
+      attendance: json['attendance'] is Map
+          ? CourseAttendanceSummary.fromJson(
+              Map<String, dynamic>.from(json['attendance'] as Map),
+            )
+          : null,
     );
   }
 
@@ -120,6 +130,8 @@ class Course {
       'sala': sala,
       'reminderEnabled': reminderEnabled,
       'waitlistEnabled': waitlistEnabled,
+      // `attendance` deliberatamente assente: è server-owned e le rules
+      // rifiutano create/update che lo contengano.
     };
   }
 
@@ -143,6 +155,7 @@ class Course {
     bool? reminderEnabled,
     bool? waitlistEnabled,
     Object? sala = _unset,
+    CourseAttendanceSummary? attendance,
   }) {
     final newUid = uid ?? this.uid;
     return Course(
@@ -164,6 +177,7 @@ class Course {
       sala: identical(sala, _unset) ? this.sala : sala as String?,
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       waitlistEnabled: waitlistEnabled ?? this.waitlistEnabled,
+      attendance: attendance ?? this.attendance,
     );
   }
 

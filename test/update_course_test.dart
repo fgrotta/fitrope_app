@@ -100,6 +100,30 @@ void main() {
       expect(data['waitlist'], ['u9']);
     });
 
+    test('NON tocca il marcatore presenze server-owned', () async {
+      final created = await seed();
+      final marker = {'presentCount': 4, 'lastMarkedBy': 't1'};
+      await db
+          .collection('courses')
+          .doc(created.uid)
+          .update({'attendance': marker});
+
+      // Modello letto DOPO il marcatore: anche con attendance valorizzato in
+      // memoria il salvataggio non deve riscriverlo.
+      final fresh = Course.fromJson({
+        ...(await db.collection('courses').doc(created.uid).get()).data()!,
+      });
+      expect(fresh.attendance?.presentCount, 4);
+      await updateCourse(fresh.copyWith(name: 'Rinominato'), firestore: db);
+      // E neanche il modello stale (senza marcatore) lo cancella.
+      await updateCourse(created.copyWith(name: 'Di nuovo'), firestore: db);
+
+      final data =
+          (await db.collection('courses').doc(created.uid).get()).data()!;
+      expect(data['name'], 'Di nuovo');
+      expect(data['attendance'], marker);
+    });
+
     test('un errore di scrittura PROPAGA invece di essere inghiottito',
         () async {
       // Regressione: il catch di updateCourse loggava e ritornava, così il

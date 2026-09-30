@@ -12,12 +12,15 @@ import 'package:flutter/foundation.dart';
 /// Errore di una callable enrollment, con messaggio leggibile per l'utente.
 /// `toString()` ritorna SOLO il messaggio (niente prefisso "Exception:"), così
 /// i call site che mostrano `$e` in snackbar restano puliti. [code] conserva il
-/// codice della Cloud Function (es. `failed-precondition`) per gestioni mirate.
+/// codice della Cloud Function (es. `failed-precondition`) per gestioni mirate;
+/// [details] i dettagli strutturati (es. `{reason: 'ATTENDANCE_...'}`), così il
+/// client distingue i casi senza interpretare il testo.
 class EnrollmentException implements Exception {
   final String message;
   final String? code;
+  final Object? details;
 
-  const EnrollmentException(this.message, {this.code});
+  const EnrollmentException(this.message, {this.code, this.details});
 
   @override
   String toString() => message;
@@ -29,26 +32,32 @@ class EnrollmentException implements Exception {
 /// corrente (se [userId] è il soggetto dell'operazione; null per le operazioni
 /// non per-utente, es. deleteCourse) e conversione di
 /// [FirebaseFunctionsException] in [EnrollmentException].
-Future<void> callEnrollmentFunction(
+///
+/// [showGlobalLoader] false per le operazioni a raffica (l'appello presenze:
+/// un tocco per iscritto) che mostrano uno spinner locale invece del Loader
+/// full-screen. Ritorna il `data` della callable (mappa vuota se assente).
+Future<Map<String, dynamic>> callEnrollmentFunction(
   String functionName,
   Map<String, dynamic> payload, {
   String? userId,
   required String fallbackError,
+  bool showGlobalLoader = true,
 }) async {
-  // Layer B della modalità simulazione — choke point di 6 callable (subscribe,
+  // Layer B della modalità simulazione — choke point di 7 callable (subscribe,
   // unsubscribe incl. force, joinWaitlist, leaveWaitlist, deleteCourse,
-  // recountCourseSubscribed). Il server autorizzerebbe davvero: `request.auth.uid`
-  // è l'admin vero, quindi il blocco DEVE essere qui.
+  // recountCourseSubscribed, setAttendance). Il server autorizzerebbe davvero:
+  // `request.auth.uid` è l'admin vero, quindi il blocco DEVE essere qui, e
+  // resta incondizionato anche senza Loader globale.
   //
   // ATTENZIONE ALL'ORDINE: la guardia va PRIMA di StartLoadingAction. Se finisse
   // tra il dispatch e il `try`, `isLoading` resterebbe true per sempre e il
   // Loader coprirebbe l'app in modo permanente.
   SimulationSession.assertNotSimulating(functionName);
-  store.dispatch(StartLoadingAction());
+  if (showGlobalLoader) store.dispatch(StartLoadingAction());
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
         .httpsCallable(functionName);
-    await callable.call(payload);
+    final response = await callable.call(payload);
 
     invalidateUsersCache();
     invalidateCoursesCache();
@@ -60,13 +69,19 @@ Future<void> callEnrollmentFunction(
         dispatchUserRefreshIfCurrent(FitropeUser.fromJson(userData));
       }
     }
+    final data = response.data;
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   } on FirebaseFunctionsException catch (e) {
     debugPrint('$functionName failed: ${e.code} ${e.message}');
-    throw EnrollmentException(e.message ?? fallbackError, code: e.code);
+    throw EnrollmentException(
+      e.message ?? fallbackError,
+      code: e.code,
+      details: e.details,
+    );
   } catch (error) {
     debugPrint('$functionName failed: $error');
     rethrow;
   } finally {
-    store.dispatch(FinishLoadingAction());
+    if (showGlobalLoader) store.dispatch(FinishLoadingAction());
   }
 }

@@ -7,6 +7,8 @@ import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/types/course.dart';
 import 'package:fitrope_app/types/course_type.dart';
 import 'package:fitrope_app/types/fitrope_user.dart';
+import 'package:fitrope_app/types/attendance_record.dart';
+import 'package:fitrope_app/utils/attendance_window.dart';
 
 /// Primi widget test del progetto: rendering della CourseCard,
 /// pill capienza, viste utente/admin, stati del bottone iscrizione
@@ -288,5 +290,204 @@ void main() {
     expect(refreshed, 1);
     expect(find.text('Conteggio iscritti aggiornato con successo!'),
         findsOneWidget);
+  });
+
+  group('presenze', () {
+    AttendanceRecord rec(String uid, bool present) => AttendanceRecord(
+          courseId: 'c1',
+          userId: uid,
+          courseStartMillis: 0,
+          present: present,
+          source: AttendanceSource.trainer,
+        );
+
+    Widget staffCard({
+      required List<FitropeUser> subscribers,
+      bool canMark = true,
+      int? markerCount,
+      Map<String, AttendanceRecord>? records,
+      Set<String> pending = const {},
+      VoidCallback? onExpanded,
+      void Function(FitropeUser, bool)? onToggle,
+    }) =>
+        CourseCard(
+          courseId: 'c1',
+          course: markerCount == null
+              ? _course(capacity: 4, subscribed: subscribers.length)
+              : _course(capacity: 4, subscribed: subscribers.length).copyWith(
+                  attendance:
+                      CourseAttendanceSummary(presentCount: markerCount),
+                ),
+          title: 'Corso',
+          capacity: 4,
+          subscribed: subscribers.length,
+          subscribersUsers: subscribers,
+          waitlistUsers: const [],
+          showClickableSubscribers: true,
+          isAdmin: true,
+          userRole: 'Trainer',
+          canMarkAttendance: canMark,
+          showPresentCount: true,
+          attendanceRecords: records,
+          pendingAttendanceUids: pending,
+          onSubscribersExpanded: onExpanded,
+          onToggleAttendance: onToggle ?? (_, __) {},
+          onRefresh: () {},
+        );
+
+    testWidgets('socio: "Sono in sala" anche con courseState CLOSED',
+        (tester) async {
+      await _pump(
+        tester,
+        CourseCard(
+          courseId: 'c1',
+          course: _course(),
+          title: 'Corso',
+          capacity: 10,
+          subscribed: 3,
+          courseState: CourseState.CLOSED,
+          selfCheckInState: SelfCheckInState.open,
+          onSelfCheckIn: () async => true,
+          onRefresh: () {},
+        ),
+      );
+      expect(find.text('Sono in sala'), findsOneWidget);
+    });
+
+    testWidgets('socio: "Sono in sala" convive con "Rimuovi iscrizione"',
+        (tester) async {
+      await _pump(
+        tester,
+        CourseCard(
+          courseId: 'c1',
+          course: _course(),
+          title: 'Corso',
+          capacity: 10,
+          subscribed: 3,
+          courseState: CourseState.SUBSCRIBED,
+          selfCheckInState: SelfCheckInState.open,
+          onSelfCheckIn: () async => true,
+          onRefresh: () {},
+        ),
+      );
+      expect(find.text('Sono in sala'), findsOneWidget);
+      expect(find.text('Rimuovi iscrizione'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text('Sono in sala'),
+          matching: find.byType(Wrap),
+        ),
+        findsWidgets,
+      );
+    });
+
+    testWidgets('socio: avviso "chiedi al trainer" sotto le azioni',
+        (tester) async {
+      await _pump(
+        tester,
+        CourseCard(
+          courseId: 'c1',
+          course: _course(),
+          title: 'Corso',
+          capacity: 10,
+          subscribed: 3,
+          courseState: CourseState.CLOSED,
+          selfCheckInState: SelfCheckInState.closedAskTrainer,
+          onRefresh: () {},
+        ),
+      );
+      expect(find.textContaining('chiedi al trainer'), findsOneWidget);
+    });
+
+    testWidgets('"Presenti 3" dal marcatore a lista collassata',
+        (tester) async {
+      await _pump(
+        tester,
+        staffCard(subscribers: [_user(1), _user(2)], markerCount: 3),
+      );
+      expect(find.text('Presenti 3'), findsOneWidget);
+    });
+
+    testWidgets('nessun marcatore e record non caricati: niente pill',
+        (tester) async {
+      await _pump(tester, staffCard(subscribers: [_user(1)]));
+      expect(find.textContaining('Presenti'), findsNothing);
+    });
+
+    testWidgets('il conteggio locale vince sul marcatore', (tester) async {
+      await _pump(
+        tester,
+        staffCard(
+          subscribers: [_user(1), _user(2)],
+          markerCount: 3,
+          records: {'u1': rec('u1', true), 'u2': rec('u2', false)},
+        ),
+      );
+      expect(find.text('Presenti 1'), findsOneWidget);
+    });
+
+    testWidgets('staff non titolare: conteggio sì, spunte no', (tester) async {
+      await _pump(
+        tester,
+        staffCard(
+          subscribers: [_user(1)],
+          canMark: false,
+          markerCount: 2,
+        ),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(find.text('Presenti 2'), findsOneWidget);
+      expect(find.byType(FilterChip), findsNothing);
+    });
+
+    testWidgets('onSubscribersExpanded solo all\'apertura', (tester) async {
+      var opened = 0;
+      await _pump(
+        tester,
+        staffCard(subscribers: [_user(1)], onExpanded: () => opened++),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(opened, 1);
+      await tester.tap(find.byIcon(Icons.expand_less));
+      await tester.pump();
+      expect(opened, 1);
+    });
+
+    testWidgets(
+        'titolare: chip per riga; pending disabilitato; tocco inoltrato',
+        (tester) async {
+      final toggles = <String>[];
+      await _pump(
+        tester,
+        staffCard(
+          subscribers: [_user(1), _user(2)],
+          records: {'u1': rec('u1', true)},
+          pending: {'u2'},
+          onToggle: (u, present) => toggles.add('${u.uid}:$present'),
+        ),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      final chips =
+          tester.widgetList<FilterChip>(find.byType(FilterChip)).toList();
+      expect(chips, hasLength(2));
+      expect(chips[0].selected, isTrue);
+      expect(chips[1].onSelected, isNull);
+      await tester.tap(find.byType(FilterChip).first);
+      expect(toggles, ['u1:false']);
+    });
+
+    testWidgets('record non ancora caricati: tutte le chip in attesa',
+        (tester) async {
+      await _pump(tester, staffCard(subscribers: [_user(1)]));
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(
+        tester.widget<FilterChip>(find.byType(FilterChip)).onSelected,
+        isNull,
+      );
+    });
   });
 }

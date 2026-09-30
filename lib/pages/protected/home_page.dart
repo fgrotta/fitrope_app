@@ -29,6 +29,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_design_system/components/custom_card.dart';
 import 'package:intl/intl.dart';
 import 'package:fitrope_app/utils/simulation_guard.dart';
+import 'package:fitrope_app/utils/attendance_ui_helper.dart';
 import 'package:fitrope_app/utils/refresh_current_user.dart';
 
 class HomePage extends StatefulWidget {
@@ -366,6 +367,15 @@ class _HomePageState extends State<HomePage> {
       course: course,
       userId: user.uid,
       onRefresh: refreshCourses,
+      isMounted: () => mounted,
+    );
+  }
+
+  Future<bool> onSelfCheckIn(Course course) async {
+    if (SimulationGuard.blockIfSimulating(context)) return false;
+    return AttendanceUiHelper.selfCheckIn(
+      context: context,
+      course: course,
       isMounted: () => mounted,
     );
   }
@@ -1509,6 +1519,7 @@ class _HomePageState extends State<HomePage> {
             onJoinWaitlist: () => onJoinWaitlist(course),
             onLeaveWaitlist: () => onLeaveWaitlist(course),
             onRefresh: () => refreshCourses(),
+            onSelfCheckIn: () => onSelfCheckIn(course),
           ),
         )
         .toList();
@@ -1538,6 +1549,7 @@ class _HomePageState extends State<HomePage> {
             onJoinWaitlist: () => onJoinWaitlist(course),
             onLeaveWaitlist: () => onLeaveWaitlist(course),
             onRefresh: () => refreshCourses(),
+            onSelfCheckIn: () => onSelfCheckIn(course),
           ),
         );
       }
