@@ -4,7 +4,7 @@
 // telefono.
 //
 // Con Meta, se torna un wamid, scrive nel registro un documento `test_…` con
-// soli identificativi: è l'unico modo di vedere sul webhook di stato
+// soli identificativi (l'hash del wamid, non il wamid, che contiene il numero): è l'unico modo di vedere sul webhook di stato
 // (statusWebhook.ts) la consegna di un messaggio di prova. Non interferisce
 // con claim e soppressioni, che usano solo id `{kind}_{userId}_{courseId}`.
 //
@@ -20,6 +20,7 @@ import { isWhatsappRecipientAllowed } from "./environment";
 import { DemoWebhookKind, buildTemplateParams, sanitizeTemplateParam, toMakeBody } from "./payload";
 import { normalizePhoneE164 } from "./phone";
 import { DEMO_LOG_COLLECTION } from "./sendLog";
+import { hashMessageId, messageRef } from "./transport";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -107,7 +108,8 @@ async function recordTestSend(
         testKind: kind,
         userId: uid,
         transport: deps.transport.name,
-        messageId,
+        // Solo l'hash: il wamid contiene il numero (transport.ts).
+        messageIdHash: hashMessageId(messageId),
         outcome: "sent",
         ok: true,
         status,
@@ -115,7 +117,7 @@ async function recordTestSend(
       });
   } catch (err) {
     logger.warn("WhatsApp di prova: documento nel registro non scritto", {
-      messageId,
+      messageRef: messageRef(messageId),
       error: err instanceof Error ? err.message : String(err),
     });
   }

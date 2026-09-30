@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { WhatsappDeps } from "../whatsapp/demoLesson";
 import { DemoWebhookKind } from "../whatsapp/payload";
 import { DEMO_LOG_COLLECTION } from "../whatsapp/sendLog";
@@ -9,7 +10,9 @@ jest.mock("firebase-functions", () => ({
   logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
 
-const NOW = Date.UTC(2026, 9, 14, 17); // domani alle 19:00 → "15 ottobre 2026", "19:00"
+const NOW = Date.UTC(2026, 9, 14, 17);
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+ // domani alle 19:00 → "15 ottobre 2026", "19:00"
 
 function setup(
   env: NodeJS.ProcessEnv = {},
@@ -138,12 +141,13 @@ describe("sendTestDemoLessonWebhookHandler", () => {
         testKind: "reminder",
         userId: "admin",
         transport: "meta",
-        messageId: "wamid.TEST",
+        messageIdHash: sha256("wamid.TEST"),
         outcome: "sent",
         ok: true,
       }),
     ]);
-    // Solo identificativi: niente telefono né testo del messaggio.
+    // Solo identificativi: niente telefono, wamid (lo contiene) né testo del messaggio.
+    expect(JSON.stringify(docs)).not.toContain("wamid.TEST");
     expect(JSON.stringify(docs)).not.toContain("3339876543");
     expect(JSON.stringify(docs)).not.toContain("Test Test");
   });

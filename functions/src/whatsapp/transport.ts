@@ -10,6 +10,7 @@
 // Un trasporto non lancia mai: un invio fallito è un esito normale che cron e
 // iscrizione devono poter attraversare.
 
+import { createHash } from "crypto";
 import { DemoWebhookKind } from "./payload";
 
 export type WhatsappTransportName = "make" | "meta";
@@ -48,4 +49,19 @@ export function scrubSecrets(message: string, secrets: string[]): string {
     if (secret) out = out.split(secret).join("[redacted]");
   }
   return out;
+}
+
+/**
+ * Il wamid di Meta NON è opaco: è `wamid.` + base64 di un'intestazione e delle
+ * cifre del destinatario. Nel registro si salva solo il suo SHA-256, che basta
+ * a ritrovare il documento dal webhook di stato; il wamid in chiaro non va mai
+ * né su Firestore né nei log.
+ */
+export function hashMessageId(messageId: string): string {
+  return createHash("sha256").update(messageId).digest("hex");
+}
+
+/** Riferimento corto per i log: correla gli eventi senza esporre il numero. */
+export function messageRef(messageId: string | undefined): string | undefined {
+  return messageId ? hashMessageId(messageId).slice(0, 12) : undefined;
 }

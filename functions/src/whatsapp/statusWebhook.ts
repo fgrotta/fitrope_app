@@ -10,7 +10,8 @@
 // read, failed, riconciliati sul registro dal wamid (sendLog.ts). Sullo stesso
 // endpoint arrivano anche i messaggi degli utenti (`value.messages[]`): si
 // accettano e si ignorano, senza salvarne né loggarne il contenuto. Non si
-// salva mai `recipient_id`, che è il telefono del destinatario.
+// salva mai `recipient_id`, che è il telefono del destinatario, e nei log il
+// wamid compare solo come `messageRef` (hash corto): in chiaro contiene il numero.
 //
 // Dopo una firma valida si risponde SEMPRE 200, anche se Firestore fallisce:
 // un 5xx fa ritentare Meta per giorni e alla lunga disattiva la sottoscrizione.
@@ -20,6 +21,7 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { logger } from "firebase-functions";
 import type { Firestore } from "firebase-admin/firestore";
 import { applyDeliveryStatus, isDeliveryStatus } from "./sendLog";
+import { messageRef } from "./transport";
 
 /** Nome dell'header come lo espone Express (minuscolo). */
 export const SIGNATURE_HEADER = "x-hub-signature-256";
@@ -75,8 +77,10 @@ export function verifySignature(
   header: string | undefined,
   appSecret: string
 ): boolean {
-  if (!rawBody || !header || !appSecret || !header.startsWith("sha256=")) return false;
-  const expected = `sha256=${createHmac("sha256", appSecret).update(rawBody).digest("hex")}`;
+  // Un secret caricato con `secrets:set --data-file` può portarsi dietro il newline.
+  const secret = appSecret.trim();
+  if (!rawBody || !header || !secret || !header.startsWith("sha256=")) return false;
+  const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
   return safeEqual(header, expected);
 }
 
@@ -84,12 +88,13 @@ function handleVerification(req: StatusWebhookRequest, deps: StatusWebhookDeps):
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
+  const verifyToken = deps.verifyToken.trim();
   if (
     mode === "subscribe" &&
     typeof token === "string" &&
     typeof challenge === "string" &&
-    deps.verifyToken !== "" &&
-    safeEqual(token, deps.verifyToken)
+    verifyToken !== "" &&
+    safeEqual(token, verifyToken)
   ) {
     logger.info("Webhook WhatsApp verificato da Meta");
     return { status: 200, body: challenge };
@@ -128,7 +133,7 @@ async function applyStatus(db: Firestore, status: MetaStatus): Promise<void> {
   // template in Marketing (costi e limiti diversi).
   if (status.pricing?.category !== undefined) {
     logger.info("Categoria di prezzo WhatsApp", {
-      messageId,
+      messageRef: messageRef(messageId),
       category: String(status.pricing.category),
       billable: status.pricing.billable === true,
     });
@@ -138,13 +143,20 @@ async function applyStatus(db: Firestore, status: MetaStatus): Promise<void> {
     const result = await applyDeliveryStatus(db, messageId, status.status, timestampMillis, error);
     if (result === "not_found") {
       // Tipico dei messaggi di prova mandati dal WhatsApp Manager.
-      logger.info("Stato WhatsApp per un wamid sconosciuto", { messageId, status: status.status });
+      logger.info("Stato WhatsApp per un wamid sconosciuto", {
+        messageRef: messageRef(messageId),
+        status: status.status,
+      });
     } else if (status.status === "failed") {
-      logger.warn("WhatsApp non consegnato", { messageId, errorCode: error?.code, errorTitle: error?.title });
+      logger.warn("WhatsApp non consegnato", {
+        messageRef: messageRef(messageId),
+        errorCode: error?.code,
+        errorTitle: error?.title,
+      });
     }
   } catch (err) {
     logger.error("Stato WhatsApp non registrato", {
-      messageId,
+      messageRef: messageRef(messageId),
       status: status.status,
       error: err instanceof Error ? err.message : String(err),
     });

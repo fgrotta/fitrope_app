@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { Timestamp } from "firebase-admin/firestore";
 import {
   DemoCourse,
@@ -19,6 +20,10 @@ jest.mock("firebase-functions", () => ({
 }));
 
 const SECRET_IN_ERROR = "chiave-super-segreta";
+/** wamid reale: base64 di un'intestazione + le cifre del destinatario (393331234567). */
+const WAMID = "wamid.HBgLMzkzMzMxMjM0NTY3FQIAERgS";
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+
 // 14 ottobre 2026, 19:00 ora di Roma; la lezione è domani alle 18:00.
 const NOW = Date.UTC(2026, 9, 14, 17);
 const DOMANI_18 = Date.UTC(2026, 9, 15, 16);
@@ -213,18 +218,29 @@ describe("dispatchDemoLesson", () => {
     });
   });
 
-  test("via Meta registra trasporto e wamid sul claim", async () => {
+  test("via Meta registra trasporto e hash del wamid sul claim", async () => {
     const { deps, log } = setup({
       transportName: "meta",
-      responses: [ok(200, { messageId: "wamid.ABC" })],
+      responses: [ok(200, { messageId: WAMID })],
     });
     await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toEqual({ sent: true });
     expect(log("reminder_u1_c1")).toMatchObject({
       ok: true,
       outcome: "sent",
       transport: "meta",
-      messageId: "wamid.ABC",
+      messageIdHash: sha256(WAMID),
     });
+    expect(log("reminder_u1_c1")).not.toHaveProperty("messageId");
+  });
+
+  test("il wamid non finisce nei log nemmeno quando l'esito non si registra", async () => {
+    const { deps } = setup({
+      transportName: "meta",
+      responses: [ok(200, { messageId: WAMID })],
+      db: { updateError: () => new Error("14 UNAVAILABLE") },
+    });
+    await dispatchDemoLesson(deps, "reminder", user(), course());
+    expect(allLoggedText()).not.toContain(WAMID);
   });
 
   test("un rifiuto Meta registra l'errorCode, senza ritentare i codici non transitori", async () => {
@@ -253,7 +269,7 @@ describe("dispatchDemoLesson", () => {
     });
     await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toEqual({ sent: true });
     expect(post).toHaveBeenCalledTimes(2);
-    expect(log("reminder_u1_c1")).toMatchObject({ ok: true, messageId: "wamid.X" });
+    expect(log("reminder_u1_c1")).toMatchObject({ ok: true, messageIdHash: sha256("wamid.X") });
   });
 
   test("kind non supportato dal trasporto: skip prima del claim, nessun invio", async () => {

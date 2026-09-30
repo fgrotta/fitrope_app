@@ -9,11 +9,18 @@
 // `error.code` della Graph API, non sullo status HTTP: solo 130429 (rate limit
 // del numero) si ritenta nello stesso run; 131056 (troppi messaggi alla stessa
 // persona) e tutti gli altri sono rifiuti. Il token viaggia solo nell'header e
-// non compare mai nei log, come il numero del destinatario.
+// non compare mai nei log, come il numero del destinatario e il wamid, che lo
+// contiene (transport.ts, hashMessageId).
 
 import { logger } from "firebase-functions";
 import { DemoWebhookKind } from "./payload";
-import { SendResult, TemplateParams, WhatsappTransport, scrubSecrets } from "./transport";
+import {
+  SendResult,
+  TemplateParams,
+  WhatsappTransport,
+  messageRef,
+  scrubSecrets,
+} from "./transport";
 
 const GRAPH_BASE_URL = "https://graph.facebook.com";
 
@@ -112,7 +119,9 @@ export async function postToMeta(
     return { ok: false, status: 0 };
   }
 
-  const secrets = [config.accessToken, ...phoneForms(phoneE164)];
+  // Un secret caricato con `secrets:set --data-file` può portarsi dietro il newline.
+  const accessToken = config.accessToken.trim();
+  const secrets = [accessToken, ...phoneForms(phoneE164)];
   const url = `${GRAPH_BASE_URL}/${config.graphVersion}/${config.phoneNumberId}/messages`;
   let response: Awaited<ReturnType<typeof fetch>>;
   let text: string;
@@ -121,7 +130,7 @@ export async function postToMeta(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(buildMetaTemplateBody(phoneE164, template, params)),
       signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
@@ -155,7 +164,7 @@ export async function postToMeta(
       template: template.name,
       status: response.status,
       messageStatus: message?.message_status,
-      messageId,
+      messageRef: messageRef(messageId),
     });
     return { ok: true, status: response.status, ...(messageId ? { messageId } : {}) };
   }

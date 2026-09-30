@@ -14,7 +14,8 @@
 // istante ed esito: niente telefono, email, URL o chiave.
 //
 // Con Meta, il webhook di stato (statusWebhook.ts) aggiunge poi l'esito di
-// CONSEGNA, ritrovando il documento dal wamid (`messageId`): `deliveryStatus`
+// CONSEGNA, ritrovando il documento dall'hash del wamid (`messageIdHash`: il
+// wamid in chiaro contiene il numero, vedi transport.ts): `deliveryStatus`
 // sent < delivered < read, oppure failed con `deliveryError`. È solo
 // informativo: claim e soppressioni continuano a guardare `ok`.
 
@@ -23,7 +24,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import type { Firestore } from "firebase-admin/firestore";
 import { isSameRomeDay } from "./format";
 import { DemoWebhookKind } from "./payload";
-import type { WhatsappTransportName } from "./transport";
+import { WhatsappTransportName, hashMessageId } from "./transport";
 
 export const DEMO_LOG_COLLECTION = "demoLessonWebhookLog";
 
@@ -98,7 +99,7 @@ export async function claimSend(
 
 export interface SendOutcomeDetails {
   transport?: WhatsappTransportName;
-  /** wamid di Meta: la chiave con cui il webhook di stato ritrova il documento. */
+  /** wamid di Meta: se ne salva solo l'hash, la chiave del webhook di stato. */
   messageId?: string;
   /** `error.code` della Graph API. */
   errorCode?: number;
@@ -123,7 +124,7 @@ export async function markSendOutcome(
     // Status 0 = nessuna risposta HTTP: non c'è niente da registrare.
     ...(status !== undefined && status > 0 ? { status } : {}),
     ...(details.transport ? { transport: details.transport } : {}),
-    ...(details.messageId ? { messageId: details.messageId } : {}),
+    ...(details.messageId ? { messageIdHash: hashMessageId(details.messageId) } : {}),
     ...(details.errorCode !== undefined ? { errorCode: details.errorCode } : {}),
   });
 }
@@ -181,7 +182,11 @@ export function shouldApplyDeliveryStatus(
 
 /** Id del documento con questo wamid. Filtro a campo singolo: indice automatico. */
 export async function findByMessageId(db: Firestore, messageId: string): Promise<string | null> {
-  const snap = await db.collection(DEMO_LOG_COLLECTION).where("messageId", "==", messageId).limit(1).get();
+  const snap = await db
+    .collection(DEMO_LOG_COLLECTION)
+    .where("messageIdHash", "==", hashMessageId(messageId))
+    .limit(1)
+    .get();
   return snap.docs[0]?.id ?? null;
 }
 

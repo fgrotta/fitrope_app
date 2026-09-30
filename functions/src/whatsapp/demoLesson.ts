@@ -13,7 +13,7 @@ import { isWhatsappRecipientAllowed } from "./environment";
 import { DemoWebhookKind, buildNome, buildTemplateParams, sanitizeTemplateParam } from "./payload";
 import { normalizePhoneE164 } from "./phone";
 import { SendLogOutcome, claimSend, markSendOutcome, wasNotifiedToday } from "./sendLog";
-import { SendResult, WhatsappTransport } from "./transport";
+import { SendResult, WhatsappTransport, messageRef } from "./transport";
 
 // ──────────────────────────────────────────────
 //  Mapping dei documenti Firestore
@@ -222,12 +222,14 @@ export async function dispatchDemoLesson(
 
   const outcome = classify(result);
   const details = { transport, messageId: result.messageId, errorCode: result.errorCode };
+  // Nei log mai il wamid in chiaro: contiene il numero (transport.ts).
+  const logDetails = { transport, messageRef: messageRef(result.messageId), errorCode: result.errorCode };
   try {
     await markSendOutcome(deps.db, kind, user.uid, course.uid, outcome, result.status, details);
   } catch (err) {
     logger.error("Esito WhatsApp non registrato: claim pending, verificare in Make o nel WhatsApp Manager", {
       ...ids,
-      ...details,
+      ...logDetails,
       outcome,
       status: result.status,
       error: err instanceof Error ? err.message : String(err),
@@ -236,7 +238,7 @@ export async function dispatchDemoLesson(
   }
 
   if (outcome === "sent") return { sent: true };
-  logger.error("Invio WhatsApp non riuscito", { ...ids, ...details, outcome, status: result.status });
+  logger.error("Invio WhatsApp non riuscito", { ...ids, ...logDetails, outcome, status: result.status });
   return { sent: false, failed: true, reason: `${outcome}_${result.status}` };
 }
 

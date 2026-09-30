@@ -467,7 +467,7 @@ Se tocchi queste aree, aggiorna o aggiungi test in `test/` e `functions/src/__te
 - `courses` - documenti corso con orario, capacita e waitlist
 - `subscriptions` - fonte di verita dei nuovi abbonamenti multi-famiglia; scrittura solo server
 - `attendance` - presenze effettive, un documento per `{courseId}_{userId}` (`present`, `source` self/trainer/admin, `markedBy`, `markedAt`, `updatedAt`, `courseStartMillis`); scrittura solo server (`setAttendance`, `deleteCourse`), lettura del proprietario e dello staff
-- `demoLessonWebhookLog` - registro degli invii WhatsApp (Make o Meta): un documento per `{kind}_{userId}_{courseId}` (più `test_{uid}_{ms}` per le prove via Meta), con identificativi, istante, esito, trasporto, wamid (`messageId`), `errorCode` ed esito di consegna (`deliveryStatus`) dal webhook di stato Meta, senza dati personali; scrittura solo server
+- `demoLessonWebhookLog` - registro degli invii WhatsApp (Make o Meta): un documento per `{kind}_{userId}_{courseId}` (più `test_{uid}_{ms}` per le prove via Meta), con identificativi, istante, esito, trasporto, hash del wamid (`messageIdHash`: il wamid contiene il numero), `errorCode` ed esito di consegna (`deliveryStatus`) dal webhook di stato Meta, senza dati personali; scrittura solo server
 
 ### Pattern
 
@@ -565,7 +565,7 @@ invii restano filtrati dalla allowlist dentro `postToOneSignal`/ensure.
 - Canale `WHATSAPP_TRANSPORT` (`make` default / `meta`) dietro l'interfaccia `transport.ts`: `makeClient.ts` (webhook Make) e `metaClient.ts` (Graph API, template a parametri nominati). Con `meta` la discovery valida `META_GRAPH_VERSION`, `META_WA_PHONE_NUMBER_ID`, `META_WA_TEMPLATE_REMINDER` (+ opzionali `META_WA_TEMPLATE_BOOKED`, `META_WA_TEMPLATE_LANG`).
 - La configurazione produzione è tracciata grazie a un'eccezione specifica in `.gitignore`. Il cron usa `event.scheduleTime` nei retry e un massimo di 10 invii concorrenti; i claim incerti restano nel registro per verifica in Make o nel WhatsApp Manager, senza reinvio automatico.
 - Secret Make: `MAKE_WEBHOOK_URL`, `MAKE_WEBHOOK_KEY` (chiave nell'header `Demo-Reminder`). Secret Meta: `META_WA_ACCESS_TOKEN` (invii), `META_APP_SECRET` + `META_WA_VERIFY_TOKEN` (solo `whatsappStatusWebhook`).
-- Esiti di consegna: `whatsappStatusWebhook` (`statusWebhook.ts`) aggiorna `deliveryStatus` sul registro dal wamid, con rango monotono.
+- Esiti di consegna: `whatsappStatusWebhook` (`statusWebhook.ts`) aggiorna `deliveryStatus` sul registro ritrovando il documento dall'hash del wamid, con rango monotono.
 - Dettagli operativi e trappole in `CLAUDE.md`, sezione "WhatsApp lezioni demo".
 
 ### Cloud Function

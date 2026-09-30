@@ -188,6 +188,18 @@ describe("postToMeta", () => {
     });
   });
 
+  test("il wamid (contiene il numero) non finisce nei log", async () => {
+    mockJson(200, accepted);
+    await postToMeta(config, "reminder", PHONE, params);
+    expect(allLoggedText()).not.toContain(accepted.messages[0].id);
+  });
+
+  test("token con newline finale: header pulito", async () => {
+    mockJson(200, accepted);
+    await postToMeta({ ...config, accessToken: `${TOKEN}\n` }, "reminder", PHONE, params);
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
   test("nei log code, subcode e fbtrace_id, mai token né numero", async () => {
     mockJson(400, graphError(131030));
     await postToMeta(config, "reminder", PHONE, params);
