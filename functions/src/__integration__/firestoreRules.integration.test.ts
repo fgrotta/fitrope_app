@@ -549,6 +549,80 @@ describe("rules: subscriptions", () => {
   });
 });
 
+describe("rules: attendance (presenze, write solo server)", () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await db.doc(`attendance/c1_${USER}`).set({
+        courseId: "c1",
+        userId: USER,
+        present: true,
+        source: "self",
+        markedBy: USER,
+      });
+      await db.doc(`attendance/c1_${OTHER}`).set({
+        courseId: "c1",
+        userId: OTHER,
+        present: false,
+        source: "trainer",
+        markedBy: TRAINER,
+      });
+    });
+  });
+
+  test("read: il socio legge solo il proprio doc; anonimo mai", async () => {
+    await assertSucceeds(as(USER).doc(`attendance/c1_${USER}`).get());
+    await assertFails(as(USER).doc(`attendance/c1_${OTHER}`).get());
+    await assertFails(anon().doc(`attendance/c1_${USER}`).get());
+  });
+
+  test("list: socio solo where userId == me; staff anche where courseId", async () => {
+    await assertSucceeds(
+      as(USER).collection("attendance").where("userId", "==", USER).get()
+    );
+    await assertFails(
+      as(USER).collection("attendance").where("courseId", "==", "c1").get()
+    );
+    for (const staff of [ADMIN, TRAINER]) {
+      const snap = await assertSucceeds(
+        as(staff).collection("attendance").where("courseId", "==", "c1").get()
+      );
+      expect(snap.size).toBe(2);
+      await assertSucceeds(as(staff).doc(`attendance/c1_${OTHER}`).get());
+    }
+  });
+
+  test("write dal client → NEGATA per chiunque (anche Admin)", async () => {
+    const rec = { courseId: "c1", userId: USER, present: true, source: "self" };
+    await assertFails(as(USER).doc("attendance/c9_user-uid").set({ ...rec, courseId: "c9" }));
+    await assertFails(as(USER).doc(`attendance/c1_${USER}`).update({ present: false }));
+    await assertFails(as(TRAINER).doc(`attendance/c1_${OTHER}`).update({ present: true }));
+    await assertFails(as(ADMIN).doc("attendance/c2_x").set(rec));
+    await assertFails(as(ADMIN).doc(`attendance/c1_${USER}`).delete());
+  });
+
+  test("courses.attendance è server-owned: create e update negati ad Admin e Trainer", async () => {
+    const marker = { presentCount: 1, lastMarkedBy: ADMIN };
+    await assertFails(
+      as(ADMIN).doc("courses/con-marker").set(
+        courseDoc({ uid: "con-marker", id: "con-marker", subscribed: 0, attendance: marker })
+      )
+    );
+    await assertFails(as(ADMIN).doc("courses/c1").update({ attendance: marker }));
+    await assertFails(as(TRAINER).doc("courses/c1").update({ attendance: marker }));
+  });
+
+  test("regressione: rinominare un corso che ha già il marcatore passa", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc("courses/c1").set(
+        courseDoc({ attendance: { presentCount: 2, lastMarkedBy: TRAINER } })
+      );
+    });
+    await assertSucceeds(as(ADMIN).doc("courses/c1").update({ name: "Rinominato" }));
+    await assertSucceeds(as(TRAINER).doc("courses/c1").update({ name: "Dal trainer" }));
+  });
+});
+
 describe("rules: stato backup server-owned", () => {
   test("nessun client può leggere o scrivere _systemBackupRuns", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {

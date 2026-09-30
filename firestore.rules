@@ -8,7 +8,10 @@ rules_version = '2';
 //   - il proprio profilo (whitelist di campi non critici),
 //   - l'anagrafica gestionale se Admin/Trainer (field-level, mirror della UI),
 //   - il CRUD corsi (Admin/Trainer) ESCLUSI i campi server-owned
-//     `subscribed`/`waitlist` (TODO(server-migration): callable in futuro).
+//     `subscribed`/`waitlist`/`attendance` (TODO(server-migration): callable in futuro).
+//
+// Le presenze (`attendance/*` + marcatore `courses.attendance`) le scrive SOLO
+// la callable setAttendance: il client le legge e basta.
 //
 // I campi che il server usa come input fidati sono NEGATI a tutti i client
 // (finding security PR4/PR5): courses, waitlistCourses, activeSubscriptions,
@@ -149,6 +152,7 @@ service cloud.firestore {
         && validCourseV2(request.resource.data)
         && request.resource.data.subscribed == 0
         && request.resource.data.waitlist == []
+        && !request.resource.data.keys().hasAny(['attendance'])
         && request.resource.data.id == courseId
         && request.resource.data.uid == courseId
         && (isAdmin() || request.resource.data.trainerId == request.auth.uid);
@@ -157,7 +161,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         && resource.data.courseModelV2 == true
         && validCourseV2(request.resource.data)
-        && !affected().hasAny(['subscribed', 'waitlist', 'uid', 'id']);
+        && !affected().hasAny(['subscribed', 'waitlist', 'attendance', 'uid', 'id']);
 
       // Edit Trainer: solo sui PROPRI corsi e SENZA riassegnare la ownership
       // (mirror della UI: "i Trainer non possono cambiare il trainer assegnato").
@@ -165,7 +169,7 @@ service cloud.firestore {
         && resource.data.courseModelV2 == true
         && validCourseV2(request.resource.data)
         && resource.data.trainerId == request.auth.uid
-        && !affected().hasAny(['subscribed', 'waitlist', 'uid', 'id', 'trainerId']);
+        && !affected().hasAny(['subscribed', 'waitlist', 'attendance', 'uid', 'id', 'trainerId']);
 
       // La cancellazione passa SOLO dalla callable deleteCourse (rimborsi
       // atomici + pulizia waitlist).
@@ -180,6 +184,16 @@ service cloud.firestore {
       // non sono nello snapshot).
       allow read: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update, delete: if false;
+    }
+
+    match /attendance/{attendanceId} {
+      // Presenze effettive: scritte SOLO dalla callable setAttendance (e
+      // cancellate da deleteCourse). Il socio legge le proprie (get per id
+      // deterministico o list `where userId == me`); lo staff legge tutto,
+      // compreso `where courseId ==` per l'appello.
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin() || isTrainer());
       allow create, update, delete: if false;
     }
 

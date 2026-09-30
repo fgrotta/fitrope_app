@@ -1,7 +1,8 @@
 // Fake Firestore in-memory per i test degli handler enrollment/admin.
 // Supporta: query corsi per uid e range startDate, doc utenti, query utenti
 // array-contains (courses/waitlistCourses), doc e query subscriptions per userId,
-// transazioni con update/delete che APPLICANO le scritture allo store (così i
+// doc e query attendance per courseId, transazioni con set (merge)/update/delete
+// che APPLICANO le scritture allo store (così i
 // test asseriscono lo stato finale). NB: esegue la closure di transazione una
 // sola volta (niente retry/contention: quella semantica è coperta dai test di
 // integrazione su emulatore, categoria C).
@@ -12,6 +13,7 @@ export interface FakeStore {
   users: Record<string, Data>;
   courses: Record<string, Data>; // docId -> data (campo uid dentro)
   subs: Record<string, Data>;
+  attendance?: Record<string, Data>; // docId `${courseId}_${userId}` -> data
 }
 
 interface Filter {
@@ -73,6 +75,15 @@ export function makeDb(store: FakeStore) {
     return { docs };
   };
 
+  const attendanceStore = () => (store.attendance ??= {});
+
+  const runAttendanceQuery = (q: { _courseId: unknown }) => {
+    const docs = Object.entries(attendanceStore())
+      .filter(([, d]) => d.courseId === q._courseId)
+      .map(([id, d]) => ({ id, data: () => d, ref: { _kind: "attDoc", _id: id } }));
+    return { empty: docs.length === 0, docs };
+  };
+
   const coursesQuery = (filters: Filter[]): Data => ({
     _kind: "coursesQuery",
     _filters: filters,
@@ -106,6 +117,18 @@ export function makeDb(store: FakeStore) {
           }),
         };
       }
+      if (name === "attendance") {
+        return {
+          doc: (id: string) => ({ _kind: "attDoc", _id: id }),
+          where: (f: string, op: string, v: unknown) => {
+            if (f !== "courseId" || op !== "==") {
+              throw new Error(`attendance.where non gestito: ${f} ${op}`);
+            }
+            const q = { _kind: "attQuery", _courseId: v };
+            return { ...q, get: async () => runAttendanceQuery(q) };
+          },
+        };
+      }
       throw new Error(`collezione non gestita: ${name}`);
     },
     runTransaction: async (fn: (tx: unknown) => Promise<void>) => {
@@ -128,6 +151,13 @@ export function makeDb(store: FakeStore) {
           if (q._kind === "usersQuery") {
             return runUsersQuery(q as { _f: string; _v: unknown });
           }
+          if (q._kind === "attDoc") {
+            const d = attendanceStore()[q._id!];
+            return { id: q._id, exists: d !== undefined, data: () => d };
+          }
+          if (q._kind === "attQuery") {
+            return runAttendanceQuery(q as unknown as { _courseId: unknown });
+          }
           if (q._kind === "subsQuery") return runSubsQuery(q as { _userId: unknown });
           if (q._kind === "subDoc") {
             return {
@@ -137,6 +167,15 @@ export function makeDb(store: FakeStore) {
             };
           }
           throw new Error(`tx.get non gestito: ${q._kind}`);
+        },
+        set: (
+          ref: { _kind: string; _id: string },
+          data: Data,
+          opts?: { merge?: boolean }
+        ) => {
+          const target = storeFor(ref._kind);
+          target[ref._id] =
+            opts?.merge && target[ref._id] ? { ...target[ref._id], ...data } : { ...data };
         },
         update: (ref: { _kind: string; _id: string }, data: Data) => {
           const target = storeFor(ref._kind);
@@ -151,6 +190,7 @@ export function makeDb(store: FakeStore) {
   };
 
   function storeFor(kind: string): Record<string, Data> {
+    if (kind === "attDoc") return attendanceStore();
     return kind === "courseDoc"
       ? store.courses
       : kind === "userDoc"

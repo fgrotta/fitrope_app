@@ -555,6 +555,55 @@ describe("deleteCourseHandler — casi limite (gate PR5)", () => {
     );
     expect(store.courses.c1).toBeDefined(); // niente cancellazione parziale
   });
+
+  test("presenze: cancella solo i doc attendance del corso e li conta", async () => {
+    const store: FakeStore = {
+      users: {
+        boss: { uid: "boss", role: "Admin" },
+        u1: { uid: "u1", role: "User", courses: ["c1"] },
+      },
+      courses: { c1: course(), c2: course({ uid: "c2" }) },
+      subs: {},
+      attendance: {
+        c1_u1: { courseId: "c1", userId: "u1", present: true, source: "self" },
+        c1_u9: { courseId: "c1", userId: "u9", present: false, source: "trainer" },
+        c2_u1: { courseId: "c2", userId: "u1", present: true, source: "self" },
+      },
+    };
+    const res = await deleteCourseHandler(
+      { ...auth("boss"), data: { courseId: "c1" } },
+      makeDb(store),
+      NOW
+    );
+    expect(res).toMatchObject({ ok: true, removedSubscribers: 1, removedAttendance: 2 });
+    expect(Object.keys(store.attendance!)).toEqual(["c2_u1"]);
+    expect(store.courses.c1).toBeUndefined();
+  });
+
+  test("presenze: pesano sul gate MAX_AFFECTED_USERS (al limite passa, oltre no)", async () => {
+    const build = (attendanceDocs: number): FakeStore => {
+      const users: Record<string, Data> = { boss: { uid: "boss", role: "Admin" } };
+      for (let i = 0; i < 100; i++) {
+        users[`u${i}`] = { uid: `u${i}`, role: "User", courses: ["c1"] };
+      }
+      const attendance: Record<string, Data> = {};
+      for (let i = 0; i < attendanceDocs; i++) {
+        attendance[`c1_x${i}`] = { courseId: "c1", userId: `x${i}`, present: true };
+      }
+      return { users, courses: { c1: course() }, subs: {}, attendance };
+    };
+    const atLimit = build(100);
+    await deleteCourseHandler({ ...auth("boss"), data: { courseId: "c1" } }, makeDb(atLimit), NOW);
+    expect(atLimit.courses.c1).toBeUndefined();
+
+    const over = build(101);
+    await expectCode(
+      deleteCourseHandler({ ...auth("boss"), data: { courseId: "c1" } }, makeDb(over), NOW),
+      "failed-precondition"
+    );
+    expect(over.courses.c1).toBeDefined();
+    expect(Object.keys(over.attendance!)).toHaveLength(101);
+  });
 });
 
 describe("rimozione admin con contatore corrotto", () => {
