@@ -644,8 +644,8 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
                       [
                         'trasporto: ${_lastWhatsappResult!.transport}',
                         'status: ${_lastWhatsappResult!.status}',
-                        if (_lastWhatsappResult!.messageId != null)
-                          'messageId: ${_lastWhatsappResult!.messageId}',
+                        if (_lastWhatsappResult!.messageRef != null)
+                          'riferimento: ${_lastWhatsappResult!.messageRef}',
                         if (_lastWhatsappResult!.errorCode != null)
                           'errorCode: ${_lastWhatsappResult!.errorCode}',
                       ].join('\n'),

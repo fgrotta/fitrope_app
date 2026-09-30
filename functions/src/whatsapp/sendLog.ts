@@ -21,12 +21,19 @@
 
 import { logger } from "firebase-functions";
 import { Timestamp } from "firebase-admin/firestore";
-import type { Firestore } from "firebase-admin/firestore";
+import type { DocumentData, Firestore } from "firebase-admin/firestore";
 import { isSameRomeDay } from "./format";
 import { DemoWebhookKind } from "./payload";
 import { WhatsappTransportName, hashMessageId } from "./transport";
 
 export const DEMO_LOG_COLLECTION = "demoLessonWebhookLog";
+/**
+ * Raccordo per hash del wamid (`{hash}` → `logDocId` + ultimo stato di
+ * consegna). Esiste perché Meta può chiamare il webhook prima che la function
+ * abbia registrato l'esito della POST: lo stato resta qui e `markSendOutcome`
+ * lo trasferisce sul registro nella stessa transazione. Solo server.
+ */
+export const DEMO_MESSAGE_COLLECTION = "demoLessonWhatsappMessages";
 
 /** `claimed`: si può inviare. `sent`: già partito. `needs_review`: esito da verificare in Make. */
 export type ClaimResult = "claimed" | "sent" | "needs_review";
@@ -118,7 +125,8 @@ export async function markSendOutcome(
   status?: number,
   details: SendOutcomeDetails = {}
 ): Promise<void> {
-  await logRef(db, kind, userId, courseId).update({
+  const ref = logRef(db, kind, userId, courseId);
+  const patch = {
     outcome,
     ok: outcome === "sent",
     // Status 0 = nessuna risposta HTTP: non c'è niente da registrare.
@@ -126,6 +134,46 @@ export async function markSendOutcome(
     ...(details.transport ? { transport: details.transport } : {}),
     ...(details.messageId ? { messageIdHash: hashMessageId(details.messageId) } : {}),
     ...(details.errorCode !== undefined ? { errorCode: details.errorCode } : {}),
+  };
+  if (!details.messageId) {
+    await ref.update(patch);
+    return;
+  }
+  const messageRef = db.collection(DEMO_MESSAGE_COLLECTION).doc(hashMessageId(details.messageId));
+  await db.runTransaction(async (tx) => {
+    const message = (await tx.get(messageRef)).data();
+    tx.update(ref, { ...patch, ...deliveryFields(message) });
+    tx.set(messageRef, { logDocId: ref.id }, { merge: true });
+  });
+}
+
+/** Registra una prova Meta con la stessa riconciliazione atomica degli invii normali. */
+export async function recordTestSend(
+  db: Firestore,
+  docId: string,
+  uid: string,
+  kind: DemoWebhookKind,
+  status: number,
+  messageId: string,
+  nowMillis: number
+): Promise<void> {
+  const ref = db.collection(DEMO_LOG_COLLECTION).doc(docId);
+  const messageRef = db.collection(DEMO_MESSAGE_COLLECTION).doc(hashMessageId(messageId));
+  await db.runTransaction(async (tx) => {
+    const message = (await tx.get(messageRef)).data();
+    tx.create(ref, {
+      kind: "test",
+      testKind: kind,
+      userId: uid,
+      transport: "meta",
+      messageIdHash: hashMessageId(messageId),
+      outcome: "sent",
+      ok: true,
+      status,
+      sentAt: Timestamp.fromMillis(nowMillis),
+      ...deliveryFields(message),
+    });
+    tx.set(messageRef, { logDocId: docId }, { merge: true });
   });
 }
 
@@ -180,17 +228,26 @@ export function shouldApplyDeliveryStatus(
   return DELIVERY_RANK[next] > (current === undefined ? 0 : DELIVERY_RANK[current]);
 }
 
-/** Id del documento con questo wamid. Filtro a campo singolo: indice automatico. */
+/** Id del documento con questo wamid, se l'invio è già stato registrato. */
 export async function findByMessageId(db: Firestore, messageId: string): Promise<string | null> {
-  const snap = await db
-    .collection(DEMO_LOG_COLLECTION)
-    .where("messageIdHash", "==", hashMessageId(messageId))
-    .limit(1)
-    .get();
-  return snap.docs[0]?.id ?? null;
+  const snap = await db.collection(DEMO_MESSAGE_COLLECTION).doc(hashMessageId(messageId)).get();
+  if (typeof snap.data()?.logDocId === "string") return snap.data()!.logDocId;
+  // Documenti creati prima dell'indice: mantieni la riconciliazione dopo il deploy.
+  const legacy = await db.collection(DEMO_LOG_COLLECTION)
+    .where("messageIdHash", "==", hashMessageId(messageId)).limit(1).get();
+  return legacy.docs[0]?.id ?? null;
 }
 
-export type DeliveryApplyResult = "applied" | "stale" | "not_found";
+export type DeliveryApplyResult = "applied" | "stale" | "pending";
+
+function deliveryFields(data: DocumentData | undefined): Record<string, unknown> {
+  if (!isDeliveryStatus(data?.deliveryStatus)) return {};
+  return {
+    deliveryStatus: data.deliveryStatus,
+    deliveryUpdatedAt: data.deliveryUpdatedAt,
+    ...(data.deliveryError !== undefined ? { deliveryError: data.deliveryError } : {}),
+  };
+}
 
 /** Rilancia gli errori Firestore: il webhook li logga e risponde 200 comunque. */
 export async function applyDeliveryStatus(
@@ -200,16 +257,18 @@ export async function applyDeliveryStatus(
   timestampMillis: number,
   error?: { code?: number; title?: string }
 ): Promise<DeliveryApplyResult> {
-  const docId = await findByMessageId(db, messageId);
-  if (docId === null) return "not_found";
-
-  const ref = db.collection(DEMO_LOG_COLLECTION).doc(docId);
+  const messageRef = db.collection(DEMO_MESSAGE_COLLECTION).doc(hashMessageId(messageId));
+  const legacyDocId = await findByMessageId(db, messageId);
   return db.runTransaction(async (tx) => {
-    const current = (await tx.get(ref)).data()?.deliveryStatus;
+    const message = (await tx.get(messageRef)).data();
+    const logDocId = typeof message?.logDocId === "string" ? message.logDocId : legacyDocId;
+    const logRef = logDocId ? db.collection(DEMO_LOG_COLLECTION).doc(logDocId) : null;
+    const log = logRef ? (await tx.get(logRef)).data() : undefined;
+    const current = message?.deliveryStatus ?? log?.deliveryStatus;
     if (!shouldApplyDeliveryStatus(isDeliveryStatus(current) ? current : undefined, status)) {
       return "stale";
     }
-    tx.update(ref, {
+    const patch = {
       deliveryStatus: status,
       deliveryUpdatedAt: Timestamp.fromMillis(timestampMillis),
       ...(status === "failed" && error
@@ -220,7 +279,12 @@ export async function applyDeliveryStatus(
             },
           }
         : {}),
-    });
-    return "applied";
+    };
+    tx.set(messageRef, { ...patch, ...(logDocId ? { logDocId } : {}) }, { merge: true });
+    if (logRef) {
+      tx.update(logRef, patch);
+      return "applied";
+    }
+    return "pending";
   });
 }

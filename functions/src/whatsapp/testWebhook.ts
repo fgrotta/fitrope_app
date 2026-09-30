@@ -12,15 +12,14 @@
 // autenticato, e ogni WhatsApp è reale e a pagamento.
 
 import { logger } from "firebase-functions";
-import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { HandlerRequest } from "../handler";
 import { WhatsappDeps } from "./demoLesson";
 import { isWhatsappRecipientAllowed } from "./environment";
 import { DemoWebhookKind, buildTemplateParams, sanitizeTemplateParam, toMakeBody } from "./payload";
 import { normalizePhoneE164 } from "./phone";
-import { DEMO_LOG_COLLECTION } from "./sendLog";
-import { hashMessageId, messageRef } from "./transport";
+import { recordTestSend } from "./sendLog";
+import { messageRef } from "./transport";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -78,47 +77,30 @@ export async function sendTestDemoLessonWebhookHandler(
 
   const result = await transport.send(kind, phone.e164, params);
   if (result.ok && result.messageId) {
-    await recordTestSend(deps, request.auth.uid, kind, result.status, result.messageId);
+    try {
+      await recordTestSend(
+        deps.db,
+        `test_${request.auth.uid}_${deps.nowMillis}`,
+        request.auth.uid,
+        kind,
+        result.status,
+        result.messageId,
+        deps.nowMillis
+      );
+    } catch (err) {
+      logger.warn("WhatsApp di prova: documento nel registro non scritto", {
+        messageRef: messageRef(result.messageId),
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
   return {
     ok: result.ok,
     status: result.status,
     transport: transport.name,
-    ...(result.messageId ? { messageId: result.messageId } : {}),
+    ...(result.messageId ? { messageRef: messageRef(result.messageId) } : {}),
     ...(result.errorCode !== undefined ? { errorCode: result.errorCode } : {}),
     // Stessi campi del body Make, per mostrare nella pagina di debug cosa è partito.
     payload: { ...toMakeBody(kind, phone.e164, params) },
   };
-}
-
-/** Best-effort: il messaggio è già partito, un errore qui non va propagato al client. */
-async function recordTestSend(
-  deps: WhatsappDeps,
-  uid: string,
-  kind: DemoWebhookKind,
-  status: number,
-  messageId: string
-): Promise<void> {
-  try {
-    await deps.db
-      .collection(DEMO_LOG_COLLECTION)
-      .doc(`test_${uid}_${deps.nowMillis}`)
-      .create({
-        kind: "test",
-        testKind: kind,
-        userId: uid,
-        transport: deps.transport.name,
-        // Solo l'hash: il wamid contiene il numero (transport.ts).
-        messageIdHash: hashMessageId(messageId),
-        outcome: "sent",
-        ok: true,
-        status,
-        sentAt: Timestamp.fromMillis(deps.nowMillis),
-      });
-  } catch (err) {
-    logger.warn("WhatsApp di prova: documento nel registro non scritto", {
-      messageRef: messageRef(messageId),
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
 }

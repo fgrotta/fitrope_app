@@ -3,7 +3,7 @@
 // Supporta quello che usano registro invii, conferma, cron, callable di prova e
 // webhook di stato: `collection().doc()` con create/get/update, query con
 // `where` (==, >=, <=, array-contains-any), `limit` e `get`, e `runTransaction`
-// con get/update (seriale: le update si applicano a fine callback). Le scritture si applicano allo `store`
+// con get/create/set/update (seriale: le scritture si applicano a fine callback). Le scritture si applicano allo `store`
 // passato, senza copiarlo: un test di ripresa passa lo stesso store a un secondo
 // fake e vede lo stato lasciato dal primo run.
 //
@@ -123,25 +123,42 @@ export function makeWhatsappDb(store: Store = {}, opts: WhatsappFakeDbOptions = 
           }
           coll(name)[id] = { ...coll(name)[id], ...patch };
         },
+        set: async (data: Data, options?: { merge?: boolean }) => {
+          ops.push(`set ${key}`);
+          coll(name)[id] = options?.merge ? { ...coll(name)[id], ...data } : { ...data };
+        },
       };
     },
   });
 
   interface RefLike {
     get: () => Promise<unknown>;
+    create: (data: Data) => Promise<void>;
     update: (patch: Data) => Promise<void>;
+    set: (data: Data, options?: { merge?: boolean }) => Promise<void>;
   }
 
   const db = {
     collection: (name: string) => query(name, [], null),
     runTransaction: async <T>(
-      fn: (tx: { get: (ref: RefLike) => Promise<unknown>; update: (ref: RefLike, patch: Data) => void }) => Promise<T>
+      fn: (tx: {
+        get: (ref: RefLike) => Promise<unknown>;
+        create: (ref: RefLike, data: Data) => void;
+        update: (ref: RefLike, patch: Data) => void;
+        set: (ref: RefLike, data: Data, options?: { merge?: boolean }) => void;
+      }) => Promise<T>
     ): Promise<T> => {
       const pending: Array<() => Promise<void>> = [];
       const result = await fn({
         get: (ref) => ref.get(),
+        create: (ref, data) => {
+          pending.push(() => ref.create(data));
+        },
         update: (ref, patch) => {
           pending.push(() => ref.update(patch));
+        },
+        set: (ref, data, options) => {
+          pending.push(() => ref.set(data, options));
         },
       });
       for (const write of pending) await write();

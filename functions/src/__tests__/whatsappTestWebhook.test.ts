@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { WhatsappDeps } from "../whatsapp/demoLesson";
 import { DemoWebhookKind } from "../whatsapp/payload";
-import { DEMO_LOG_COLLECTION } from "../whatsapp/sendLog";
+import { DEMO_LOG_COLLECTION, applyDeliveryStatus } from "../whatsapp/sendLog";
 import { sendTestDemoLessonWebhookHandler } from "../whatsapp/testWebhook";
 import { SendResult, TemplateParams } from "../whatsapp/transport";
 import { makeWhatsappDb } from "./helpers/whatsappFakeDb";
@@ -124,7 +124,7 @@ describe("sendTestDemoLessonWebhookHandler", () => {
     });
   });
 
-  test("via Meta restituisce trasporto e wamid e registra un documento di prova", async () => {
+  test("via Meta restituisce solo il riferimento hash e registra un documento di prova", async () => {
     const { deps, fake } = setup(
       {},
       { name: "meta", result: { ok: true, status: 200, messageId: "wamid.TEST" } }
@@ -133,7 +133,8 @@ describe("sendTestDemoLessonWebhookHandler", () => {
       asAdmin({ kind: "reminder", numeroTelefono: "3339876543" }),
       deps
     );
-    expect(res).toMatchObject({ ok: true, status: 200, transport: "meta", messageId: "wamid.TEST" });
+    expect(res).toMatchObject({ ok: true, status: 200, transport: "meta", messageRef: sha256("wamid.TEST").slice(0, 12) });
+    expect(JSON.stringify(res)).not.toContain("wamid.TEST");
     const docs = Object.values(fake.store[DEMO_LOG_COLLECTION] ?? {});
     expect(docs).toEqual([
       expect.objectContaining({
@@ -150,6 +151,20 @@ describe("sendTestDemoLessonWebhookHandler", () => {
     expect(JSON.stringify(docs)).not.toContain("wamid.TEST");
     expect(JSON.stringify(docs)).not.toContain("3339876543");
     expect(JSON.stringify(docs)).not.toContain("Test Test");
+  });
+
+  test("lo stato arrivato durante la POST viene applicato al documento di prova", async () => {
+    const { deps, fake } = setup({}, { name: "meta" });
+    deps.transport.send = async () => {
+      await applyDeliveryStatus(fake.db, "wamid.EARLY_TEST", "delivered", NOW + 1000);
+      return { ok: true, status: 200, messageId: "wamid.EARLY_TEST" };
+    };
+    await sendTestDemoLessonWebhookHandler(
+      asAdmin({ kind: "reminder", numeroTelefono: "3339876543" }), deps
+    );
+    expect(fake.store[DEMO_LOG_COLLECTION][`test_admin_${NOW}`]).toMatchObject({
+      deliveryStatus: "delivered", messageIdHash: sha256("wamid.EARLY_TEST"),
+    });
   });
 
   test("via Meta un rifiuto restituisce l'errorCode senza registrare nulla", async () => {

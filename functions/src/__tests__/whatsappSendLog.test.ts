@@ -249,6 +249,13 @@ describe("findByMessageId / applyDeliveryStatus", () => {
     expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({ deliveryStatus: "read" });
   });
 
+  test("un registro legacy già letto non retrocede quando arriva sent", async () => {
+    const fake = withSent();
+    fake.store[DEMO_LOG_COLLECTION].reminder_u1_c1.deliveryStatus = "read";
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "sent", T1)).resolves.toBe("stale");
+    expect(logDoc(fake, "reminder_u1_c1")?.deliveryStatus).toBe("read");
+  });
+
   test("duplicato: no-op", async () => {
     const fake = withSent();
     await applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1);
@@ -269,9 +276,22 @@ describe("findByMessageId / applyDeliveryStatus", () => {
     });
   });
 
-  test("wamid sconosciuto: not_found, nessuna scrittura", async () => {
+  test("wamid sconosciuto: conserva lo stato per una registrazione successiva", async () => {
     const fake = withSent();
-    await expect(applyDeliveryStatus(fake.db, "wamid.Z", "delivered", T1)).resolves.toBe("not_found");
+    await expect(applyDeliveryStatus(fake.db, "wamid.Z", "delivered", T1)).resolves.toBe("pending");
     expect(fake.ops.some((op) => op.startsWith("update"))).toBe(false);
+  });
+
+  test("callback prima dell'esito: la registrazione trasferisce lo stato al claim", async () => {
+    const fake = makeWhatsappDb();
+    await claimSend(fake.db, "reminder", "u1", "c1", NOW);
+    await expect(applyDeliveryStatus(fake.db, "wamid.EARLY", "delivered", T1)).resolves.toBe("pending");
+    await markSendOutcome(fake.db, "reminder", "u1", "c1", "sent", 200, {
+      transport: "meta", messageId: "wamid.EARLY",
+    });
+    expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({
+      deliveryStatus: "delivered", outcome: "sent", messageIdHash: sha256("wamid.EARLY"),
+    });
+    await expect(findByMessageId(fake.db, "wamid.EARLY")).resolves.toBe("reminder_u1_c1");
   });
 });

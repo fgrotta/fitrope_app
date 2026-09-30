@@ -212,13 +212,13 @@ Future<void> sendTestCertificateExpiryEmail({
 }
 
 /// Esito della callable `sendTestDemoLessonWebhook`. [transport] è `make` o
-/// `meta`; [messageId] (wamid) ed [errorCode] (`error.code` della Graph API)
+/// `meta`; [messageRef] (hash abbreviato) ed [errorCode] (`error.code` della Graph API)
 /// esistono solo con Meta.
 typedef DemoWhatsappTestResult = ({
   bool ok,
   int status,
   String transport,
-  String? messageId,
+  String? messageRef,
   int? errorCode,
   Map<String, String> payload,
 });
@@ -252,14 +252,13 @@ Future<DemoWhatsappTestResult> sendTestDemoLessonWebhook({
       'giorno': giorno ?? '',
       'orario': orario ?? '',
     });
-    debugPrint('📲 [WhatsApp] test — RESPONSE: ${result.data}');
     final data = (result.data as Map<Object?, Object?>?) ?? const {};
     final payload = (data['payload'] as Map<Object?, Object?>?) ?? const {};
     return (
       ok: data['ok'] == true,
       status: (data['status'] as num?)?.toInt() ?? 0,
       transport: (data['transport'] as String?) ?? 'make',
-      messageId: data['messageId'] as String?,
+      messageRef: data['messageRef'] as String?,
       errorCode: (data['errorCode'] as num?)?.toInt(),
       payload: payload.map((key, value) => MapEntry('$key', '$value')),
     );

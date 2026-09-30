@@ -141,9 +141,9 @@ async function applyStatus(db: Firestore, status: MetaStatus): Promise<void> {
 
   try {
     const result = await applyDeliveryStatus(db, messageId, status.status, timestampMillis, error);
-    if (result === "not_found") {
-      // Tipico dei messaggi di prova mandati dal WhatsApp Manager.
-      logger.info("Stato WhatsApp per un wamid sconosciuto", {
+    if (result === "pending") {
+      // Il callback può precedere il salvataggio del wamid: l'invio lo riconcilierà.
+      logger.info("Stato WhatsApp in attesa del registro invii", {
         messageRef: messageRef(messageId),
         status: status.status,
       });
