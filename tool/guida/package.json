@@ -1,0 +1,12 @@
+{
+  "name": "fitrope-guida-capture",
+  "private": true,
+  "description": "Cattura screenshot e animazioni della Guida Admin dall'emulatore (vedi README.md)",
+  "type": "module",
+  "scripts": {
+    "capture": "node capture.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}

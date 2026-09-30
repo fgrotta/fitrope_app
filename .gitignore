@@ -63,3 +63,8 @@ integration_test/test_env.json
 !/functions/.env.staging.example
 !/functions/.env.fit-rope-app-1f575
 /functions/.env.fit-rope-staging
+
+# Guida Admin: dipendenze Playwright e config temporanea dell'emulatore di
+# cattura (li crea e cancella scripts/guida_screenshots.sh)
+/tool/guida/node_modules/
+/firebase.guida.json
