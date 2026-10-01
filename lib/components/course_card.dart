@@ -12,6 +12,10 @@ import 'package:fitrope_app/api/courses/delete_course.dart';
 import 'package:fitrope_app/api/courses/recount_course_subscribed.dart';
 import 'package:fitrope_app/api/courses/leave_waitlist.dart';
 import 'package:fitrope_app/utils/snackbar_utils.dart';
+import 'package:fitrope_app/components/attendance_toggle.dart';
+import 'package:fitrope_app/components/self_checkin_button.dart';
+import 'package:fitrope_app/types/attendance_record.dart';
+import 'package:fitrope_app/utils/attendance_window.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/types/course.dart';
 
@@ -57,6 +61,25 @@ class CourseCard extends StatefulWidget {
   /// Iniettabile per i test: la callable vera passa da Firebase.
   final Future<void> Function(String courseId) recountSubscribed;
 
+  // ----- Presenze (la card resta presentazionale: la rete sta nel chiamante) -----
+  /// Check-in del socio; null = niente da mostrare (non iscritto, staff...).
+  final SelfCheckInState? selfCheckInState;
+  final Future<bool> Function()? onSelfCheckIn;
+
+  /// Staff titolare dentro la finestra: spunta "Presente" per riga.
+  final bool canMarkAttendance;
+
+  /// Staff dentro la finestra: pill "Presenti N" (anche se non titolare).
+  final bool showPresentCount;
+
+  /// Presenze per uid; null = non ancora caricate.
+  final Map<String, AttendanceRecord>? attendanceRecords;
+  final Set<String> pendingAttendanceUids;
+  final void Function(FitropeUser user, bool present)? onToggleAttendance;
+
+  /// Chiamata quando la lista iscritti viene APERTA (carica le presenze).
+  final VoidCallback? onSubscribersExpanded;
+
   const CourseCard({
     required this.courseId,
     required this.course,
@@ -81,6 +104,14 @@ class CourseCard extends StatefulWidget {
     this.userRole,
     this.showClickableSubscribers = false,
     this.recountSubscribed = recountCourseSubscribed,
+    this.selfCheckInState,
+    this.onSelfCheckIn,
+    this.canMarkAttendance = false,
+    this.showPresentCount = false,
+    this.attendanceRecords,
+    this.pendingAttendanceUids = const {},
+    this.onToggleAttendance,
+    this.onSubscribersExpanded,
   });
 
   @override
@@ -352,20 +383,30 @@ class _CourseCardState extends State<CourseCard> {
               ? 'Tocca per nascondere la lista iscritti'
               : 'Tocca per mostrare la lista iscritti',
           child: InkWell(
-            onTap: () =>
-                setState(() => _subscribersExpanded = !_subscribersExpanded),
+            onTap: () {
+              setState(() => _subscribersExpanded = !_subscribersExpanded);
+              if (_subscribersExpanded) widget.onSubscribersExpanded?.call();
+            },
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Su mobile titolo e pill non stanno sempre in una riga: il
+                // titolo si accorcia e le pill vanno a capo (Wrap a destra),
+                // invece di far traboccare la riga e tagliare il "+".
                 Flexible(
+                  flex: 2,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):',
-                        style: const TextStyle(
-                          color: onPrimaryColor,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          'Iscritti (${widget.subscribersUsers!.length}/${widget.capacity}):',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: onPrimaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       Icon(
@@ -379,35 +420,43 @@ class _CourseCardState extends State<CourseCard> {
                   ),
                 ),
                 // Icona + per aggiungere iscritti (solo per Admin)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (widget.capacity != null && widget.capacity! > 0)
-                      _capacityPill(
-                        widget.subscribersUsers!.length,
-                        widget.capacity!,
-                      ),
-                    if (widget.isAdmin)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.add,
-                          color: onPrimaryColor,
-                          size: 20,
+                Flexible(
+                  flex: 3,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    children: [
+                      if (_presentCount() != null)
+                        _presentCountPill(_presentCount()!),
+                      if (widget.capacity != null && widget.capacity! > 0)
+                        _capacityPill(
+                          widget.subscribersUsers!.length,
+                          widget.capacity!,
                         ),
-                        onPressed: () => _showAddSubscriberDialog(context),
-                        tooltip: 'Aggiungi iscritto',
-                      ),
-                    if (widget.userRole == 'Admin' && _hasEnrollmentMismatch())
-                      IconButton(
-                        icon: const Icon(
-                          Icons.sync_problem,
-                          color: Colors.red,
-                          size: 20,
+                      if (widget.isAdmin)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.add,
+                            color: onPrimaryColor,
+                            size: 20,
+                          ),
+                          onPressed: () => _showAddSubscriberDialog(context),
+                          tooltip: 'Aggiungi iscritto',
                         ),
-                        onPressed: () => _showCorrectCountDialog(context),
-                        tooltip: 'Correggi conteggio iscritti',
-                      ),
-                  ],
+                      if (widget.userRole == 'Admin' &&
+                          _hasEnrollmentMismatch())
+                        IconButton(
+                          icon: const Icon(
+                            Icons.sync_problem,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          onPressed: () => _showCorrectCountDialog(context),
+                          tooltip: 'Correggi conteggio iscritti',
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -449,7 +498,12 @@ class _CourseCardState extends State<CourseCard> {
                 fontStyle: FontStyle.italic,
               ),
             ),
+          if (widget.canMarkAttendance && widget.subscribersUsers!.isNotEmpty)
+            _buildAttendanceSummary(),
           ...widget.subscribersUsers!.map((user) {
+            if (widget.canMarkAttendance) {
+              return _buildAttendanceRow(context, user);
+            }
             String displayName = getDisplayName(user);
             return Padding(
               padding: const EdgeInsets.only(bottom: 2),
@@ -462,6 +516,8 @@ class _CourseCardState extends State<CourseCard> {
                         cursor: SystemMouseCursors.click,
                         child: Text(
                           '• $displayName',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: onPrimaryColor,
                             decoration: TextDecoration.none,
@@ -472,24 +528,159 @@ class _CourseCardState extends State<CourseCard> {
                   ),
                   // Pulsante di rimozione per admin/trainer
                   if (widget.isAdmin || widget.userRole == 'Trainer')
-                    IconButton(
-                      icon: const Icon(
-                        Icons.remove_circle_outline,
-                        color: Colors.red,
-                        size: 16,
-                      ),
-                      onPressed: () =>
-                          _showRemoveUserConfirmationDialog(context, user),
-                      tooltip: 'Rimuovi iscrizione',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
+                    _removeSubscriberButton(context, user),
                 ],
               ),
             );
           }),
         ],
       ],
+    );
+  }
+
+  Widget _removeSubscriberButton(BuildContext context, FitropeUser user) {
+    return IconButton(
+      icon: const Icon(
+        Icons.remove_circle_outline,
+        color: Colors.red,
+        size: 16,
+      ),
+      onPressed: () => _showRemoveUserConfirmationDialog(context, user),
+      tooltip: 'Rimuovi iscrizione',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+    );
+  }
+
+  /// Riga fissa sopra l'appello: quanti presenti su quanti iscritti. Altezza
+  /// costante anche durante il caricamento (niente salti della card).
+  Widget _buildAttendanceSummary() {
+    final total = widget.subscribersUsers!.length;
+    final present = _presentCount();
+    final loading = widget.attendanceRecords == null;
+    return Padding(
+      key: const Key('appello-summary'),
+      padding: const EdgeInsets.only(top: 2, bottom: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.fact_check_outlined,
+              size: 18, color: SelfCheckInButton.presentColor),
+          const SizedBox(width: 6),
+          const Text(
+            'Appello',
+            style: TextStyle(
+              color: onPrimaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              loading
+                  ? 'Caricamento presenze…'
+                  : '${present ?? 0} su $total presenti',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: const TextStyle(color: onPrimaryColor, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Riga dell'appello: iniziali, nome (tap = dettaglio utente) con una
+  /// didascalia sempre riservata, spunta e rimozione. Altezza fissa: la
+  /// didascalia "check-in del socio" che arriva col caricamento non la cambia.
+  Widget _buildAttendanceRow(BuildContext context, FitropeUser user) {
+    final record = widget.attendanceRecords?[user.uid];
+    final present = record?.present == true;
+    final selfDeclared = present && record?.source == AttendanceSource.self;
+    final initials = [user.name, user.lastName]
+        .where((part) => part.trim().isNotEmpty)
+        .map((part) => part.trim()[0].toUpperCase())
+        .join();
+    return Container(
+      key: Key('appello-row-${user.uid}'),
+      // Minimo e non fisso: a testo normale nome + didascalia stanno nei 52
+      // px (la didascalia che arriva col caricamento non sposta la riga), con
+      // il testo ingrandito dall'accessibilità la riga cresce invece di
+      // tagliare.
+      constraints: const BoxConstraints(minHeight: 52),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.black12)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 15,
+            backgroundColor: present
+                ? SelfCheckInButton.presentColor
+                : Colors.blueGrey.shade100,
+            child: Text(
+              initials,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: present ? Colors.white : Colors.blueGrey.shade800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showUserDetails(context, user),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      getDisplayName(user),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: onPrimaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    // Riga ad altezza fissa (52): la didascalia che arriva
+                    // col caricamento sposta il nome, non la riga.
+                    if (selfDeclared)
+                      const Text(
+                        'check-in del socio',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        // black87: il pannello è bianco al 70% sopra una foto
+                        // scura, black54 scendeva sotto il 4.5:1.
+                        style: TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          AttendanceToggle(
+            record: record,
+            semanticsLabel: '${getDisplayName(user)}: '
+                '${present ? 'presente' : record != null ? 'assente' : 'non segnato'}',
+            // Record non ancora caricati: spunta già al suo posto ma in
+            // attesa, così la riga non cambia altezza.
+            pending: widget.attendanceRecords == null ||
+                widget.pendingAttendanceUids.contains(user.uid),
+            onChanged: widget.onToggleAttendance == null
+                ? null
+                : (present) => widget.onToggleAttendance!(user, present),
+          ),
+          if (widget.isAdmin || widget.userRole == 'Trainer') ...[
+            const SizedBox(width: 6),
+            _removeSubscriberButton(context, user),
+          ],
+        ],
+      ),
     );
   }
 
@@ -771,6 +962,89 @@ class _CourseCardState extends State<CourseCard> {
     );
   }
 
+  /// Presenti da mostrare: conteggio locale se le presenze sono caricate,
+  /// altrimenti il marcatore del corso; null = pill nascosta (appello mai
+  /// fatto o staff fuori finestra).
+  int? _presentCount() {
+    if (!widget.showPresentCount) return null;
+    final records = widget.attendanceRecords;
+    if (records != null) {
+      // Solo gli iscritti attuali: chi è stato rimosso dopo l'appello non
+      // conta più, come nella lista.
+      final subscribers = widget.subscribersUsers;
+      if (subscribers == null) {
+        return records.values.where((r) => r.present).length;
+      }
+      return subscribers.where((u) => records[u.uid]?.present == true).length;
+    }
+    return widget.course.attendance?.presentCount;
+  }
+
+  /// Pill compatta "✓ N": nell'header convive con quella dei posti e col
+  /// "+", e su un telefono da 360 px "Presenti N" per esteso non ci stava.
+  /// Il testo completo resta nell'etichetta accessibile e nel riepilogo
+  /// "Appello" della lista aperta.
+  Widget _presentCountPill(int count) {
+    return Semantics(
+      label: 'Presenti $count',
+      excludeSemantics: true,
+      child: Container(
+        key: const Key('present-count-pill'),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: SelfCheckInButton.presentColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.how_to_reg, size: 13, color: Colors.white),
+            const SizedBox(width: 3),
+            Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Riga azioni del socio: check-in e iscrizione in un Wrap (tra -15' e
+  /// l'inizio convivono con "Rimuovi iscrizione"), avvisi a tutta larghezza.
+  List<Widget> _buildUserActions() {
+    final checkIn = widget.selfCheckInState;
+    final notice = checkIn != null && SelfCheckInButton.isNotice(checkIn);
+    return [
+      SizedBox(
+        width: double.infinity,
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (checkIn != null && !notice)
+              SelfCheckInButton(
+                state: checkIn,
+                onCheckIn: widget.onSelfCheckIn,
+              ),
+            renderButtonSubscribe(),
+          ],
+        ),
+      ),
+      if (notice)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: SelfCheckInButton(state: checkIn),
+        ),
+    ];
+  }
+
   Widget renderButtonSubscribe() {
     // Etichetta, colori e cliccabilità vengono da `courseActionStyleFor`: la
     // stessa tabella la usa la riga compatta dell'agenda, così i due punti non
@@ -898,12 +1172,8 @@ class _CourseCardState extends State<CourseCard> {
                   _buildTypeBadge(),
                   // Riga 3: Metadati con icone (orario, trainer, sala)
                   if (widget.description.trim() != "") _buildMetadata(),
-                  // Riga 3: Bottoni iscrizione
-                  if (!widget.isAdmin)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [renderButtonSubscribe()],
-                    ),
+                  // Riga 3: Bottoni iscrizione e check-in
+                  if (!widget.isAdmin) ..._buildUserActions(),
                   // Mostra la lista cliccabile degli iscritti se richiesto
                   if (widget.showClickableSubscribers)
                     Container(

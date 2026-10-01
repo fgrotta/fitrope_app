@@ -253,6 +253,7 @@ Un utente puo avere piu abbonamenti attivi insieme. La fonte di verita e la coll
 | reminderEnabled | bool | Se true invia promemoria (default true) |
 | waitlistEnabled | bool | Se true la lista d'attesa è attiva (default true) |
 | sala | String? | Sala del corso (lista chiusa `Sale`: "Sala 1"/"Sala 2"; null = legacy/non impostata) |
+| attendance | CourseAttendanceSummary? | Marcatore presenze **server-owned** (`lastMarkedAt`, `lastMarkedBy`, `presentCount`): letto da `fromJson`, mai emesso da `toJson` |
 
 I tag dei corsi sono in `CourseTags` (Personal Trainer, Open, **Hyrox**, Hey Mamma). Il registry `CourseTypes` (`lib/utils/course_types.dart`) mappa ogni tag a una tipologia con `displayName`, famiglia di abbonamento e `defaultSala` (quest'ultimo previsto per il futuro, non usato in v1). La tipologia per eligibility si deriva dai `tags` via `CourseTypes.primaryForTags`.
 
@@ -427,6 +428,7 @@ Nessuno stato aggiuntivo: la regola e un conteggio derivato, applicato in due pu
 
 - Admin e Trainer non dovrebbero iscriversi ai corsi come utenti normali
 - I flussi admin distruttivi (`deleteCourse`, `recountCourseSubscribed`) sono Admin-only lato server.
+- Presenze (`setAttendance`): il socio fa solo check-in su se stesso (presente, da −15' a +30'); Admin su tutti i corsi, Trainer solo sui propri o su quelli senza trainer, da −30' senza scadenza. Admin e Trainer non marcano se stessi.
 
 ### Waitlist
 
@@ -464,6 +466,7 @@ Se tocchi queste aree, aggiorna o aggiungi test in `test/` e `functions/src/__te
 - `users` - documenti utente con dati abbonamento, iscrizioni, waitlist, preferenze notifiche
 - `courses` - documenti corso con orario, capacita e waitlist
 - `subscriptions` - fonte di verita dei nuovi abbonamenti multi-famiglia; scrittura solo server
+- `attendance` - presenze effettive, un documento per `{courseId}_{userId}` (`present`, `source` self/trainer/admin, `markedBy`, `markedAt`, `updatedAt`, `courseStartMillis`); scrittura solo server (`setAttendance`, `deleteCourse`), lettura del proprietario e dello staff
 - `demoLessonWebhookLog` - registro degli invii WhatsApp (webhook Make): un documento per `{kind}_{userId}_{courseId}`, con identificativi, istante ed esito, senza dati personali; scrittura solo server
 
 ### Pattern
@@ -471,7 +474,7 @@ Se tocchi queste aree, aggiorna o aggiungi test in `test/` e `functions/src/__te
 - Transazioni Admin SDK nelle Cloud Functions per iscrizione/disiscrizione/waitlist, assegnazione abbonamenti, cancellazione corso e recount
 - Server timestamp per audit trail
 - Invalidazione cache dopo mutazioni
-- `firestore.rules` blocca le scritture client sui campi server-owned: `courses`, `waitlistCourses`, `activeSubscriptions`, `enrollmentConsumption`, `cancelledEnrollments`, `subscribed`, `waitlist`, e sulla collezione `subscriptions`
+- `firestore.rules` blocca le scritture client sui campi server-owned: `courses`, `waitlistCourses`, `activeSubscriptions`, `enrollmentConsumption`, `cancelledEnrollments`, `subscribed`, `waitlist`, `attendance` (sul corso), e sulle collezioni `subscriptions` e `attendance`
 - CRUD corso resta parzialmente client-side per create/update, ma senza scrivere `subscribed`/`waitlist`; `deleteCourse` passa solo da callable
 - Ordine deploy sicuro: `firebase deploy --only functions`, poi pubblicazione web/app nuova, infine `firebase deploy --only firestore:rules`
 
@@ -788,7 +791,7 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 
 - Parti sempre dai file reali, non dal `README.md`.
 - Se modifichi logica di iscrizione, allinea client display (`get_course_state.dart` / `course_unsubscribe_helper.dart`) e server enforcement (`functions/src/enrollment/`).
-- Il client non deve scrivere direttamente campi enrollment server-owned (`courses`, `waitlistCourses`, `activeSubscriptions`, `enrollmentConsumption`, `cancelledEnrollments`, `subscribed`, `waitlist`): usa le callable/wrapper esistenti.
+- Il client non deve scrivere direttamente campi enrollment server-owned (`courses`, `waitlistCourses`, `activeSubscriptions`, `enrollmentConsumption`, `cancelledEnrollments`, `subscribed`, `waitlist`, `attendance`): usa le callable/wrapper esistenti.
 - Se modifichi logica Flutter di corsi/abbonamenti, esegui almeno `flutter test`; se modifichi Functions, esegui `cd functions && npm run build && npm test`.
 - Se tocchi `firestore.rules`, emulatori o transazioni reali, esegui anche `cd functions && npm run test:integration` con Java 21.
 - Se tocchi import o rename file, controlla la compatibilita con filesystem case-sensitive.

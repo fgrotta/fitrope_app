@@ -20,8 +20,9 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 | `joinWaitlist` / `leaveWaitlist` | idem | Port delle regole client (corso pieno, duplicati, pulizia incoerenze). `joinWaitlist` self richiede il regolamento accettato. **`joinWaitlist` richiede l'idoneità**: esegue `evaluateSubscribe` con `courseFull: false` e rifiuta chi non potrebbe iscriversi (crediti esauriti, limite settimanale, scadenza, tag) |
 | `assignSubscription` *(admin, da PR3)* | `assignSubscription.ts` | Crea doc `subscriptions` + snapshot con date facoltative (`startDateMillis`/`endDateMillis`, `validateWindow`). Max 1 per famiglia su **finestre sovrapposte** (`findOverlapping`): una **Prova** sovrapposta viene revocata e sostituita (`revokedReason: REPLACED_BY_ASSIGNMENT`, `replacedBy`); i residui legacy di una Prova V1 o di un utente già migrato vengono azzerati (vedi "Gestione Admin degli abbonamenti") |
 | `updateSubscription` / `revokeSubscription` *(SOLO Admin)* | `manageSubscription.ts` | Modifica piano, date e ingressi residui (con `editHistory`), revoca con storico (`revokedAt`), ricalcolo snapshot |
-| `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Niente email waitlist |
+| `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Cancella anche le presenze del corso (`removedAttendance`, contate nel limite di 200). Niente email waitlist |
 | `recountCourseSubscribed` *(SOLO Admin, da PR5)* | `admin.ts` | Ricalcola `subscribed` dalla fonte di verità (utenti con il corso in `courses[]`), in transazione |
+| `setAttendance` | `attendance.ts` | Presenza effettiva a un corso: self check-in del socio iscritto (solo `present: true`, da 15' prima a 30' dopo l'inizio, bloccato se lo staff ha già registrato) oppure appello dello staff (Admin sempre, Trainer sui propri corsi o senza trainer, da 30' prima senza scadenza, presente o assente; sovrascrive il self). Scrive `attendance/{courseId}_{userId}` e il marcatore `courses.attendance` (`lastMarkedAt`, `lastMarkedBy`, `presentCount`). Nessun effetto su crediti e ingressi |
 
 **I limiti bloccano anche l'ingresso in lista d'attesa.** Non è una waitlist "illimitata":
 chi non è idoneo a iscriversi (crediti esauriti, limite settimanale raggiunto, abbonamento
@@ -302,6 +303,38 @@ if (unsubscribeInfo['requiresConfirmation']) {
 3. **Gestione Errori**: Messaggi specifici per ogni tipo di errore
 4. **Cache Management**: Invalida cache dopo modifiche
 5. **Controllo Preventivo**: Verifica requisiti prima di mostrare UI
+6. **Rifiuti presenze strutturati**: `setAttendance` rifiuta con `HttpsError(code, msg, {reason})`,
+   dove `details.reason` è una di `ATTENDANCE_STAFF_CANNOT_SELF_MARK`, `ATTENDANCE_NOT_STAFF`,
+   `ATTENDANCE_NOT_COURSE_TRAINER`, `ATTENDANCE_SELF_CANNOT_MARK_ABSENT`,
+   `ATTENDANCE_NOT_ENROLLED`, `ATTENDANCE_WINDOW_NOT_OPEN`, `ATTENDANCE_WINDOW_CLOSED`,
+   `ATTENDANCE_ALREADY_RECORDED_BY_STAFF`. Il client la legge da `EnrollmentException.details`
+   (`attendanceRejectReason` in `set_attendance.dart`, con fallback regex sul messaggio) senza
+   interpretare il testo. Un self già presente non è un errore: `changed: false`.
+
+## Presenze effettive
+
+Registro per il futuro score di rischio abbandono: oggi nessuna penalità, nessun ingresso
+scalato alla presenza, quindi nessuna verifica di prossimità — basta la finestra
+server-side. Logica pura in `decideAttendance` (`functions/src/enrollment/attendance.ts`),
+mirror di sola visualizzazione in `lib/utils/attendance_window.dart`.
+
+- **Chi non viene spuntato è assente**: l'appello parte da "nessuno presente" e ogni tocco
+  scrive subito. Il marcatore `courses.attendance` distingue "appello mai fatto" (assente) da
+  "nessuno presente" (`presentCount: 0`); lo aggiornano anche i self check-in.
+- Il self check-in non deriva da `CourseState` (che è `CLOSED` appena il corso inizia) ma da
+  `user.courses.contains(course.uid)`. Il socio legge il proprio doc per id deterministico solo
+  se è iscritto e da 15' prima dell'inizio: zero letture sul calendario futuro.
+- Lo staff legge `where courseId ==` solo aprendo la lista iscritti; i tocchi non usano il
+  Loader globale (`showGlobalLoader: false`) e non ricaricano i corsi.
+- Rules: `attendance/*` leggibile dal proprietario e dallo staff, scritture negate a tutti;
+  `courses.attendance` non può comparire in create/update client.
+- **Indice futuro**: una lista "le mie presenze" ordinata richiederà l'indice composito
+  `(userId, courseStartMillis desc)`; oggi bastano gli indici single-field.
+- **Caso scoperto**: un socio che fa check-in tra −15' e l'inizio e poi si disiscrive lascia il
+  doc presenza (e il `presentCount`) orfano; `unsubscribeFromCourse` non lo ripulisce.
+- **Rollout**: functions → rules → web. Le rules aprono in lettura una collezione nuova che
+  la web deve leggere, la parte restrittiva non tocca alcun payload client attuale e la
+  callable funziona anche senza rules (Admin SDK).
 
 ## Note Tecniche
 

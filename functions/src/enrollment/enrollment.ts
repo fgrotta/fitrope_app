@@ -62,14 +62,14 @@ export function requireAuthUid(request: EnrollmentRequest): string {
   return request.auth.uid;
 }
 
-function asObject(data: unknown): Record<string, unknown> {
+export function asObject(data: unknown): Record<string, unknown> {
   if (!data || typeof data !== "object") {
     throw new HttpsError("invalid-argument", "Body mancante o invalido");
   }
   return data as Record<string, unknown>;
 }
 
-function requireString(v: unknown, field: string): string {
+export function requireString(v: unknown, field: string): string {
   if (typeof v !== "string" || v.length === 0) {
     throw new HttpsError("invalid-argument", `${field} è richiesto`);
   }

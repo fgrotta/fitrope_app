@@ -76,7 +76,7 @@ async function requireAdmin(
 }
 
 /**
- * Cancella un corso (SOLO Admin) ripulendo iscrizioni e waitlist in UNA
+ * Cancella un corso (SOLO Admin) ripulendo iscrizioni, waitlist e presenze in UNA
  * transazione atomica. Corsi FUTURI: rimborsa tutti gli iscritti (registro
  * consumi, regola admin-rimborsa-sempre). Corsi GIÀ INIZIATI/conclusi (pulizia
  * del calendario/storico): NESSUN rimborso — i partecipanti hanno frequentato,
@@ -94,6 +94,7 @@ export async function deleteCourseHandler(
 
   let removedSubscribers = 0;
   let removedWaitlist = 0;
+  let removedAttendance = 0;
 
   await db.runTransaction(async (tx) => {
     // ----- letture (tutte prima delle scritture) -----
@@ -106,8 +107,15 @@ export async function deleteCourseHandler(
     const waitlistedSnap = await tx.get(
       db.collection("users").where("waitlistCourses", "array-contains", courseId)
     );
+    const attendanceSnap = await tx.get(
+      db.collection("attendance").where("courseId", "==", courseId)
+    );
 
-    if (subscribersSnap.docs.length + waitlistedSnap.docs.length > MAX_AFFECTED_USERS) {
+    // Le presenze sono una delete ciascuna: pesano sullo stesso limite.
+    if (
+      subscribersSnap.docs.length + waitlistedSnap.docs.length + attendanceSnap.docs.length >
+      MAX_AFFECTED_USERS
+    ) {
       throw new HttpsError(
         "failed-precondition",
         "Troppi utenti coinvolti per una cancellazione atomica"
@@ -118,6 +126,7 @@ export async function deleteCourseHandler(
     // caso di contention e gli accumulatori esterni si gonfierebbero.
     removedSubscribers = subscribersSnap.docs.length;
     removedWaitlist = waitlistedSnap.docs.length;
+    removedAttendance = attendanceSnap.docs.length;
 
     const courseStartMillis = toMillis(course.data.startDate);
     // Corso già iniziato/concluso (pulizia calendario/storico): i partecipanti
@@ -253,10 +262,13 @@ export async function deleteCourseHandler(
     for (const plan of planned.values()) {
       tx.update(plan.ref, plan.update);
     }
+    for (const doc of attendanceSnap.docs) {
+      tx.delete(doc.ref);
+    }
     tx.delete(course.ref);
   });
 
-  return { ok: true, removedSubscribers, removedWaitlist };
+  return { ok: true, removedSubscribers, removedWaitlist, removedAttendance };
 }
 
 /**

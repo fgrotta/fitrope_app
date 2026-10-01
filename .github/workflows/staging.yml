@@ -266,7 +266,8 @@ jobs:
                     updateSubscription revokeSubscription \
                     createManagedUser grantSignupTrial \
                     checkEmailAvailability setManagedUserEmail \
-                    recountCourseSubscribed sendOneSignalNotification \
+                    recountCourseSubscribed setAttendance \
+                    sendOneSignalNotification \
                     courseIcs \
                     previewLegacyUserMigration migrateLegacyUser \
                     sendTestCertificateEmail certificateEmailsDaily; do

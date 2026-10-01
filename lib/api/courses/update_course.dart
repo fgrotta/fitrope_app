@@ -15,9 +15,12 @@ Future<void> updateCourse(Course course, {FirebaseFirestore? firestore}) async {
     // transazione dalle callable enrollment): NON vanno riscritti dal modello
     // in memoria, che può essere stale e riporterebbe indietro contatore e
     // lista d'attesa mentre il server processa iscrizioni.
+    // Idem per il marcatore presenze (toJson non lo emette già: rimozione
+    // difensiva, un update che lo contenesse sarebbe rifiutato dalle rules).
     final data = course.toJson()
       ..remove('subscribed')
-      ..remove('waitlist');
+      ..remove('waitlist')
+      ..remove('attendance');
     await db.collection('courses').doc(course.uid).update(data);
     invalidateCoursesCache(); // Invalida la cache dopo l'aggiornamento
     debugPrint('Course updated ${course.uid} successfully!');

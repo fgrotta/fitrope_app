@@ -66,6 +66,7 @@ flutter:
     - assets/guida/img/migrazione-utente-legacy/
     - assets/guida/img/corsi/
     - assets/guida/img/iscrivere-socio-a-corso/
+    - assets/guida/img/presenze/
     - assets/guida/img/correggi-conteggio/
     - assets/guida/img/home-e-dashboard/
     - assets/guida/img/problemi-app/

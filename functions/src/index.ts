@@ -35,6 +35,7 @@ import {
   deleteCourseHandler,
   recountCourseSubscribedHandler,
 } from "./enrollment/admin";
+import { setAttendanceHandler } from "./enrollment/attendance";
 import {
   scheduleTrialReminder,
   sendTrialEnrollmentConfirmation,
@@ -450,6 +451,23 @@ export const recountCourseSubscribed = onCall(
   { region: "europe-west8", cors: true },
   stagingCloneGuarded((request) =>
     recountCourseSubscribedHandler(
+      { auth: request.auth ?? null, data: request.data },
+      admin.firestore(),
+    )),
+);
+
+/**
+ * Registra la presenza effettiva a un corso: check-in del socio (solo
+ * presente, da 15' prima a 30' dopo l'inizio) oppure appello dello staff
+ * (Admin, o Trainer del corso, da 30' prima in poi, presente o assente).
+ * Guardata sul clone staging: un socio clonato non deve scrivere presenze.
+ *
+ * Payload: { courseId: string, userId?: string, present: boolean }
+ */
+export const setAttendance = onCall(
+  { region: "europe-west8", cors: true },
+  stagingCloneGuarded((request) =>
+    setAttendanceHandler(
       { auth: request.auth ?? null, data: request.data },
       admin.firestore(),
     )),

@@ -11,6 +11,7 @@ type IndexModule = {
   checkEmailAvailability: unknown;
   setManagedUserEmail: unknown;
   subscribeToCourse: unknown;
+  setAttendance: unknown;
   updateSubscription: unknown;
   revokeSubscription: unknown;
   courseIcs: unknown;
@@ -51,6 +52,7 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     expect(mod.checkEmailAvailability).toBeDefined();
     expect(mod.setManagedUserEmail).toBeDefined();
     expect(mod.subscribeToCourse).toBeDefined();
+    expect(mod.setAttendance).toBeDefined();
     expect(mod.updateSubscription).toBeDefined();
     expect(mod.revokeSubscription).toBeDefined();
     // courseIcs serve i link "aggiungi al calendario" delle email: va in prod.

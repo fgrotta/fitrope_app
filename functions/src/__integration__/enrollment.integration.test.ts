@@ -90,6 +90,7 @@ interface CallResult {
   result?: Record<string, unknown>;
   errorStatus?: string;
   errorMessage?: string;
+  errorDetails?: Record<string, unknown>;
 }
 
 async function call(
@@ -112,6 +113,7 @@ async function call(
     result: body.result,
     errorStatus: body.error?.["status"],
     errorMessage: body.error?.["message"],
+    errorDetails: body.error?.["details"],
   };
 }
 
@@ -737,5 +739,119 @@ describe("integrazione emulatore — gestione abbonamenti Admin", () => {
     expect(closed.replacedBy).toBe(assigned.result?.subscriptionId);
     const snap = (await userDoc(userId)).activeSubscriptions as Array<Record<string, unknown>>;
     expect(snap.map((e) => e.planKey)).toEqual(["open_2x_1m"]);
+  });
+});
+
+describe("integrazione emulatore — presenze (setAttendance)", () => {
+  const MIN = 60 * 1000;
+
+  /** Corso che inizia a `offsetMin` minuti da ora, con i soci già iscritti. */
+  async function courseStartingIn(
+    offsetMin: number,
+    enrolled: string[],
+    over: Record<string, unknown> = {}
+  ): Promise<string> {
+    const c = uniq("c-att");
+    const start = Date.now() + offsetMin * MIN;
+    await createCourse(c, {
+      startDate: Timestamp.fromMillis(start),
+      endDate: Timestamp.fromMillis(start + 60 * MIN),
+      subscribed: enrolled.length,
+      ...over,
+    });
+    for (const u of enrolled) {
+      await db.collection("users").doc(u).update({ courses: [c] });
+    }
+    return c;
+  }
+
+  const attDoc = async (c: string, u: string) =>
+    (await db.collection("attendance").doc(`${c}_${u}`).get()).data();
+
+  test("self: dentro finestra ok e idempotente; fuori finestra rifiutato con details.reason", async () => {
+    const u = uniq("u-att-self");
+    const t = await createUser(u, {});
+    const c = await courseStartingIn(5, [u]);
+
+    const first = await call("setAttendance", t, { courseId: c, present: true });
+    expect(first.ok).toBe(true);
+    expect(first.result).toMatchObject({ source: "self", changed: true, presentCount: 1 });
+    const again = await call("setAttendance", t, { courseId: c, present: true });
+    expect(again.result).toMatchObject({ changed: false, presentCount: 1 });
+    expect(await attDoc(c, u)).toMatchObject({ userId: u, courseId: c, present: true, source: "self" });
+
+    // Finestra chiusa: si sposta l'inizio a 31' fa.
+    await db.collection("courses").doc(c).update({
+      startDate: Timestamp.fromMillis(Date.now() - 31 * MIN),
+    });
+    const late = await call("setAttendance", t, { courseId: c, present: true });
+    expect(late.errorStatus).toBe("FAILED_PRECONDITION");
+    expect(late.errorDetails).toEqual({ reason: "ATTENDANCE_WINDOW_CLOSED" });
+
+    const c2 = await courseStartingIn(20, [u]);
+    const early = await call("setAttendance", t, { courseId: c2, present: true });
+    expect(early.errorDetails).toEqual({ reason: "ATTENDANCE_WINDOW_NOT_OPEN" });
+  });
+
+  test("staff: trainer titolare ok, trainer altrui no, admin ok; il self viene bloccato dopo lo staff", async () => {
+    const trainer = uniq("u-att-tr");
+    const tTrainer = await createUser(trainer, { role: "Trainer" });
+    const other = uniq("u-att-tr2");
+    const tOther = await createUser(other, { role: "Trainer" });
+    const boss = uniq("u-att-boss");
+    const tBoss = await createUser(boss, { role: "Admin" });
+    const u = uniq("u-att-m");
+    const tU = await createUser(u, {});
+    const outsider = uniq("u-att-out");
+    await createUser(outsider, {});
+    const c = await courseStartingIn(-60, [u], { trainerId: trainer });
+
+    const denied = await call("setAttendance", tOther, { courseId: c, userId: u, present: true });
+    expect(denied.errorStatus).toBe("PERMISSION_DENIED");
+    expect(denied.errorDetails).toEqual({ reason: "ATTENDANCE_NOT_COURSE_TRAINER" });
+
+    const notEnrolled = await call("setAttendance", tTrainer, { courseId: c, userId: outsider, present: true });
+    expect(notEnrolled.errorDetails).toEqual({ reason: "ATTENDANCE_NOT_ENROLLED" });
+
+    const marked = await call("setAttendance", tTrainer, { courseId: c, userId: u, present: true });
+    expect(marked.result).toMatchObject({ source: "trainer", presentCount: 1 });
+    const absent = await call("setAttendance", tBoss, { courseId: c, userId: u, present: false });
+    expect(absent.result).toMatchObject({ source: "admin", presentCount: 0 });
+    expect((await courseDoc(c))?.attendance).toMatchObject({ presentCount: 0, lastMarkedBy: boss });
+
+    // Il corso è iniziato da 60': il self sarebbe comunque fuori finestra, lo si riporta dentro.
+    await db.collection("courses").doc(c).update({ startDate: Timestamp.fromMillis(Date.now()) });
+    const self = await call("setAttendance", tU, { courseId: c, present: true });
+    expect(self.errorDetails).toEqual({ reason: "ATTENDANCE_ALREADY_RECORDED_BY_STAFF" });
+  });
+
+  test("CONCORRENZA: due setAttendance paralleli su due soci → presentCount 2", async () => {
+    const trainer = uniq("u-att-conc");
+    const tTrainer = await createUser(trainer, { role: "Trainer" });
+    const a = uniq("u-att-a");
+    await createUser(a, {});
+    const b = uniq("u-att-b");
+    await createUser(b, {});
+    const c = await courseStartingIn(0, [a, b], { trainerId: trainer });
+
+    const results = await Promise.all([
+      call("setAttendance", tTrainer, { courseId: c, userId: a, present: true }),
+      call("setAttendance", tTrainer, { courseId: c, userId: b, present: true }),
+    ]);
+    expect(results.every((r) => r.ok)).toBe(true);
+    expect((await courseDoc(c))?.attendance).toMatchObject({ presentCount: 2 });
+  });
+
+  test("deleteCourse ripulisce le presenze del corso", async () => {
+    const boss = uniq("u-att-del");
+    const tBoss = await createUser(boss, { role: "Admin" });
+    const u = uniq("u-att-del-m");
+    await createUser(u, {});
+    const c = await courseStartingIn(-10, [u]);
+    expect((await call("setAttendance", tBoss, { courseId: c, userId: u, present: true })).ok).toBe(true);
+
+    const del = await call("deleteCourse", tBoss, { courseId: c });
+    expect(del.result).toMatchObject({ removedSubscribers: 1, removedAttendance: 1 });
+    expect(await attDoc(c, u)).toBeUndefined();
   });
 });

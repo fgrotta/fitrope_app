@@ -1,4 +1,5 @@
 import 'package:fitrope_app/api/courses/enrollment_callable.dart';
+import 'package:fitrope_app/api/courses/set_attendance.dart';
 import 'package:fitrope_app/state/actions.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 import 'package:fitrope_app/state/store.dart';
@@ -73,7 +74,7 @@ void main() {
     });
   });
 
-  group('callEnrollmentFunction (choke point di 6 callable)', () {
+  group('callEnrollmentFunction (choke point di 7 callable)', () {
     test('in simulazione lancia prima di toccare FirebaseFunctions', () async {
       SimulationSession.start(admin: admin, target: target);
 
@@ -108,6 +109,41 @@ void main() {
       // scivolasse di una riga sotto `StartLoadingAction`, il throw uscirebbe
       // prima del try e isLoading resterebbe true per sempre.
       expect(store.state.isLoading, isFalse);
+    });
+
+    test('setAttendance in simulazione lancia (anche senza Loader globale)',
+        () async {
+      SimulationSession.start(admin: admin, target: target);
+
+      await expectLater(
+        setAttendance(
+          courseId: 'c1',
+          userId: target.uid,
+          present: true,
+          showGlobalLoader: false,
+        ),
+        throwsA(isA<SimulationBlockedException>()),
+      );
+      expect(store.state.isLoading, isFalse);
+    });
+
+    test('showGlobalLoader: false non accende mai il Loader', () async {
+      final seen = <bool>[];
+      final sub = store.onChange.listen((s) => seen.add(s.isLoading));
+      // Senza Firebase inizializzato la chiamata fallisce: interessa solo che
+      // il Loader non sia mai passato a true lungo il percorso.
+      await expectLater(
+        callEnrollmentFunction(
+          'setAttendance',
+          {'courseId': 'c1', 'present': true},
+          fallbackError: 'errore',
+          showGlobalLoader: false,
+        ),
+        throwsA(anything),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+      expect(seen.contains(true), isFalse);
     });
   });
 }
