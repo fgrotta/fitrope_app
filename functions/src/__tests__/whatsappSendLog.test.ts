@@ -1,8 +1,12 @@
+import { createHash } from "crypto";
 import { Timestamp } from "firebase-admin/firestore";
 import {
   DEMO_LOG_COLLECTION,
+  applyDeliveryStatus,
   claimSend,
   demoLogDocId,
+  findByMessageId,
+  shouldApplyDeliveryStatus,
   markSendOutcome,
   wasNotifiedToday,
 } from "../whatsapp/sendLog";
@@ -15,6 +19,8 @@ jest.mock("firebase-functions", () => ({
 // 14 ottobre 2026, 19:00 ora di Roma (CEST).
 const NOW = Date.UTC(2026, 9, 14, 17);
 const KEY = "booked_u1_c1";
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+
 
 function logDoc(fake: ReturnType<typeof makeWhatsappDb>, id = KEY) {
   return fake.store[DEMO_LOG_COLLECTION]?.[id];
@@ -98,6 +104,30 @@ describe("markSendOutcome", () => {
     expect(logDoc(fake)).not.toHaveProperty("status");
   });
 
+  test("registra trasporto, hash del wamid ed errorCode, mai il wamid (contiene il numero)", async () => {
+    const fake = makeWhatsappDb();
+    await claimSend(fake.db, "reminder", "u1", "c1", NOW);
+    await markSendOutcome(fake.db, "reminder", "u1", "c1", "sent", 200, {
+      transport: "meta",
+      messageId: "wamid.ABC",
+    });
+    expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({
+      outcome: "sent",
+      transport: "meta",
+      messageIdHash: sha256("wamid.ABC"),
+    });
+    expect(logDoc(fake, "reminder_u1_c1")).not.toHaveProperty("messageId");
+    expect(logDoc(fake, "reminder_u1_c1")).not.toHaveProperty("errorCode");
+
+    await claimSend(fake.db, "booked", "u1", "c1", NOW);
+    await markSendOutcome(fake.db, "booked", "u1", "c1", "rejected", 400, {
+      transport: "meta",
+      errorCode: 131030,
+    });
+    expect(logDoc(fake)).toMatchObject({ transport: "meta", errorCode: 131030 });
+    expect(logDoc(fake)).not.toHaveProperty("messageIdHash");
+  });
+
   test("non cancella mai il claim, nemmeno su un invio incerto", async () => {
     const fake = makeWhatsappDb();
     await claimSend(fake.db, "booked", "u1", "c1", NOW);
@@ -160,5 +190,108 @@ describe("wasNotifiedToday", () => {
     });
     await expect(wasNotifiedToday(fake.db, "u1", "c1", NOW)).resolves.toBe(false);
     expect(fake.ops).toEqual([`get ${DEMO_LOG_COLLECTION}/${KEY}`]);
+  });
+});
+
+describe("shouldApplyDeliveryStatus", () => {
+  test.each([
+    [undefined, "sent", true],
+    [undefined, "delivered", true],
+    [undefined, "failed", true],
+    ["sent", "delivered", true],
+    ["sent", "read", true],
+    ["delivered", "read", true],
+    ["sent", "failed", true],
+    ["sent", "sent", false],
+    ["delivered", "sent", false],
+    ["read", "delivered", false],
+    ["delivered", "failed", false],
+    ["read", "failed", false],
+    ["failed", "delivered", false],
+    ["failed", "failed", false],
+  ] as const)("%s → %s: %s", (current, next, expected) => {
+    expect(shouldApplyDeliveryStatus(current, next)).toBe(expected);
+  });
+});
+
+describe("findByMessageId / applyDeliveryStatus", () => {
+  const T1 = NOW + 5_000;
+  const withSent = () =>
+    makeWhatsappDb({
+      [DEMO_LOG_COLLECTION]: {
+        reminder_u1_c1: { kind: "reminder", ok: true, outcome: "sent", messageIdHash: sha256("wamid.A") },
+        reminder_u2_c1: { kind: "reminder", ok: true, outcome: "sent", messageIdHash: sha256("wamid.B") },
+      },
+    });
+
+  test("trova il documento dal wamid con un filtro a campo singolo", async () => {
+    const fake = withSent();
+    await expect(findByMessageId(fake.db, "wamid.B")).resolves.toBe("reminder_u2_c1");
+    await expect(findByMessageId(fake.db, "wamid.Z")).resolves.toBeNull();
+    expect(fake.whereCalls).toEqual([
+      expect.objectContaining({ field: "messageIdHash", op: "==", value: sha256("wamid.B") }),
+      expect.objectContaining({ field: "messageIdHash", op: "==", value: sha256("wamid.Z") }),
+    ]);
+  });
+
+  test("scrive stato e istante di consegna", async () => {
+    const fake = withSent();
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1)).resolves.toBe("applied");
+    const doc = logDoc(fake, "reminder_u1_c1");
+    expect(doc).toMatchObject({ deliveryStatus: "delivered", outcome: "sent", ok: true });
+    expect((doc?.deliveryUpdatedAt as Timestamp).toMillis()).toBe(T1);
+  });
+
+  test("fuori ordine: read poi delivered lascia read", async () => {
+    const fake = withSent();
+    await applyDeliveryStatus(fake.db, "wamid.A", "read", T1 + 1000);
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1)).resolves.toBe("stale");
+    expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({ deliveryStatus: "read" });
+  });
+
+  test("un registro legacy già letto non retrocede quando arriva sent", async () => {
+    const fake = withSent();
+    fake.store[DEMO_LOG_COLLECTION].reminder_u1_c1.deliveryStatus = "read";
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "sent", T1)).resolves.toBe("stale");
+    expect(logDoc(fake, "reminder_u1_c1")?.deliveryStatus).toBe("read");
+  });
+
+  test("duplicato: no-op", async () => {
+    const fake = withSent();
+    await applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1);
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "delivered", T1 + 1)).resolves.toBe("stale");
+    expect((logDoc(fake, "reminder_u1_c1")?.deliveryUpdatedAt as Timestamp).toMillis()).toBe(T1);
+  });
+
+  test("failed registra codice e titolo ed è terminale", async () => {
+    const fake = withSent();
+    await applyDeliveryStatus(fake.db, "wamid.A", "failed", T1, {
+      code: 131026,
+      title: "Message undeliverable",
+    });
+    await expect(applyDeliveryStatus(fake.db, "wamid.A", "read", T1 + 1)).resolves.toBe("stale");
+    expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({
+      deliveryStatus: "failed",
+      deliveryError: { code: 131026, title: "Message undeliverable" },
+    });
+  });
+
+  test("wamid sconosciuto: conserva lo stato per una registrazione successiva", async () => {
+    const fake = withSent();
+    await expect(applyDeliveryStatus(fake.db, "wamid.Z", "delivered", T1)).resolves.toBe("pending");
+    expect(fake.ops.some((op) => op.startsWith("update"))).toBe(false);
+  });
+
+  test("callback prima dell'esito: la registrazione trasferisce lo stato al claim", async () => {
+    const fake = makeWhatsappDb();
+    await claimSend(fake.db, "reminder", "u1", "c1", NOW);
+    await expect(applyDeliveryStatus(fake.db, "wamid.EARLY", "delivered", T1)).resolves.toBe("pending");
+    await markSendOutcome(fake.db, "reminder", "u1", "c1", "sent", 200, {
+      transport: "meta", messageId: "wamid.EARLY",
+    });
+    expect(logDoc(fake, "reminder_u1_c1")).toMatchObject({
+      deliveryStatus: "delivered", outcome: "sent", messageIdHash: sha256("wamid.EARLY"),
+    });
+    await expect(findByMessageId(fake.db, "wamid.EARLY")).resolves.toBe("reminder_u1_c1");
   });
 });

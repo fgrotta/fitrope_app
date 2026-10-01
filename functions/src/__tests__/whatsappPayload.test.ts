@@ -2,6 +2,8 @@ import {
   TIPO_BY_KIND,
   buildDemoLessonPayload,
   buildNome,
+  buildTemplateParams,
+  toMakeBody,
   sanitizeTemplateParam,
 } from "../whatsapp/payload";
 
@@ -111,5 +113,27 @@ describe("buildDemoLessonPayload", () => {
   test("rifiuta un campo vuoto invece di mandarlo a Make", () => {
     expect(() => buildDemoLessonPayload({ ...base, kind: "booked", nome: "" })).toThrow(/nome/);
     expect(() => buildDemoLessonPayload({ ...base, kind: "booked", corso: "   " })).toThrow(/corso/);
+  });
+});
+
+describe("buildTemplateParams / toMakeBody", () => {
+  test("i parametri del template sono i quattro campi comuni ai trasporti", () => {
+    expect(buildTemplateParams({ ...base, nome: " Mario  Rossi " })).toEqual({
+      nome: "Mario Rossi",
+      corso: "Corso Excel Avanzato",
+      giorno: "15 ottobre 2026",
+      orario: "18:00",
+    });
+  });
+
+  test("toMakeBody aggiunge tipo e numero senza toccare i parametri", () => {
+    const params = buildTemplateParams(base);
+    expect(toMakeBody("reminder", "+393331234567", params)).toEqual(
+      buildDemoLessonPayload({ ...base, kind: "reminder" })
+    );
+  });
+
+  test("buildTemplateParams rifiuta un campo vuoto", () => {
+    expect(() => buildTemplateParams({ ...base, corso: "" })).toThrow(/corso/);
   });
 });

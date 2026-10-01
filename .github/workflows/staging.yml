@@ -147,6 +147,16 @@ jobs:
         env:
           ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
           STAGING_NOTIFICATION_EMAIL_ALLOWLIST: ${{ vars.STAGING_NOTIFICATION_EMAIL_ALLOWLIST }}
+          # WhatsApp via Meta Cloud API (app "Fit House WhatsApp TEST"). Resta
+          # spento finche' META_WA_PHONE_NUMBER_ID non e' valorizzata: accenderlo
+          # richiede PRIMA i secret META_WA_ACCESS_TOKEN, META_APP_SECRET e
+          # META_WA_VERIFY_TOKEN nel progetto fit-rope-staging, altrimenti il
+          # deploy fallisce. Solo modalita' test: il cron resta spento.
+          META_WA_PHONE_NUMBER_ID: ${{ vars.META_WA_PHONE_NUMBER_ID }}
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION }}
+          META_WA_TEMPLATE_REMINDER: ${{ vars.META_WA_TEMPLATE_REMINDER }}
+          META_WA_TEMPLATE_LANG: ${{ vars.META_WA_TEMPLATE_LANG }}
+          STAGING_WHATSAPP_ALLOWLIST: ${{ vars.STAGING_WHATSAPP_ALLOWLIST }}
         run: |
           test "$STAGING_PROJECT_ID" = fit-rope-staging
           test "$STAGING_CLONE_MODE" = true
@@ -158,6 +168,14 @@ jobs:
           fi
           printf "APP_ENV=staging\nONESIGNAL_APP_ID=%s\nSTAGING_NOTIFICATION_EMAIL_ALLOWLIST=%s\nSTAGING_CLONE_MODE=%s\nSTAGING_CLONE_ALLOWED_UIDS=dev_admin,dev_trainer,dev_member_open_2x,dev_member_open_unlimited,dev_member_pt_entries\n" \
             "$ONESIGNAL_APP_ID" "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST" "$STAGING_CLONE_MODE" > ".env.$STAGING_PROJECT_ID"
+          if [ -n "$META_WA_PHONE_NUMBER_ID" ]; then
+            test -n "$META_GRAPH_VERSION"
+            test -n "$META_WA_TEMPLATE_REMINDER"
+            test -n "$STAGING_WHATSAPP_ALLOWLIST"
+            printf "WHATSAPP_DEMO_MODE=test\nWHATSAPP_TRANSPORT=meta\nMETA_GRAPH_VERSION=%s\nMETA_WA_PHONE_NUMBER_ID=%s\nMETA_WA_TEMPLATE_REMINDER=%s\nMETA_WA_TEMPLATE_LANG=%s\nSTAGING_WHATSAPP_ALLOWLIST=%s\n" \
+              "$META_GRAPH_VERSION" "$META_WA_PHONE_NUMBER_ID" "$META_WA_TEMPLATE_REMINDER" \
+              "${META_WA_TEMPLATE_LANG:-it}" "$STAGING_WHATSAPP_ALLOWLIST" >> ".env.$STAGING_PROJECT_ID"
+          fi
       - name: Deploy Functions staging
         run: firebase deploy --project "$STAGING_PROJECT_ID" --only functions --non-interactive
       - name: Seed staging data
@@ -253,6 +271,8 @@ jobs:
               -o /dev/null "${PAGE_URL}${path}"
           done
       - name: Smoke test callable staging
+        env:
+          META_WA_PHONE_NUMBER_ID: ${{ vars.META_WA_PHONE_NUMBER_ID }}
         run: |
           firebase functions:list --project "$STAGING_PROJECT_ID" --json > functions.json
           # grep sul nome nudo: firebase puo prefissare la regione nell'id
@@ -277,6 +297,16 @@ jobs:
             fi
             echo "ok: $fn"
           done
+          # WhatsApp Meta: presenti solo se deploy-functions l'ha acceso (stessa var).
+          if [ -n "$META_WA_PHONE_NUMBER_ID" ]; then
+            for fn in sendTestDemoLessonWebhook whatsappStatusWebhook; do
+              if ! grep -q "$fn" functions.json; then
+                echo "::error::function WhatsApp mancante su staging: $fn"
+                exit 1
+              fi
+              echo "ok: $fn"
+            done
+          fi
           for fn in firestoreBackupDaily firestoreBackupDailyCheck; do
             if grep -q "$fn" functions.json; then
               echo "::error::funzione backup PRD presente per errore su staging: $fn"
