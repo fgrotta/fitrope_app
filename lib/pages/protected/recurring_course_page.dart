@@ -7,6 +7,7 @@ import 'package:fitrope_app/utils/course_form_validation.dart';
 import 'package:fitrope_app/utils/italian_time.dart';
 import 'package:fitrope_app/utils/course_tags.dart';
 import 'package:fitrope_app/components/sala_selector_card.dart';
+import 'package:fitrope_app/components/course_image_selector_card.dart';
 import 'package:fitrope_app/components/loader.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/style.dart';
@@ -565,69 +566,10 @@ class _RecurringCoursePageState extends State<RecurringCoursePage> {
   Widget _buildImageSelector() {
     final images = CourseImages.forTag(selectedTag, selectedCourseType);
     if (images.isEmpty) return const SizedBox.shrink();
-    return Card(
-      color: surfaceVariantColor,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Immagine del Corso',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Seleziona un\'immagine per questo corso',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 100,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: images.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final imagePath = images[index];
-                  final isSelected = selectedImageKey == imagePath;
-                  return GestureDetector(
-                    onTap: () => setState(() => selectedImageKey = imagePath),
-                    child: Container(
-                      width: 140,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected ? primaryColor : Colors.transparent,
-                          width: 3,
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.asset(
-                          imagePath,
-                          fit: BoxFit.cover,
-                          cacheWidth: 300,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                            color: primaryLightColor.withValues(alpha: 0.3),
-                            child: const Center(
-                              child: Icon(
-                                Icons.image_not_supported,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+    return CourseImageSelectorCard(
+      images: images,
+      selected: selectedImageKey,
+      onSelected: (path) => setState(() => selectedImageKey = path),
     );
   }
 
