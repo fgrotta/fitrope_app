@@ -433,6 +433,40 @@ void main() {
       expect(_presentPill(1), findsOneWidget);
     });
 
+    testWidgets(
+        'trainer a corso terminato: avviso al posto delle spunte, conteggio sì',
+        (tester) async {
+      await _pump(
+        tester,
+        CourseCard(
+          courseId: 'c1',
+          course: _course(capacity: 4, subscribed: 1).copyWith(
+            attendance: const CourseAttendanceSummary(presentCount: 1),
+          ),
+          title: 'Corso',
+          capacity: 4,
+          subscribed: 1,
+          subscribersUsers: [_user(1)],
+          waitlistUsers: const [],
+          showClickableSubscribers: true,
+          isAdmin: true,
+          userRole: 'Trainer',
+          showPresentCount: true,
+          attendanceNotice:
+              'Corso terminato: le presenze può modificarle solo un Admin',
+          onRefresh: () {},
+        ),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(_presentPill(1), findsOneWidget);
+      expect(find.byType(AttendanceToggle), findsNothing);
+      expect(
+        find.text('Corso terminato: le presenze può modificarle solo un Admin'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('staff non titolare: conteggio sì, spunte no', (tester) async {
       await _pump(
         tester,

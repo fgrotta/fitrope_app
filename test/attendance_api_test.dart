@@ -104,6 +104,8 @@ void main() {
           'Presenza già registrata dallo staff');
       expect(msg('ATTENDANCE_NOT_ENROLLED'),
           'L\'utente non è iscritto a questo corso');
+      expect(msg('ATTENDANCE_COURSE_ENDED_ADMIN_ONLY'),
+          'Corso terminato: le presenze può modificarle solo un Admin');
     });
 
     test('reason sconosciuta o errore generico → messaggio originale', () {

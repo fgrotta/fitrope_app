@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fitrope_app/api/courses/get_attendance.dart';
+import 'package:fitrope_app/api/courses/set_attendance.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/types/attendance_record.dart';
 import 'package:fitrope_app/utils/attendance_window.dart';
@@ -169,7 +170,11 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
       widget.onToggleAttendance != null &&
       _isStaff &&
       _isOwnerStaff &&
-      staffCanMark(widget.course, now);
+      staffCanMark(
+        widget.course,
+        now,
+        isAdmin: widget.currentUser.role == 'Admin',
+      );
 
   void _scheduleAttendanceBoundary() {
     _boundaryTimer?.cancel();
@@ -392,8 +397,10 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
         final now = DateTime.now();
         final canMarkAttendance =
             _canMarkAttendance(now) && !_attendanceLoadFailed;
-        // Il Trainer non titolare vede il conteggio, non i controlli.
-        final showPresentCount = _isStaff && staffCanMark(widget.course, now);
+        // Il Trainer non titolare (o a corso terminato) vede il conteggio,
+        // non i controlli.
+        final showPresentCount =
+            _isStaff && staffWindowOpened(widget.course, now);
         final checkInState = _isStaff
             ? null
             : selfCheckInState(
@@ -447,6 +454,15 @@ class _CoursePreviewCardState extends State<CoursePreviewCard> {
             onToggleAttendance:
                 widget.onToggleAttendance == null ? null : _toggleAttendance,
             onSubscribersExpanded: _onSubscribersExpanded,
+            // Il titolare a corso finito: senza avviso le spunte sparirebbero
+            // senza spiegazione.
+            attendanceNotice: !canMarkAttendance &&
+                    widget.onToggleAttendance != null &&
+                    widget.currentUser.role == 'Trainer' &&
+                    _isOwnerStaff &&
+                    now.isAfter(widget.course.endDate.toDate())
+                ? attendanceCourseEndedMessage
+                : null,
           ),
         );
       },

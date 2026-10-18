@@ -22,7 +22,7 @@ callable; il client non scrive più direttamente su corsi/utenti/abbonamenti:
 | `updateSubscription` / `revokeSubscription` *(SOLO Admin)* | `manageSubscription.ts` | Modifica piano, date e ingressi residui (con `editHistory`), revoca con storico (`revokedAt`), ricalcolo snapshot |
 | `deleteCourse` *(SOLO Admin, da PR5)* | `admin.ts` | UNA transazione atomica: corsi FUTURI → rimborsa tutti gli iscritti (registro consumi, regola admin-rimborsa-sempre); corsi GIÀ INIZIATI (pulizia storico) → nessun rimborso, solo rimozione iscrizioni/waitlist. Cancella anche le presenze del corso (`removedAttendance`, contate nel limite di 200). Niente email waitlist |
 | `recountCourseSubscribed` *(SOLO Admin, da PR5)* | `admin.ts` | Ricalcola `subscribed` dalla fonte di verità (utenti con il corso in `courses[]`), in transazione |
-| `setAttendance` | `attendance.ts` | Presenza effettiva a un corso: self check-in del socio iscritto (solo `present: true`, da 15' prima a 30' dopo l'inizio, bloccato se lo staff ha già registrato) oppure appello dello staff (Admin sempre, Trainer sui propri corsi o senza trainer, da 30' prima senza scadenza, presente o assente; sovrascrive il self). Scrive `attendance/{courseId}_{userId}` e il marcatore `courses.attendance` (`lastMarkedAt`, `lastMarkedBy`, `presentCount`). Nessun effetto su crediti e ingressi |
+| `setAttendance` | `attendance.ts` | Presenza effettiva a un corso: self check-in del socio iscritto (solo `present: true`, da 15' prima a 30' dopo l'inizio, bloccato se lo staff ha già registrato) oppure appello dello staff da 30' prima, presente o assente, che sovrascrive il self: Admin su qualunque corso e senza scadenza, Trainer sui propri corsi (o senza trainer) solo fino alla fine della lezione. **I corsi terminati li corregge solo un Admin** (`ATTENDANCE_COURSE_ENDED_ADMIN_ONLY`). Scrive `attendance/{courseId}_{userId}` e il marcatore `courses.attendance` (`lastMarkedAt`, `lastMarkedBy`, `presentCount`). Nessun effetto su crediti e ingressi |
 
 **I limiti bloccano anche l'ingresso in lista d'attesa.** Non è una waitlist "illimitata":
 chi non è idoneo a iscriversi (crediti esauriti, limite settimanale raggiunto, abbonamento
@@ -307,6 +307,7 @@ if (unsubscribeInfo['requiresConfirmation']) {
    dove `details.reason` è una di `ATTENDANCE_STAFF_CANNOT_SELF_MARK`, `ATTENDANCE_NOT_STAFF`,
    `ATTENDANCE_NOT_COURSE_TRAINER`, `ATTENDANCE_SELF_CANNOT_MARK_ABSENT`,
    `ATTENDANCE_NOT_ENROLLED`, `ATTENDANCE_WINDOW_NOT_OPEN`, `ATTENDANCE_WINDOW_CLOSED`,
+   `ATTENDANCE_COURSE_ENDED_ADMIN_ONLY`,
    `ATTENDANCE_ALREADY_RECORDED_BY_STAFF`. Il client la legge da `EnrollmentException.details`
    (`attendanceRejectReason` in `set_attendance.dart`, con fallback regex sul messaggio) senza
    interpretare il testo. Un self già presente non è un errore: `changed: false`.

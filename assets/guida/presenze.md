@@ -6,9 +6,9 @@ L'app tiene un registro di **chi era davvero in sala** a ogni lezione. Per ora s
 
 ## Chi e quando
 
-- Gli **Admin** possono fare l'appello di qualunque corso; i **Trainer** solo dei propri corsi e di quelli senza trainer.
-- L'appello si apre **30 minuti prima dell'inizio** e resta aperto anche dopo la fine della lezione, per esempio per correggere il giorno dopo.
-- Prima di quell'orario i pulsanti non compaiono.
+- L'appello si apre **30 minuti prima dell'inizio**: prima di quell'orario i pulsanti non compaiono.
+- I **Trainer** fanno l'appello dei propri corsi e di quelli senza trainer, **fino alla fine della lezione**. Dopo, nella lista compare **"Corso terminato: le presenze può modificarle solo un Admin"**.
+- Gli **Admin** possono segnare le presenze di qualunque corso, anche dei **corsi già passati**, per esempio per correggere il giorno dopo.
 
 ## Fare l'appello
 
@@ -34,7 +34,7 @@ Ogni tocco viene salvato subito, non c'è un pulsante "Salva". Chi non tocchi re
 
 Da **15 minuti prima** a **30 minuti dopo** l'inizio, il socio iscritto vede nella sua app il pulsante **Sono in sala** e può segnarsi presente da solo. Nella lista compare già verde, con la scritta **check-in del socio** sotto il nome.
 
-- Puoi sempre correggerlo tu: dopo che lo hai segnato tu, il socio non può più cambiarlo.
+- Puoi correggerlo tu (se sei Trainer, fino alla fine della lezione): dopo che lo hai segnato tu, il socio non può più cambiarlo.
 - Se il socio arriva più tardi, l'app gli dice **"Check-in chiuso: chiedi al trainer di registrare la tua presenza"**: segnalo tu dalla lista.
 
 ## Da sapere
