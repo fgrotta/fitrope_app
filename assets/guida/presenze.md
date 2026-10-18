@@ -30,6 +30,10 @@ Ogni tocco viene salvato subito, non c'è un pulsante "Salva". Chi non tocchi re
 
 ![Un socio presente e uno assente](img/presenze/03-segnati.png)
 
+Sul **telefono** il pulsante è solo un'icona, così il nome si legge per intero: **cerchio vuoto** = non segnato, **verde con la spunta** = presente, **rosso con la ×** = assente. Si usa allo stesso modo: un tocco segna presente, un altro tocco assente.
+
+![L'appello sul telefono](img/presenze/04-mobile.png)
+
 ## Il check-in del socio
 
 Da **15 minuti prima** a **30 minuti dopo** l'inizio, il socio iscritto vede nella sua app il pulsante **Sono in sala** e può segnarsi presente da solo. Nella lista compare già verde, con la scritta **check-in del socio** sotto il nome.

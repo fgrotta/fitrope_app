@@ -20,12 +20,18 @@ class AttendanceToggle extends StatelessWidget {
   /// nome un appello da 15 righe sarebbe 15 bottoni "Presente" identici.
   final String? semanticsLabel;
 
+  /// Solo icona in un cerchio (48x48): su mobile la versione con il testo
+  /// lasciava al nome dell'iscritto pochi caratteri. Cerchio vuoto = non
+  /// segnato, verde con spunta = presente, rosso con × = assente.
+  final bool compact;
+
   const AttendanceToggle({
     super.key,
     required this.record,
     this.pending = false,
     this.onChanged,
     this.semanticsLabel,
+    this.compact = false,
   });
 
   static const double width = 112;
@@ -70,6 +76,9 @@ class AttendanceToggle extends StatelessWidget {
     }
 
     final shape = StadiumBorder(side: BorderSide(color: border, width: 1.5));
+    final indicator = pending
+        ? CircularProgressIndicator(strokeWidth: 2, color: foreground)
+        : Icon(icon, size: compact ? 20 : 16, color: foreground);
     return Semantics(
       button: true,
       toggled: present,
@@ -79,50 +88,90 @@ class AttendanceToggle extends StatelessWidget {
           present ? 'Tocca per segnare assente' : 'Tocca per segnare presente',
       excludeSemantics: true,
       onTap: enabled ? () => onChanged!(!present) : null,
-      child: SizedBox(
-        width: width,
-        height: 48,
-        child: Center(
-          child: Opacity(
-            opacity: pending ? 0.7 : 1,
-            child: Material(
-              color: background,
-              shape: shape,
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                customBorder: shape,
-                onTap: enabled ? () => onChanged!(!present) : null,
-                child: SizedBox(
-                  width: width,
-                  height: 36,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: pending
-                            ? CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: foreground,
-                              )
-                            : Icon(icon, size: 16, color: foreground),
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.fade,
-                          softWrap: false,
-                          style: TextStyle(
-                            color: foreground,
-                            fontWeight: FontWeight.w600,
-                          ),
+      child: compact
+          ? _compact(
+              background: background,
+              border: border,
+              indicator: pending || record != null ? indicator : null,
+              enabled: enabled,
+              present: present,
+            )
+          : SizedBox(
+              width: width,
+              height: 48,
+              child: Center(
+                child: Opacity(
+                  opacity: pending ? 0.7 : 1,
+                  child: Material(
+                    color: background,
+                    shape: shape,
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      customBorder: shape,
+                      onTap: enabled ? () => onChanged!(!present) : null,
+                      child: SizedBox(
+                        width: width,
+                        height: 36,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: indicator,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.fade,
+                                softWrap: false,
+                                style: TextStyle(
+                                  color: foreground,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _compact({
+    required Color background,
+    required Color border,
+    required Widget? indicator,
+    required bool enabled,
+    required bool present,
+  }) {
+    final shape = CircleBorder(side: BorderSide(color: border, width: 1.5));
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Center(
+        child: Opacity(
+          opacity: pending ? 0.7 : 1,
+          child: Material(
+            color: background,
+            shape: shape,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              customBorder: shape,
+              onTap: enabled ? () => onChanged!(!present) : null,
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: Center(
+                  child: indicator == null
+                      ? null
+                      : SizedBox(width: 20, height: 20, child: indicator),
                 ),
               ),
             ),
