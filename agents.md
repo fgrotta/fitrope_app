@@ -428,7 +428,7 @@ Nessuno stato aggiuntivo: la regola e un conteggio derivato, applicato in due pu
 
 - Admin e Trainer non dovrebbero iscriversi ai corsi come utenti normali
 - I flussi admin distruttivi (`deleteCourse`, `recountCourseSubscribed`) sono Admin-only lato server.
-- Presenze (`setAttendance`): il socio fa solo check-in su se stesso (presente, da −15' a +30'); Admin su tutti i corsi, Trainer solo sui propri o su quelli senza trainer, da −30' senza scadenza. Admin e Trainer non marcano se stessi.
+- Presenze (`setAttendance`): il socio fa solo check-in su se stesso (presente, da −15' a +30'); da −30': Admin su tutti i corsi e senza scadenza (unico a poter correggere i corsi terminati), Trainer solo sui propri o su quelli senza trainer e fino alla fine della lezione (`ATTENDANCE_COURSE_ENDED_ADMIN_ONLY` dopo). Admin e Trainer non marcano se stessi.
 
 ### Waitlist
 

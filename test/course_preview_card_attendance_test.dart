@@ -35,13 +35,14 @@ Future<void> _pumpCard(
   Course course,
   FirebaseFirestore db, {
   bool withToggleHandler = true,
+  String role = 'Trainer',
 }) async {
   await tester.pumpWidget(MaterialApp(
     home: Scaffold(
       body: SingleChildScrollView(
         child: CoursePreviewCard(
           course: course,
-          currentUser: _user('t1', 'Trainer'),
+          currentUser: _user(role == 'Admin' ? 'a1' : 't1', role),
           trainers: const [],
           onRefresh: () {},
           onToggleAttendance: withToggleHandler ? (_, __) async => true : null,
@@ -110,5 +111,39 @@ void main() {
     await tester.pump();
     await _settleFirestore(tester);
     expect(find.byType(AttendanceToggle), findsNothing);
+  });
+
+  group('corso terminato (solo Admin)', () {
+    final ended = DateTime.now().subtract(const Duration(hours: 2));
+
+    testWidgets('trainer titolare: avviso e nessuna spunta', (tester) async {
+      await _pumpCard(tester, _course(ended), db);
+      await _settleFirestore(tester);
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      await _settleFirestore(tester);
+      expect(find.byType(AttendanceToggle), findsNothing);
+      expect(
+        find.text('Corso terminato: le presenze può modificarle solo un Admin'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Admin: spunte attive anche giorni dopo', (tester) async {
+      await _pumpCard(
+        tester,
+        _course(DateTime.now().subtract(const Duration(days: 5))),
+        db,
+        role: 'Admin',
+      );
+      await _settleFirestore(tester);
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      await _settleFirestore(tester);
+      final chip =
+          tester.widget<AttendanceToggle>(find.byType(AttendanceToggle));
+      expect(chip.pending, isFalse);
+      expect(find.textContaining('Corso terminato'), findsNothing);
+    });
   });
 }

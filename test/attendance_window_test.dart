@@ -104,10 +104,22 @@ void main() {
   });
 
   group('staffCanMark', () {
-    test('da -30\' in poi, senza limite superiore', () {
-      expect(staffCanMark(course, at(-30, ms: -1)), isFalse);
-      expect(staffCanMark(course, at(-30)), isTrue);
-      expect(staffCanMark(course, at(60 * 24 * 7)), isTrue);
+    test('Admin: da -30\' in poi, senza limite superiore', () {
+      expect(staffCanMark(course, at(-30, ms: -1), isAdmin: true), isFalse);
+      expect(staffCanMark(course, at(-30), isAdmin: true), isTrue);
+      expect(staffCanMark(course, at(60 * 24 * 7), isAdmin: true), isTrue);
+    });
+
+    test('Trainer: da -30\' fino alla fine della lezione (inclusa)', () {
+      expect(staffCanMark(course, at(-30, ms: -1), isAdmin: false), isFalse);
+      expect(staffCanMark(course, at(-30), isAdmin: false), isTrue);
+      expect(staffCanMark(course, at(60), isAdmin: false), isTrue);
+      expect(staffCanMark(course, at(60, ms: 1), isAdmin: false), isFalse);
+    });
+
+    test('staffWindowOpened: da -30\' in poi, per tutti', () {
+      expect(staffWindowOpened(course, at(-30, ms: -1)), isFalse);
+      expect(staffWindowOpened(course, at(60 * 24)), isTrue);
     });
   });
 
@@ -118,8 +130,10 @@ void main() {
       expect(next(at(-120)), at(-30).millisecondsSinceEpoch);
       expect(next(at(-30)), at(-15).millisecondsSinceEpoch);
       expect(next(at(-15)), at(30, ms: 1).millisecondsSinceEpoch);
+      // Fine lezione: il Trainer perde le spunte al millisecondo dopo.
+      expect(next(at(30, ms: 1)), at(60, ms: 1).millisecondsSinceEpoch);
       expect(
-        next(at(30, ms: 1)),
+        next(at(60, ms: 1)),
         DateTime.utc(2026, 6, 9, 22).millisecondsSinceEpoch,
       );
       expect(next(DateTime.utc(2026, 6, 9, 22)), isNull);

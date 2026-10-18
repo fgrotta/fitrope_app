@@ -21,6 +21,7 @@ function input(over: Partial<AttendanceInput> = {}): AttendanceInput {
     requestedPresent: true,
     courseTrainerId: "t1",
     courseStartMillis: START,
+    courseEndMillis: START + 60 * MIN,
     nowMillis: START,
     targetEnrolled: true,
     existing: null,
@@ -113,10 +114,25 @@ describe("decideAttendance — finestre (bordi inclusivi)", () => {
   test.each([
     [-30 * MIN - 1, "ATTENDANCE_WINDOW_NOT_OPEN"],
     [-30 * MIN, null],
-    [3 * 24 * 60 * MIN, null],
-  ])("staff a %d ms dall'inizio → %s", (offset, reason) => {
+    [60 * MIN, null], // fine lezione: ancora ammesso (bordo inclusivo)
+    [60 * MIN + 1, "ATTENDANCE_COURSE_ENDED_ADMIN_ONLY"],
+    [3 * 24 * 60 * MIN, "ATTENDANCE_COURSE_ENDED_ADMIN_ONLY"],
+  ])("trainer a %d ms dall'inizio (corso di 60') → %s", (offset, reason) => {
     const d = decideAttendance(staff({ nowMillis: START + offset }));
     if (reason === null) expect(d.allowed).toBe(true);
+    else expect(d).toMatchObject({ allowed: false, reason });
+  });
+
+  test.each([
+    [-30 * MIN - 1, "ATTENDANCE_WINDOW_NOT_OPEN"],
+    [-30 * MIN, null],
+    [60 * MIN + 1, null],
+    [30 * 24 * 60 * MIN, null],
+  ])("admin a %d ms dall'inizio → %s (corsi passati: solo Admin)", (offset, reason) => {
+    const d = decideAttendance(
+      staff({ actorUid: "a1", actorRole: "Admin", courseTrainerId: "t2", nowMillis: START + offset })
+    );
+    if (reason === null) expect(d).toMatchObject({ allowed: true, source: "admin" });
     else expect(d).toMatchObject({ allowed: false, reason });
   });
 });
@@ -358,6 +374,24 @@ describe("setAttendanceHandler", () => {
       "permission-denied",
       "ATTENDANCE_SELF_CANNOT_MARK_ABSENT"
     );
+  });
+
+  test("corso terminato: il trainer è rifiutato, l'Admin corregge", async () => {
+    const store = baseStore();
+    const db = makeDb(store);
+    const after = START + 61 * MIN;
+    await expectRejection(
+      setAttendanceHandler({ ...auth("t1"), data: { courseId: "c1", userId: "u1", present: true } }, db, after),
+      "permission-denied",
+      "ATTENDANCE_COURSE_ENDED_ADMIN_ONLY"
+    );
+    expect(store.attendance).toEqual({});
+    const res = await setAttendanceHandler(
+      { ...auth("a1"), data: { courseId: "c1", userId: "u1", present: true } },
+      db,
+      after + 7 * 24 * 60 * MIN
+    );
+    expect(res).toMatchObject({ ok: true, source: "admin", presentCount: 1 });
   });
 
   test("validazione input", async () => {

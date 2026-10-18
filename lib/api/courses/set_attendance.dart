@@ -64,6 +64,7 @@ enum AttendanceRejectReason {
   notEnrolled('ATTENDANCE_NOT_ENROLLED'),
   windowNotOpen('ATTENDANCE_WINDOW_NOT_OPEN'),
   windowClosed('ATTENDANCE_WINDOW_CLOSED'),
+  courseEndedAdminOnly('ATTENDANCE_COURSE_ENDED_ADMIN_ONLY'),
   alreadyRecordedByStaff('ATTENDANCE_ALREADY_RECORDED_BY_STAFF');
 
   final String code;
@@ -76,6 +77,11 @@ enum AttendanceRejectReason {
     return null;
   }
 }
+
+/// Testo condiviso: errore del server e avviso nella lista iscritti del
+/// Trainer quando il corso è terminato.
+const String attendanceCourseEndedMessage =
+    'Corso terminato: le presenze può modificarle solo un Admin';
 
 final RegExp _reasonInMessage = RegExp(r'ATTENDANCE_[A-Z_]+');
 
@@ -98,6 +104,8 @@ AttendanceRejectReason? attendanceRejectReason(Object error) {
 /// originale (già leggibile, vedi [EnrollmentException.toString]).
 String attendanceErrorMessage(Object error) {
   switch (attendanceRejectReason(error)) {
+    case AttendanceRejectReason.courseEndedAdminOnly:
+      return attendanceCourseEndedMessage;
     case AttendanceRejectReason.windowClosed:
       return 'Check-in chiuso: chiedi al trainer di registrare la tua presenza';
     case AttendanceRejectReason.windowNotOpen:

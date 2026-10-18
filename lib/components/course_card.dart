@@ -80,6 +80,10 @@ class CourseCard extends StatefulWidget {
   /// Chiamata quando la lista iscritti viene APERTA (carica le presenze).
   final VoidCallback? onSubscribersExpanded;
 
+  /// Avviso al posto dell'appello quando lo staff non può più segnare (es.
+  /// Trainer a corso terminato: solo un Admin corregge i corsi passati).
+  final String? attendanceNotice;
+
   const CourseCard({
     required this.courseId,
     required this.course,
@@ -112,6 +116,7 @@ class CourseCard extends StatefulWidget {
     this.pendingAttendanceUids = const {},
     this.onToggleAttendance,
     this.onSubscribersExpanded,
+    this.attendanceNotice,
   });
 
   @override
@@ -499,7 +504,9 @@ class _CourseCardState extends State<CourseCard> {
               ),
             ),
           if (widget.canMarkAttendance && widget.subscribersUsers!.isNotEmpty)
-            _buildAttendanceSummary(),
+            _buildAttendanceSummary()
+          else if (widget.attendanceNotice != null)
+            _buildAttendanceNotice(widget.attendanceNotice!),
           ...widget.subscribersUsers!.map((user) {
             if (widget.canMarkAttendance) {
               return _buildAttendanceRow(context, user);
@@ -554,6 +561,26 @@ class _CourseCardState extends State<CourseCard> {
 
   /// Riga fissa sopra l'appello: quanti presenti su quanti iscritti. Altezza
   /// costante anche durante il caricamento (niente salti della card).
+  Widget _buildAttendanceNotice(String text) {
+    return Padding(
+      key: const Key('appello-notice'),
+      padding: const EdgeInsets.only(top: 2, bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lock_outline, size: 18, color: onPrimaryColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: onPrimaryColor, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAttendanceSummary() {
     final total = widget.subscribersUsers!.length;
     final present = _presentCount();

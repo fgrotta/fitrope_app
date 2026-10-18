@@ -61,9 +61,16 @@ SelfCheckInState? selfCheckInState(
   return null;
 }
 
-/// Lo staff può fare l'appello da 30' prima dell'inizio, senza scadenza.
-bool staffCanMark(Course course, DateTime now) =>
+/// Da 30' prima dell'inizio lo staff vede il conteggio dei presenti.
+bool staffWindowOpened(Course course, DateTime now) =>
     !now.isBefore(course.startDate.toDate().subtract(staffMarkBefore));
+
+/// Lo staff può fare l'appello da 30' prima dell'inizio: l'Admin senza
+/// scadenza, il Trainer fino alla fine della lezione (inclusa). Un corso
+/// terminato lo corregge solo un Admin (mirror di `decideAttendance`).
+bool staffCanMark(Course course, DateTime now, {required bool isAdmin}) =>
+    staffWindowOpened(course, now) &&
+    (isAdmin || !now.isAfter(course.endDate.toDate()));
 
 /// Primo istante dopo [now] in cui cambia qualcosa di quanto sopra: la card
 /// ci aggancia un Timer one-shot per ricostruirsi (nessun rebuild altrimenti
@@ -75,8 +82,10 @@ DateTime? nextAttendanceBoundary(Course course, DateTime now) {
     start.subtract(selfCheckInBefore),
     // La finestra self è inclusiva: chiude al millisecondo dopo +30'.
     start.add(selfCheckInAfter).add(const Duration(milliseconds: 1)),
+    // Anche la fine lezione è inclusiva: il Trainer perde le spunte dopo.
+    course.endDate.toDate().add(const Duration(milliseconds: 1)),
     _endOfCourseDay(course),
-  ];
+  ]..sort();
   for (final b in boundaries) {
     if (b.isAfter(now)) return b;
   }

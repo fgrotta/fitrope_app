@@ -804,7 +804,7 @@ describe("integrazione emulatore — presenze (setAttendance)", () => {
     const tU = await createUser(u, {});
     const outsider = uniq("u-att-out");
     await createUser(outsider, {});
-    const c = await courseStartingIn(-60, [u], { trainerId: trainer });
+    const c = await courseStartingIn(-20, [u], { trainerId: trainer });
 
     const denied = await call("setAttendance", tOther, { courseId: c, userId: u, present: true });
     expect(denied.errorStatus).toBe("PERMISSION_DENIED");
@@ -819,10 +819,29 @@ describe("integrazione emulatore — presenze (setAttendance)", () => {
     expect(absent.result).toMatchObject({ source: "admin", presentCount: 0 });
     expect((await courseDoc(c))?.attendance).toMatchObject({ presentCount: 0, lastMarkedBy: boss });
 
-    // Il corso è iniziato da 60': il self sarebbe comunque fuori finestra, lo si riporta dentro.
+    // Il corso è iniziato da 20': si riporta l'inizio a ora per restare nella finestra self.
     await db.collection("courses").doc(c).update({ startDate: Timestamp.fromMillis(Date.now()) });
     const self = await call("setAttendance", tU, { courseId: c, present: true });
     expect(self.errorDetails).toEqual({ reason: "ATTENDANCE_ALREADY_RECORDED_BY_STAFF" });
+  });
+
+  test("corso terminato: il trainer titolare è rifiutato, l'Admin corregge", async () => {
+    const trainer = uniq("u-att-end-tr");
+    const tTrainer = await createUser(trainer, { role: "Trainer" });
+    const boss = uniq("u-att-end-boss");
+    const tBoss = await createUser(boss, { role: "Admin" });
+    const u = uniq("u-att-end-m");
+    await createUser(u, {});
+    // Iniziato 2 ore fa, durata 60': terminato da un'ora.
+    const c = await courseStartingIn(-120, [u], { trainerId: trainer });
+
+    const late = await call("setAttendance", tTrainer, { courseId: c, userId: u, present: true });
+    expect(late.errorStatus).toBe("PERMISSION_DENIED");
+    expect(late.errorDetails).toEqual({ reason: "ATTENDANCE_COURSE_ENDED_ADMIN_ONLY" });
+    expect(await attDoc(c, u)).toBeUndefined();
+
+    const fixed = await call("setAttendance", tBoss, { courseId: c, userId: u, present: true });
+    expect(fixed.result).toMatchObject({ source: "admin", presentCount: 1 });
   });
 
   test("CONCORRENZA: due setAttendance paralleli su due soci → presentCount 2", async () => {

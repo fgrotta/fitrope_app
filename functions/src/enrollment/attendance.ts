@@ -6,9 +6,11 @@
 // server-side, senza verifica di prossimità.
 //
 // Chi marca:
-//  - lo STAFF (Admin sempre, Trainer solo sui propri corsi o su quelli senza
-//    trainer) da 30' prima dell'inizio in poi, senza limite superiore, presente
-//    o assente; il tocco dello staff sovrascrive sempre un self check-in;
+//  - lo STAFF da 30' prima dell'inizio, presente o assente; il tocco dello
+//    staff sovrascrive sempre un self check-in. L'Admin su qualunque corso e
+//    senza limite superiore; il Trainer solo sui propri corsi (o senza trainer)
+//    e fino alla fine della lezione: un corso terminato lo corregge solo un
+//    Admin;
 //  - il SOCIO iscritto, solo `present: true`, da 15' prima a 30' dopo l'inizio,
 //    e solo finché lo staff non ha registrato nulla per lui.
 //
@@ -36,7 +38,10 @@ const MINUTE_MS = 60 * 1000;
 export const SELF_WINDOW_BEFORE_MS = 15 * MINUTE_MS;
 /** ...e chiude 30' dopo: poi il socio deve chiedere al trainer. */
 export const SELF_WINDOW_AFTER_MS = 30 * MINUTE_MS;
-/** Lo staff può fare l'appello da 30' prima dell'inizio, senza scadenza. */
+/**
+ * Lo staff può fare l'appello da 30' prima dell'inizio. Il Trainer fino alla
+ * fine della lezione (inclusa), l'Admin senza scadenza.
+ */
 export const STAFF_WINDOW_BEFORE_MS = 30 * MINUTE_MS;
 /** Come la UI (calendar_page.dart), un corso senza trainer è di tutti i Trainer. */
 export const TRAINER_MAY_MARK_UNASSIGNED_COURSE = true;
@@ -51,6 +56,7 @@ export type AttendanceReason =
   | "ATTENDANCE_NOT_ENROLLED"
   | "ATTENDANCE_WINDOW_NOT_OPEN"
   | "ATTENDANCE_WINDOW_CLOSED"
+  | "ATTENDANCE_COURSE_ENDED_ADMIN_ONLY"
   | "ATTENDANCE_ALREADY_RECORDED_BY_STAFF";
 
 export interface AttendanceInput {
@@ -61,6 +67,8 @@ export interface AttendanceInput {
   /** `trainerId` del corso; null o "" = corso senza trainer assegnato. */
   courseTrainerId: string | null;
   courseStartMillis: number;
+  /** Fine della lezione: oltre, le presenze le modifica solo un Admin. */
+  courseEndMillis: number;
   nowMillis: number;
   /** Il corso è in `users/{target}.courses` (false anche se il target non esiste). */
   targetEnrolled: boolean;
@@ -114,6 +122,8 @@ export function decideAttendance(input: AttendanceInput): AttendanceDecision {
     if (offset > SELF_WINDOW_AFTER_MS) return deny("ATTENDANCE_WINDOW_CLOSED");
   } else if (offset < -STAFF_WINDOW_BEFORE_MS) {
     return deny("ATTENDANCE_WINDOW_NOT_OPEN");
+  } else if (input.actorRole !== "Admin" && input.nowMillis > input.courseEndMillis) {
+    return deny("ATTENDANCE_COURSE_ENDED_ADMIN_ONLY");
   }
 
   // 5. record esistente
@@ -164,6 +174,10 @@ const REASON_TO_HTTP: Record<AttendanceReason, { code: FunctionsErrorCode; msg: 
   ATTENDANCE_WINDOW_CLOSED: {
     code: "failed-precondition",
     msg: "Il check-in è chiuso: chiedi al trainer di registrare la tua presenza",
+  },
+  ATTENDANCE_COURSE_ENDED_ADMIN_ONLY: {
+    code: "permission-denied",
+    msg: "Il corso è terminato: le presenze può modificarle solo un Admin",
   },
   ATTENDANCE_ALREADY_RECORDED_BY_STAFF: {
     code: "failed-precondition",
@@ -222,6 +236,9 @@ export async function setAttendanceHandler(
       : null;
     const existingData = attSnap.exists ? (attSnap.data() as FsData) : null;
     const courseStartMillis = toMillis(course.data.startDate);
+    // Un corso senza fine valida si considera terminato all'inizio: per il
+    // Trainer resta solo la mezz'ora prima, l'Admin non ha limiti.
+    const courseEndMillis = Math.max(toMillis(course.data.endDate), courseStartMillis);
     const trainerId = course.data.trainerId;
 
     const decision = decideAttendance({
@@ -231,6 +248,7 @@ export async function setAttendanceHandler(
       requestedPresent: present,
       courseTrainerId: typeof trainerId === "string" ? trainerId : null,
       courseStartMillis,
+      courseEndMillis,
       nowMillis,
       targetEnrolled: Array.isArray(targetCourses) && targetCourses.includes(courseId),
       existing: existingData

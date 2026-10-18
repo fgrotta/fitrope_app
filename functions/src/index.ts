@@ -459,7 +459,8 @@ export const recountCourseSubscribed = onCall(
 /**
  * Registra la presenza effettiva a un corso: check-in del socio (solo
  * presente, da 15' prima a 30' dopo l'inizio) oppure appello dello staff
- * (Admin, o Trainer del corso, da 30' prima in poi, presente o assente).
+ * (da 30' prima, presente o assente: il Trainer del corso fino alla fine della
+ * lezione, l'Admin su qualunque corso e senza scadenza).
  * Guardata sul clone staging: un socio clonato non deve scrivere presenze.
  *
  * Payload: { courseId: string, userId?: string, present: boolean }
