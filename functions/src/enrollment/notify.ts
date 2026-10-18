@@ -16,10 +16,13 @@ import {
 } from "../handler";
 import {
   trialConfirmationSubject,
+  trialConfirmationPreheader,
   trialConfirmationBody,
   trialReminderSubject,
+  trialReminderPreheader,
   trialReminderBody,
   waitlistSpotAvailableSubject,
+  waitlistSpotAvailablePreheader,
   waitlistSpotAvailableBody,
 } from "./emailTemplates";
 import { calendarUrlsForCourse } from "./calendarLinks";
@@ -257,6 +260,7 @@ export async function scheduleTrialReminder(
         target_channel: "email",
         send_after: sendAfter,
         email_subject: trialReminderSubject(name),
+        email_preheader: trialReminderPreheader(name),
         email_body: trialReminderBody({
           courseName: name,
           courseDate,
@@ -318,6 +322,7 @@ export async function sendTrialEnrollmentConfirmation(
     include_aliases: { external_id: [userId] },
     target_channel: "email",
     email_subject: trialConfirmationSubject(name),
+    email_preheader: trialConfirmationPreheader(name),
     email_body: trialConfirmationBody({
       courseName: name,
       courseDate: formatCourseDate(startMillis),
@@ -421,6 +426,7 @@ export async function notifyWaitlistUsers(
     include_aliases: { external_id: emailUserIds },
     target_channel: "email",
     email_subject: waitlistSpotAvailableSubject(name),
+    email_preheader: waitlistSpotAvailablePreheader(name),
     email_body: waitlistSpotAvailableBody({
       courseName: name,
       courseDate,

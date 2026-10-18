@@ -257,7 +257,7 @@ jobs:
           firebase functions:list --project "$STAGING_PROJECT_ID" --json > functions.json
           # grep sul nome nudo: firebase puo prefissare la regione nell'id
           # (europe-west8-subscribeToCourse), quindi non ancorare alle virgolette.
-          # sendTestCertificateEmail e certificateEmailsDaily sono gated su
+          # sendTestEnrollmentEmail, sendTestCertificateEmail e certificateEmailsDaily sono gated su
           # APP_ENV=staging: su staging DEVONO esserci (in prod non esistono).
           # courseIcs non e' una callable ma la function HTTP che serve l'.ics
           # dei bottoni "aggiungi al calendario": functions:list la elenca uguale.
@@ -270,7 +270,7 @@ jobs:
                     sendOneSignalNotification \
                     courseIcs \
                     previewLegacyUserMigration migrateLegacyUser \
-                    sendTestCertificateEmail certificateEmailsDaily; do
+                    sendTestEnrollmentEmail sendTestCertificateEmail certificateEmailsDaily; do
             if ! grep -q "$fn" functions.json; then
               echo "::error::callable mancante su staging: $fn"
               exit 1

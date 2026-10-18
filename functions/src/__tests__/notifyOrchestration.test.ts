@@ -149,6 +149,8 @@ describe("scheduleTrialReminder (orchestrazione)", () => {
     await scheduleTrialReminder(db, "key", "u1", "c1", NOW);
     const payloads = sentPayloads();
     expect(payloads).toHaveLength(2);
+    const emailPayload = payloads.find((p) => p.target_channel === "email");
+    expect(emailPayload?.email_preheader).toBe('Domani la tua lezione di prova "Corso Open".');
     const channels = payloads.map((p) => p.target_channel).sort();
     expect(channels).toEqual(["email", "push"]);
     for (const p of payloads) {
@@ -184,6 +186,7 @@ describe("sendTrialEnrollmentConfirmation (orchestrazione)", () => {
     expect((payloads[0].include_aliases as Data).external_id).toEqual(["u1"]);
     expect(payloads[0].app_id).toBeDefined(); // iniettato server-side
     expect(payloads[0].email_body).toContain("Aggiungi a Google Calendar");
+    expect(payloads[0].email_preheader).toBe('Ti aspettiamo a "Corso Open": segna la lezione sul calendario.');
   });
 
   test("è transazionale: invia anche con reminderEnabled=false", async () => {
@@ -296,6 +299,7 @@ describe("notifyWaitlistUsers (orchestrazione)", () => {
       "u-converted",
     ]);
     expect(payloads[0].target_channel).toBe("email");
+    expect(payloads[0].email_preheader).toBe(`Si è liberato un posto in "Corso Open": prenota dall'app.`);
   });
 
   test("rispetta emailNotificationsEnabled=false (nessun destinatario → nessun invio)", async () => {

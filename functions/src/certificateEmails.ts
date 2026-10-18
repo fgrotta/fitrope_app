@@ -9,7 +9,9 @@ import {
 } from "./handler";
 import {
   certificateReminderSubject,
+  certificateReminderPreheader,
   certificateExpiryTodaySubject,
+  certificateExpiryTodayPreheader,
   certificateReminderBody,
   certificateExpiryTodayBody,
 } from "./certificateEmailTemplates";
@@ -168,6 +170,7 @@ export function buildCertificateEmailPayload(
     include_aliases: { external_id: [user.uid] },
     target_channel: "email",
     email_subject: `${subjectPrefix}${subject}`,
+    email_preheader: kind === "reminder10" ? certificateReminderPreheader() : certificateExpiryTodayPreheader(),
     email_body: body,
   };
 }

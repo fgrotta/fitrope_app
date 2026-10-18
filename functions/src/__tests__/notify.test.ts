@@ -111,7 +111,7 @@ describe("emailTemplates (mirror del client Dart)", () => {
     expect(body).toContain("10:00 - 11:00");
     expect(body).toContain("Sala 2");
     expect(body).toContain("app.fithousemonza.it");
-    expect(body).toContain("<html>");
+    expect(body).toContain('<html lang="it">');
   });
 
   test("trial reminder: bottoni calendario con href HTML-escaped", () => {

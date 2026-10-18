@@ -10,6 +10,8 @@ import {
 } from "../certificateEmails";
 import {
   certificateReminderSubject,
+  certificateReminderPreheader,
+  certificateExpiryTodayPreheader,
   certificateExpiryTodaySubject,
   certificateReminderBody,
 } from "../certificateEmailTemplates";
@@ -111,6 +113,7 @@ describe("buildCertificateEmailPayload", () => {
     expect(p.app_id).toBe(ONESIGNAL_APP_ID);
     expect(p.send_after).toBeUndefined();
     expect(p.email_subject).toBe(certificateReminderSubject());
+    expect(p.email_preheader).toBe(certificateReminderPreheader());
     expect(p.email_body as string).toContain("Mario");
     expect(p.email_body as string).toContain("DNP Sport e Salute");
   });
@@ -118,6 +121,7 @@ describe("buildCertificateEmailPayload", () => {
   test("expiryToday: subject e testo del giorno della scadenza", () => {
     const p = buildCertificateEmailPayload(user(), "expiryToday");
     expect(p.email_subject).toBe(certificateExpiryTodaySubject());
+    expect(p.email_preheader).toBe(certificateExpiryTodayPreheader());
     expect(p.email_body as string).toContain("ultimo giorno");
   });
 

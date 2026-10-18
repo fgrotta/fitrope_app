@@ -54,6 +54,7 @@ import {
   previewLegacyUserMigrationHandler,
 } from "./migration/userHandler";
 import { isStagingCloneMode, stagingCloneGuarded } from "./stagingCloneGuard";
+import { sendTestEnrollmentEmailHandler } from "./enrollment/testEmails";
 import { whatsappDemoMode } from "./whatsapp/environment";
 import { postToMake } from "./whatsapp/makeClient";
 import { WhatsappDeps, notifyDemoLessonBooked } from "./whatsapp/demoLesson";
@@ -556,6 +557,23 @@ const firestoreBackupDailyCheck = firestoreBackupEnabled()
   : undefined;
 
 export { firestoreBackupDaily, firestoreBackupDailyCheck };
+
+/** Email di debug enrollment: solo Admin, solo emulatore/staging. */
+export const sendTestEnrollmentEmail = certificateFunctionsEnabled()
+  ? onCall(
+      { secrets: [oneSignalApiKey], region: "europe-west8", cors: true },
+      stagingCloneGuarded((request) => {
+        if (!certificateFunctionsEnabled()) {
+          throw new HttpsError("failed-precondition", "Funzione disponibile solo su emulatore e staging");
+        }
+        return sendTestEnrollmentEmailHandler(
+          { auth: request.auth ?? null, data: request.data },
+          oneSignalApiKey.value(),
+          { db: admin.firestore(), post: postToOneSignal, ensure: ensureOneSignalEmailSubscription },
+        );
+      }),
+    )
+  : undefined;
 
 /**
  * Invio di test delle email certificato (DebugEmailPage, kDebugMode).

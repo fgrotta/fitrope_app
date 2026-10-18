@@ -1,35 +1,6 @@
-import 'dart:convert';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
-import 'package:fitrope_app/services/calendar_links.dart';
-import 'package:fitrope_app/services/email_templates.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
-
-String _testPrefix(String text) => kDebugMode ? 'TEST - $text' : text;
-
-/// Helper per inviare una richiesta a OneSignal tramite Cloud Function.
-/// La function tiene la REST API key server-side e gestisce CORS automaticamente.
-Future<void> _sendOneSignalRequest(
-    String label, Map<String, dynamic> body) async {
-  // Prima riga, FUORI dal try: i catch qui sotto inghiottono tutto e
-  // trasformerebbero il blocco in un silenzioso no-op mascherato da successo.
-  SimulationSession.assertNotSimulating('sendOneSignalNotification');
-  final logBody = Map<String, dynamic>.from(body);
-  logBody.remove('email_body');
-  debugPrint(
-      '🔔 [OneSignal API] $label — REQUEST body: ${jsonEncode(logBody)}');
-
-  try {
-    final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
-        .httpsCallable('sendOneSignalNotification');
-    final result = await callable.call(body);
-    debugPrint('🔔 [OneSignal API] $label — RESPONSE: ${result.data}');
-  } on FirebaseFunctionsException catch (e) {
-    debugPrint('🔔 [OneSignal API] $label — ERROR ${e.code}: ${e.message}');
-  } catch (e) {
-    debugPrint('🔔 [OneSignal API] $label — ERROR: $e');
-  }
-}
 
 /// Crea o aggiorna l'utente OneSignal con la sua email subscription.
 /// Va chiamata al login così le email possono essere inviate via
@@ -83,6 +54,20 @@ Future<void> removeOneSignalEmail(String email) async {
 // (functions/src/enrollment/notify.ts). Restano qui solo gli invii di test
 // da DebugEmailPage (sendTest*, sotto).
 
+Future<void> _sendTestEnrollmentEmail(Map<String, dynamic> data) async {
+  SimulationSession.assertNotSimulating('sendTestEnrollmentEmail');
+  assert(kDebugMode);
+  final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
+      .httpsCallable('sendTestEnrollmentEmail');
+  final result = await callable.call(data);
+  final response = Map<String, dynamic>.from(result.data as Map);
+  if (response['suppressed'] == true) {
+    throw StateError('Email di test non inviata: destinatario non abilitato');
+  }
+  debugPrint(
+      '🔔 [OneSignal API] Enrollment Email [TEST] — RESPONSE: $response');
+}
+
 Future<void> sendTestWaitlistEmail({
   required String userId,
   required String courseName,
@@ -90,19 +75,14 @@ Future<void> sendTestWaitlistEmail({
   required String courseTime,
   required int spotsAvailable,
 }) {
-  assert(kDebugMode);
-  return _sendOneSignalRequest('Waitlist Email [TEST]', {
-    'include_aliases': {
-      'external_id': [userId]
-    },
-    'target_channel': 'email',
-    'email_subject': _testPrefix(waitlistSpotAvailableSubject(courseName)),
-    'email_body': waitlistSpotAvailableBody(
-      courseName: courseName,
-      courseDate: courseDate,
-      courseTime: courseTime,
-      spotsAvailable: spotsAvailable,
-    ),
+  SimulationSession.assertNotSimulating('sendTestWaitlistEmail');
+  return _sendTestEnrollmentEmail({
+    'externalId': userId,
+    'kind': 'waitlist',
+    'courseName': courseName,
+    'courseDate': courseDate,
+    'courseTime': courseTime,
+    'spotsAvailable': spotsAvailable,
   });
 }
 
@@ -116,32 +96,21 @@ Future<void> sendTestTrialReminderEmail({
   required DateTime eventEnd,
   String? sala,
 }) {
-  assert(kDebugMode);
-  return _sendOneSignalRequest('Trial Email Reminder [TEST]', {
-    'include_aliases': {
-      'external_id': [userId]
-    },
-    'target_channel': 'email',
-    'email_subject': _testPrefix(trialReminderSubject(courseName)),
-    'email_body': trialReminderBody(
-      courseName: courseName,
-      courseDate: courseDate,
-      courseTime: courseTime,
-      sala: sala,
-      googleUrl: googleCalendarUrl(
-        courseName: courseName,
-        start: eventStart,
-        end: eventEnd,
-        sala: sala,
-      ),
-      icsUrl: icsUrl(courseId),
-    ),
+  SimulationSession.assertNotSimulating('sendTestTrialReminderEmail');
+  return _sendTestEnrollmentEmail({
+    'externalId': userId,
+    'kind': 'trialReminder',
+    'courseName': courseName,
+    'courseDate': courseDate,
+    'courseTime': courseTime,
+    'courseId': courseId,
+    'startMillis': eventStart.millisecondsSinceEpoch,
+    'endMillis': eventEnd.millisecondsSinceEpoch,
+    if (sala != null) 'sala': sala,
   });
 }
 
-/// Email di conferma iscrizione alla prova (con i bottoni calendario).
-/// In produzione la invia la Cloud Function `subscribeToCourse`: qui serve solo
-/// per la QA visuale del template da `DebugEmailPage`.
+/// Conferma demo con gli stessi template e link calendario dell'invio reale.
 Future<void> sendTestTrialConfirmationEmail({
   required String userId,
   required String courseName,
@@ -152,26 +121,17 @@ Future<void> sendTestTrialConfirmationEmail({
   required DateTime eventEnd,
   String? sala,
 }) {
-  assert(kDebugMode);
-  return _sendOneSignalRequest('Trial Email Confirmation [TEST]', {
-    'include_aliases': {
-      'external_id': [userId]
-    },
-    'target_channel': 'email',
-    'email_subject': _testPrefix(trialConfirmationSubject(courseName)),
-    'email_body': trialConfirmationBody(
-      courseName: courseName,
-      courseDate: courseDate,
-      courseTime: courseTime,
-      sala: sala,
-      googleUrl: googleCalendarUrl(
-        courseName: courseName,
-        start: eventStart,
-        end: eventEnd,
-        sala: sala,
-      ),
-      icsUrl: icsUrl(courseId),
-    ),
+  SimulationSession.assertNotSimulating('sendTestTrialConfirmationEmail');
+  return _sendTestEnrollmentEmail({
+    'externalId': userId,
+    'kind': 'trialConfirmation',
+    'courseName': courseName,
+    'courseDate': courseDate,
+    'courseTime': courseTime,
+    'courseId': courseId,
+    'startMillis': eventStart.millisecondsSinceEpoch,
+    'endMillis': eventEnd.millisecondsSinceEpoch,
+    if (sala != null) 'sala': sala,
   });
 }
 

@@ -5,7 +5,6 @@ import 'package:fitrope_app/utils/get_course_state.dart';
 import 'package:fitrope_app/components/course_card.dart';
 import 'package:fitrope_app/state/store.dart';
 import 'package:fitrope_app/state/actions.dart';
-import 'package:fitrope_app/services/email_templates.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() {
@@ -176,34 +175,6 @@ void main() {
         expect(
             getCourseState(c, makeEligibleUser()), CourseState.CAN_SUBSCRIBE);
       });
-    });
-  });
-
-  group('Email templates con logo', () {
-    test('trialReminderBody contiene il tag img con src https', () {
-      final body = trialReminderBody(
-        courseName: 'Pilates',
-        courseDate: 'Lunedì 1 Gennaio 2027',
-        courseTime: '10:00 - 11:00',
-        googleUrl:
-            'https://calendar.google.com/calendar/render?action=TEMPLATE',
-        icsUrl: 'https://example.test/courseIcs?courseId=c1',
-      );
-      expect(body, contains('<img'));
-      expect(body, contains('src="https://'));
-      expect(body, contains('alt="Fit House"'));
-    });
-
-    test('waitlistSpotAvailableBody contiene il tag img con src https', () {
-      final body = waitlistSpotAvailableBody(
-        courseName: 'Pilates',
-        courseDate: 'Lunedì 1 Gennaio 2027',
-        courseTime: '10:00 - 11:00',
-        spotsAvailable: 1,
-      );
-      expect(body, contains('<img'));
-      expect(body, contains('src="https://'));
-      expect(body, contains('alt="Fit House"'));
     });
   });
 }

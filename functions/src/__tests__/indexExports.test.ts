@@ -1,4 +1,4 @@
-// Gate ambiente delle funzioni certificati: devono esistere SOLO su emulatore
+// Gate ambiente delle email di test e delle funzioni certificati: devono esistere SOLO su emulatore
 // (FUNCTIONS_EMULATOR=true) e staging (APP_ENV=staging). In produzione l'export
 // deve essere undefined, così la CLI Firebase non le deploya in discovery.
 // Il require avviene dentro jest.isolateModules per rieseguire index.ts con
@@ -6,6 +6,7 @@
 
 type IndexModule = {
   sendTestCertificateEmail: unknown;
+  sendTestEnrollmentEmail: unknown;
   certificateEmailsDaily: unknown;
   sendOneSignalNotification: unknown;
   checkEmailAvailability: unknown;
@@ -46,6 +47,7 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     delete process.env.FUNCTIONS_EMULATOR;
     const mod = loadIndex();
     expect(mod.sendTestCertificateEmail).toBeUndefined();
+    expect(mod.sendTestEnrollmentEmail).toBeUndefined();
     expect(mod.certificateEmailsDaily).toBeUndefined();
     // Le callable ordinarie non devono essere toccate dal gate.
     expect(mod.sendOneSignalNotification).toBeDefined();
@@ -66,9 +68,19 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     delete process.env.FUNCTIONS_EMULATOR;
     const mod = loadIndex();
     expect(mod.sendTestCertificateEmail).toBeDefined();
+    expect(mod.sendTestEnrollmentEmail).toBeDefined();
     expect(mod.certificateEmailsDaily).toBeDefined();
     expect(mod.firestoreBackupDaily).toBeUndefined();
     expect(mod.firestoreBackupDailyCheck).toBeUndefined();
+  });
+
+  test("debug enrollment: il gate viene ricontrollato a runtime", async () => {
+    process.env.APP_ENV = "staging";
+    delete process.env.FUNCTIONS_EMULATOR;
+    const fn = loadIndex().sendTestEnrollmentEmail as { run: (request: unknown) => Promise<unknown> };
+    delete process.env.APP_ENV;
+    await expect(fn.run({ auth: { uid: "admin" }, data: {} }))
+      .rejects.toMatchObject({ code: "failed-precondition" });
   });
 
   test("emulatore (FUNCTIONS_EMULATOR=true): certificati esportati", () => {
@@ -76,6 +88,7 @@ describe("gate ambiente funzioni certificati (export condizionale in index.ts)",
     process.env.FUNCTIONS_EMULATOR = "true";
     const mod = loadIndex();
     expect(mod.sendTestCertificateEmail).toBeDefined();
+    expect(mod.sendTestEnrollmentEmail).toBeDefined();
     expect(mod.certificateEmailsDaily).toBeDefined();
     expect(mod.firestoreBackupDaily).toBeUndefined();
     expect(mod.firestoreBackupDailyCheck).toBeUndefined();
