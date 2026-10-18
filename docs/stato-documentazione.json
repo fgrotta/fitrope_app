@@ -1,0 +1,414 @@
+{
+  "_leggimi": "Registro della skill aggiorna-documentazione: per ogni documento, i file che descrive (sorgenti, pathspec git) e l'ultimo commit di develop fino al quale e' stato verificato. Si aggiorna con: python3 .claude/skills/aggiorna-documentazione/scripts/pendenti.py --segna <chiave>",
+  "copertura": {
+    "radici": [
+      "lib/pages/",
+      "lib/components/",
+      "lib/utils/",
+      "lib/api/",
+      "functions/src/"
+    ],
+    "ignora": [
+      "functions/src/__tests__/",
+      "functions/src/__integration__/",
+      "lib/pages/protected/debug_email_page.dart",
+      "lib/pages/protected/guide/",
+      "functions/src/stagingCloneGuard.ts",
+      "functions/src/firebaseAdmin.ts"
+    ],
+    "verificato": {
+      "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+      "data": "2026-09-30",
+      "stimato": true
+    }
+  },
+  "documenti": {
+    "guida/registrazione-utente": {
+      "file": "assets/guida/registrazione-utente.md",
+      "sorgenti": [
+        "lib/pages/protected/create_user_page.dart",
+        "lib/pages/welcome/registration_page.dart",
+        "lib/api/authentication/create_user.dart",
+        "lib/api/authentication/check_email_availability.dart",
+        "lib/api/subscriptions/signup_trial.dart",
+        "lib/components/subscription_plan_picker.dart",
+        "lib/utils/email_validation.dart",
+        "functions/src/enrollment/provisioning.ts",
+        "functions/src/enrollment/trial.ts",
+        "tool/guida/scenarios/registrazione-utente.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/gestione-utente": {
+      "file": "assets/guida/gestione-utente.md",
+      "sorgenti": [
+        "lib/pages/protected/user_detail_page.dart",
+        "lib/pages/protected/admin_users_page.dart",
+        "lib/api/authentication/update_user.dart",
+        "lib/api/authentication/toggle_user_status.dart",
+        "lib/api/authentication/set_managed_user_email.dart",
+        "lib/utils/certificato_helper.dart",
+        "lib/utils/email_validation.dart",
+        "functions/src/enrollment/provisioning.ts",
+        "tool/guida/scenarios/gestione-utente.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/simula-utente": {
+      "file": "assets/guida/simula-utente.md",
+      "sorgenti": [
+        "lib/utils/simulation_*",
+        "lib/components/simulation_banner.dart",
+        "tool/guida/scenarios/simula-utente.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/abbonamenti": {
+      "file": "assets/guida/abbonamenti.md",
+      "sorgenti": [
+        "lib/components/assign_subscription_card.dart",
+        "lib/components/active_subscription_card.dart",
+        "lib/components/edit_subscription_dialog.dart",
+        "lib/components/subscription_history_section.dart",
+        "lib/components/subscription_plan_picker.dart",
+        "lib/components/subscription_date_row.dart",
+        "lib/api/subscriptions/assign_subscription.dart",
+        "lib/api/subscriptions/manage_subscription.dart",
+        "lib/utils/subscription_*",
+        "functions/src/enrollment/assignSubscription.ts",
+        "functions/src/enrollment/manageSubscription.ts",
+        "functions/src/enrollment/plansCatalog.ts",
+        "functions/src/enrollment/subscription.ts",
+        "tool/guida/scenarios/abbonamenti.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/pacchetti-ingressi": {
+      "file": "assets/guida/pacchetti-ingressi.md",
+      "sorgenti": [
+        "lib/components/active_subscription_card.dart",
+        "lib/components/edit_subscription_dialog.dart",
+        "lib/api/subscriptions/manage_subscription.dart",
+        "functions/src/enrollment/manageSubscription.ts",
+        "functions/src/enrollment/refund.ts",
+        "tool/guida/scenarios/pacchetti-ingressi.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/migrazione-utente-legacy": {
+      "file": "assets/guida/migrazione-utente-legacy.md",
+      "sorgenti": [
+        "lib/components/legacy_user_migration_card.dart",
+        "lib/api/subscriptions/legacy_user_migration.dart",
+        "functions/src/migration/",
+        "tool/guida/scenarios/migrazione-utente-legacy.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/corsi": {
+      "file": "assets/guida/corsi.md",
+      "sorgenti": [
+        "lib/pages/protected/course_management_page.dart",
+        "lib/pages/protected/recurring_course_page.dart",
+        "lib/components/course_image_selector_card.dart",
+        "lib/components/sala_selector_card.dart",
+        "lib/components/course_card.dart",
+        "lib/api/courses/create_course.dart",
+        "lib/api/courses/update_course.dart",
+        "lib/api/courses/delete_course.dart",
+        "lib/utils/course_form_validation.dart",
+        "lib/utils/course_defaults.dart",
+        "lib/utils/course_images.dart",
+        "lib/utils/course_tags.dart",
+        "lib/utils/course_types.dart",
+        "tool/guida/scenarios/corsi.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/iscrivere-socio-a-corso": {
+      "file": "assets/guida/iscrivere-socio-a-corso.md",
+      "sorgenti": [
+        "lib/pages/protected/calendar_page.dart",
+        "lib/components/course_card.dart",
+        "lib/components/course_agenda_row.dart",
+        "lib/components/expandable_course_tile.dart",
+        "lib/api/courses/subscribe_to_course.dart",
+        "lib/api/courses/unsubscribe_to_course.dart",
+        "lib/api/courses/join_waitlist.dart",
+        "lib/api/courses/leave_waitlist.dart",
+        "lib/utils/waitlist_ui_helper.dart",
+        "functions/src/enrollment/enrollment.ts",
+        "functions/src/enrollment/eligibility.ts",
+        "tool/guida/scenarios/iscrivere-socio-a-corso.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/presenze": {
+      "file": "assets/guida/presenze.md",
+      "sorgenti": [
+        "lib/components/attendance_toggle.dart",
+        "lib/components/self_checkin_button.dart",
+        "lib/components/course_card.dart",
+        "lib/components/course_preview_card.dart",
+        "lib/api/courses/set_attendance.dart",
+        "lib/api/courses/get_attendance.dart",
+        "lib/utils/attendance_*",
+        "functions/src/enrollment/attendance.ts",
+        "tool/guida/scenarios/presenze.mjs"
+      ],
+      "verificato": {
+        "sha": "c31da0df36348b68ff08a986e1fa203bdc452b25",
+        "data": "2026-10-18",
+        "stimato": true
+      }
+    },
+    "guida/correggi-conteggio": {
+      "file": "assets/guida/correggi-conteggio.md",
+      "sorgenti": [
+        "lib/components/course_card.dart",
+        "lib/api/courses/recount_course_subscribed.dart",
+        "lib/utils/capacity_color.dart",
+        "functions/src/enrollment/admin.ts",
+        "tool/guida/scenarios/correggi-conteggio.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/home-e-dashboard": {
+      "file": "assets/guida/home-e-dashboard.md",
+      "sorgenti": [
+        "lib/pages/protected/home_page.dart",
+        "lib/pages/protected/admin_dashboard_page.dart",
+        "lib/utils/certificate_alerts.dart",
+        "lib/utils/csv.dart",
+        "lib/utils/users_csv.dart",
+        "lib/api/authentication/get_users_with_expiring_certificates.dart",
+        "lib/api/authentication/get_users_with_expiring_subscriptions.dart",
+        "lib/utils/regolamento_helper.dart",
+        "tool/guida/scenarios/home-e-dashboard.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "guida/problemi-app": {
+      "file": "assets/guida/problemi-app.md",
+      "sorgenti": [
+        "lib/api/courses/enrollment_callable.dart",
+        "lib/utils/get_course_state.dart",
+        "lib/utils/regolamento_helper.dart",
+        "lib/api/authentication/accept_regolamento.dart",
+        "functions/src/enrollment/eligibility.ts",
+        "web/.htaccess",
+        "web/index.html",
+        "lib/services/onesignal_web.dart",
+        "tool/guida/scenarios/problemi-app.mjs"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "claude-md": {
+      "file": "CLAUDE.md",
+      "sorgenti": [
+        ".github/workflows/",
+        "scripts/",
+        "firebase.json",
+        ".firebaserc",
+        "pubspec.yaml",
+        "functions/package.json",
+        "functions/src/index.ts",
+        "functions/src/handler.ts",
+        "functions/src/whatsapp/",
+        "functions/src/certificateEmails.ts",
+        "lib/main.dart",
+        "lib/router.dart",
+        "lib/services/",
+        "lib/utils/course_filters.dart",
+        "lib/components/course_filter_bar.dart",
+        "web/",
+        "tool/hostinger/",
+        "tool/apply_test_branding.py"
+      ],
+      "verificato": {
+        "sha": "d9a00da6cb48a4909a4fb1823467b035268ace5c",
+        "data": "2026-10-18",
+        "stimato": true
+      }
+    },
+    "agents-md": {
+      "file": "agents.md",
+      "sorgenti": [
+        "lib/types/",
+        "lib/state/",
+        "lib/router.dart",
+        "lib/layout/",
+        "firestore.rules",
+        "functions/src/enrollment/",
+        "lib/utils/simulation_*",
+        "lib/utils/get_course_state.dart"
+      ],
+      "verificato": {
+        "sha": "d9a00da6cb48a4909a4fb1823467b035268ace5c",
+        "data": "2026-10-18",
+        "stimato": true
+      }
+    },
+    "readme-iscrizioni": {
+      "file": "lib/api/courses/README_ISCRIZIONI.md",
+      "sorgenti": [
+        "functions/src/enrollment/",
+        "lib/api/courses/",
+        "lib/api/subscriptions/",
+        "lib/utils/get_course_state.dart",
+        "lib/utils/course_unsubscribe_helper.dart",
+        "firestore.rules"
+      ],
+      "verificato": {
+        "sha": "d9a00da6cb48a4909a4fb1823467b035268ace5c",
+        "data": "2026-10-18",
+        "stimato": true
+      }
+    },
+    "guida-readme": {
+      "file": "tool/guida/README.md",
+      "sorgenti": [
+        "tool/guida/lib/",
+        "tool/guida/capture.mjs",
+        "tool/guida/compose_anim.py",
+        "tool/guida/package.json",
+        "scripts/guida_screenshots.sh",
+        "scripts/seed_today.js"
+      ],
+      "verificato": {
+        "sha": "d4b69d129c55a52b0ae5ad8db90fcc0949e73ede",
+        "data": "2026-09-30",
+        "stimato": true
+      }
+    },
+    "ambienti-di-test": {
+      "file": "docs/AMBIENTI_DI_TEST.md",
+      "sorgenti": [
+        "scripts/dev_emulator.sh",
+        "scripts/dev_server.py",
+        "scripts/seed_today.js",
+        "functions/scripts/",
+        "firebase.json",
+        ".firebaserc"
+      ],
+      "verificato": {
+        "sha": "2b21c842709f69f27bb7c04610779902cb31f420",
+        "data": "2026-09-09",
+        "stimato": true
+      }
+    },
+    "deployment": {
+      "file": "DEPLOYMENT.md",
+      "sorgenti": [
+        "firebase.json",
+        "firestore.rules",
+        "functions/package.json",
+        ".github/workflows/release.yml",
+        "web/.htaccess",
+        "tool/precompress_web.py"
+      ],
+      "verificato": {
+        "sha": "4e38b3086a22d34c6699635812b5e097ee1547c8",
+        "data": "2026-09-26",
+        "stimato": true
+      }
+    },
+    "readme": {
+      "file": "README.md",
+      "sorgenti": [
+        "pubspec.yaml",
+        "lib/main.dart",
+        "functions/package.json"
+      ],
+      "verificato": {
+        "sha": "2190cd1fa5bcb6d3bdf3c0f57ded38c8a8c89c60",
+        "data": "2026-09-15",
+        "stimato": true
+      }
+    },
+    "hostinger-readme": {
+      "file": "tool/hostinger/README.md",
+      "sorgenti": [
+        "tool/hostinger/",
+        "tool/precompress_web.py",
+        "web/.htaccess"
+      ],
+      "verificato": {
+        "sha": "4e38b3086a22d34c6699635812b5e097ee1547c8",
+        "data": "2026-09-26",
+        "stimato": true
+      }
+    },
+    "backup-restore": {
+      "file": "docs/operations/FIRESTORE_BACKUP_RESTORE.md",
+      "sorgenti": [
+        "functions/src/firestoreBackup.ts",
+        "docs/operations/firestore-backup-lifecycle.json",
+        "scripts/verify_firestore_export.py"
+      ],
+      "verificato": {
+        "sha": "fbb1b40b52b423041539c28239911947c541a8ef",
+        "data": "2026-09-15",
+        "stimato": true
+      }
+    },
+    "enrollment-reviewer": {
+      "file": ".claude/agents/fitrope-enrollment-reviewer.md",
+      "sorgenti": [
+        "functions/src/enrollment/",
+        "lib/api/courses/",
+        "lib/api/subscriptions/",
+        "lib/utils/get_course_state.dart"
+      ],
+      "verificato": {
+        "sha": "47875aa2ee583b275fb0773909a45c73ecadaaf4",
+        "data": "2026-08-26",
+        "stimato": true
+      }
+    }
+  }
+}

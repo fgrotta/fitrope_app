@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fitrope_app/pages/protected/guide/guide_catalog.dart';
@@ -95,6 +96,23 @@ void main() {
     for (final asset
         in pubspecAssets.where((a) => a.startsWith('$root/img/'))) {
       expect(Directory(asset).existsSync(), isTrue, reason: asset);
+    }
+  });
+
+  test('ogni guida ha la sua voce nel registro della documentazione', () {
+    // docs/stato-documentazione.json: lo usa la skill aggiorna-documentazione
+    // per capire quali guide rileggere dopo un merge.
+    final registro = jsonDecode(
+      File('docs/stato-documentazione.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final documenti = registro['documenti'] as Map<String, dynamic>;
+    final guide = documenti.keys
+        .where((k) => k.startsWith('guida/'))
+        .map((k) => k.substring('guida/'.length))
+        .toSet();
+    expect(guide, guideCatalog.map((e) => e.id).toSet());
+    for (final entry in guideCatalog) {
+      expect((documenti['guida/${entry.id}'] as Map)['file'], entry.asset);
     }
   });
 
