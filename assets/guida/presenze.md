@@ -44,5 +44,5 @@ Da **15 minuti prima** a **30 minuti dopo** l'inizio, il socio iscritto vede nel
 ## Da sapere
 
 - Nel riquadro **Iscritti**, accanto ai posti liberi, il numero con l'icona della persona e la spunta è quello dei presenti.
-- Si segnano solo i soci **iscritti** al corso. Se in sala c'è qualcuno che non si era prenotato, prima usa **Aggiungi iscritto** (vedi la guida "Iscrivere o rimuovere un socio da un corso"), poi segnalo presente.
+- Si segnano solo i soci **iscritti** al corso. Se in sala c'è qualcuno che non si era prenotato, prima usa **Aggiungi iscritto** (vedi [Iscrivere o rimuovere un socio da un corso](guida:iscrivere-socio-a-corso)), poi segnalo presente.
 - Eliminando un corso si cancellano anche le sue presenze.

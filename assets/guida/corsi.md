@@ -19,7 +19,7 @@ Tocca un giorno del calendario per vedere i suoi corsi a destra. **Vista settima
 
    ![Nome, tipologia e tag del nuovo corso](img/corsi/02-nuovo-corso.png)
 
-5. Se vuoi, scegli un'**Immagine del Corso**.
+5. Se vuoi, scegli un'**Immagine del Corso** toccando la miniatura. La **lente** sulla miniatura ("Ingrandisci") la mostra in grande, e da lì puoi sceglierla con **Usa questa immagine**.
 6. In **Data e Ora** tocca **Seleziona Data** e **Seleziona Ora**. Nel selettore dell'ora, l'icona della tastiera ti permette di scrivere ore e minuti.
 
    ![Data e ora del corso](img/corsi/03-data-ora.png)
@@ -55,6 +55,7 @@ Tocca un corso nell'elenco del giorno per aprirlo. In alto a destra ci sono tre 
 
 - **Corso futuro**: ogni iscritto riceve indietro l'ingresso o la lezione, e la lista d'attesa si svuota. I soci **non ricevono un'email**: se serve, avvisali tu.
 - **Corso già iniziato o passato**: nessun rimborso, perché la lezione c'è stata. Serve solo a tenere in ordine il calendario.
+- In entrambi i casi si cancellano anche le **presenze** registrate per quel corso (vedi [Registrare le presenze](guida:presenze)).
 
 I corsi storici non convertiti, come **Hey Mamma**, sono in sola lettura: se provi a modificarli compare "I corsi storici non migrati sono disponibili in sola lettura".
 

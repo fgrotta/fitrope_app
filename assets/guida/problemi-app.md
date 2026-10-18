@@ -18,7 +18,7 @@ Il modo più rapido per capire il motivo è **vedere quello che vede lui**:
 | **Limite entrate settimanali raggiunto** | Ha già usato le lezioni della settimana (da lunedì a domenica) | Normale: può prenotare dalla settimana dopo |
 | **Corso pieno** | Posti finiti e lista d'attesa spenta | Aggiungilo tu, se c'è spazio in sala ([guida](guida:iscrivere-socio-a-corso)) |
 | **Lista d'attesa** (arancione) | Posti finiti: può mettersi in coda | Nessun problema: se si libera un posto, riceve un avviso |
-| Nessun pulsante | Il corso è già iniziato | Se ha partecipato davvero, aggiungilo tu dal corso |
+| Nessun pulsante | Il corso è già iniziato e il socio non è iscritto. Chi è iscritto vede invece **Sono in sala** fino a 30 minuti dopo l'inizio | Se ha partecipato davvero, aggiungilo tu dal corso e segnalo presente ([guida](guida:presenze)) |
 
 ### Il regolamento
 
