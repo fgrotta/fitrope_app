@@ -8,7 +8,7 @@ Dalla reception puoi prenotare un corso al posto di un socio e togliere un'iscri
 
 1. Apri **Calendario** e tocca il giorno.
 2. Tocca il corso nell'elenco: si apre la card con i dettagli.
-3. Il riquadro **Iscritti (N/M)** mostra quanti sono gli iscritti. Toccalo per vedere i nomi e la lista d'attesa.
+3. Il riquadro **Iscritti (N/M)** mostra quanti sono gli iscritti. Toccalo per vedere i nomi e la lista d'attesa. Da 30 minuti prima dell'inizio, nella stessa lista c'è anche l'appello (vedi [Registrare le presenze](guida:presenze)).
 
 ## Aggiungere un iscritto
 
