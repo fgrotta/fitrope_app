@@ -136,8 +136,7 @@ lib/
 │   ├── onesignal_service.dart             # Conditional export web/mobile
 │   ├── onesignal_mobile.dart              # Wrapper onesignal_flutter
 │   ├── onesignal_web.dart                 # Binding dart:js_interop verso il bridge JS di web/index.html
-│   ├── notification_service.dart          # Proxy/debug email via Cloud Functions
-│   └── email_templates.dart               # Template HTML email
+│   └── notification_service.dart          # Proxy/debug email via Cloud Functions
 │
 ├── types/                                 # Modelli dati
 │   ├── fitrope_user.dart                  # FitropeUser + CancelledEnrollment + TipologiaIscrizione
@@ -524,10 +523,9 @@ email, senza credenziali), che rilegge il corso da Firestore a ogni richiesta e 
 resta congelato nel link. Il promemoria a **-4h** vive solo nell'`.ics` (`VALARM`): il
 deeplink Google non ha parametri per gli alert, lì valgono i default dell'utente.
 URL e HTML dei bottoni stanno in `functions/src/enrollment/calendarLinks.ts`, il
-documento iCalendar in `functions/src/enrollment/ics.ts`; `lib/services/calendar_links.dart`
-è il mirror client usato solo dalle email di test di `DebugEmailPage`.
-L'indirizzo della palestra (`GYM_ADDRESS` in `calendarLinks.ts`, `gymAddress` nel mirror
-Dart) è duplicato nei due file: se cambia la sede vanno aggiornati entrambi.
+documento iCalendar in `functions/src/enrollment/ics.ts`. Anche le email di debug
+usano questi moduli server: `GYM_ADDRESS` in `calendarLinks.ts` è l'unica fonte
+dell'indirizzo della palestra; il mirror Dart è stato rimosso.
 
 **Logout**: la rimozione dell'email da OneSignal al logout è temporaneamente disabilitata (codice commentato in `lib/authentication/logout.dart`).
 
@@ -547,6 +545,17 @@ Ogni `Course` ha due flag configurabili dall'admin in creazione/duplicazione:
 - `waitlistEnabled` (default true): se false, `getCourseState` ritorna `FULL` invece di `CAN_WAITLIST`, `joinWaitlist` (server) rifiuta e `notifyWaitlistUsers` (server) salta l'invio
 
 Entrambi si applicano anche ai corsi creati tramite `RecurringCoursePage`.
+
+### Template e debug email
+
+Layout, logo, escaping e footer vivono solo in `functions/src/email/layout.ts`. I
+template enrollment e certificati aggiungono i propri corpi e preheader. I wrapper
+Dart di debug chiamano `sendTestEnrollmentEmail`, esportata solo su emulatore/staging
+con controllo anche a runtime. La callable richiede Admin, legge l'email da
+`users/{externalId}`, applica l'allowlist staging prima dell'ensure e interrompe
+l'invio se l'ensure lo sopprime. Soppressioni e risposte OneSignal senza invio
+non devono produrre successo nella UI. Lo smoke test staging include la callable.
+Reset e verifica email restano su Firebase Auth in questa fase.
 
 ### Email certificati (solo emulatore e staging)
 
@@ -619,7 +628,7 @@ Test focalizzati su logica iscrizioni, serializzazione modelli, sale, course typ
 - `waitlist_state_test.dart`, `waitlist_operations_test.dart`, `course_flags_test.dart`, `course_state_edge_cases_test.dart`
 - `create_course_test.dart`, `update_course_test.dart`, `update_user_test.dart`, `get_users_test.dart`, `course_correction_test.dart`
 - `course_sala_serialization_test.dart`, `sale_test.dart`, `course_types_test.dart`, `course_type_test.dart`, `course_tags_test.dart`
-- `notification_preferences_test.dart`, `email_templates_test.dart`, `italian_time_test.dart`, `capacity_color_test.dart`, `course_card_widget_test.dart`, `model_state_regression_test.dart`
+- `notification_preferences_test.dart`, `notification_debug_test.dart`, `italian_time_test.dart`, `capacity_color_test.dart`, `course_card_widget_test.dart`, `model_state_regression_test.dart`
 
 Framework: `flutter_test` con `group()` e `setUp()`. Conteggio indicativo (si aggiorna a ogni PR, fonte: `flutter test`): ~326 test.
 
@@ -636,7 +645,8 @@ Test Jest su handler OneSignal e dominio enrollment:
 - `enrollmentHandlers.test.ts`, `adminHandlers.test.ts`, `assignSubscription.test.ts`, `manageSubscription.test.ts`, `subscription.test.ts`
 - `notify.test.ts`, `notifyOrchestration.test.ts`, `conventions.test.ts`
 - `certificateEmails.test.ts` (finestre giorno Europe/Rome, selezione destinatari, run)
-- `indexExports.test.ts` (gate ambiente delle funzioni certificati)
+- `emailLayout.test.ts`, `testEmails.test.ts` (layout, contenuti, authz, allowlist e invii debug)
+- `indexExports.test.ts` (gate ambiente delle email di test e funzioni certificati)
 
 Framework: `jest` + `ts-jest`. Conteggio indicativo (fonte: `cd functions && npm test`): ~272 test.
 
@@ -645,6 +655,7 @@ Framework: `jest` + `ts-jest`. Conteggio indicativo (fonte: `cd functions && npm
 I test in `functions/src/__integration__/` girano su Firebase Emulator Suite:
 
 - `enrollment.integration.test.ts` - callable reali, transazioni, concorrenza, authz
+- `testEmails.integration.test.ts` - callable debug con Auth reale; Firestore reale e trasporto iniettato
 - `firestoreRules.integration.test.ts` - lockdown field-level e payload reali con `@firebase/rules-unit-testing`
 
 Esegui con `cd functions && npm run test:integration`. Richiede Java 21+ e firebase-tools 15.x; in CI e un gate del job `functions-integration`, presente in tutti e tre i workflow (`ci.yml`, `staging.yml`, `release.yml`). Il secret dell'emulatore si passa scrivendo `functions/.secret.local` (gitignored), non via env var.
@@ -780,7 +791,7 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 | Abbonamenti multi-famiglia | `lib/types/user_subscription.dart`, `lib/utils/subscription_plans.dart`, `lib/utils/subscription_labels.dart`, `lib/api/subscriptions/`, `functions/src/enrollment/subscription.ts` |
 | Sale e tipologie corso | `lib/utils/sale.dart`, `lib/utils/course_types.dart`, `lib/utils/course_tags.dart`, `lib/components/sala_selector_card.dart` |
 | Firestore rules e emulatori | `firestore.rules`, `firebase.json`, `docs/AMBIENTI_DI_TEST.md`, `functions/src/__integration__/` |
-| Notifiche push/email | `lib/services/notification_service.dart`, `lib/services/email_templates.dart`, `functions/src/` |
+| Notifiche push/email | `lib/services/notification_service.dart`, `functions/src/email/layout.ts`, `functions/src/` |
 | Test email manuale (debug) | `lib/pages/protected/debug_email_page.dart`, `lib/services/notification_service.dart` (`sendTestWaitlistEmail`, `sendTestTrialReminderEmail`) |
 | OneSignal SDK | `lib/services/onesignal_*.dart`, `web/index.html` (bridge JS + init SDK v16), `web/push/onesignal/OneSignalSDKWorker.js` |
 | Dashboard e analisi | `lib/pages/protected/admin_dashboard_page.dart` |
@@ -800,4 +811,4 @@ Quando cambi il secret, serve sempre un re-deploy per bindare il nuovo valore al
 - Dopo operazioni su corsi o utenti, assicurati di invalidare/aggiornare cache e Redux store.
 - Usa transazioni Admin SDK lato Functions per qualsiasi nuova operazione che modifica contemporaneamente utente e corso.
 - Non mettere mai la REST API key di OneSignal (o altre secret) nel codice Flutter: devono stare in Google Secret Manager, accessibili solo dalle Cloud Functions.
-- Se aggiungi nuovi tipi di notifica, aggiorna `functions/src/enrollment/notify.ts`, `notification_service.dart` solo se serve un proxy/debug client, e i template in `email_templates.dart`/`emailTemplates.ts`. Il payload OneSignal non deve contenere `app_id` (iniettato server-side).
+- Se aggiungi nuovi tipi di notifica, aggiorna `functions/src/enrollment/notify.ts`, `notification_service.dart` solo se serve un proxy/debug client, e i template server in `enrollment/emailTemplates.ts` o `certificateEmailTemplates.ts`, usando il layout comune `email/layout.ts`. Il payload OneSignal non deve contenere `app_id` (iniettato server-side).
