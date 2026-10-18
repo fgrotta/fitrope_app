@@ -211,13 +211,26 @@ Future<void> sendTestCertificateExpiryEmail({
   }
 }
 
-/// Manda un payload di prova al webhook Make verso [numeroTelefono] e
-/// restituisce l'esito e il body effettivamente inviato, così la pagina di
-/// debug può mostrarlo. Lato server richiede il ruolo Admin e
-/// WHATSAPP_DEMO_MODE=test|live. [kind] vale `'booked'` (tipo `conferma`) o
-/// `'reminder'` (tipo `promemoria`); i campi vuoti ricadono su default.
-Future<({bool ok, int status, Map<String, String> payload})>
-    sendTestDemoLessonWebhook({
+/// Esito della callable `sendTestDemoLessonWebhook`. [transport] è `make` o
+/// `meta`; [messageRef] (hash abbreviato) ed [errorCode] (`error.code` della Graph API)
+/// esistono solo con Meta.
+typedef DemoWhatsappTestResult = ({
+  bool ok,
+  int status,
+  String transport,
+  String? messageRef,
+  int? errorCode,
+  Map<String, String> payload,
+});
+
+/// Manda un WhatsApp di prova verso [numeroTelefono] col trasporto configurato
+/// lato server (Make o Meta Cloud API) e restituisce l'esito e i campi
+/// effettivamente inviati, così la pagina di debug può mostrarli. Lato server
+/// richiede il ruolo Admin e WHATSAPP_DEMO_MODE=test|live. [kind] vale
+/// `'booked'` (tipo `conferma`) o `'reminder'` (tipo `promemoria`); i campi
+/// vuoti ricadono su default. Con Meta senza template di conferma, `'booked'`
+/// fallisce con `failed-precondition`.
+Future<DemoWhatsappTestResult> sendTestDemoLessonWebhook({
   required String numeroTelefono,
   String kind = 'booked',
   String? nome,
@@ -227,7 +240,7 @@ Future<({bool ok, int status, Map<String, String> payload})>
 }) async {
   SimulationSession.assertNotSimulating('sendTestDemoLessonWebhook');
   assert(kDebugMode);
-  debugPrint('📲 [Make] test webhook — kind: $kind');
+  debugPrint('📲 [WhatsApp] test — kind: $kind');
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
         .httpsCallable('sendTestDemoLessonWebhook');
@@ -239,19 +252,21 @@ Future<({bool ok, int status, Map<String, String> payload})>
       'giorno': giorno ?? '',
       'orario': orario ?? '',
     });
-    debugPrint('📲 [Make] test webhook — RESPONSE: ${result.data}');
     final data = (result.data as Map<Object?, Object?>?) ?? const {};
     final payload = (data['payload'] as Map<Object?, Object?>?) ?? const {};
     return (
       ok: data['ok'] == true,
       status: (data['status'] as num?)?.toInt() ?? 0,
+      transport: (data['transport'] as String?) ?? 'make',
+      messageRef: data['messageRef'] as String?,
+      errorCode: (data['errorCode'] as num?)?.toInt(),
       payload: payload.map((key, value) => MapEntry('$key', '$value')),
     );
   } on FirebaseFunctionsException catch (e) {
-    debugPrint('📲 [Make] test webhook — ERROR ${e.code}: ${e.message}');
+    debugPrint('📲 [WhatsApp] test — ERROR ${e.code}: ${e.message}');
     rethrow;
   } catch (e) {
-    debugPrint('📲 [Make] test webhook — ERROR: $e');
+    debugPrint('📲 [WhatsApp] test — ERROR: $e');
     rethrow;
   }
 }

@@ -1,7 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { WhatsappDeps } from "../whatsapp/demoLesson";
-import { PostResult } from "../whatsapp/makeClient";
-import { DemoLessonPayload } from "../whatsapp/payload";
+import { DemoWebhookKind } from "../whatsapp/payload";
+import { SendResult as PostResult, TemplateParams } from "../whatsapp/transport";
 import {
   ARRAY_CONTAINS_ANY_LIMIT,
   MAX_CONCURRENT_SENDS,
@@ -78,21 +78,19 @@ const ok: PostResult = { ok: true, status: 200 };
 
 function setup(
   store: Store,
-  opts: { post?: jest.Mock<Promise<PostResult>, [string, string, DemoLessonPayload]>; nowMillis?: number } = {}
+  opts: { post?: jest.Mock<Promise<PostResult>, [DemoWebhookKind, string, TemplateParams]>; nowMillis?: number } = {}
 ) {
   const fake = makeWhatsappDb(store);
   const post =
-    opts.post ?? jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => ok);
+    opts.post ?? jest.fn<Promise<PostResult>, [DemoWebhookKind, string, TemplateParams]>(async () => ok);
   const deps: WhatsappDeps = {
     db: fake.db,
-    webhookUrl: "https://hook.eu1.make.com/abc",
-    apiKey: "chiave",
-    post,
+    transport: { name: "make", supports: () => true, send: post },
     nowMillis: opts.nowMillis ?? SCHEDULED + 1000,
     env: {},
     wait: async () => undefined,
   };
-  const phonesPosted = () => post.mock.calls.map((call) => call[2].numero_di_telefono);
+  const phonesPosted = () => post.mock.calls.map((call) => call[1]);
   return { fake, deps, post, phonesPosted };
 }
 
@@ -150,7 +148,7 @@ describe("runDemoLessonReminders", () => {
     });
     await expect(run(deps)).resolves.toMatchObject({ candidates: 2, sent: 2, skipped: 0, failed: 0 });
     expect(phonesPosted().sort()).toEqual([`+39${phone(1)}`, `+39${phone(2)}`]);
-    expect(post.mock.calls.every((call) => call[2].tipo === "promemoria")).toBe(true);
+    expect(post.mock.calls.every((call) => call[0] === "reminder")).toBe(true);
   });
 
   test("non scrive al cliente convertito che ha ancora la tipologia PROVA", async () => {
@@ -243,12 +241,12 @@ describe("runDemoLessonReminders", () => {
 
   test("HTTP 429 viene ritentato nel run; timeout e 5xx fanno una sola POST", async () => {
     const byPhone: Record<string, PostResult[]> = {
-      [`+39${phone(1)}`]: [{ ok: false, status: 429 }, ok],
+      [`+39${phone(1)}`]: [{ ok: false, status: 429, transient: true }, ok],
       [`+39${phone(2)}`]: [{ ok: false, status: 0 }],
       [`+39${phone(3)}`]: [{ ok: false, status: 502 }],
     };
-    const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(
-      async (_u, _k, payload) => byPhone[payload.numero_di_telefono].shift() ?? ok
+    const post = jest.fn<Promise<PostResult>, [DemoWebhookKind, string, TemplateParams]>(
+      async (_kind, phoneE164) => byPhone[phoneE164].shift() ?? ok
     );
     const { fake, deps, phonesPosted } = setup(
       { users: { u1: trialV2(1), u2: trialV2(2), u3: trialV2(3) }, courses: { c1: courseDoc("c1") } },
@@ -282,7 +280,7 @@ describe("runDemoLessonReminders", () => {
   });
 
   test("un invio incerto non fa ritentare il job", async () => {
-    const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => ({
+    const post = jest.fn<Promise<PostResult>, [DemoWebhookKind, string, TemplateParams]>(async () => ({
       ok: false,
       status: 503,
     }));
@@ -296,7 +294,7 @@ describe("runDemoLessonReminders", () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const release: Array<() => void> = [];
-    const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(
+    const post = jest.fn<Promise<PostResult>, [DemoWebhookKind, string, TemplateParams]>(
       () =>
         new Promise<PostResult>((resolve) => {
           inFlight++;
@@ -345,7 +343,7 @@ describe("runDemoLessonReminders", () => {
 
       // Primo run: ogni POST fa avanzare l'orologio; la deadline scade a metà.
       let clock = 0;
-      const post1 = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => {
+      const post1 = jest.fn<Promise<PostResult>, [DemoWebhookKind, string, TemplateParams]>(async () => {
         clock++;
         return ok;
       });

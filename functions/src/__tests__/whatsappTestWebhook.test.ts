@@ -1,27 +1,36 @@
+import { createHash } from "crypto";
 import { WhatsappDeps } from "../whatsapp/demoLesson";
+import { DemoWebhookKind } from "../whatsapp/payload";
+import { DEMO_LOG_COLLECTION, applyDeliveryStatus } from "../whatsapp/sendLog";
 import { sendTestDemoLessonWebhookHandler } from "../whatsapp/testWebhook";
+import { SendResult, TemplateParams } from "../whatsapp/transport";
 import { makeWhatsappDb } from "./helpers/whatsappFakeDb";
 
 jest.mock("firebase-functions", () => ({
   logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
 
-const NOW = Date.UTC(2026, 9, 14, 17); // domani alle 19:00 → "15 ottobre 2026", "19:00"
+const NOW = Date.UTC(2026, 9, 14, 17);
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+ // domani alle 19:00 → "15 ottobre 2026", "19:00"
 
-function setup(env: NodeJS.ProcessEnv = {}) {
+function setup(
+  env: NodeJS.ProcessEnv = {},
+  opts: { name?: "make" | "meta"; result?: SendResult; supports?: (kind: DemoWebhookKind) => boolean } = {}
+) {
   const fake = makeWhatsappDb({
     users: { admin: { role: "Admin" }, trainer: { role: "Trainer" }, member: { role: "User" } },
   });
-  const post = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+  const post = jest
+    .fn<Promise<SendResult>, [DemoWebhookKind, string, TemplateParams]>()
+    .mockResolvedValue(opts.result ?? { ok: true, status: 200 });
   const deps: WhatsappDeps = {
     db: fake.db,
-    webhookUrl: "https://hook.eu1.make.com/abc",
-    apiKey: "chiave",
-    post,
+    transport: { name: opts.name ?? "make", supports: opts.supports ?? (() => true), send: post },
     nowMillis: NOW,
     env,
   };
-  return { deps, post };
+  return { deps, post, fake };
 }
 
 const asAdmin = (data: unknown) => ({ auth: { uid: "admin" }, data });
@@ -86,8 +95,12 @@ describe("sendTestDemoLessonWebhookHandler", () => {
       giorno: "15 ottobre 2026",
       orario: "19:00",
     };
-    expect(post.mock.calls[0][2]).toEqual(expected);
-    expect(res).toEqual({ ok: true, status: 200, payload: expected });
+    expect(post.mock.calls[0]).toEqual([
+      "reminder",
+      "+393339876543",
+      { nome: "Test Test", corso: "Lezione di prova", giorno: "15 ottobre 2026", orario: "19:00" },
+    ]);
+    expect(res).toEqual({ ok: true, status: 200, transport: "make", payload: expected });
   });
 
   test("usa nome, corso, giorno e orario passati dal chiamante", async () => {
@@ -102,12 +115,76 @@ describe("sendTestDemoLessonWebhookHandler", () => {
       }),
       deps
     );
-    expect(post.mock.calls[0][2]).toMatchObject({
-      tipo: "conferma",
+    expect(post.mock.calls[0][0]).toBe("booked");
+    expect(post.mock.calls[0][2]).toEqual({
       nome: "Mario Rossi",
       corso: "Pole Dance Base",
       giorno: "28 aprile 2026",
       orario: "10:00",
     });
+  });
+
+  test("via Meta restituisce solo il riferimento hash e registra un documento di prova", async () => {
+    const { deps, fake } = setup(
+      {},
+      { name: "meta", result: { ok: true, status: 200, messageId: "wamid.TEST" } }
+    );
+    const res = await sendTestDemoLessonWebhookHandler(
+      asAdmin({ kind: "reminder", numeroTelefono: "3339876543" }),
+      deps
+    );
+    expect(res).toMatchObject({ ok: true, status: 200, transport: "meta", messageRef: sha256("wamid.TEST").slice(0, 12) });
+    expect(JSON.stringify(res)).not.toContain("wamid.TEST");
+    const docs = Object.values(fake.store[DEMO_LOG_COLLECTION] ?? {});
+    expect(docs).toEqual([
+      expect.objectContaining({
+        kind: "test",
+        testKind: "reminder",
+        userId: "admin",
+        transport: "meta",
+        messageIdHash: sha256("wamid.TEST"),
+        outcome: "sent",
+        ok: true,
+      }),
+    ]);
+    // Solo identificativi: niente telefono, wamid (lo contiene) né testo del messaggio.
+    expect(JSON.stringify(docs)).not.toContain("wamid.TEST");
+    expect(JSON.stringify(docs)).not.toContain("3339876543");
+    expect(JSON.stringify(docs)).not.toContain("Test Test");
+  });
+
+  test("lo stato arrivato durante la POST viene applicato al documento di prova", async () => {
+    const { deps, fake } = setup({}, { name: "meta" });
+    deps.transport.send = async () => {
+      await applyDeliveryStatus(fake.db, "wamid.EARLY_TEST", "delivered", NOW + 1000);
+      return { ok: true, status: 200, messageId: "wamid.EARLY_TEST" };
+    };
+    await sendTestDemoLessonWebhookHandler(
+      asAdmin({ kind: "reminder", numeroTelefono: "3339876543" }), deps
+    );
+    expect(fake.store[DEMO_LOG_COLLECTION][`test_admin_${NOW}`]).toMatchObject({
+      deliveryStatus: "delivered", messageIdHash: sha256("wamid.EARLY_TEST"),
+    });
+  });
+
+  test("via Meta un rifiuto restituisce l'errorCode senza registrare nulla", async () => {
+    const { deps, fake } = setup(
+      {},
+      { name: "meta", result: { ok: false, status: 400, errorCode: 131030, transient: false } }
+    );
+    const res = await sendTestDemoLessonWebhookHandler(
+      asAdmin({ kind: "reminder", numeroTelefono: "3339876543" }),
+      deps
+    );
+    expect(res).toMatchObject({ ok: false, status: 400, transport: "meta", errorCode: 131030 });
+    expect(fake.store[DEMO_LOG_COLLECTION]).toBeUndefined();
+  });
+
+  test("kind senza template sul trasporto → failed-precondition, nessun invio", async () => {
+    const { deps, post } = setup({}, { name: "meta", supports: (kind) => kind === "reminder" });
+    await expect(
+      sendTestDemoLessonWebhookHandler(asAdmin({ kind: "booked", numeroTelefono: "3339876543" }), deps)
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+    expect(post).not.toHaveBeenCalled();
   });
 });

@@ -6,7 +6,8 @@
 // non approvato, credito esaurito) non tornano comunque indietro.
 
 import { logger } from "firebase-functions";
-import { DemoLessonPayload } from "./payload";
+import { DemoLessonPayload, toMakeBody } from "./payload";
+import { WhatsappTransport, scrubSecrets } from "./transport";
 
 /** Header su cui lo scenario Make filtra le richieste. */
 export const MAKE_AUTH_HEADER = "Demo-Reminder";
@@ -30,14 +31,6 @@ function safeHost(url: string): string {
   } catch {
     return "unknown";
   }
-}
-
-function scrubSecrets(message: string, secrets: string[]): string {
-  let out = message;
-  for (const secret of secrets) {
-    if (secret) out = out.split(secret).join("[redacted]");
-  }
-  return out;
 }
 
 export async function postToMake(
@@ -78,4 +71,20 @@ export async function postToMake(
 
   logger.info("Webhook Make chiamato", { host, status: response.status, tipo: payload.tipo });
   return { ok: true, status: response.status };
+}
+
+/**
+ * Trasporto Make: il body del contratto (payload.ts) e la chiave nell'header.
+ * Make sa mandare entrambi i messaggi, perché il Router dello scenario sceglie
+ * il template dal campo `tipo`. HTTP 429 è l'unico rifiuto ritentabile.
+ */
+export function makeTransport(url: string, apiKey: string): WhatsappTransport {
+  return {
+    name: "make",
+    supports: () => true,
+    send: async (kind, phoneE164, params) => {
+      const result = await postToMake(url, apiKey, toMakeBody(kind, phoneE164, params));
+      return result.ok ? result : { ...result, transient: result.status === 429 };
+    },
+  };
 }
