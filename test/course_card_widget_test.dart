@@ -670,6 +670,53 @@ void main() {
       handle.dispose();
     });
 
+    testWidgets(
+        'riga stretta (mobile): spunta a icona, niente iniziali, nome su 2 righe',
+        (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _pump(
+        tester,
+        staffCard(subscribers: [_user(1)], records: {'u1': rec('u1', true)}),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      final toggle =
+          tester.widget<AttendanceToggle>(find.byType(AttendanceToggle));
+      expect(toggle.compact, isTrue);
+      final row = find.byKey(const Key('appello-row-u1'));
+      expect(
+        find.descendant(of: row, matching: find.byType(CircleAvatar)),
+        findsNothing,
+      );
+      final name = tester.widget<Text>(
+        find.descendant(of: row, matching: find.text('Iscritto 1')),
+      );
+      expect(name.maxLines, 2);
+    });
+
+    testWidgets('riga larga (desktop): spunta estesa e iniziali',
+        (tester) async {
+      await _pump(
+        tester,
+        staffCard(subscribers: [_user(1)], records: {'u1': rec('u1', true)}),
+      );
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(
+        tester.widget<AttendanceToggle>(find.byType(AttendanceToggle)).compact,
+        isFalse,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('appello-row-u1')),
+          matching: find.byType(CircleAvatar),
+        ),
+        findsOneWidget,
+      );
+    });
+
     // 400 px con il font di test (Ahem, glifi ~2x più larghi di Roboto) è
     // più severo di un telefono reale da 360 px; il 360 reale è verificato
     // nel browser.

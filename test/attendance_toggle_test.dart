@@ -111,4 +111,82 @@ void main() {
     expect(absent.width, unmarked.width);
     expect(unmarked.height, greaterThanOrEqualTo(48));
   });
+
+  group('compatta (mobile): solo icona', () {
+    testWidgets('niente testo, 48x48, icone per stato', (tester) async {
+      await _pump(
+        tester,
+        AttendanceToggle(record: null, compact: true, onChanged: (_) {}),
+      );
+      expect(find.text('Presente'), findsNothing);
+      expect(tester.getSize(find.byType(AttendanceToggle)), const Size(48, 48));
+
+      await _pump(
+        tester,
+        AttendanceToggle(
+          record: _rec(true, AttendanceSource.trainer),
+          compact: true,
+          onChanged: (_) {},
+        ),
+      );
+      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.text('Presente'), findsNothing);
+
+      await _pump(
+        tester,
+        AttendanceToggle(
+          record: _rec(false, AttendanceSource.trainer),
+          compact: true,
+          onChanged: (_) {},
+        ),
+      );
+      expect(find.byIcon(Icons.close), findsOneWidget);
+      expect(find.text('Assente'), findsNothing);
+    });
+
+    testWidgets('il tocco alterna come la versione estesa', (tester) async {
+      bool? asked;
+      await _pump(
+        tester,
+        AttendanceToggle(
+          record: _rec(true, AttendanceSource.trainer),
+          compact: true,
+          onChanged: (v) => asked = v,
+        ),
+      );
+      await tester.tap(find.byType(AttendanceToggle));
+      expect(asked, isFalse);
+    });
+
+    testWidgets('pending: spinner e tocco disabilitato', (tester) async {
+      var calls = 0;
+      await _pump(
+        tester,
+        AttendanceToggle(
+          record: null,
+          compact: true,
+          pending: true,
+          onChanged: (_) => calls++,
+        ),
+      );
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      await tester.tap(find.byType(AttendanceToggle));
+      expect(calls, 0);
+    });
+
+    testWidgets('etichetta accessibile invariata', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(
+        tester,
+        AttendanceToggle(
+          record: _rec(false, AttendanceSource.trainer),
+          compact: true,
+          semanticsLabel: 'Mario Rossi: assente',
+          onChanged: (_) {},
+        ),
+      );
+      expect(find.bySemanticsLabel('Mario Rossi: assente'), findsOneWidget);
+      handle.dispose();
+    });
+  });
 }

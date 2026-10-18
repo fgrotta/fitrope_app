@@ -64,4 +64,20 @@ export default async function (g, { db }) {
   await g.waitFor(paola('assente'));
   await g.shot('03-segnati', { highlight: [mario('presente'), paola('assente')] });
   await g.frame('appello', { highlight: [mario('presente'), paola('assente')] });
+
+  // Sul telefono la spunta è solo un'icona, per lasciare spazio al nome.
+  await g.page.setViewportSize({ width: 390, height: 844 });
+  await g.settle(1500);
+  // Il layout mobile ricostruisce la pagina: card e lista vanno riaperte.
+  // Su mobile la riga dell'agenda ha orari su due righe ("19:26 20:26 …"):
+  // agendaRow cerca il formato desktop "19:26 - 20:26".
+  const rigaMobile = /^\d\d:\d\d \d\d:\d\d Open mattina\b/;
+  await g.tap(
+    g.page.getByRole('button', { name: rigaMobile })
+      .or(g.page.getByRole('group', { name: rigaMobile }))
+      .first(),
+  );
+  await g.tap(iscritti());
+  await g.reveal(paola('assente'));
+  await g.shot('04-mobile', { highlight: [mario('presente'), paola('assente')] });
 }

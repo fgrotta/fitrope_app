@@ -620,7 +620,26 @@ class _CourseCardState extends State<CourseCard> {
   /// Riga dell'appello: iniziali, nome (tap = dettaglio utente) con una
   /// didascalia sempre riservata, spunta e rimozione. Altezza fissa: la
   /// didascalia "check-in del socio" che arriva col caricamento non la cambia.
+  /// Sotto questa larghezza di riga (mobile, o card stretta su desktop) la
+  /// spunta diventa un'icona e spariscono le iniziali: il nome ha la
+  /// precedenza.
+  static const double _compactAttendanceRowWidth = 440;
+
   Widget _buildAttendanceRow(BuildContext context, FitropeUser user) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildAttendanceRowContent(
+        context,
+        user,
+        compact: constraints.maxWidth < _compactAttendanceRowWidth,
+      ),
+    );
+  }
+
+  Widget _buildAttendanceRowContent(
+    BuildContext context,
+    FitropeUser user, {
+    required bool compact,
+  }) {
     final record = widget.attendanceRecords?[user.uid];
     final present = record?.present == true;
     final selfDeclared = present && record?.source == AttendanceSource.self;
@@ -640,21 +659,23 @@ class _CourseCardState extends State<CourseCard> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 15,
-            backgroundColor: present
-                ? SelfCheckInButton.presentColor
-                : Colors.blueGrey.shade100,
-            child: Text(
-              initials,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: present ? Colors.white : Colors.blueGrey.shade800,
+          if (!compact) ...[
+            CircleAvatar(
+              radius: 15,
+              backgroundColor: present
+                  ? SelfCheckInButton.presentColor
+                  : Colors.blueGrey.shade100,
+              child: Text(
+                initials,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: present ? Colors.white : Colors.blueGrey.shade800,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: GestureDetector(
               onTap: () => _showUserDetails(context, user),
@@ -666,7 +687,9 @@ class _CourseCardState extends State<CourseCard> {
                   children: [
                     Text(
                       getDisplayName(user),
-                      maxLines: 1,
+                      // Su mobile il nome può andare a capo: è l'unico modo
+                      // di riconoscere chi stai segnando.
+                      maxLines: compact ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: onPrimaryColor,
@@ -692,6 +715,7 @@ class _CourseCardState extends State<CourseCard> {
           const SizedBox(width: 6),
           AttendanceToggle(
             record: record,
+            compact: compact,
             semanticsLabel: '${getDisplayName(user)}: '
                 '${present ? 'presente' : record != null ? 'assente' : 'non segnato'}',
             // Record non ancora caricati: spunta già al suo posto ma in
