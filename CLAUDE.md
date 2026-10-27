@@ -263,6 +263,7 @@ La logica di iscrizione/disiscrizione ai corsi e la parte piu critica. Se la mod
 ### WhatsApp lezioni demo (webhook Make)
 
 - Il messaggio **non** lo manda l'app: un `POST` verso un Custom webhook Make fa partire un template WhatsApp approvato da Meta. Il testo si modifica nello scenario Make, senza deploy.
+- Rilascio in produzione (prerequisiti Meta/Make, decisioni aperte, passaggio a `live`, stop di emergenza): `functions/src/whatsapp/README.md`.
 - Codice in `functions/src/whatsapp/`, un modulo per responsabilità: `phone.ts` (E.164), `format.ts` (date di Roma, riusa `romeParts` di `notify.ts`), `payload.ts` (body), `environment.ts` (gate), `makeClient.ts` (unica chiamata HTTP), `sendLog.ts` (registro invii), `demoLesson.ts` (regole destinatario e conferma), `reminders.ts` (cron), `testWebhook.ts` (callable di prova).
 - Due eventi su un solo webhook, distinti dal campo `tipo`:
   - `conferma` — `EnrollmentDeps.notifyTrialWhatsapp` in `subscribeToCourseHandler`, nel blocco `if (isTrialUser)` accanto all'email di conferma e al promemoria;
