@@ -60,7 +60,7 @@ In modalita emulatore OneSignal non viene inizializzato, per evitare registrazio
 ```
 lib/
 ├── main.dart                              # Bootstrap Firebase, emulatori, OneSignal, MaterialApp
-├── router.dart                            # Route statiche + debug-only in kDebugMode
+├── router.dart                            # Route statiche + debug-only (debugToolsEnabled: debug o staging)
 ├── style.dart                             # Costanti di stile globali
 ├── firebase_options.dart                  # Config Firebase produzione
 ├── firebase_options_staging.dart          # Config Firebase staging da dart-define
@@ -94,7 +94,7 @@ lib/
 │       ├── create_user_page.dart          # Creazione utente (solo admin)
 │       ├── user_detail_page.dart          # Profilo/modifica utente (admin)
 │       ├── admin_dashboard_page.dart      # Analytics (solo desktop)
-│       └── debug_email_page.dart          # Invio email di test (solo kDebugMode)
+│       └── debug_email_page.dart          # Invio email/WhatsApp di test (debug o staging)
 │
 ├── api/                                   # Layer Firestore
 │   ├── get_user_data.dart                 # Fetch singolo utente
@@ -386,7 +386,7 @@ Usa sempre `isDesktop(context)` o `breakpointOf(context)` per decisioni di layou
 | `COURSE_MANAGEMENT_ROUTE` | `/course-management` | CourseManagementPage |
 | `RECURRING_COURSE_ROUTE` | `/recurring-course` | RecurringCoursePage |
 | `GUIDE_ROUTE` | `/guida` | Guida Admin: indice, o la guida `{'id': …}` passata come argomento |
-| `DEBUG_EMAIL_ROUTE` | `/debug-email` | DebugEmailPage _(solo `kDebugMode`)_ |
+| `DEBUG_EMAIL_ROUTE` | `/debug-email` | DebugEmailPage _(solo `debugToolsEnabled`: debug o staging)_ |
 
 `CourseManagementPage` accetta argomenti: `courseToEdit`, `courseToDuplicate`, `mode`.
 
@@ -511,7 +511,7 @@ La REST API key **non e mai esposta al client**. Il client chiama la Cloud Funct
 | Iscrizione utente `ABBONAMENTO_PROVA` (solo modello legacy) | Cloud Function `subscribeToCourse` → `functions/src/enrollment/notify.ts:scheduleTrialReminder` | Schedulato — sera prima alle 19:00 Europe/Rome |
 | Iscrizione di un utente di prova (`isTrialUser`), con `WHATSAPP_DEMO_MODE=live` | Cloud Function `subscribeToCourse` → `functions/src/whatsapp/demoLesson.ts:notifyDemoLessonBooked` | Immediato — WhatsApp `conferma` via webhook Make |
 | Sera prima della lezione, con `WHATSAPP_DEMO_MODE=live` | Cron `sendDemoLessonWhatsappReminders` → `functions/src/whatsapp/reminders.ts` | 19:00 Europe/Rome — WhatsApp `promemoria` via webhook Make, saltato se la conferma è partita lo stesso giorno |
-| Debug manuale (solo `kDebugMode`) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` / `sendTestTrialConfirmationEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
+| Debug manuale (debug o staging, FAB solo Admin su staging) | `lib/services/notification_service.dart:sendTestWaitlistEmail` / `sendTestTrialReminderEmail` / `sendTestTrialConfirmationEmail` | Immediato — inviato all'utente corrente via FAB in `Protected` → `DebugEmailPage` |
 
 Le versioni client di `notifyWaitlistUsers`/`scheduleTrialReminder` sono state RIMOSSE (PR4/PR5): il server è l'unica autorità.
 
@@ -561,7 +561,7 @@ invii restano filtrati dalla allowlist dentro `postToOneSignal`/ensure.
 ### WhatsApp lezioni demo (webhook Make)
 
 - Moduli in `functions/src/whatsapp/`; il predicato "utente di prova" è `functions/src/enrollment/trial.ts`, condiviso con l'iscrizione.
-- Gate `WHATSAPP_DEMO_MODE` (`off`/`test`/`live`) in `.env.<projectId>`, letto in discovery. Produzione: `functions/.env.fit-rope-app-1f575`. Staging: `off` salvo configurazione esplicita con `STAGING_WHATSAPP_ALLOWLIST`.
+- Gate `WHATSAPP_DEMO_MODE` (`off`/`test`/`live`) in `.env.<projectId>`, letto in discovery. Produzione: `functions/.env.fit-rope-app-1f575`. Staging: dalla var `STAGING_WHATSAPP_DEMO_MODE` (`off` di default, oppure `test`, che richiede `STAGING_WHATSAPP_ALLOWLIST` e i secret Make in `fit-rope-staging`).
 - La configurazione produzione è tracciata grazie a un'eccezione specifica in `.gitignore`. Il cron usa `event.scheduleTime` nei retry e un massimo di 10 invii concorrenti; i claim incerti restano nel registro per verifica in Make, senza reinvio automatico.
 - Secret `MAKE_WEBHOOK_URL`, `MAKE_WEBHOOK_KEY`; chiave nell'header `Demo-Reminder`.
 - Dettagli operativi e trappole in `CLAUDE.md`, sezione "WhatsApp lezioni demo".

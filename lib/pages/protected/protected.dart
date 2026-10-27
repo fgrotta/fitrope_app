@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fitrope_app/app_environment.dart';
 import 'package:fitrope_app/api/courses/get_courses.dart';
 import 'package:fitrope_app/api/get_user_data.dart';
 import 'package:fitrope_app/utils/user_cache_manager.dart';
@@ -211,7 +212,10 @@ class _ProtectedState extends State<Protected> with WidgetsBindingObserver {
                       }),
                     )
                   : null,
-              floatingActionButton: kDebugMode
+              // Su staging il FAB è solo per gli Admin: i soci del clone non
+              // devono vedere strumenti di debug.
+              floatingActionButton: kDebugMode ||
+                      (isStaging && user?.role == 'Admin')
                   ? FloatingActionButton.small(
                       onPressed: () =>
                           Navigator.of(context).pushNamed(DEBUG_EMAIL_ROUTE),

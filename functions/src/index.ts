@@ -613,7 +613,7 @@ export const certificateEmailsDaily = certificateFunctionsEnabled()
   : undefined;
 
 /**
- * WhatsApp di prova verso il numero indicato (DebugEmailPage, kDebugMode).
+ * WhatsApp di prova verso il numero indicato (DebugEmailPage, in debug o su staging).
  * Solo Admin. Esiste con WHATSAPP_DEMO_MODE=test|live.
  * Payload: { numeroTelefono: string, kind?: "booked"|"reminder", nome?, corso?, giorno?, orario? }
  */
