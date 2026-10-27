@@ -22,9 +22,11 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   final _courseIdCtrl = TextEditingController();
   final _salaCtrl = TextEditingController(text: 'Sala 1');
   final _phoneCtrl = TextEditingController();
-  // Il WhatsApp usa un formato data diverso dalle email ("28 Ottobre" contro
-  // "Lunedì 28 Aprile 2025"), quindi ha un campo suo.
+  // Il WhatsApp ha campi suoi, uno per variabile del template: la data ha un
+  // formato diverso dalle email ("28 Ottobre" contro "Lunedì 28 Aprile 2025").
+  final _whatsappLessonCtrl = TextEditingController(text: 'Lezione di prova');
   final _whatsappDayCtrl = TextEditingController(text: '28 Ottobre');
+  final _whatsappTimeCtrl = TextEditingController(text: '19:00');
 
   String? _resolvedUid;
   String? _lookupError;
@@ -56,7 +58,9 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     _courseIdCtrl.dispose();
     _salaCtrl.dispose();
     _phoneCtrl.dispose();
+    _whatsappLessonCtrl.dispose();
     _whatsappDayCtrl.dispose();
+    _whatsappTimeCtrl.dispose();
     super.dispose();
   }
 
@@ -263,9 +267,9 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     try {
       final result = await sendTestDemoLessonWebhook(
         numeroTelefono: numero,
-        lezione: _courseNameCtrl.text,
+        lezione: _whatsappLessonCtrl.text,
         giornoLezione: _whatsappDayCtrl.text,
-        orarioLezione: _courseTimeCtrl.text,
+        orarioLezione: _whatsappTimeCtrl.text,
       );
       if (mounted) {
         setState(() => _lastWhatsappPayload = result.payload);
@@ -529,9 +533,9 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Solo Admin, con WHATSAPP_DEMO_MODE=test o live. Usa anche '
-              '"Nome corso" e "Orario" qui sopra; i campi vuoti ricadono su '
-              'un default lato Cloud Function.',
+              'Solo Admin, con WHATSAPP_DEMO_MODE=test o live. Un campo per '
+              'ogni variabile del template; i campi vuoti ricadono su un '
+              'default lato Cloud Function.',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
             ),
             const SizedBox(height: 12),
@@ -547,12 +551,31 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             ),
             const SizedBox(height: 12),
             TextField(
+              controller: _whatsappLessonCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Lezione',
+                border: OutlineInputBorder(),
+                helperText: 'Variabile {{lezione}}: nome del corso',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
               controller: _whatsappDayCtrl,
               decoration: const InputDecoration(
-                labelText: 'Giorno',
+                labelText: 'Giorno lezione',
                 border: OutlineInputBorder(),
                 helperText:
-                    'Formato WhatsApp: "28 Ottobre" (diverso dalla Data delle email)',
+                    'Variabile {{giorno_lezione}}, formato "28 Ottobre" (diverso dalla Data delle email)',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _whatsappTimeCtrl,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: 'Orario lezione',
+                border: OutlineInputBorder(),
+                helperText: 'Variabile {{orario_lezione}}, formato "19:00"',
               ),
             ),
             const SizedBox(height: 12),
