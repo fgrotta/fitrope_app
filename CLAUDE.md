@@ -222,7 +222,13 @@ Wiki in-app per lo staff (icona "Guida", solo Admin, route `/guida`): testi in
   ed è il segnale che la guida va riletta.
 - Una funzione Admin nuova ha la sua guida (o una sezione di una esistente) più lo scenario.
   Nuova guida = voce nel catalogo + `.md` + scenario + riga `- assets/guida/img/<id>/` in
-  `pubspec.yaml`.
+  `pubspec.yaml` + voce `guida/<id>` in `docs/stato-documentazione.json`.
+- **Skill `aggiorna-documentazione`** (`.claude/skills/`): trova da sola cosa non è ancora
+  documentato. `docs/stato-documentazione.json` registra per ogni guida e doc tecnico i file
+  che descrive e il commit di develop fino al quale è stato verificato;
+  `python3 .claude/skills/aggiorna-documentazione/scripts/pendenti.py` elenca i commit
+  arrivati dopo. Chi aggiorna un documento a mano sposta il watermark con
+  `pendenti.py --segna <chiave>`, anche quando il documento era già corretto.
 - Le immagini si generano **sempre dall'emulatore**, mai dalla produzione: negli screenshot
   finiscono solo dati sintetici. Lo scenario fallisce se l'app contatta un host di produzione.
 - Lo script usa un emulatore **suo** su porte alte (29099/28080/25001, web su 5621) e
