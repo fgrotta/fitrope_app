@@ -8,28 +8,29 @@ import {
 // Europe/Rome 2026: CET (UTC+1) d'inverno; CEST (UTC+2) dal 29 mar al 25 ott.
 
 describe("formatGiorno", () => {
-  test("mese minuscolo con anno, senza giorno della settimana (inverno)", () => {
-    expect(formatGiorno(Date.UTC(2026, 0, 15, 18, 0))).toBe("15 gennaio 2026");
+  test("mese con iniziale maiuscola, senza anno né giorno della settimana (inverno)", () => {
+    expect(formatGiorno(Date.UTC(2026, 0, 15, 18, 0))).toBe("15 Gennaio");
   });
 
   test("data estiva", () => {
-    expect(formatGiorno(Date.UTC(2026, 6, 15, 17, 0))).toBe("15 luglio 2026");
+    expect(formatGiorno(Date.UTC(2026, 6, 15, 17, 0))).toBe("15 Luglio");
   });
 
   test("non zero-padda il giorno del mese", () => {
-    expect(formatGiorno(Date.UTC(2026, 9, 3, 10, 0))).toBe("3 ottobre 2026");
+    expect(formatGiorno(Date.UTC(2026, 9, 3, 10, 0))).toBe("3 Ottobre");
   });
 
   test("usa il giorno di Roma, non quello UTC", () => {
     // 22:30 UTC del 1 luglio = 00:30 del 2 luglio a Roma.
-    expect(formatGiorno(Date.UTC(2026, 6, 1, 22, 30))).toBe("2 luglio 2026");
+    expect(formatGiorno(Date.UTC(2026, 6, 1, 22, 30))).toBe("2 Luglio");
   });
 
   test("copre tutti i dodici mesi", () => {
     expect(MONTH_NAMES_IT).toHaveLength(12);
+    expect(MONTH_NAMES_IT[9]).toBe("Ottobre");
     for (let m = 1; m <= 12; m++) {
       expect(formatGiorno(Date.UTC(2026, m - 1, 15, 12, 0))).toBe(
-        `15 ${MONTH_NAMES_IT[m - 1]} 2026`
+        `15 ${MONTH_NAMES_IT[m - 1]}`
       );
     }
   });

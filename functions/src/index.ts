@@ -599,7 +599,7 @@ export const certificateEmailsDaily = certificateFunctionsEnabled()
 /**
  * WhatsApp di prova verso il numero indicato (DebugEmailPage, in debug o su staging).
  * Solo Admin. Esiste con WHATSAPP_DEMO_MODE=test|live.
- * Payload: { numeroTelefono: string, nome?, corso?, giorno?, orario? }
+ * Payload: { numeroTelefono: string, lezione?, giornoLezione?, orarioLezione? }
  */
 export const sendTestDemoLessonWebhook =
   whatsappMode === "off"

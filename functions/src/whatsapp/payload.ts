@@ -6,12 +6,16 @@
 
 import { formatGiorno, formatOrario } from "./format";
 
+/**
+ * Le chiavi coincidono con le variabili del template (`{{lezione}}`,
+ * `{{giorno_lezione}}`, `{{orario_lezione}}`); `numero_di_telefono` è il
+ * destinatario.
+ */
 export interface DemoLessonPayload {
-  nome: string;
   numero_di_telefono: string;
-  corso: string;
-  giorno: string;
-  orario: string;
+  lezione: string;
+  giorno_lezione: string;
+  orario_lezione: string;
 }
 
 /**
@@ -23,36 +27,26 @@ export function sanitizeTemplateParam(value: string | null | undefined): string 
   return value.replace(/\s+/g, " ").trim();
 }
 
-/** `"Mario Rossi"` da nome e cognome, tollerando l'assenza del cognome. */
-export function buildNome(
-  name: string | null | undefined,
-  lastName: string | null | undefined
-): string {
-  return sanitizeTemplateParam(`${name ?? ""} ${lastName ?? ""}`);
-}
-
 export interface BuildPayloadArgs {
-  nome: string;
   phoneE164: string;
-  corso: string;
+  lezione: string;
   startAtMillis: number;
   /** Override della data formattata: solo per la callable di prova. */
-  giorno?: string;
+  giornoLezione?: string;
   /** Override dell'orario formattato: solo per la callable di prova. */
-  orario?: string;
+  orarioLezione?: string;
 }
 
 /**
- * Costruisce il body. I chiamanti scartano a monte chi non ha nome o telefono:
+ * Costruisce il body. I chiamanti scartano a monte chi non ha telefono o corso:
  * un campo vuoto qui è un bug da far emergere, non un caso da inviare.
  */
 export function buildDemoLessonPayload(args: BuildPayloadArgs): DemoLessonPayload {
   const payload: DemoLessonPayload = {
-    nome: sanitizeTemplateParam(args.nome),
     numero_di_telefono: args.phoneE164,
-    corso: sanitizeTemplateParam(args.corso),
-    giorno: sanitizeTemplateParam(args.giorno) || formatGiorno(args.startAtMillis),
-    orario: sanitizeTemplateParam(args.orario) || formatOrario(args.startAtMillis),
+    lezione: sanitizeTemplateParam(args.lezione),
+    giorno_lezione: sanitizeTemplateParam(args.giornoLezione) || formatGiorno(args.startAtMillis),
+    orario_lezione: sanitizeTemplateParam(args.orarioLezione) || formatOrario(args.startAtMillis),
   };
 
   for (const [key, value] of Object.entries(payload)) {

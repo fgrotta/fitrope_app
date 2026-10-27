@@ -24,8 +24,6 @@ const DOMANI_18 = Date.UTC(2026, 9, 15, 16);
 
 const userDoc = (over: Data = {}): Data => ({
   uid: "u1",
-  name: "Mario",
-  lastName: "Rossi",
   numeroTelefono: "3331234567",
   isActive: true,
   courses: ["c1"],
@@ -114,8 +112,6 @@ describe("mapDemoUserDoc", () => {
   test("applica i default e ricade sull'id del documento", () => {
     expect(mapDemoUserDoc({ id: "u9", data: () => ({ name: "Test" }) })).toEqual({
       uid: "u9",
-      name: "Test",
-      lastName: "",
       numeroTelefono: null,
       isActive: true,
       courses: [],
@@ -127,8 +123,7 @@ describe("checkRecipient", () => {
   test("accetta un utente attivo con un cellulare valido", () => {
     expect(checkRecipient(user(), course(), NOW, {})).toEqual({
       ok: true,
-      nome: "Mario Rossi",
-      corso: "Corso Excel Avanzato",
+      lezione: "Corso Excel Avanzato",
       phoneE164: "+393331234567",
       startAtMillis: DOMANI_18,
     });
@@ -140,9 +135,14 @@ describe("checkRecipient", () => {
     ["no_phone", { numeroTelefono: "-" }],
     ["not_mobile", { numeroTelefono: "0392123456" }],
     ["not_numeric", { numeroTelefono: "n/d" }],
-    ["no_name", { name: "", lastName: " " }],
   ])("scarta l'utente con reason %s", (reason, over) => {
     expect(checkRecipient(user(over), course(), NOW, {})).toEqual({ ok: false, reason });
+  });
+
+  test("il nome dell'utente non serve più: il template non lo usa", () => {
+    expect(checkRecipient(user({ name: "", lastName: "" }), course(), NOW, {})).toMatchObject({
+      ok: true,
+    });
   });
 
   test.each([
@@ -183,11 +183,10 @@ describe("dispatchDemoLesson", () => {
     expect(post.mock.calls[0]).toEqual([
       WEBHOOK_URL,
       {
-        nome: "Mario Rossi",
         numero_di_telefono: "+393331234567",
-        corso: "Corso Excel Avanzato",
-        giorno: "15 ottobre 2026",
-        orario: "18:00",
+        lezione: "Corso Excel Avanzato",
+        giorno_lezione: "15 Ottobre",
+        orario_lezione: "18:00",
       },
     ]);
     expect(creates()).toEqual([`create ${DEMO_LOG_COLLECTION}/reminder_u1_c1`]);

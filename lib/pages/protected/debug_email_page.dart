@@ -22,10 +22,9 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   final _courseIdCtrl = TextEditingController();
   final _salaCtrl = TextEditingController(text: 'Sala 1');
   final _phoneCtrl = TextEditingController();
-  final _whatsappNameCtrl = TextEditingController();
-  // Il WhatsApp usa un formato data diverso dalle email ("28 aprile 2026" contro
+  // Il WhatsApp usa un formato data diverso dalle email ("28 Ottobre" contro
   // "Lunedì 28 Aprile 2025"), quindi ha un campo suo.
-  final _whatsappDayCtrl = TextEditingController(text: '28 aprile 2026');
+  final _whatsappDayCtrl = TextEditingController(text: '28 Ottobre');
 
   String? _resolvedUid;
   String? _lookupError;
@@ -57,7 +56,6 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     _courseIdCtrl.dispose();
     _salaCtrl.dispose();
     _phoneCtrl.dispose();
-    _whatsappNameCtrl.dispose();
     _whatsappDayCtrl.dispose();
     super.dispose();
   }
@@ -95,14 +93,10 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
         final data = snapshot.docs.first.data();
         final uid = data['uid'] as String? ?? snapshot.docs.first.id;
         final name = data['name'] as String? ?? '';
-        final lastName = data['lastName'] as String? ?? '';
         final phone = data['numeroTelefono'] as String? ?? '';
         setState(() {
           _resolvedUid = uid;
           if (name.isNotEmpty) _firstNameCtrl.text = name;
-          // Il WhatsApp usa nome e cognome, come il payload reale.
-          final fullName = '$name $lastName'.trim();
-          _whatsappNameCtrl.text = fullName;
           _phoneCtrl.text = phone;
         });
       }
@@ -269,10 +263,9 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     try {
       final result = await sendTestDemoLessonWebhook(
         numeroTelefono: numero,
-        nome: _whatsappNameCtrl.text,
-        corso: _courseNameCtrl.text,
-        giorno: _whatsappDayCtrl.text,
-        orario: _courseTimeCtrl.text,
+        lezione: _courseNameCtrl.text,
+        giornoLezione: _whatsappDayCtrl.text,
+        orarioLezione: _courseTimeCtrl.text,
       );
       if (mounted) {
         setState(() => _lastWhatsappPayload = result.payload);
@@ -554,21 +547,12 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _whatsappNameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Nome e cognome',
-                border: OutlineInputBorder(),
-                helperText: 'Campo "nome" del body',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
               controller: _whatsappDayCtrl,
               decoration: const InputDecoration(
                 labelText: 'Giorno',
                 border: OutlineInputBorder(),
                 helperText:
-                    'Formato WhatsApp: "28 aprile 2026" (diverso dalla Data delle email)',
+                    'Formato WhatsApp: "28 Ottobre" (diverso dalla Data delle email)',
               ),
             ),
             const SizedBox(height: 12),

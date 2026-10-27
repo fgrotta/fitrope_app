@@ -14,8 +14,10 @@ Stato verificato il 27/10/2026.
   nessun WhatsApp.
 - **Un solo scenario Make**: webhook → modulo WhatsApp con il template di promemoria.
   Nessun router e nessun filtro.
-- **Body inviato a Make**: `{nome, numero_di_telefono, corso, giorno, orario}`
-  (es. `giorno` = `15 ottobre 2026`, `orario` = `18:00`).
+- **Body inviato a Make**: `{numero_di_telefono, lezione, giorno_lezione, orario_lezione}`.
+  Gli ultimi tre campi sono le variabili del template: `{{lezione}}` è il nome del corso,
+  `{{giorno_lezione}}` ha il formato `28 Ottobre`, `{{orario_lezione}}` il formato `19:00`.
+  Il nome dell'utente non viene inviato.
 - **Nessuna chiave**: l'URL del webhook è l'unica credenziale. Chi lo conosce può far
   partire un WhatsApp, quindi va trattato come una password. Sta solo in Secret Manager
   (`MAKE_WEBHOOK_URL`) e non compare mai nei log.
@@ -41,13 +43,13 @@ rilascio di `develop`: modello corsi V2, callable enrollment, rules e migrazione
 ## A. Fuori dal repo (bloccanti per `live`)
 
 1. **Template di promemoria approvato da Meta**, categoria Utility, sul numero WhatsApp
-   Business collegato a Make. Parametri: `nome`, `corso`, `giorno`, `orario`. Il numero
+   Business collegato a Make. Variabili: `{{lezione}}`, `{{giorno_lezione}}`, `{{orario_lezione}}`. Il numero
    non deve essere attivo nell'app WhatsApp: una volta migrato, dall'app non si può più
    usare.
 2. **Scenario Make**:
    - "Redetermine data structure" sul webhook, inviando un payload attuale (per esempio
      dalla pagina Debug). Make impara lo schema dal primo payload ricevuto;
-   - nel modulo WhatsApp, i quattro parametri del template collegati ai campi del body e
+   - nel modulo WhatsApp, le tre variabili del template collegate ai campi omonimi del body e
      il destinatario collegato a `numero_di_telefono`;
    - le **notifiche di errore dello scenario** attive. Il webhook risponde sempre `200`:
      numero senza WhatsApp, template non approvato o credito esaurito si vedono solo in
@@ -61,11 +63,12 @@ rilascio di `develop`: modello corsi V2, callable enrollment, rules e migrazione
 
 ## B. Decisioni da prendere prima del `live`
 
-- **Privacy.** Il nome e il cellulare dell'utente di prova escono verso Make e Meta.
+- **Privacy.** Il cellulare dell'utente di prova esce verso Make e Meta, insieme a nome,
+  giorno e orario della lezione.
   Verificare l'informativa privacy e il rapporto di trattamento con Make (DPA).
 - **Opt-out.** Nell'app non esiste un flag per non ricevere WhatsApp: i flag
   `emailNotificationsEnabled` e `pushNotificationsEnabled` non governano questo canale.
-  Oggi un utente di prova attivo, con nome e cellulare validi, lo riceve sempre. Se serve
+  Oggi un utente di prova attivo con un cellulare valido lo riceve sempre. Se serve
   un opt-out, va aggiunto prima del `live`.
 - **Costi.** Ogni promemoria è un template Utility a pagamento su Meta, più le
   operazioni Make. Il volume è al massimo un messaggio per lezione di prova.
@@ -126,7 +129,7 @@ flutter run -d chrome   # login con un Admin → FAB "Debug email" → sezione W
 3. **Orario del deploy.** Se deployi prima delle 19:00, il cron parte la sera stessa e
    scrive anche a chi si era iscritto a una lezione di domani prima del `live`. È voluto,
    ma va saputo.
-4. Il destinatario deve essere un utente di prova attivo, con nome e cellulare validi,
+4. Il destinatario deve essere un utente di prova attivo, con un cellulare valido,
    iscritto a un corso del giorno dopo che abbia `reminderEnabled` attivo.
 
 ## F. Monitoraggio

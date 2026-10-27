@@ -50,8 +50,6 @@ const openSnapshot = (): Data => ({
 
 const baseUser = (n: number, courses: string[], over: Data = {}): Data => ({
   uid: `u${n}`,
-  name: "Utente",
-  lastName: `N${n}`,
   numeroTelefono: phone(n),
   isActive: true,
   courses,
@@ -150,7 +148,11 @@ describe("runDemoLessonReminders", () => {
     await expect(run(deps)).resolves.toMatchObject({ candidates: 2, sent: 2, skipped: 0, failed: 0 });
     expect(phonesPosted().sort()).toEqual([`+39${phone(1)}`, `+39${phone(2)}`]);
     expect(post.mock.calls.every(([, payload]) => !("tipo" in payload))).toBe(true);
-    expect(post.mock.calls[0][1]).toMatchObject({ corso: "Corso c1", giorno: "15 ottobre 2026", orario: "18:00" });
+    expect(post.mock.calls[0][1]).toMatchObject({
+      lezione: "Corso c1",
+      giorno_lezione: "15 Ottobre",
+      orario_lezione: "18:00",
+    });
   });
 
   test("non scrive al cliente convertito che ha ancora la tipologia PROVA", async () => {

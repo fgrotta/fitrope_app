@@ -1,13 +1,11 @@
 import {
   buildDemoLessonPayload,
-  buildNome,
   sanitizeTemplateParam,
 } from "../whatsapp/payload";
 
 const base = {
-  nome: "Mario Rossi",
   phoneE164: "+393331234567",
-  corso: "Corso Excel Avanzato",
+  lezione: "Corso Excel Avanzato",
   // 15 ottobre 2026, 18:00 ora di Roma (CEST).
   startAtMillis: Date.UTC(2026, 9, 15, 16),
 };
@@ -23,58 +21,38 @@ describe("sanitizeTemplateParam", () => {
   });
 });
 
-describe("buildNome", () => {
-  test("unisce nome e cognome", () => {
-    expect(buildNome("Mario", "Rossi")).toBe("Mario Rossi");
-  });
-
-  test("non lascia spazi con il cognome vuoto", () => {
-    expect(buildNome("Mario", "")).toBe("Mario");
-    expect(buildNome("Mario", null)).toBe("Mario");
-  });
-
-  test("è vuoto se mancano entrambi", () => {
-    expect(buildNome(null, undefined)).toBe("");
-  });
-});
-
 describe("buildDemoLessonPayload", () => {
   test("produce esattamente il body atteso dallo scenario Make", () => {
     expect(buildDemoLessonPayload(base)).toEqual({
-      nome: "Mario Rossi",
       numero_di_telefono: "+393331234567",
-      corso: "Corso Excel Avanzato",
-      giorno: "15 ottobre 2026",
-      orario: "18:00",
+      lezione: "Corso Excel Avanzato",
+      giorno_lezione: "15 Ottobre",
+      orario_lezione: "18:00",
     });
   });
 
-  test("espone esattamente cinque chiavi, senza tipo (Make impara lo schema dal primo payload)", () => {
+  test("espone esattamente quattro chiavi, le variabili del template più il destinatario", () => {
     expect(Object.keys(buildDemoLessonPayload(base)).sort()).toEqual([
-      "corso",
-      "giorno",
-      "nome",
+      "giorno_lezione",
+      "lezione",
       "numero_di_telefono",
-      "orario",
+      "orario_lezione",
     ]);
   });
 
-  test("non contiene credenziali né il vecchio campo tipo", () => {
+  test("non contiene credenziali né i vecchi campi", () => {
     const payload = buildDemoLessonPayload(base) as unknown as Record<string, unknown>;
     expect(payload.token).toBeUndefined();
     expect(payload.apiKey).toBeUndefined();
     expect(payload["Demo-Reminder"]).toBeUndefined();
-    expect(payload).not.toHaveProperty("tipo");
+    for (const old of ["tipo", "nome", "corso", "giorno", "orario"]) {
+      expect(payload).not.toHaveProperty(old);
+    }
   });
 
-  test("sanifica nome e corso per i parametri del template", () => {
-    const payload = buildDemoLessonPayload({
-      ...base,
-      nome: "  Mario   Rossi \n",
-      corso: "Pole\tDance    Base",
-    });
-    expect(payload.nome).toBe("Mario Rossi");
-    expect(payload.corso).toBe("Pole Dance Base");
+  test("sanifica il nome della lezione per i parametri del template", () => {
+    const payload = buildDemoLessonPayload({ ...base, lezione: "Pole\tDance    Base\n" });
+    expect(payload.lezione).toBe("Pole Dance Base");
     for (const value of Object.values(payload)) {
       expect(value).not.toMatch(/[\n\t]| {4}/);
     }
@@ -83,21 +61,21 @@ describe("buildDemoLessonPayload", () => {
   test("usa giorno e orario passati esplicitamente (callable di prova)", () => {
     const payload = buildDemoLessonPayload({
       ...base,
-      giorno: "28 aprile 2026",
-      orario: "10:00",
+      giornoLezione: "28 Ottobre",
+      orarioLezione: "19:00",
     });
-    expect(payload.giorno).toBe("28 aprile 2026");
-    expect(payload.orario).toBe("10:00");
+    expect(payload.giorno_lezione).toBe("28 Ottobre");
+    expect(payload.orario_lezione).toBe("19:00");
   });
 
   test("ricade sulla data della lezione se giorno e orario sono vuoti", () => {
-    const payload = buildDemoLessonPayload({ ...base, giorno: " ", orario: "" });
-    expect(payload.giorno).toBe("15 ottobre 2026");
-    expect(payload.orario).toBe("18:00");
+    const payload = buildDemoLessonPayload({ ...base, giornoLezione: " ", orarioLezione: "" });
+    expect(payload.giorno_lezione).toBe("15 Ottobre");
+    expect(payload.orario_lezione).toBe("18:00");
   });
 
   test("rifiuta un campo vuoto invece di mandarlo a Make", () => {
-    expect(() => buildDemoLessonPayload({ ...base, nome: "" })).toThrow(/nome/);
-    expect(() => buildDemoLessonPayload({ ...base, corso: "   " })).toThrow(/corso/);
+    expect(() => buildDemoLessonPayload({ ...base, lezione: "   " })).toThrow(/lezione/);
+    expect(() => buildDemoLessonPayload({ ...base, phoneE164: "" })).toThrow(/numero_di_telefono/);
   });
 });

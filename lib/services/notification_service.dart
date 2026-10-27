@@ -220,10 +220,9 @@ Future<void> sendTestCertificateExpiryEmail({
 Future<({bool ok, int status, Map<String, String> payload})>
     sendTestDemoLessonWebhook({
   required String numeroTelefono,
-  String? nome,
-  String? corso,
-  String? giorno,
-  String? orario,
+  String? lezione,
+  String? giornoLezione,
+  String? orarioLezione,
 }) async {
   SimulationSession.assertNotSimulating('sendTestDemoLessonWebhook');
   assert(debugToolsEnabled);
@@ -233,10 +232,9 @@ Future<({bool ok, int status, Map<String, String> payload})>
         .httpsCallable('sendTestDemoLessonWebhook');
     final result = await callable.call({
       'numeroTelefono': numeroTelefono,
-      'nome': nome ?? '',
-      'corso': corso ?? '',
-      'giorno': giorno ?? '',
-      'orario': orario ?? '',
+      'lezione': lezione ?? '',
+      'giornoLezione': giornoLezione ?? '',
+      'orarioLezione': orarioLezione ?? '',
     });
     debugPrint('📲 [Make] test webhook — RESPONSE: ${result.data}');
     final data = (result.data as Map<Object?, Object?>?) ?? const {};

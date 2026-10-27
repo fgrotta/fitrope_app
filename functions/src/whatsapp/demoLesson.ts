@@ -3,7 +3,7 @@
 //
 // Qui NON si decide chi è un utente di prova: lo decide il cron con
 // `isTrialUser` (enrollment/trial.ts). Questo modulo verifica solo che la coppia utente/corso sia
-// notificabile (utente attivo, corso futuro, nome e cellulare validi, allowlist
+// notificabile (utente attivo, corso futuro con nome, cellulare valido, allowlist
 // di staging) e gestisce claim, POST ed esito nel registro (sendLog.ts).
 
 import { logger } from "firebase-functions";
@@ -13,7 +13,6 @@ import { PostResult } from "./makeClient";
 import {
   DemoLessonPayload,
   buildDemoLessonPayload,
-  buildNome,
   sanitizeTemplateParam,
 } from "./payload";
 import { normalizePhoneE164 } from "./phone";
@@ -30,8 +29,6 @@ interface DocLike {
 
 export interface DemoUser {
   uid: string;
-  name: string;
-  lastName: string;
   numeroTelefono: string | null;
   isActive: boolean;
   courses: string[];
@@ -57,8 +54,6 @@ export function mapDemoUserDoc(doc: DocLike): DemoUser {
   const data = doc.data() ?? {};
   return {
     uid: (data.uid as string | undefined) ?? doc.id,
-    name: (data.name as string | undefined) ?? "",
-    lastName: (data.lastName as string | undefined) ?? "",
     numeroTelefono: (data.numeroTelefono as string | undefined) ?? null,
     isActive: data.isActive !== false,
     courses: Array.isArray(data.courses) ? (data.courses as unknown[]).map(String) : [],
@@ -83,7 +78,7 @@ export function mapDemoCourseDoc(doc: DocLike): DemoCourse {
 // ──────────────────────────────────────────────
 
 export type RecipientCheck =
-  | { ok: true; nome: string; corso: string; phoneE164: string; startAtMillis: number }
+  | { ok: true; lezione: string; phoneE164: string; startAtMillis: number }
   | { ok: false; reason: string };
 
 /** Verifica che la coppia utente/corso vada notificata. Pura. */
@@ -100,11 +95,8 @@ export function checkRecipient(
     return { ok: false, reason: "reminder_disabled" };
   }
 
-  const nome = buildNome(user.name, user.lastName);
-  if (nome === "") return { ok: false, reason: "no_name" };
-
-  const corso = sanitizeTemplateParam(course.name);
-  if (corso === "") return { ok: false, reason: "no_course_name" };
+  const lezione = sanitizeTemplateParam(course.name);
+  if (lezione === "") return { ok: false, reason: "no_course_name" };
 
   const phone = normalizePhoneE164(user.numeroTelefono);
   if (phone.e164 === null) {
@@ -119,7 +111,7 @@ export function checkRecipient(
     return { ok: false, reason: "not_in_staging_allowlist" };
   }
 
-  return { ok: true, nome, corso, phoneE164: phone.e164, startAtMillis: course.startAtMillis };
+  return { ok: true, lezione, phoneE164: phone.e164, startAtMillis: course.startAtMillis };
 }
 
 // ──────────────────────────────────────────────
@@ -177,8 +169,7 @@ export async function dispatchDemoLesson(
   if (claim === "needs_review") return { sent: false, failed: true, reason: "needs_review" };
 
   const payload = buildDemoLessonPayload({
-    nome: check.nome,
-    corso: check.corso,
+    lezione: check.lezione,
     phoneE164: check.phoneE164,
     startAtMillis: check.startAtMillis,
   });

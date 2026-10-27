@@ -7,29 +7,32 @@
 
 import { romeParts, romeWallClockToUtcMillis } from "../enrollment/notify";
 
-/** Mesi in italiano, minuscoli: è il formato atteso dallo scenario Make. */
+/** Mesi in italiano con l'iniziale maiuscola: è il formato atteso dal template. */
 export const MONTH_NAMES_IT = [
-  "gennaio",
-  "febbraio",
-  "marzo",
-  "aprile",
-  "maggio",
-  "giugno",
-  "luglio",
-  "agosto",
-  "settembre",
-  "ottobre",
-  "novembre",
-  "dicembre",
+  "Gennaio",
+  "Febbraio",
+  "Marzo",
+  "Aprile",
+  "Maggio",
+  "Giugno",
+  "Luglio",
+  "Agosto",
+  "Settembre",
+  "Ottobre",
+  "Novembre",
+  "Dicembre",
 ];
 
-/** `"15 ottobre 2026"` — campo `giorno` del body. */
+/**
+ * `"28 Ottobre"` — campo `giorno_lezione` del body. Senza anno: il promemoria
+ * parla sempre della lezione di domani.
+ */
 export function formatGiorno(millis: number): string {
   const p = romeParts(millis);
-  return `${p.day} ${MONTH_NAMES_IT[p.month - 1]} ${p.year}`;
+  return `${p.day} ${MONTH_NAMES_IT[p.month - 1]}`;
 }
 
-/** `"18:00"` — campo `orario` del body (solo l'ora di inizio). */
+/** `"19:00"` — campo `orario_lezione` del body (solo l'ora di inizio). */
 export function formatOrario(millis: number): string {
   const p = romeParts(millis);
   return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;

@@ -7,11 +7,10 @@ jest.mock("firebase-functions", () => ({
 
 const WEBHOOK_URL = "https://hook.eu1.make.com/abc123secrettoken";
 const payload: DemoLessonPayload = {
-  nome: "Mario Rossi",
   numero_di_telefono: "+393331234567",
-  corso: "Corso Excel Avanzato",
-  giorno: "15 ottobre 2026",
-  orario: "18:00",
+  lezione: "Corso Excel Avanzato",
+  giorno_lezione: "15 Ottobre",
+  orario_lezione: "18:00",
 };
 
 let fetchMock: jest.Mock;

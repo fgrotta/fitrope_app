@@ -16,10 +16,9 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 interface TestPayload {
   numeroTelefono?: string;
-  nome?: string;
-  corso?: string;
-  giorno?: string;
-  orario?: string;
+  lezione?: string;
+  giornoLezione?: string;
+  orarioLezione?: string;
 }
 
 export async function sendTestDemoLessonWebhookHandler(
@@ -48,13 +47,12 @@ export async function sendTestDemoLessonWebhookHandler(
   }
 
   const body = buildDemoLessonPayload({
-    nome: sanitizeTemplateParam(payload.nome) || "Test Test",
-    corso: sanitizeTemplateParam(payload.corso) || "Lezione di prova",
+    lezione: sanitizeTemplateParam(payload.lezione) || "Lezione di prova",
     phoneE164: phone.e164,
     // Domani a quest'ora: una data plausibile per il messaggio di prova.
     startAtMillis: deps.nowMillis + ONE_DAY_MS,
-    giorno: payload.giorno,
-    orario: payload.orario,
+    giornoLezione: payload.giornoLezione,
+    orarioLezione: payload.orarioLezione,
   });
 
   const result = await deps.post(deps.webhookUrl, body);

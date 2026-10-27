@@ -78,34 +78,31 @@ describe("sendTestDemoLessonWebhookHandler", () => {
       deps
     );
     const expected = {
-      nome: "Test Test",
       numero_di_telefono: "+393339876543",
-      corso: "Lezione di prova",
-      giorno: "15 ottobre 2026",
-      orario: "19:00",
+      lezione: "Lezione di prova",
+      giorno_lezione: "15 Ottobre",
+      orario_lezione: "19:00",
     };
     expect(post.mock.calls[0]).toEqual(["https://hook.eu1.make.com/abc", expected]);
     expect(res).toEqual({ ok: true, status: 200, payload: expected });
   });
 
-  test("usa nome, corso, giorno e orario passati dal chiamante", async () => {
+  test("usa lezione, giorno e orario passati dal chiamante", async () => {
     const { deps, post } = setup();
     await sendTestDemoLessonWebhookHandler(
       asAdmin({
         numeroTelefono: "3339876543",
-        nome: "Mario Rossi",
-        corso: "Pole Dance Base",
-        giorno: "28 aprile 2026",
-        orario: "10:00",
+        lezione: "Pole Dance Base",
+        giornoLezione: "28 Ottobre",
+        orarioLezione: "19:00",
       }),
       deps
     );
     expect(post.mock.calls[0][1]).toEqual({
       numero_di_telefono: "+393339876543",
-      nome: "Mario Rossi",
-      corso: "Pole Dance Base",
-      giorno: "28 aprile 2026",
-      orario: "10:00",
+      lezione: "Pole Dance Base",
+      giorno_lezione: "28 Ottobre",
+      orario_lezione: "19:00",
     });
   });
 
@@ -118,6 +115,7 @@ describe("sendTestDemoLessonWebhookHandler", () => {
     const body = post.mock.calls[0][1];
     expect(body).not.toHaveProperty("tipo");
     expect(body).not.toHaveProperty("kind");
-    expect(body).toMatchObject({ nome: "Test Test", corso: "Lezione di prova" });
+    expect(body).not.toHaveProperty("nome");
+    expect(body).toMatchObject({ lezione: "Lezione di prova" });
   });
 });
