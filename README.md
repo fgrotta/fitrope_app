@@ -55,6 +55,56 @@ con piano decisionale e runbook operativo passo passo.
 Il backup e il ripristino Firestore sono descritti nel relativo
 [runbook operativo](docs/operations/FIRESTORE_BACKUP_RESTORE.md).
 
+## Rilascio Staging → PRD
+
+Procedura completa, con comandi e checklist, nel
+[runbook di rilascio Staging → PRD](docs/operations/RILASCIO_STAGING_PRD.md).
+La produzione è ferma a `main` v1.2.7: il primo rilascio di `develop` porta
+callable, rules strette e migrazione V2, e segue la sezione 16 del
+[runbook della migrazione](docs/migrations/course-model-v2/RUNBOOK.md).
+
+Decisioni da prendere prima di fissare la finestra:
+
+- **Email certificati**: in PRD le invia `sendCertificateExpiryEmails` di `main`;
+  su `develop` la function equivalente (`certificateEmailsDaily`) è abilitata
+  solo su staging. Il deploy proporrà di cancellare la vecchia: promuovere la
+  nuova (consigliato), tenere la vecchia, oppure fermarle. Mai entrambe attive.
+- **Migrazione V2**: responsabile, secondo operatore e finestra di manutenzione
+  concordati con lo staff.
+- **WhatsApp**: resta in modalità `test`; `live` è una PR separata.
+
+Prerequisiti:
+
+1. `develop` integrato in `main`; si rilascia dal commit `chore: bump version`.
+2. CI e deploy staging verdi; staging fuori dalla modalità clone per il QA.
+3. Infrastruttura backup PRD pronta (bucket, service account, IAM), vedi
+   [Backup e ripristino Firestore](docs/operations/FIRESTORE_BACKUP_RESTORE.md).
+4. Rules PRD attuali salvate in privato: non sono nel repository.
+5. Secret PRD presenti (`ONESIGNAL_REST_API_KEY`, `MAKE_WEBHOOK_URL`,
+   `MAKE_WEBHOOK_KEY`); nessun `APP_ENV` in `functions/.env.fit-rope-app-1f575`.
+6. Dominio `app.fithousemonza.it` autorizzato in Firebase Auth e configurato
+   nell'app OneSignal di produzione.
+
+Sequenza:
+
+1. Comunicazione allo staff della finestra.
+2. Export Firestore di sicurezza e registro del rilascio.
+3. `firebase deploy --project prod --only functions`, interattivo e senza
+   `--force`: decidere function per function sulle 4 presenti solo in PRD.
+4. Nuovo export, replay sull'emulatore, dry-run PRD revisionato da due persone.
+5. Finestra di manutenzione: pagina di manutenzione, freeze, schede chiuse.
+6. Migrazione: apply corsi, apply utenti, reconcile, verify (`failures: 0`),
+   apply idempotente.
+7. Build web, upload su Hostinger e **subito dopo**
+   `firebase deploy --project prod --only firestore:rules`.
+8. Verify, controllo `version.json`, cache e Brotli, smoke test con account
+   concordati.
+9. Bonifica degli utenti esclusi, fine del freeze, comunicazione di riapertura.
+
+Rollback: web e rules tornano indietro insieme (build e ruleset salvati); le
+Functions dal commit precedente, ridistribuendo da `main` quelle cancellate; i
+dati solo con la procedura di ripristino Firestore.
+
 ## Avvio locale
 
 ```bash
