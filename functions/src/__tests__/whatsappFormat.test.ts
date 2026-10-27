@@ -2,7 +2,6 @@ import {
   MONTH_NAMES_IT,
   formatGiorno,
   formatOrario,
-  isSameRomeDay,
   tomorrowRomeRange,
 } from "../whatsapp/format";
 
@@ -48,17 +47,6 @@ describe("formatOrario", () => {
   test("usa l'orologio di Roma in estate e in inverno", () => {
     expect(formatOrario(Date.UTC(2026, 6, 15, 16, 30))).toBe("18:30");
     expect(formatOrario(Date.UTC(2026, 0, 15, 17, 30))).toBe("18:30");
-  });
-});
-
-describe("isSameRomeDay", () => {
-  test("vero nello stesso giorno romano", () => {
-    expect(isSameRomeDay(Date.UTC(2026, 6, 1, 22, 30), Date.UTC(2026, 6, 2, 20, 0))).toBe(true);
-  });
-
-  test("falso a cavallo della mezzanotte romana", () => {
-    // 21:30 UTC = 23:30 del 1 luglio; 22:30 UTC = 00:30 del 2 luglio.
-    expect(isSameRomeDay(Date.UTC(2026, 6, 1, 21, 30), Date.UTC(2026, 6, 1, 22, 30))).toBe(false);
   });
 });
 

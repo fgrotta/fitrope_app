@@ -35,13 +35,6 @@ export function formatOrario(millis: number): string {
   return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
 }
 
-/** `true` se i due istanti cadono nello stesso giorno civile di Roma. */
-export function isSameRomeDay(aMillis: number, bMillis: number): boolean {
-  const a = romeParts(aMillis);
-  const b = romeParts(bMillis);
-  return a.year === b.year && a.month === b.month && a.day === b.day;
-}
-
 export interface RomeDayRange {
   startMs: number;
   endMs: number;

@@ -7,7 +7,6 @@ import {
   dispatchDemoLesson,
   mapDemoCourseDoc,
   mapDemoUserDoc,
-  notifyDemoLessonBooked,
 } from "../whatsapp/demoLesson";
 import { DEMO_LOG_COLLECTION } from "../whatsapp/sendLog";
 import { PostResult } from "../whatsapp/makeClient";
@@ -19,7 +18,6 @@ jest.mock("firebase-functions", () => ({
 }));
 
 const WEBHOOK_URL = "https://hook.eu1.make.com/abc123secrettoken";
-const API_KEY = "chiave-super-segreta";
 // 14 ottobre 2026, 19:00 ora di Roma; la lezione è domani alle 18:00.
 const NOW = Date.UTC(2026, 9, 14, 17);
 const DOMANI_18 = Date.UTC(2026, 9, 15, 16);
@@ -62,7 +60,7 @@ function setup(
     opts.db
   );
   const queue = [...(opts.responses ?? [ok()])];
-  const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => {
+  const post = jest.fn<Promise<PostResult>, [string, DemoLessonPayload]>(async () => {
     const next = queue.length > 1 ? queue.shift()! : queue[0];
     if (next instanceof Error) throw next;
     return next;
@@ -71,7 +69,6 @@ function setup(
   const deps: WhatsappDeps = {
     db: fake.db,
     webhookUrl: WEBHOOK_URL,
-    apiKey: API_KEY,
     post,
     nowMillis: NOW,
     env: opts.env ?? {},
@@ -128,7 +125,7 @@ describe("mapDemoUserDoc", () => {
 
 describe("checkRecipient", () => {
   test("accetta un utente attivo con un cellulare valido", () => {
-    expect(checkRecipient("reminder", user(), course(), NOW, {})).toEqual({
+    expect(checkRecipient(user(), course(), NOW, {})).toEqual({
       ok: true,
       nome: "Mario Rossi",
       corso: "Corso Excel Avanzato",
@@ -145,7 +142,7 @@ describe("checkRecipient", () => {
     ["not_numeric", { numeroTelefono: "n/d" }],
     ["no_name", { name: "", lastName: " " }],
   ])("scarta l'utente con reason %s", (reason, over) => {
-    expect(checkRecipient("booked", user(over), course(), NOW, {})).toEqual({ ok: false, reason });
+    expect(checkRecipient(user(over), course(), NOW, {})).toEqual({ ok: false, reason });
   });
 
   test.each([
@@ -154,25 +151,23 @@ describe("checkRecipient", () => {
     ["course_in_past", { startDate: Timestamp.fromMillis(NOW) }],
     ["no_course_name", { name: "   " }],
   ])("scarta il corso con reason %s", (reason, over) => {
-    expect(checkRecipient("booked", user(), course(over), NOW, {})).toEqual({ ok: false, reason });
+    expect(checkRecipient(user(), course(over), NOW, {})).toEqual({ ok: false, reason });
   });
 
-  test("reminderEnabled:false blocca il promemoria ma non la conferma", () => {
-    const noReminder = course({ reminderEnabled: false });
-    expect(checkRecipient("reminder", user(), noReminder, NOW, {})).toEqual({
+  test("reminderEnabled:false blocca il promemoria", () => {
+    expect(checkRecipient(user(), course({ reminderEnabled: false }), NOW, {})).toEqual({
       ok: false,
       reason: "reminder_disabled",
     });
-    expect(checkRecipient("booked", user(), noReminder, NOW, {})).toMatchObject({ ok: true });
   });
 
   test("su staging scarta i numeri fuori allowlist", () => {
-    expect(checkRecipient("booked", user(), course(), NOW, { APP_ENV: "staging" })).toEqual({
+    expect(checkRecipient(user(), course(), NOW, { APP_ENV: "staging" })).toEqual({
       ok: false,
       reason: "not_in_staging_allowlist",
     });
     expect(
-      checkRecipient("booked", user(), course(), NOW, {
+      checkRecipient(user(), course(), NOW, {
         APP_ENV: "staging",
         STAGING_WHATSAPP_ALLOWLIST: "3331234567",
       })
@@ -181,15 +176,13 @@ describe("checkRecipient", () => {
 });
 
 describe("dispatchDemoLesson", () => {
-  test("un invio riuscito: una POST col body di conferma e claim sent", async () => {
+  test("un invio riuscito: una POST col body del promemoria e claim sent", async () => {
     const { deps, post, log, creates } = setup();
-    await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toEqual({ sent: true });
+    await expect(dispatchDemoLesson(deps, user(), course())).resolves.toEqual({ sent: true });
     expect(post).toHaveBeenCalledTimes(1);
     expect(post.mock.calls[0]).toEqual([
       WEBHOOK_URL,
-      API_KEY,
       {
-        tipo: "conferma",
         nome: "Mario Rossi",
         numero_di_telefono: "+393331234567",
         corso: "Corso Excel Avanzato",
@@ -197,14 +190,25 @@ describe("dispatchDemoLesson", () => {
         orario: "18:00",
       },
     ]);
-    expect(creates()).toEqual([`create ${DEMO_LOG_COLLECTION}/booked_u1_c1`]);
-    expect(log("booked_u1_c1")).toMatchObject({ ok: true, outcome: "sent", status: 200 });
+    expect(creates()).toEqual([`create ${DEMO_LOG_COLLECTION}/reminder_u1_c1`]);
+    expect(log("reminder_u1_c1")).toMatchObject({ ok: true, outcome: "sent", status: 200 });
+    // Un solo evento: il body non distingue più il tipo di messaggio.
+    expect(post.mock.calls[0][1]).not.toHaveProperty("tipo");
+  });
+
+  test("reminderEnabled:false: nessun claim e nessuna POST", async () => {
+    const { deps, post, creates } = setup();
+    await expect(
+      dispatchDemoLesson(deps, user(), course({ reminderEnabled: false }))
+    ).resolves.toEqual({ sent: false, reason: "reminder_disabled" });
+    expect(post).not.toHaveBeenCalled();
+    expect(creates()).toEqual([]);
   });
 
   test("uno scarto a monte non crea claim e non chiama Make", async () => {
     const { deps, post, creates } = setup();
     await expect(
-      dispatchDemoLesson(deps, "booked", user({ numeroTelefono: null }), course())
+      dispatchDemoLesson(deps, user({ numeroTelefono: null }), course())
     ).resolves.toEqual({ sent: false, reason: "no_phone" });
     expect(post).not.toHaveBeenCalled();
     expect(creates()).toEqual([]);
@@ -212,7 +216,7 @@ describe("dispatchDemoLesson", () => {
 
   test("429, 429, 200: tre POST sotto un solo claim, con attese 250 e 1000 ms", async () => {
     const { deps, post, wait, log, creates } = setup({ responses: [ko(429), ko(429), ok()] });
-    await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toEqual({ sent: true });
+    await expect(dispatchDemoLesson(deps, user(), course())).resolves.toEqual({ sent: true });
     expect(post).toHaveBeenCalledTimes(3);
     expect(wait.mock.calls).toEqual([[250], [1000]]);
     expect(creates()).toHaveLength(1);
@@ -221,7 +225,7 @@ describe("dispatchDemoLesson", () => {
 
   test("tre 429: rejected dopo due nuovi tentativi", async () => {
     const { deps, post, log } = setup({ responses: [ko(429)] });
-    await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toMatchObject({
+    await expect(dispatchDemoLesson(deps, user(), course())).resolves.toMatchObject({
       sent: false,
       failed: true,
     });
@@ -231,13 +235,13 @@ describe("dispatchDemoLesson", () => {
 
   test("410: una sola POST e rejected", async () => {
     const { deps, post, wait, log } = setup({ responses: [ko(410)] });
-    await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toMatchObject({
+    await expect(dispatchDemoLesson(deps, user(), course())).resolves.toMatchObject({
       sent: false,
       failed: true,
     });
     expect(post).toHaveBeenCalledTimes(1);
     expect(wait).not.toHaveBeenCalled();
-    expect(log("booked_u1_c1")).toMatchObject({ ok: false, outcome: "rejected", status: 410 });
+    expect(log("reminder_u1_c1")).toMatchObject({ ok: false, outcome: "rejected", status: 410 });
   });
 
   test.each([
@@ -246,18 +250,18 @@ describe("dispatchDemoLesson", () => {
     ["eccezione della post", new Error("socket hang up")],
   ])("%s: una sola POST e unknown, senza lanciare", async (_label, response) => {
     const { deps, post, log } = setup({ responses: [response] });
-    await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toMatchObject({
+    await expect(dispatchDemoLesson(deps, user(), course())).resolves.toMatchObject({
       sent: false,
       failed: true,
     });
     expect(post).toHaveBeenCalledTimes(1);
-    expect(log("booked_u1_c1")).toMatchObject({ ok: false, outcome: "unknown" });
+    expect(log("reminder_u1_c1")).toMatchObject({ ok: false, outcome: "unknown" });
   });
 
   test("secondo tentativo su un invio riuscito: nessuna POST", async () => {
     const { deps, post } = setup();
-    await dispatchDemoLesson(deps, "booked", user(), course());
-    await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toEqual({
+    await dispatchDemoLesson(deps, user(), course());
+    await expect(dispatchDemoLesson(deps, user(), course())).resolves.toEqual({
       sent: false,
       reason: "already_sent",
     });
@@ -271,10 +275,10 @@ describe("dispatchDemoLesson", () => {
         store: {
           users: { u1: userDoc() },
           courses: { c1: courseDoc() },
-          [DEMO_LOG_COLLECTION]: { booked_u1_c1: { ok: false, outcome } },
+          [DEMO_LOG_COLLECTION]: { reminder_u1_c1: { ok: false, outcome } },
         },
       });
-      await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toEqual({
+      await expect(dispatchDemoLesson(deps, user(), course())).resolves.toEqual({
         sent: false,
         failed: true,
         reason: "needs_review",
@@ -287,107 +291,23 @@ describe("dispatchDemoLesson", () => {
     const { deps, post, log } = setup({
       db: { updateError: () => new Error("14 UNAVAILABLE") },
     });
-    await expect(dispatchDemoLesson(deps, "booked", user(), course())).resolves.toEqual({
+    await expect(dispatchDemoLesson(deps, user(), course())).resolves.toEqual({
       sent: false,
       failed: true,
       reason: "needs_review",
     });
     expect(post).toHaveBeenCalledTimes(1);
-    expect(log("booked_u1_c1")).toMatchObject({ ok: false, outcome: "pending" });
+    expect(log("reminder_u1_c1")).toMatchObject({ ok: false, outcome: "pending" });
   });
 
-  test("promemoria soppresso da una conferma riuscita nello stesso giorno", async () => {
-    const { deps, post } = setup({
-      store: {
-        [DEMO_LOG_COLLECTION]: {
-          booked_u1_c1: { ok: true, outcome: "sent", sentAt: Timestamp.fromMillis(NOW - 3600_000) },
-        },
-      },
-    });
-    await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toEqual({
-      sent: false,
-      reason: "already_notified_today",
-    });
-    expect(post).not.toHaveBeenCalled();
-  });
-
-  test("una conferma pending non sopprime il promemoria", async () => {
-    const { deps, post } = setup({
-      store: {
-        [DEMO_LOG_COLLECTION]: {
-          booked_u1_c1: { ok: false, outcome: "pending", sentAt: Timestamp.fromMillis(NOW - 3600_000) },
-        },
-      },
-    });
-    await expect(dispatchDemoLesson(deps, "reminder", user(), course())).resolves.toEqual({ sent: true });
-    expect(post).toHaveBeenCalledTimes(1);
-  });
-
-  test("il giorno della soppressione è noticeDayMillis, non l'ora corrente", async () => {
-    // Conferma partita il 14; il retry del cron gira dopo mezzanotte, ma per il 14.
-    const { deps, post } = setup({
-      store: {
-        [DEMO_LOG_COLLECTION]: {
-          booked_u1_c1: { ok: true, outcome: "sent", sentAt: Timestamp.fromMillis(NOW - 3600_000) },
-        },
-      },
-    });
-    const afterMidnight = { ...deps, nowMillis: Date.UTC(2026, 9, 14, 22, 30) };
-    await expect(
-      dispatchDemoLesson(afterMidnight, "reminder", user(), course(), NOW)
-    ).resolves.toEqual({ sent: false, reason: "already_notified_today" });
-    expect(post).not.toHaveBeenCalled();
-  });
-
-  test("i log non contengono numero, URL, chiave né payload", async () => {
+  test("i log non contengono numero, URL né payload", async () => {
     const { deps } = setup({ responses: [ko(503)] });
-    await dispatchDemoLesson(deps, "booked", user(), course());
-    const { deps: deps2 } = setup({ responses: [new Error(`boom ${WEBHOOK_URL} ${API_KEY}`)] });
-    await dispatchDemoLesson(deps2, "booked", user(), course());
+    await dispatchDemoLesson(deps, user(), course());
+    const { deps: deps2 } = setup({ responses: [new Error(`boom ${WEBHOOK_URL}`)] });
+    await dispatchDemoLesson(deps2, user(), course());
     const logged = allLoggedText();
-    for (const secret of [WEBHOOK_URL, API_KEY, "3331234567", "Mario Rossi", "Corso Excel"]) {
+    for (const secret of [WEBHOOK_URL, "3331234567", "Mario Rossi", "Corso Excel"]) {
       expect(logged).not.toContain(secret);
     }
-  });
-});
-
-describe("notifyDemoLessonBooked", () => {
-  test("legge utente e corso da Firestore e manda la conferma", async () => {
-    const { deps, post } = setup();
-    await expect(notifyDemoLessonBooked(deps, "u1", "c1")).resolves.toEqual({ sent: true });
-    expect(post.mock.calls[0][2]).toMatchObject({ tipo: "conferma", corso: "Corso Excel Avanzato" });
-  });
-
-  test("trova il corso per uid quando l'id del documento è diverso", async () => {
-    const { deps, post, log } = setup({
-      store: { users: { u1: userDoc() }, courses: { "doc-storico": courseDoc({ uid: "c1" }) } },
-    });
-    await expect(notifyDemoLessonBooked(deps, "u1", "c1")).resolves.toEqual({ sent: true });
-    expect(post).toHaveBeenCalledTimes(1);
-    expect(log("booked_u1_c1")).toMatchObject({ ok: true });
-  });
-
-  test("utente o corso mancanti: nessun invio", async () => {
-    const { deps, post } = setup({ store: { users: {}, courses: { c1: courseDoc() } } });
-    await expect(notifyDemoLessonBooked(deps, "u1", "c1")).resolves.toEqual({
-      sent: false,
-      reason: "user_not_found",
-    });
-    const second = setup({ store: { users: { u1: userDoc() }, courses: {} } });
-    await expect(notifyDemoLessonBooked(second.deps, "u1", "c1")).resolves.toEqual({
-      sent: false,
-      reason: "course_not_found",
-    });
-    expect(post).not.toHaveBeenCalled();
-    expect(second.post).not.toHaveBeenCalled();
-  });
-
-  test("uno scarto viene registrato nei log col motivo", async () => {
-    const { deps } = setup({ store: { users: { u1: userDoc({ isActive: false }) }, courses: { c1: courseDoc() } } });
-    await expect(notifyDemoLessonBooked(deps, "u1", "c1")).resolves.toEqual({
-      sent: false,
-      reason: "inactive",
-    });
-    expect(allLoggedText()).toContain("inactive");
   });
 });

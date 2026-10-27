@@ -16,7 +16,6 @@ function setup(env: NodeJS.ProcessEnv = {}) {
   const deps: WhatsappDeps = {
     db: fake.db,
     webhookUrl: "https://hook.eu1.make.com/abc",
-    apiKey: "chiave",
     post,
     nowMillis: NOW,
     env,
@@ -75,18 +74,17 @@ describe("sendTestDemoLessonWebhookHandler", () => {
   test("manda un payload con i default al numero indicato e lo restituisce", async () => {
     const { deps, post } = setup();
     const res = await sendTestDemoLessonWebhookHandler(
-      asAdmin({ kind: "reminder", numeroTelefono: "3339876543" }),
+      asAdmin({ numeroTelefono: "3339876543" }),
       deps
     );
     const expected = {
-      tipo: "promemoria",
       nome: "Test Test",
       numero_di_telefono: "+393339876543",
       corso: "Lezione di prova",
       giorno: "15 ottobre 2026",
       orario: "19:00",
     };
-    expect(post.mock.calls[0][2]).toEqual(expected);
+    expect(post.mock.calls[0]).toEqual(["https://hook.eu1.make.com/abc", expected]);
     expect(res).toEqual({ ok: true, status: 200, payload: expected });
   });
 
@@ -102,12 +100,24 @@ describe("sendTestDemoLessonWebhookHandler", () => {
       }),
       deps
     );
-    expect(post.mock.calls[0][2]).toMatchObject({
-      tipo: "conferma",
+    expect(post.mock.calls[0][1]).toEqual({
+      numero_di_telefono: "+393339876543",
       nome: "Mario Rossi",
       corso: "Pole Dance Base",
       giorno: "28 aprile 2026",
       orario: "10:00",
     });
+  });
+
+  test("ignora un kind residuo dei client vecchi: il body è sempre quello del promemoria", async () => {
+    const { deps, post } = setup();
+    await sendTestDemoLessonWebhookHandler(
+      asAdmin({ kind: "booked", numeroTelefono: "3339876543" }),
+      deps
+    );
+    const body = post.mock.calls[0][1];
+    expect(body).not.toHaveProperty("tipo");
+    expect(body).not.toHaveProperty("kind");
+    expect(body).toMatchObject({ nome: "Test Test", corso: "Lezione di prova" });
   });
 });

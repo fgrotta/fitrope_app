@@ -78,21 +78,20 @@ const ok: PostResult = { ok: true, status: 200 };
 
 function setup(
   store: Store,
-  opts: { post?: jest.Mock<Promise<PostResult>, [string, string, DemoLessonPayload]>; nowMillis?: number } = {}
+  opts: { post?: jest.Mock<Promise<PostResult>, [string, DemoLessonPayload]>; nowMillis?: number } = {}
 ) {
   const fake = makeWhatsappDb(store);
   const post =
-    opts.post ?? jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => ok);
+    opts.post ?? jest.fn<Promise<PostResult>, [string, DemoLessonPayload]>(async () => ok);
   const deps: WhatsappDeps = {
     db: fake.db,
     webhookUrl: "https://hook.eu1.make.com/abc",
-    apiKey: "chiave",
     post,
     nowMillis: opts.nowMillis ?? SCHEDULED + 1000,
     env: {},
     wait: async () => undefined,
   };
-  const phonesPosted = () => post.mock.calls.map((call) => call[2].numero_di_telefono);
+  const phonesPosted = () => post.mock.calls.map((call) => call[1].numero_di_telefono);
   return { fake, deps, post, phonesPosted };
 }
 
@@ -143,14 +142,15 @@ describe("runDemoLessonReminders", () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  test("scrive agli utenti di prova V2 e legacy, con tipo promemoria", async () => {
+  test("scrive agli utenti di prova V2 e legacy, con il body del promemoria", async () => {
     const { deps, post, phonesPosted } = setup({
       users: { u1: trialV2(1), u2: trialLegacy(2) },
       courses: { c1: courseDoc("c1") },
     });
     await expect(run(deps)).resolves.toMatchObject({ candidates: 2, sent: 2, skipped: 0, failed: 0 });
     expect(phonesPosted().sort()).toEqual([`+39${phone(1)}`, `+39${phone(2)}`]);
-    expect(post.mock.calls.every((call) => call[2].tipo === "promemoria")).toBe(true);
+    expect(post.mock.calls.every(([, payload]) => !("tipo" in payload))).toBe(true);
+    expect(post.mock.calls[0][1]).toMatchObject({ corso: "Corso c1", giorno: "15 ottobre 2026", orario: "18:00" });
   });
 
   test("non scrive al cliente convertito che ha ancora la tipologia PROVA", async () => {
@@ -216,28 +216,16 @@ describe("runDemoLessonReminders", () => {
     ]);
   });
 
-  test("una conferma riuscita lo stesso giorno sopprime il promemoria", async () => {
-    const { deps, post } = setup({
-      users: { u1: trialV2(1) },
-      courses: { c1: courseDoc("c1") },
-      [DEMO_LOG_COLLECTION]: {
-        booked_u1_c1: { ok: true, outcome: "sent", sentAt: Timestamp.fromMillis(SCHEDULED - 3600_000) },
-      },
-    });
-    await expect(run(deps)).resolves.toMatchObject({ sent: 0, skipped: 1 });
-    expect(post).not.toHaveBeenCalled();
-  });
-
-  test("conferma pending: il promemoria parte; promemoria pending: needs_review senza POST", async () => {
+  test("promemoria già inviato: saltato; promemoria pending: needs_review senza POST", async () => {
     const { deps, phonesPosted } = setup({
-      users: { u1: trialV2(1), u2: trialV2(2) },
+      users: { u1: trialV2(1), u2: trialV2(2), u3: trialV2(3) },
       courses: { c1: courseDoc("c1") },
       [DEMO_LOG_COLLECTION]: {
-        booked_u1_c1: { ok: false, outcome: "pending", sentAt: Timestamp.fromMillis(SCHEDULED - 3600_000) },
         reminder_u2_c1: { ok: false, outcome: "pending", sentAt: Timestamp.fromMillis(SCHEDULED) },
+        reminder_u3_c1: { ok: true, outcome: "sent", sentAt: Timestamp.fromMillis(SCHEDULED) },
       },
     });
-    await expect(run(deps)).resolves.toMatchObject({ sent: 1, failed: 1 });
+    await expect(run(deps)).resolves.toMatchObject({ sent: 1, skipped: 1, failed: 1 });
     expect(phonesPosted()).toEqual([`+39${phone(1)}`]);
   });
 
@@ -247,8 +235,8 @@ describe("runDemoLessonReminders", () => {
       [`+39${phone(2)}`]: [{ ok: false, status: 0 }],
       [`+39${phone(3)}`]: [{ ok: false, status: 502 }],
     };
-    const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(
-      async (_u, _k, payload) => byPhone[payload.numero_di_telefono].shift() ?? ok
+    const post = jest.fn<Promise<PostResult>, [string, DemoLessonPayload]>(
+      async (_u, payload) => byPhone[payload.numero_di_telefono].shift() ?? ok
     );
     const { fake, deps, phonesPosted } = setup(
       { users: { u1: trialV2(1), u2: trialV2(2), u3: trialV2(3) }, courses: { c1: courseDoc("c1") } },
@@ -282,7 +270,7 @@ describe("runDemoLessonReminders", () => {
   });
 
   test("un invio incerto non fa ritentare il job", async () => {
-    const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => ({
+    const post = jest.fn<Promise<PostResult>, [string, DemoLessonPayload]>(async () => ({
       ok: false,
       status: 503,
     }));
@@ -296,7 +284,7 @@ describe("runDemoLessonReminders", () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const release: Array<() => void> = [];
-    const post = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(
+    const post = jest.fn<Promise<PostResult>, [string, DemoLessonPayload]>(
       () =>
         new Promise<PostResult>((resolve) => {
           inFlight++;
@@ -329,9 +317,9 @@ describe("runDemoLessonReminders", () => {
       return {
         users,
         courses: { c1: courseDoc("c1") },
-        // Conferma partita il 14: deve restare soppressa anche nel retry.
+        // Promemoria già partito in un run precedente: non va ripetuto nel retry.
         [DEMO_LOG_COLLECTION]: {
-          booked_u99_c1: { ok: true, outcome: "sent", sentAt: Timestamp.fromMillis(SCHEDULED - 3600_000) },
+          reminder_u99_c1: { ok: true, outcome: "sent", sentAt: Timestamp.fromMillis(SCHEDULED - 3600_000) },
         },
       };
     }
@@ -345,7 +333,7 @@ describe("runDemoLessonReminders", () => {
 
       // Primo run: ogni POST fa avanzare l'orologio; la deadline scade a metà.
       let clock = 0;
-      const post1 = jest.fn<Promise<PostResult>, [string, string, DemoLessonPayload]>(async () => {
+      const post1 = jest.fn<Promise<PostResult>, [string, DemoLessonPayload]>(async () => {
         clock++;
         return ok;
       });

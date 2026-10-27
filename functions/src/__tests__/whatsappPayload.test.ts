@@ -1,5 +1,4 @@
 import {
-  TIPO_BY_KIND,
   buildDemoLessonPayload,
   buildNome,
   sanitizeTemplateParam,
@@ -41,8 +40,7 @@ describe("buildNome", () => {
 
 describe("buildDemoLessonPayload", () => {
   test("produce esattamente il body atteso dallo scenario Make", () => {
-    expect(buildDemoLessonPayload({ ...base, kind: "booked" })).toEqual({
-      tipo: "conferma",
+    expect(buildDemoLessonPayload(base)).toEqual({
       nome: "Mario Rossi",
       numero_di_telefono: "+393331234567",
       corso: "Corso Excel Avanzato",
@@ -51,36 +49,27 @@ describe("buildDemoLessonPayload", () => {
     });
   });
 
-  test("espone esattamente sei chiavi (Make impara lo schema dal primo payload)", () => {
-    expect(Object.keys(buildDemoLessonPayload({ ...base, kind: "reminder" })).sort()).toEqual([
+  test("espone esattamente cinque chiavi, senza tipo (Make impara lo schema dal primo payload)", () => {
+    expect(Object.keys(buildDemoLessonPayload(base)).sort()).toEqual([
       "corso",
       "giorno",
       "nome",
       "numero_di_telefono",
       "orario",
-      "tipo",
     ]);
   });
 
-  test("i due eventi differiscono solo per tipo", () => {
-    const booked = buildDemoLessonPayload({ ...base, kind: "booked" });
-    const reminder = buildDemoLessonPayload({ ...base, kind: "reminder" });
-    expect(reminder.tipo).toBe("promemoria");
-    expect({ ...booked, tipo: "" }).toEqual({ ...reminder, tipo: "" });
-    expect(Object.keys(TIPO_BY_KIND).sort()).toEqual(["booked", "reminder"]);
-  });
-
-  test("non contiene mai la chiave di autenticazione", () => {
-    const payload = buildDemoLessonPayload({ ...base, kind: "booked" }) as unknown as Record<string, unknown>;
+  test("non contiene credenziali né il vecchio campo tipo", () => {
+    const payload = buildDemoLessonPayload(base) as unknown as Record<string, unknown>;
     expect(payload.token).toBeUndefined();
     expect(payload.apiKey).toBeUndefined();
     expect(payload["Demo-Reminder"]).toBeUndefined();
+    expect(payload).not.toHaveProperty("tipo");
   });
 
   test("sanifica nome e corso per i parametri del template", () => {
     const payload = buildDemoLessonPayload({
       ...base,
-      kind: "booked",
       nome: "  Mario   Rossi \n",
       corso: "Pole\tDance    Base",
     });
@@ -94,7 +83,6 @@ describe("buildDemoLessonPayload", () => {
   test("usa giorno e orario passati esplicitamente (callable di prova)", () => {
     const payload = buildDemoLessonPayload({
       ...base,
-      kind: "booked",
       giorno: "28 aprile 2026",
       orario: "10:00",
     });
@@ -103,13 +91,13 @@ describe("buildDemoLessonPayload", () => {
   });
 
   test("ricade sulla data della lezione se giorno e orario sono vuoti", () => {
-    const payload = buildDemoLessonPayload({ ...base, kind: "booked", giorno: " ", orario: "" });
+    const payload = buildDemoLessonPayload({ ...base, giorno: " ", orario: "" });
     expect(payload.giorno).toBe("15 ottobre 2026");
     expect(payload.orario).toBe("18:00");
   });
 
   test("rifiuta un campo vuoto invece di mandarlo a Make", () => {
-    expect(() => buildDemoLessonPayload({ ...base, kind: "booked", nome: "" })).toThrow(/nome/);
-    expect(() => buildDemoLessonPayload({ ...base, kind: "booked", corso: "   " })).toThrow(/corso/);
+    expect(() => buildDemoLessonPayload({ ...base, nome: "" })).toThrow(/nome/);
+    expect(() => buildDemoLessonPayload({ ...base, corso: "   " })).toThrow(/corso/);
   });
 });

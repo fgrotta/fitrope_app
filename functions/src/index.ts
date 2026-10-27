@@ -56,7 +56,7 @@ import {
 import { isStagingCloneMode, stagingCloneGuarded } from "./stagingCloneGuard";
 import { whatsappDemoMode } from "./whatsapp/environment";
 import { postToMake } from "./whatsapp/makeClient";
-import { WhatsappDeps, notifyDemoLessonBooked } from "./whatsapp/demoLesson";
+import { WhatsappDeps } from "./whatsapp/demoLesson";
 import { runDemoLessonReminders } from "./whatsapp/reminders";
 import { sendTestDemoLessonWebhookHandler } from "./whatsapp/testWebhook";
 
@@ -76,23 +76,19 @@ const oneSignalApiKey = defineSecret("ONESIGNAL_REST_API_KEY");
 // gate dei certificati:
 //   off (default) → nessuna function e nessun secret dichiarato;
 //   test          → solo la callable di prova (Admin), per verificare lo scenario Make;
-//   live          → + WhatsApp di conferma in subscribeToCourse + cron delle 19:00.
+//   live          → + cron delle 19:00 con il promemoria delle lezioni di domani.
 // Mergiare significa deployare: è questo gate, e non la scelta di cosa
 // deployare, a tenere spento il cron finché scenario Make e template Meta non
 // sono pronti. I secret vengono dichiarati solo se servono: su staging, di norma
 // in modalità off, il deploy non deve chiedere secret che lì non esistono.
 const whatsappMode = whatsappDemoMode(process.env);
-const makeSecret =
-  whatsappMode === "off"
-    ? null
-    : {
-        url: defineSecret("MAKE_WEBHOOK_URL"),
-        key: defineSecret("MAKE_WEBHOOK_KEY"),
-      };
-const makeSecrets = makeSecret ? [makeSecret.url, makeSecret.key] : [];
+// L'URL del webhook è l'unica credenziale: lo scenario non filtra su header.
+const makeWebhookUrl =
+  whatsappMode === "off" ? null : defineSecret("MAKE_WEBHOOK_URL");
+const makeSecrets = makeWebhookUrl ? [makeWebhookUrl] : [];
 
 function makeWhatsappDeps(): WhatsappDeps {
-  if (!makeSecret) {
+  if (!makeWebhookUrl) {
     throw new HttpsError(
       "failed-precondition",
       "WhatsApp demo disattivato (WHATSAPP_DEMO_MODE=off)",
@@ -100,8 +96,7 @@ function makeWhatsappDeps(): WhatsappDeps {
   }
   return {
     db: admin.firestore(),
-    webhookUrl: makeSecret.url.value(),
-    apiKey: makeSecret.key.value(),
+    webhookUrl: makeWebhookUrl.value(),
     post: postToMake,
     nowMillis: Date.now(),
     env: process.env,
@@ -266,8 +261,7 @@ export const subscribeToCourse = onCall(
   {
     region: "europe-west8",
     cors: true,
-    secrets:
-      whatsappMode === "live" ? [oneSignalApiKey, ...makeSecrets] : [oneSignalApiKey],
+    secrets: [oneSignalApiKey],
   },
   stagingCloneGuarded((request) =>
     subscribeToCourseHandler(
@@ -290,16 +284,6 @@ export const subscribeToCourse = onCall(
             courseId,
             Date.now(),
           ),
-        // async: anche un errore sincrono (es. secret non leggibile) diventa un
-        // rifiuto, che subscribeToCourseHandler ignora come le altre notifiche.
-        // Senza async farebbe fallire un'iscrizione già committata.
-        ...(whatsappMode === "live"
-          ? {
-              notifyTrialWhatsapp: async (userId: string, courseId: string) => {
-                await notifyDemoLessonBooked(makeWhatsappDeps(), userId, courseId);
-              },
-            }
-          : {}),
       },
     )),
 );
@@ -615,7 +599,7 @@ export const certificateEmailsDaily = certificateFunctionsEnabled()
 /**
  * WhatsApp di prova verso il numero indicato (DebugEmailPage, in debug o su staging).
  * Solo Admin. Esiste con WHATSAPP_DEMO_MODE=test|live.
- * Payload: { numeroTelefono: string, kind?: "booked"|"reminder", nome?, corso?, giorno?, orario? }
+ * Payload: { numeroTelefono: string, nome?, corso?, giorno?, orario? }
  */
 export const sendTestDemoLessonWebhook =
   whatsappMode === "off"

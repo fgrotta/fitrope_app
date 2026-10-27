@@ -258,7 +258,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
   /// WhatsApp di prova via webhook Make. Non usa `_resolvedUid`: il
   /// destinatario è il numero digitato, così i template si provano sul
   /// proprio telefono.
-  Future<void> _sendWhatsappTest({required String kind}) async {
+  Future<void> _sendWhatsappTest() async {
     if (SimulationGuard.blockIfSimulating(context)) return;
     final numero = _phoneCtrl.text.trim();
     if (numero.isEmpty) return;
@@ -269,7 +269,6 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
     try {
       final result = await sendTestDemoLessonWebhook(
         numeroTelefono: numero,
-        kind: kind,
         nome: _whatsappNameCtrl.text,
         corso: _courseNameCtrl.text,
         giorno: _whatsappDayCtrl.text,
@@ -280,7 +279,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.ok
-                ? 'Webhook Make chiamato (tipo: ${result.payload['tipo']})'
+                ? 'Webhook Make chiamato'
                 : 'Make ha risposto con status ${result.status}'),
             backgroundColor: result.ok ? Colors.green : Colors.red,
           ),
@@ -576,26 +575,7 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: !_sendingWhatsapp
-                    ? () => _sendWhatsappTest(kind: 'booked')
-                    : null,
-                icon: _sendingWhatsapp
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check_circle_outline),
-                label: const Text('WhatsApp — conferma prenotazione'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: !_sendingWhatsapp
-                    ? () => _sendWhatsappTest(kind: 'reminder')
-                    : null,
+                onPressed: !_sendingWhatsapp ? _sendWhatsappTest : null,
                 icon: _sendingWhatsapp
                     ? const SizedBox(
                         width: 16,

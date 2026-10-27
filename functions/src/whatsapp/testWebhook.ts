@@ -9,14 +9,13 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { HandlerRequest } from "../handler";
 import { WhatsappDeps } from "./demoLesson";
 import { isWhatsappRecipientAllowed } from "./environment";
-import { DemoWebhookKind, buildDemoLessonPayload, sanitizeTemplateParam } from "./payload";
+import { buildDemoLessonPayload, sanitizeTemplateParam } from "./payload";
 import { normalizePhoneE164 } from "./phone";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 interface TestPayload {
   numeroTelefono?: string;
-  kind?: string;
   nome?: string;
   corso?: string;
   giorno?: string;
@@ -48,9 +47,7 @@ export async function sendTestDemoLessonWebhookHandler(
     throw new HttpsError("permission-denied", "Numero non presente in STAGING_WHATSAPP_ALLOWLIST");
   }
 
-  const kind: DemoWebhookKind = payload.kind === "reminder" ? "reminder" : "booked";
   const body = buildDemoLessonPayload({
-    kind,
     nome: sanitizeTemplateParam(payload.nome) || "Test Test",
     corso: sanitizeTemplateParam(payload.corso) || "Lezione di prova",
     phoneE164: phone.e164,
@@ -60,6 +57,6 @@ export async function sendTestDemoLessonWebhookHandler(
     orario: payload.orario,
   });
 
-  const result = await deps.post(deps.webhookUrl, deps.apiKey, body);
+  const result = await deps.post(deps.webhookUrl, body);
   return { ok: result.ok, status: result.status, payload: { ...body } };
 }

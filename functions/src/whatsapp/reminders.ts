@@ -8,8 +8,8 @@
 // in memoria, lo stesso `isTrialUser` dell'iscrizione. Ogni query ha un solo
 // campo filtrato: nessun indice composito.
 //
-// Ripresa: il giorno dei corsi e la soppressione della conferma dipendono da
-// `scheduledAtMillis` (event.scheduleTime), stabile nei retry di Cloud Scheduler.
+// Ripresa: il giorno dei corsi dipende da `scheduledAtMillis`
+// (event.scheduleTime), stabile nei retry di Cloud Scheduler.
 // Se la deadline interna scade, il run smette di avviare invii, attende quelli
 // in corso e lancia, così lo Scheduler ritenta; il registro invii (sendLog.ts)
 // fa saltare i promemoria già partiti e segnala quelli incerti senza reinviarli.
@@ -53,7 +53,7 @@ export interface ReminderRunResult {
 }
 
 export interface ReminderRunOptions {
-  /** Istante schedulato del job: sceglie "domani" e il giorno della soppressione. */
+  /** Istante schedulato del job: sceglie "domani", stabile nei retry. */
   scheduledAtMillis: number;
   /** Oltre questo istante non si avviano nuovi invii. */
   deadlineMillis: number;
@@ -141,13 +141,7 @@ export async function runDemoLessonReminders(
       const { user, course } = candidates[next++];
       const ids = { userId: user.uid, courseId: course.uid };
       try {
-        const outcome = await dispatchDemoLesson(
-          deps,
-          "reminder",
-          user,
-          course,
-          options.scheduledAtMillis
-        );
+        const outcome = await dispatchDemoLesson(deps, user, course);
         if (outcome.sent) {
           result.sent++;
         } else if (outcome.failed) {

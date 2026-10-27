@@ -215,12 +215,11 @@ Future<void> sendTestCertificateExpiryEmail({
 /// Manda un payload di prova al webhook Make verso [numeroTelefono] e
 /// restituisce l'esito e il body effettivamente inviato, così la pagina di
 /// debug può mostrarlo. Lato server richiede il ruolo Admin e
-/// WHATSAPP_DEMO_MODE=test|live. [kind] vale `'booked'` (tipo `conferma`) o
-/// `'reminder'` (tipo `promemoria`); i campi vuoti ricadono su default.
+/// WHATSAPP_DEMO_MODE=test|live. Il body è quello del promemoria, l'unico
+/// messaggio previsto; i campi vuoti ricadono su default.
 Future<({bool ok, int status, Map<String, String> payload})>
     sendTestDemoLessonWebhook({
   required String numeroTelefono,
-  String kind = 'booked',
   String? nome,
   String? corso,
   String? giorno,
@@ -228,13 +227,12 @@ Future<({bool ok, int status, Map<String, String> payload})>
 }) async {
   SimulationSession.assertNotSimulating('sendTestDemoLessonWebhook');
   assert(debugToolsEnabled);
-  debugPrint('📲 [Make] test webhook — kind: $kind');
+  debugPrint('📲 [Make] test webhook');
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')
         .httpsCallable('sendTestDemoLessonWebhook');
     final result = await callable.call({
       'numeroTelefono': numeroTelefono,
-      'kind': kind,
       'nome': nome ?? '',
       'corso': corso ?? '',
       'giorno': giorno ?? '',

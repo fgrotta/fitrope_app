@@ -1,4 +1,6 @@
-// Unica chiamata HTTP verso il Custom webhook Make.
+// Unica chiamata HTTP verso il Custom webhook Make. L'URL è l'unica
+// credenziale: lo scenario non filtra su header, quindi chi lo conosce può
+// far partire un WhatsApp. Per questo non compare mai nei log (solo l'host).
 //
 // Non lancia mai: un invio fallito è un esito normale che cron e iscrizione
 // devono poter attraversare. Non deserializza la risposta: Make risponde
@@ -7,9 +9,6 @@
 
 import { logger } from "firebase-functions";
 import { DemoLessonPayload } from "./payload";
-
-/** Header su cui lo scenario Make filtra le richieste. */
-export const MAKE_AUTH_HEADER = "Demo-Reminder";
 
 /**
  * undici (il fetch di Node) non ha un timeout breve di default: senza questo
@@ -42,7 +41,6 @@ function scrubSecrets(message: string, secrets: string[]): string {
 
 export async function postToMake(
   url: string,
-  apiKey: string,
   payload: DemoLessonPayload,
   opts: { timeoutMs?: number } = {}
 ): Promise<PostResult> {
@@ -51,18 +49,14 @@ export async function postToMake(
   try {
     response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        [MAKE_AUTH_HEADER]: apiKey,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
   } catch (err) {
     logger.error("Chiamata al webhook Make fallita", {
       host,
-      tipo: payload.tipo,
-      error: scrubSecrets(err instanceof Error ? err.message : String(err), [url, apiKey]),
+      error: scrubSecrets(err instanceof Error ? err.message : String(err), [url]),
     });
     return { ok: false, status: 0 };
   }
@@ -71,11 +65,10 @@ export async function postToMake(
     logger.error("Webhook Make ha risposto con errore", {
       host,
       status: response.status,
-      tipo: payload.tipo,
     });
     return { ok: false, status: response.status };
   }
 
-  logger.info("Webhook Make chiamato", { host, status: response.status, tipo: payload.tipo });
+  logger.info("Webhook Make chiamato", { host, status: response.status });
   return { ok: true, status: response.status };
 }

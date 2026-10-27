@@ -1,21 +1,12 @@
 // Body del Custom webhook Make. È un CONTRATTO con lo scenario: Make impara lo
 // schema dal primo payload, quindi aggiungere o rinominare una chiave richiede
 // un "Redetermine data structure" lato Make, altrimenti il campo non è
-// selezionabile nei moduli a valle. La chiave di autenticazione NON sta qui:
-// viaggia nell'header `Demo-Reminder` (makeClient.ts).
+// selezionabile nei moduli a valle. Un solo evento (il promemoria del giorno
+// prima), quindi nessun campo che distingua il tipo di messaggio.
 
 import { formatGiorno, formatOrario } from "./format";
 
-export type DemoWebhookKind = "booked" | "reminder";
-
-/** Valore del campo `tipo`, su cui il Router di Make sceglie il template. */
-export const TIPO_BY_KIND: Record<DemoWebhookKind, string> = {
-  booked: "conferma",
-  reminder: "promemoria",
-};
-
 export interface DemoLessonPayload {
-  tipo: string;
   nome: string;
   numero_di_telefono: string;
   corso: string;
@@ -41,7 +32,6 @@ export function buildNome(
 }
 
 export interface BuildPayloadArgs {
-  kind: DemoWebhookKind;
   nome: string;
   phoneE164: string;
   corso: string;
@@ -58,7 +48,6 @@ export interface BuildPayloadArgs {
  */
 export function buildDemoLessonPayload(args: BuildPayloadArgs): DemoLessonPayload {
   const payload: DemoLessonPayload = {
-    tipo: TIPO_BY_KIND[args.kind],
     nome: sanitizeTemplateParam(args.nome),
     numero_di_telefono: args.phoneE164,
     corso: sanitizeTemplateParam(args.corso),

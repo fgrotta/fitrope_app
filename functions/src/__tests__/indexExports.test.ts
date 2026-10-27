@@ -129,31 +129,35 @@ describe("gate WHATSAPP_DEMO_MODE (export condizionale in index.ts)", () => {
     expect(mod.sendDemoLessonWhatsappReminders).toBeUndefined();
   });
 
-  test("test: solo la callable di prova, con i secret Make", () => {
+  test("test: solo la callable di prova, con il solo URL del webhook Make", () => {
     process.env.WHATSAPP_DEMO_MODE = "test";
     const mod = loadIndex();
-    expect(secretKeys(mod.sendTestDemoLessonWebhook)).toEqual([
-      "MAKE_WEBHOOK_KEY",
-      "MAKE_WEBHOOK_URL",
-    ]);
+    expect(secretKeys(mod.sendTestDemoLessonWebhook)).toEqual(["MAKE_WEBHOOK_URL"]);
     expect(mod.sendDemoLessonWhatsappReminders).toBeUndefined();
     expect(secretKeys(mod.subscribeToCourse)).toEqual(["ONESIGNAL_REST_API_KEY"]);
   });
 
-  test("live: callable di prova, cron e secret Make anche su subscribeToCourse", () => {
+  test("live: callable di prova e cron; subscribeToCourse resta senza secret Make", () => {
     process.env.WHATSAPP_DEMO_MODE = "live";
     const mod = loadIndex();
-    expect(mod.sendTestDemoLessonWebhook).toBeDefined();
-    expect(secretKeys(mod.sendDemoLessonWhatsappReminders)).toEqual([
-      "MAKE_WEBHOOK_KEY",
-      "MAKE_WEBHOOK_URL",
-    ]);
-    expect(secretKeys(mod.subscribeToCourse)).toEqual([
-      "MAKE_WEBHOOK_KEY",
-      "MAKE_WEBHOOK_URL",
-      "ONESIGNAL_REST_API_KEY",
-    ]);
+    expect(secretKeys(mod.sendTestDemoLessonWebhook)).toEqual(["MAKE_WEBHOOK_URL"]);
+    expect(secretKeys(mod.sendDemoLessonWhatsappReminders)).toEqual(["MAKE_WEBHOOK_URL"]);
+    // Niente più WhatsApp di conferma all'iscrizione.
+    expect(secretKeys(mod.subscribeToCourse)).toEqual(["ONESIGNAL_REST_API_KEY"]);
   });
+
+  test.each(["off", "test", "live"])(
+    "%s: MAKE_WEBHOOK_KEY non è dichiarato da nessuna function",
+    (mode) => {
+      process.env.WHATSAPP_DEMO_MODE = mode;
+      const mod = loadIndex() as unknown as Record<string, unknown>;
+      // Gli export spenti dai gate valgono undefined: niente da leggere.
+      const declared = Object.values(mod)
+        .filter((fn) => fn !== undefined)
+        .flatMap((fn) => secretKeys(fn));
+      expect(declared).not.toContain("MAKE_WEBHOOK_KEY");
+    }
+  );
 
   test("live: il cron gira alle 19:00 di Roma con timeout, istanza singola e retry", () => {
     process.env.WHATSAPP_DEMO_MODE = "live";

@@ -148,7 +148,7 @@ jobs:
           ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
           STAGING_NOTIFICATION_EMAIL_ALLOWLIST: ${{ vars.STAGING_NOTIFICATION_EMAIL_ALLOWLIST }}
           # WhatsApp lezioni demo: off (default, var assente) | test. Con test
-          # servono i secret MAKE_WEBHOOK_URL/KEY in fit-rope-staging e
+          # serve il secret MAKE_WEBHOOK_URL in fit-rope-staging e
           # l'allowlist dei numeri: staging puo' contenere numeri reali clonati.
           STAGING_WHATSAPP_DEMO_MODE: ${{ vars.STAGING_WHATSAPP_DEMO_MODE }}
           STAGING_WHATSAPP_ALLOWLIST: ${{ vars.STAGING_WHATSAPP_ALLOWLIST }}
@@ -163,7 +163,7 @@ jobs:
           fi
           printf "APP_ENV=staging\nONESIGNAL_APP_ID=%s\nSTAGING_NOTIFICATION_EMAIL_ALLOWLIST=%s\nSTAGING_CLONE_MODE=%s\nSTAGING_CLONE_ALLOWED_UIDS=dev_admin,dev_trainer,dev_member_open_2x,dev_member_open_unlimited,dev_member_pt_entries\n" \
             "$ONESIGNAL_APP_ID" "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST" "$STAGING_CLONE_MODE" > ".env.$STAGING_PROJECT_ID"
-          # live (conferma all'iscrizione + cron) non e' previsto su staging.
+          # live (cron dei promemoria) non e' previsto su staging.
           case "${STAGING_WHATSAPP_DEMO_MODE:-off}" in
             off) ;;
             test)

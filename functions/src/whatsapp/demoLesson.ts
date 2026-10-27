@@ -1,8 +1,8 @@
-// Regole del destinatario e invio di un WhatsApp "lezione demo" via Make.
+// Regole del destinatario e invio del WhatsApp di promemoria "lezione demo"
+// via Make.
 //
-// Qui NON si decide chi è un utente di prova: lo decide il chiamante con
-// `isTrialUser` (enrollment/trial.ts) — l'iscrizione per la conferma, il cron
-// per il promemoria. Questo modulo verifica solo che la coppia utente/corso sia
+// Qui NON si decide chi è un utente di prova: lo decide il cron con
+// `isTrialUser` (enrollment/trial.ts). Questo modulo verifica solo che la coppia utente/corso sia
 // notificabile (utente attivo, corso futuro, nome e cellulare validi, allowlist
 // di staging) e gestisce claim, POST ed esito nel registro (sendLog.ts).
 
@@ -12,13 +12,12 @@ import { isWhatsappRecipientAllowed } from "./environment";
 import { PostResult } from "./makeClient";
 import {
   DemoLessonPayload,
-  DemoWebhookKind,
   buildDemoLessonPayload,
   buildNome,
   sanitizeTemplateParam,
 } from "./payload";
 import { normalizePhoneE164 } from "./phone";
-import { SendLogOutcome, claimSend, markSendOutcome, wasNotifiedToday } from "./sendLog";
+import { SendLogOutcome, claimSend, markSendOutcome } from "./sendLog";
 
 // ──────────────────────────────────────────────
 //  Mapping dei documenti Firestore
@@ -87,14 +86,8 @@ export type RecipientCheck =
   | { ok: true; nome: string; corso: string; phoneE164: string; startAtMillis: number }
   | { ok: false; reason: string };
 
-/**
- * Verifica che la coppia utente/corso vada notificata. Pura.
- *
- * `reminderEnabled` governa il promemoria ma non la conferma: un admin che
- * disattiva i promemoria di un corso non chiede di non confermare le iscrizioni.
- */
+/** Verifica che la coppia utente/corso vada notificata. Pura. */
 export function checkRecipient(
-  kind: DemoWebhookKind,
   user: DemoUser,
   course: DemoCourse,
   nowMillis: number,
@@ -103,7 +96,7 @@ export function checkRecipient(
   if (!user.isActive) return { ok: false, reason: "inactive" };
   if (course.startAtMillis === null) return { ok: false, reason: "course_without_date" };
   if (course.startAtMillis <= nowMillis) return { ok: false, reason: "course_in_past" };
-  if (kind === "reminder" && !course.reminderEnabled) {
+  if (!course.reminderEnabled) {
     return { ok: false, reason: "reminder_disabled" };
   }
 
@@ -136,8 +129,7 @@ export function checkRecipient(
 export interface WhatsappDeps {
   db: Firestore;
   webhookUrl: string;
-  apiKey: string;
-  post: (url: string, apiKey: string, payload: DemoLessonPayload) => Promise<PostResult>;
+  post: (url: string, payload: DemoLessonPayload) => Promise<PostResult>;
   nowMillis: number;
   env: NodeJS.ProcessEnv;
   /** Attesa tra i tentativi su HTTP 429; iniettabile per i test. */
@@ -169,33 +161,22 @@ function classify(result: PostResult): SendLogOutcome {
  * Nessun reinvio automatico degli esiti incerti (timeout, rete, 5xx, crash dopo
  * il claim): Make potrebbe aver già accettato il messaggio. Solo HTTP 429 viene
  * ritentato, al massimo due volte sotto lo stesso claim.
- *
- * `noticeDayMillis` è il giorno di riferimento per sopprimere il promemoria
- * dopo una conferma: per il cron l'istante schedulato (stabile anche nei retry),
- * per la conferma l'ora corrente.
  */
 export async function dispatchDemoLesson(
   deps: WhatsappDeps,
-  kind: DemoWebhookKind,
   user: DemoUser,
-  course: DemoCourse,
-  noticeDayMillis: number = deps.nowMillis
+  course: DemoCourse
 ): Promise<SendOutcome> {
-  const check = checkRecipient(kind, user, course, deps.nowMillis, deps.env);
+  const check = checkRecipient(user, course, deps.nowMillis, deps.env);
   if (!check.ok) return { sent: false, reason: check.reason };
 
-  const ids = { kind, userId: user.uid, courseId: course.uid };
+  const ids = { userId: user.uid, courseId: course.uid };
 
-  if (kind === "reminder" && (await wasNotifiedToday(deps.db, user.uid, course.uid, noticeDayMillis))) {
-    return { sent: false, reason: "already_notified_today" };
-  }
-
-  const claim = await claimSend(deps.db, kind, user.uid, course.uid, deps.nowMillis);
+  const claim = await claimSend(deps.db, user.uid, course.uid, deps.nowMillis);
   if (claim === "sent") return { sent: false, reason: "already_sent" };
   if (claim === "needs_review") return { sent: false, failed: true, reason: "needs_review" };
 
   const payload = buildDemoLessonPayload({
-    kind,
     nome: check.nome,
     corso: check.corso,
     phoneE164: check.phoneE164,
@@ -206,10 +187,10 @@ export async function dispatchDemoLesson(
   let result: PostResult = { ok: false, status: 0 };
   for (let attempt = 0; ; attempt++) {
     try {
-      result = await deps.post(deps.webhookUrl, deps.apiKey, payload);
+      result = await deps.post(deps.webhookUrl, payload);
     } catch (err) {
       // postToMake non lancia: qui arriva solo un post iniettato difettoso. Il
-      // messaggio del chiamante può contenere URL o chiave: non lo logghiamo.
+      // messaggio del chiamante può contenere l'URL: non lo logghiamo.
       logger.error("Invio WhatsApp: eccezione durante la POST", {
         ...ids,
         errorType: err instanceof Error ? err.name : typeof err,
@@ -222,7 +203,7 @@ export async function dispatchDemoLesson(
 
   const outcome = classify(result);
   try {
-    await markSendOutcome(deps.db, kind, user.uid, course.uid, outcome, result.status);
+    await markSendOutcome(deps.db, user.uid, course.uid, outcome, result.status);
   } catch (err) {
     logger.error("Esito WhatsApp non registrato: claim pending, verificare in Make", {
       ...ids,
@@ -236,50 +217,4 @@ export async function dispatchDemoLesson(
   if (outcome === "sent") return { sent: true };
   logger.error("Invio WhatsApp non riuscito", { ...ids, outcome, status: result.status });
   return { sent: false, failed: true, reason: `${outcome}_${result.status}` };
-}
-
-// ──────────────────────────────────────────────
-//  Conferma alla prenotazione (da subscribeToCourseHandler)
-// ──────────────────────────────────────────────
-
-/** Legge un corso per id del documento, con fallback sul campo `uid`. */
-async function findCourse(db: Firestore, courseId: string): Promise<DemoCourse | null> {
-  const direct = await db.collection("courses").doc(courseId).get();
-  if (direct.exists) {
-    return mapDemoCourseDoc({ id: courseId, data: () => direct.data() });
-  }
-  // Alcuni documenti storici hanno un `uid` diverso dall'id del documento.
-  const query = await db.collection("courses").where("uid", "==", courseId).limit(1).get();
-  const doc = query.docs[0];
-  return doc ? mapDemoCourseDoc({ id: doc.id, data: () => doc.data() }) : null;
-}
-
-/**
- * WhatsApp di conferma dopo un'iscrizione già committata. Rilegge utente e
- * corso: la decisione "utente di prova" l'ha già presa subscribeToCourseHandler.
- * Best-effort: gli scarti tornano come esito, gli errori Firestore come rifiuto
- * che EnrollmentDeps ignora.
- */
-export async function notifyDemoLessonBooked(
-  deps: WhatsappDeps,
-  userId: string,
-  courseId: string
-): Promise<SendOutcome> {
-  const userSnap = await deps.db.collection("users").doc(userId).get();
-  const course = await findCourse(deps.db, courseId);
-
-  let outcome: SendOutcome;
-  if (!userSnap.exists) {
-    outcome = { sent: false, reason: "user_not_found" };
-  } else if (course === null) {
-    outcome = { sent: false, reason: "course_not_found" };
-  } else {
-    const user = mapDemoUserDoc({ id: userId, data: () => userSnap.data() });
-    outcome = await dispatchDemoLesson(deps, "booked", user, course);
-  }
-
-  if (!outcome.sent) {
-    logger.info("Conferma WhatsApp non inviata", { userId, courseId, reason: outcome.reason });
-  }
-  return outcome;
 }

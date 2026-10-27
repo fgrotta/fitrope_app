@@ -164,10 +164,10 @@ Differenze deliberate rispetto al vecchio client (fix di bug, non regressioni):
   (`functions/src/enrollment/notify.ts`), con date in Europe/Rome; il promemoria
   prova NON parte per utenti già convertiti al multi-abbonamento (snapshot vivo),
   anche se `tipologiaIscrizione` legacy è rimasta `ABBONAMENTO_PROVA`.
-- il WhatsApp di conferma (webhook Make) parte dalla stessa decisione
-  `isTrialUser` (`functions/src/enrollment/trial.ts`), solo con
-  `WHATSAPP_DEMO_MODE=live`; il promemoria WhatsApp della sera prima è un cron
-  separato (`functions/src/whatsapp/reminders.ts`) che riusa lo stesso predicato.
+- l'iscrizione non manda WhatsApp: l'unico WhatsApp è il promemoria della sera
+  prima, un cron separato (`functions/src/whatsapp/reminders.ts`, solo con
+  `WHATSAPP_DEMO_MODE=live`) che riusa la decisione `isTrialUser`
+  (`functions/src/enrollment/trial.ts`).
 
 Restano client-side (con scritture dirette Firestore, migrazione pianificata,
 vedi `// TODO(server-migration)`):
