@@ -1,6 +1,9 @@
 # CLAUDE.md
 
 Per architettura, modelli dati e regole di business dettagliate vedi `agents.md`.
+Per il cutover Staging → PRD, inclusi deploy Functions, configurazione servizi,
+backup e migrazione dati separata, segui
+[`docs/operations/RILASCIO_STAGING_PRD.md`](docs/operations/RILASCIO_STAGING_PRD.md).
 
 ## Provisioning email admin
 
@@ -145,6 +148,42 @@ dell'emulatore in CI si scrive `functions/.secret.local` (gitignored), non una e
 `ci.yml` gira **solo sulle PR** verso `main`/`develop` e su avvio manuale: i push su
 `develop` sono già validati da `staging.yml`, che ripete gli stessi gate. `release.yml`
 (branch `release`) **valida soltanto** — non crea release e non pubblica niente.
+
+### Rilascio Staging → PRD
+
+Runbook completo: [`docs/operations/RILASCIO_STAGING_PRD.md`](docs/operations/RILASCIO_STAGING_PRD.md).
+La produzione è ferma a `main` v1.2.7 (client con scritture dirette, 7 Functions, rules non
+versionate): il primo rilascio di `develop` è un cutover, non un deploy, e segue la sezione 16
+di `docs/migrations/course-model-v2/RUNBOOK.md`. Vincoli da non rompere:
+
+- **Ordine**: Functions → nuovo export + replay emulatore + dry-run PRD revisionato → finestra
+  di manutenzione con freeze e schede chiuse → apply corsi → apply utenti →
+  `scripts/reconcile_subscription_model_version.js` → verify → apply idempotente → web su
+  Hostinger e **subito** le rules, nella stessa finestra. Web nuova con rules vecchie non registra
+  utenti, web vecchia con rules nuove nemmeno. I rollout invertiti di regolamento e presenze
+  (`README_ISCRIZIONI.md`) qui non si applicano: la web di `main` non chiama nessuna callable.
+- **Si rilascia dal commit `chore: bump version`** di `version-bump.yml` su `main`, non dal merge
+  commit, che ha ancora la versione vecchia in `version.json`.
+- **Deploy Functions PRD interattivo e senza `--force`**: il non interattivo si ferma davanti alle
+  4 function presenti solo in PRD; `--force` le cancellerebbe senza chiedere.
+  `notifyDemoLessonBooked` e `sendTestCertificateEmail` si cancellano; `sendTestDemoLessonWebhook`
+  resta (esiste anche su `develop` in modalità `test`); `sendCertificateExpiryEmails` dipende dalla
+  decisione sulle email certificati.
+- **Email certificati**: la logica è nelle Functions (`certificateEmailsDaily`), ma
+  `certificateFunctionsEnabled()` la tiene fuori dalla produzione, dove gira ancora
+  `sendCertificateExpiryEmails` di `main` (09:00). Cancellare la vecchia senza promuovere la nuova
+  ferma le email; promuovere la nuova senza cancellare la vecchia manda **due email** a ogni socio.
+- **Mai `APP_ENV` in `functions/.env.fit-rope-app-1f575`**: farebbe sparire i backup e comparire
+  le function staging-only.
+- **Backup prima del deploy**: `firestoreBackupDaily`/`Check` nascono con il primo deploy PRD e
+  falliscono senza bucket, service account e IAM di `docs/operations/FIRESTORE_BACKUP_RESTORE.md`.
+- **Rules PRD da salvare prima**: su `main` `firestore.rules` non esiste, quindi l'unico punto di
+  ritorno è il ruleset live copiato dalla console o dall'API `firebaserules`. Web e rules si
+  riportano indietro insieme.
+- **Migrazione**: un `--apply` senza `FIRESTORE_EMULATOR_HOST` scrive in produzione (usare la
+  guardia di RUNBOOK §21.3 nelle prove); il manifest scade in silenzio (rifare il dry-run se ha più
+  di un giorno); `--verify` può uscire 2 per blocker preesistenti, il criterio è `failures: 0`.
+  Report solo in `.context/migrations/`.
 
 ## Verifica live e lezioni operative
 
