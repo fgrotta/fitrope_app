@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:fitrope_app/app_environment.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fitrope_app/services/calendar_links.dart';
 import 'package:fitrope_app/services/email_templates.dart';
 import 'package:fitrope_app/state/simulation_session.dart';
 
-String _testPrefix(String text) => kDebugMode ? 'TEST - $text' : text;
+String _testPrefix(String text) => debugToolsEnabled ? 'TEST - $text' : text;
 
 /// Helper per inviare una richiesta a OneSignal tramite Cloud Function.
 /// La function tiene la REST API key server-side e gestisce CORS automaticamente.
@@ -90,7 +91,7 @@ Future<void> sendTestWaitlistEmail({
   required String courseTime,
   required int spotsAvailable,
 }) {
-  assert(kDebugMode);
+  assert(debugToolsEnabled);
   return _sendOneSignalRequest('Waitlist Email [TEST]', {
     'include_aliases': {
       'external_id': [userId]
@@ -116,7 +117,7 @@ Future<void> sendTestTrialReminderEmail({
   required DateTime eventEnd,
   String? sala,
 }) {
-  assert(kDebugMode);
+  assert(debugToolsEnabled);
   return _sendOneSignalRequest('Trial Email Reminder [TEST]', {
     'include_aliases': {
       'external_id': [userId]
@@ -152,7 +153,7 @@ Future<void> sendTestTrialConfirmationEmail({
   required DateTime eventEnd,
   String? sala,
 }) {
-  assert(kDebugMode);
+  assert(debugToolsEnabled);
   return _sendOneSignalRequest('Trial Email Confirmation [TEST]', {
     'include_aliases': {
       'external_id': [userId]
@@ -186,7 +187,7 @@ Future<void> sendTestCertificateExpiryEmail({
   required bool isExpiryDay,
 }) async {
   SimulationSession.assertNotSimulating('sendTestCertificateEmail');
-  assert(kDebugMode);
+  assert(debugToolsEnabled);
   final kind = isExpiryDay ? 'expiryToday' : 'reminder10';
   debugPrint(
       '🔔 [OneSignal API] Certificate Email [TEST] — userId: $userId, kind: $kind');
@@ -226,7 +227,7 @@ Future<({bool ok, int status, Map<String, String> payload})>
   String? orario,
 }) async {
   SimulationSession.assertNotSimulating('sendTestDemoLessonWebhook');
-  assert(kDebugMode);
+  assert(debugToolsEnabled);
   debugPrint('📲 [Make] test webhook — kind: $kind');
   try {
     final callable = FirebaseFunctions.instanceFor(region: 'europe-west8')

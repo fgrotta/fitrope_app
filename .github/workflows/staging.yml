@@ -147,6 +147,11 @@ jobs:
         env:
           ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
           STAGING_NOTIFICATION_EMAIL_ALLOWLIST: ${{ vars.STAGING_NOTIFICATION_EMAIL_ALLOWLIST }}
+          # WhatsApp lezioni demo: off (default, var assente) | test. Con test
+          # servono i secret MAKE_WEBHOOK_URL/KEY in fit-rope-staging e
+          # l'allowlist dei numeri: staging puo' contenere numeri reali clonati.
+          STAGING_WHATSAPP_DEMO_MODE: ${{ vars.STAGING_WHATSAPP_DEMO_MODE }}
+          STAGING_WHATSAPP_ALLOWLIST: ${{ vars.STAGING_WHATSAPP_ALLOWLIST }}
         run: |
           test "$STAGING_PROJECT_ID" = fit-rope-staging
           test "$STAGING_CLONE_MODE" = true
@@ -158,6 +163,19 @@ jobs:
           fi
           printf "APP_ENV=staging\nONESIGNAL_APP_ID=%s\nSTAGING_NOTIFICATION_EMAIL_ALLOWLIST=%s\nSTAGING_CLONE_MODE=%s\nSTAGING_CLONE_ALLOWED_UIDS=dev_admin,dev_trainer,dev_member_open_2x,dev_member_open_unlimited,dev_member_pt_entries\n" \
             "$ONESIGNAL_APP_ID" "$STAGING_NOTIFICATION_EMAIL_ALLOWLIST" "$STAGING_CLONE_MODE" > ".env.$STAGING_PROJECT_ID"
+          # live (conferma all'iscrizione + cron) non e' previsto su staging.
+          case "${STAGING_WHATSAPP_DEMO_MODE:-off}" in
+            off) ;;
+            test)
+              test -n "$STAGING_WHATSAPP_ALLOWLIST"
+              printf "WHATSAPP_DEMO_MODE=test\nSTAGING_WHATSAPP_ALLOWLIST=%s\n" \
+                "$STAGING_WHATSAPP_ALLOWLIST" >> ".env.$STAGING_PROJECT_ID"
+              ;;
+            *)
+              echo "::error::STAGING_WHATSAPP_DEMO_MODE non valida: $STAGING_WHATSAPP_DEMO_MODE (ammessi: off, test)"
+              exit 1
+              ;;
+          esac
       - name: Deploy Functions staging
         run: firebase deploy --project "$STAGING_PROJECT_ID" --only functions --non-interactive
       - name: Seed staging data
@@ -228,6 +246,7 @@ jobs:
     environment: staging
     env:
       STAGING_PROJECT_ID: ${{ vars.FIREBASE_STAGING_PROJECT_ID }}
+      STAGING_WHATSAPP_DEMO_MODE: ${{ vars.STAGING_WHATSAPP_DEMO_MODE }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -284,3 +303,10 @@ jobs:
             fi
             echo "ok assente su staging: $fn"
           done
+          if [ "${STAGING_WHATSAPP_DEMO_MODE:-off}" = test ]; then
+            if ! grep -q sendTestDemoLessonWebhook functions.json; then
+              echo "::error::callable mancante su staging: sendTestDemoLessonWebhook"
+              exit 1
+            fi
+            echo "ok: sendTestDemoLessonWebhook"
+          fi

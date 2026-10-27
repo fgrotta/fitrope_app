@@ -5,6 +5,7 @@
 // navigazione o pre-caricate durante lo splash (vedi SplashScreen). Le welcome
 // page restano eager. Ogni prefisso = un chunk; il codice condiviso viene
 // deduplicato dal compilatore.
+import 'package:fitrope_app/app_environment.dart';
 import 'package:fitrope_app/pages/protected/protected.dart'
     deferred as protected;
 import 'package:fitrope_app/pages/protected/course_management_page.dart'
@@ -20,7 +21,6 @@ import 'package:fitrope_app/pages/welcome/registration_page.dart';
 import 'package:fitrope_app/pages/welcome/welcome_page.dart';
 import 'package:fitrope_app/components/deferred_page.dart';
 import 'package:fitrope_app/types/course.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/pages/welcome/splash_screen.dart';
 
@@ -96,7 +96,7 @@ Map<String, Widget Function(BuildContext)> routes = {
       ),
     );
   },
-  if (kDebugMode)
+  if (debugToolsEnabled)
     DEBUG_EMAIL_ROUTE: (context) => DeferredPage(
           load: debug_email.loadLibrary,
           builder: (_) => debug_email.DebugEmailPage(),

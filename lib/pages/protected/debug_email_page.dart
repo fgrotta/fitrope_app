@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:fitrope_app/app_environment.dart';
 import 'package:flutter/material.dart';
 import 'package:fitrope_app/services/notification_service.dart';
 import 'package:fitrope_app/utils/simulation_guard.dart';
@@ -299,7 +299,8 @@ class _DebugEmailPageState extends State<DebugEmailPage> {
 
   @override
   Widget build(BuildContext context) {
-    assert(kDebugMode, 'DebugEmailPage accessibile solo in debug mode');
+    assert(debugToolsEnabled,
+        'DebugEmailPage accessibile solo in debug mode o su staging');
     final canSend = _resolvedUid != null;
     return Scaffold(
       appBar: AppBar(title: const Text('Debug Email')),
